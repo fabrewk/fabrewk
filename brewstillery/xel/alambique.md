@@ -2,7 +2,8 @@
 
 Este alambique almacena mis objetivos, preferencias, antecedentes y propuestas para "destilar" Fabrewk. No constituye por sí solo una especificación técnica aprobada ni autorización para ejecutar cambios.
 
-COMO USAR:  Cuando Fabrewk ya se encuentra integrado a un repositorio, el agente debe siempre referirse a la evidencia mas reciente dejada en dicho respositorio con una sencilla entrada de prompt con el siguiente estilo: "Eres el integrador de <NombreDelProyecto>; empieza por brewstillery/STATUS.md".  Ante toda duda por interrupciones, alucinaciones, o chats "colgados" por cualquier razón la recomendación es abrir un chat nuevo para el agente integrador elegido y pegar este sencillo prompt.
+**Cómo usar este alambique.** Escribo arriba del separador lo que quiero para el proyecto. Lo que quiero añadir, quitar o tratar lo planteo en la última sección de mi propio input (sección 8 para Fabrewk), como nuestro canal más directo. En cada barrido, el agente reemplaza su respuesta, debajo del separador, solo con lo indispensable: qué editar en mi entrada y dónde, cuando lleguemos a un acuerdo. Yo lo adopto con mis palabras y quito de la sección 8 lo ya resuelto. Esta sección es orgánica conforme el proyecto se vaya desarrollando, la idea es mantenerlo chico, claro y contundente.
+Al empezar cada sesión, al terminar cada parte del trabajo y ante cualquier duda (una interrupción, una respuesta inventada o un chat que se cuelga), abro un chat nuevo con el agente integrador y pego: `Eres el integrador de Fabrewk; empieza por brewstillery/STATUS.md`. En otro proyecto integrado a Fabrewk, el prompt será el mismo pero con el nombre de ese proyecto.
 
 Los agentes deben distinguir lo que deseo lograr de lo que ya existe y está verificado. Cuando una afirmación sobre el estado actual o un proyecto externo no tenga evidencia suficiente, deben señalarlo y comprobarlo antes de utilizarla como base del diseño.
 
@@ -263,16 +264,12 @@ Estas referencias complementan lo anterior. Su inclusión no constituye una deci
 
 ## 8. Pendientes, adiciones o remociones
 
-Tareas de la máquina, fuera de la construcción de Fabrewk, de la sesión de organización de `~/Dev` (2026-11-02):
+8.1 Tareas de la máquina, fuera de la construcción de Fabrewk, de la sesión de organización de `~/Dev` (2026-11-02):
 
-- Auditar `~/Dev/tmp` (1.8 GB). Esta carpeta no debe existir. La regla que de aquí sale para Fabrewk está en el punto 6.4.
-- Respaldo de configuración previo a la consolidación: `~/.local/state/config-backups/20261102-192449/`.
+8.1.1 Auditar `~/Dev/tmp` (1.8 GB). Esta carpeta no debe existir. La regla que de aquí sale para Fabrewk está en el punto 6.4.
+8.1.2 Respaldo de configuración previo a la consolidación: `~/.local/state/config-backups/20261102-192449/`.
 
-Mis respuestas a las cinco preguntas del integrador del arranque ya están incorporadas en los puntos que afectan (sección 1 y puntos 6.11, 6.20 y 6.48) y quedaron registradas como decisiones., todas tus recomendaciones hechas en tu auditoría de alambique fueron copiadas y aceptadas de mi parte.
 
-Esta sección, la 8 debe ser nuestro canal de comunicación mas directo, aquí yo te expongo que queiro añadir, quitar o algún pendiennte por tratar, en la sección de abajo tu la limpias y solo respondes lo indispensable con tus recomendaciones de done y que editar si llegamos a consenso sobre lo aquí expuesto.
-
-Agregué un "COMO USAR" en el texto inicial del alambique, creo que este era un básico que faltaba para indicarle de forma clara y efectiva al mantenedor como manener en orden nuestro flujo de trabajo propuesto.  Verificalo y tras el siguiente barrido me confirmas como quedó o me propones como adaptar la prosa de dicho texto.
 
 
 ################################################################################
