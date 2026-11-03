@@ -32,6 +32,9 @@ repository, is imported into the single registry at production and then stays re
 - **Next: phase 2**, Codex's independent review of the bootstrap files and of the audit's fidelity (the input before
   it is at `7aeec3d`, after it at `e0017cb`), in a new chat. Before launching, the integrator asks the maintainer for
   permission to run Codex and its budget; Codex is launched inside this repository, never in `~/Dev`.
+- **Start the next session with:** Claude Code on Sonnet 5.5, effort medium (`plan.md`, phase 2). The maintainer's
+  global setting puts Sonnet at effort low, so medium is chosen explicitly. The review itself runs on Codex
+  GPT-6.1 Sol, effort medium; that model's availability is checked before launch.
 
 Carried without blocking, with destinations, in D-013. A phase that does not pass is corrected and retried; it
 never ends the project (D-003).

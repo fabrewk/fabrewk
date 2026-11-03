@@ -560,3 +560,16 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   pushed.
 - Written in this sweep: the answers zone (recommendations for the usage note and section 8), `AGENTS.md` (section 8
   as the maintainer's channel), `plan.md` (D-019; phase 1 closed), `STATUS.md`, and this record.
+
+## D-020 — The handover names the next session's model and effort
+
+- Status: decided
+- Decided: 2026-11-03
+- Origin: maintainer XEL in session 2's chat: "Debes recordarme en tus instrucciones de 'onboard' para el siguente
+  chat, el modelo y esfuerzo con el que debo iniciarlo."
+- Decision: when a session closes, the integrator gives the maintainer the start prompt and the model and effort
+  for the next chat, taken from the plan's row for that phase or part, and writes them in `STATUS.md`.
+- Consequences: rule added to `AGENTS.md`. For phase 2: Claude Code on Sonnet 5.5, effort medium (the maintainer's
+  global setting defaults Sonnet to low); Codex GPT-6.1 Sol, effort medium, availability to be checked.
+- Sources: chat of session 2; `brewstillery/bootstrap/plan.md`, phase 2.
+- Supersedes: none.

@@ -30,5 +30,7 @@ summarizes the rules already fixed; the decisions and their origin are in `brews
 - **Commands.** Every command and flag Fabrewk develops is in English, unique and standard, never translated.
   Never name a command that does not exist.
 - **Shell.** A command a maintainer is asked to run must work in their shell (`environment.shell`; `xel`: fish).
+- **Handover.** Closing a session, the integrator tells the maintainer the prompt, model and effort for the next
+  chat, taken from `brewstillery/bootstrap/plan.md`, and writes them in `STATUS.md`.
 - **Not yet decided; do not create:** licence, `.gitignore`, code, `brewstillery/data/` or any other structure the
   alambique and the bootstrap record have not fixed.
