@@ -18,6 +18,5 @@ aliases = ["xel"]         # each alias has brewstillery/<alias>/ with alambique.
 reservedNames = ["bootstrap", "data", "settings.toml", "STATUS.md"]
 
 [languages]
-# Proposal, from the examples in the alambique's language points; not yet decided.
 canonicalDocumentationLanguage = "en"
-# documentationLanguages = ["en", "es-MX"]
+documentationLanguages = ["en", "es-MX"]

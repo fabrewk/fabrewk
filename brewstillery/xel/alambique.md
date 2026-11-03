@@ -37,7 +37,7 @@ Decidido (2026-11-02). Aplica igual en el propio repositorio de Fabrewk y en cad
 Lo que el agente debe conocer de lo que ya hicimos, sin leer de más:
 
 - El primer harness propio, `tickbrew-harness`, en `/home/xel/Dev/TickBrew/tickbrew-harness` (local, sin remoto, sin licencia, en `0000bdc`). Su `README.md` y su nota de diseño `docs/DESIGN.md` describen lo construido.
-- Los pilotos y su resultado, en el repositorio de TickBrew (`/home/xel/Dev/TickBrew/tickbrew`): `docs/automation/receipts/FZ-2.md` y `docs/automation/receipts/FZ-2b.md`, en sus secciones de decisión y cierre, y `docs/engineering/gates/FZ2B_DECISION_PACKET.md`. Los dos pilotos cerraron con un no-go; quiero que Fabrewk aprenda de eso y no lo repita.
+- Los pilotos y su resultado, en el repositorio legado de TickBrew (/home/xel/Dev/TickBrew/tickbrew-legacy, congelado en la etiqueta legacy-final): docs/automation/receipts/FZ-2.md y docs/automation/receipts/FZ-2b.md, en sus secciones de decisión y cierre, docs/engineering/gates/FZ2B_DECISION_PACKET.md, y el tablero original docs/development/XEL-DRAFTINGBOARD.md, base de la reconstrucción de TickBrew. Los dos pilotos cerraron con un no-go; quiero que Fabrewk aprenda de eso y no lo repita.
 - La investigación previa de meta-harnesses: `/home/xel/Dev/TickBrew/meta-harness/` (`EVALUATION.md`, `comparison.csv`, `CONTEXT_PROYECTO_IA_GITHUB.md`).
 - El código de `tickbrew-harness` no se adopta automáticamente: decidiremos qué se reutiliza, qué se reescribe y qué se descarta.
 
