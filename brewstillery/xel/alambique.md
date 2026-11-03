@@ -393,7 +393,7 @@ Son los primeros hallazgos de una lectura atenta. No son la auditoría completa,
 
 - **Vocabulario heredado de TickBrew que Fabrewk todavía no define.** "Compuerta", "corte" y "fase" aparecen como si fueran unidades de trabajo de Fabrewk (sección 2, el barrido "tras cada fase, compuerta o corte"; 6.16, el plan por compuerta; 6.13). "Los niveles Git establecidos" (6.44, integración y entrega) se refiere a niveles que existen en TickBrew, no aquí. "ADR's" (sección 2) es otro término del método anterior. Propongo que la arquitectura decida la unidad de trabajo de Fabrewk y que el texto use solo esa.
 - **Historia mezclada con instrucciones actuales.** Lo que en la sección 4 pides evitar sucede en algunos puntos: 6.5 (el comando) nombra el comando provisional retirado; la sección 7c dice que el aislamiento es "herramienta de la que ya depende" el primer harness, cuando Fabrewk todavía no depende de nada; 6.45 (documentación) habla de un reparto "acordado" en TickBrew. Propongo pasar esa historia a la sección 3, de referencias, y dejar en la 6 solo lo que Fabrewk debe hacer.
-- **Rutas que dejarán de funcionar.** La sección 3 apunta a archivos del repositorio actual de TickBrew. Cuando lo migres al legado, esas rutas cambian. Conviene describirlas por su contenido y su nueva ubicación, o mover lo esencial al registro de arranque.
+- **Rutas del repositorio de TickBrew.** Resuelto: ya actualizaste la sección 3 para que apunte al repositorio legado congelado. Comprobé que los archivos que leímos siguen idénticos ahí.
 - **Repeticiones y contradicciones de forma.** La sección 2 se titula "Estructura propuesta" pero empieza con "Decidido"; su primer punto dice dos veces que fuera de `brewstillery/` solo quedan los archivos que exigen las herramientas.
 - **Supuestos sobre agentes concretos.** La introducción de la sección 6 habla de "ambos agentes", lo que da por hecho que habrá dos, en contra de 6.36 (independencia de proveedores).
 - **El conflicto de 6.27 con tu aviso por no publicar `brewstillery/`.** Sigue abierto (lo explico en la segunda pregunta de arriba); la auditoría propondrá una redacción.
@@ -407,6 +407,6 @@ Declaraste cerrado el arranque. Antes, comprobé que no quedara nada abierto que
 - El vocabulario y las rutas heredados de TickBrew: también la auditoría.
 - El módulo del piloto: su fase de especificación.
 
-En tus ajustes del proyecto, el comentario que está encima de la clave de idioma todavía la llama "propuesta", aunque ya la activaste; corregirlo es decisión tuya.
+La migración al legado ya terminó. El repositorio anterior de TickBrew quedó congelado, solo para consulta; los cierres de los dos pilotos, el paquete de decisión y el tablero original siguen idénticos a los que leímos, y el primer harness sigue donde estaba. Ya actualizaste la sección 3 de tu entrada.
 
-Para la migración al legado: la auditoría y la lectura a fondo del primer harness necesitan seguir leyendo ese harness, los cierres de los dos pilotos y el tablero original. Conviene que sigan accesibles después de la migración; la sección 3 de tu entrada tendrá que apuntar a sus nuevas ubicaciones.
+También activaste en tus ajustes del proyecto los idiomas de publicación de la documentación: inglés como original y español de México. Lo registré como decisión. Concuerda con 6.21 (localización de la documentación): nada se traduce hasta que el original esté estable y aprobado, y las respuestas de este alambique no se ven afectadas.

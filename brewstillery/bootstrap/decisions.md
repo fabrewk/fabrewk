@@ -377,3 +377,40 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   (sha256 `437fa785…a652`); `brewstillery/xel/settings.toml` unchanged (`1d2f11f3…1f33`); the alambique's input
   unchanged since the second sweep (lines 1–245, sha256 `014e17b6…cdf6`); separator found once.
 - Commit identity: the repository's Git configuration (`xel-arjona`), with the integrator as co-author.
+
+---
+
+## D-014 — Documentation publication languages
+
+- Status: decided
+- Decided: 2026-11-03
+- Origin: maintainer XEL, by activating `languages.documentationLanguages = ["en", "es-MX"]` in
+  `brewstillery/settings.toml` (active keys are decisions); the comment that called the language keys a proposal
+  was removed in the same edit.
+- Decision: the repository's documentation is published in English (canonical, D-008) and Mexican Spanish.
+- Consequences: translation starts only when an original is stable and approved for it, and every translation is
+  tied to the revision it represents (alambique 6.21, 6.22); nothing is translated during the bootstrap. Alambique
+  answers are not documentation and are not affected. Final key names stay a question for the architecture phase.
+- Sources: `brewstillery/settings.toml` (sha256 `05e9ba53…1397`); alambique 6.20–6.22.
+- Supersedes: none.
+
+## R-004 — TickBrew legacy relocation
+
+- Status: recorded
+- Date: 2026-11-03
+- Who: integrator Claude Code, `claude-opus-5-5`, effort high. Read-only Git commands on the legacy repository;
+  nothing written there.
+- Change: the TickBrew repository read in R-001 moved from `/home/xel/Dev/TickBrew/tickbrew` (that path no longer
+  exists, checked) to `/home/xel/Dev/TickBrew/tickbrew-legacy`, frozen and read-only. Annotated tag `legacy-final`
+  (tag object `352e746`) points to `8a9e1bfa7b30ec0fe314d456b37702200834d252`, equal to `main` and
+  `origin/main` (checked); clean tree.
+- Mapping for earlier entries: every `/home/xel/Dev/TickBrew/tickbrew` path in R-001 and in the verbatim text kept
+  in R-002 now reads `/home/xel/Dev/TickBrew/tickbrew-legacy`. The four files read in R-001
+  (`docs/automation/receipts/FZ-2.md`, `docs/automation/receipts/FZ-2b.md`,
+  `docs/engineering/gates/FZ2B_DECISION_PACKET.md`, `docs/development/XEL-DRAFTINGBOARD.md`) have the same blob at
+  `3793219` and at `legacy-final` (checked), so the line ranges recorded there still hold. Those entries are not
+  rewritten (append-only).
+- Unchanged locations: `/home/xel/Dev/TickBrew/tickbrew-harness` still at `0000bdc`; `/home/xel/Dev/TickBrew/meta-harness/`
+  present.
+- Input change: the maintainer updated alambique section 3 to the legacy path (the item carried in D-013 is done) and
+  activated `documentationLanguages` (D-014). Separator found once; input lines 1–245 sha256 `fe362322…4449`.

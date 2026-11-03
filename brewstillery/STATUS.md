@@ -22,12 +22,12 @@ the root entry files (`AGENTS.md`, `CLAUDE.md`) and the bootstrap record.
 `brewstillery/bootstrap/` is the provisional record of Fabrewk's self-construction (D-005). It exists only in this
 repository, is imported into the single registry at production and then stays read-only.
 
-## Waiting
+## Latest and next
 
-- **Outside Fabrewk:** the maintainer migrates the current TickBrew repository to `tickbrew-legacy` in another
-  session. Phases 1 and 3 read `tickbrew-harness`, the two pilots' receipts, the decision packet and the original
-  drafting board; they should stay readable after the move, and alambique section 3 will need their new paths.
-- **Then phase 1**, the audit of the maintainer's alambique (no network; its proposed text goes to a separate file
+- **Done:** the legacy TickBrew repository now lives at `/home/xel/Dev/TickBrew/tickbrew-legacy`, frozen at tag
+  `legacy-final`; the files Fabrewk read are unchanged there (R-004). Documentation publication languages: `en`,
+  `es-MX` (D-014).
+- **Next: phase 1**, the audit of the maintainer's alambique (no network; its proposed text goes to a separate file
   in `brewstillery/bootstrap/`), followed by phase 2, Codex's review of the bootstrap and the audit.
 
 Carried without blocking, with destinations, in D-013. A phase that does not pass is corrected and retried; it
