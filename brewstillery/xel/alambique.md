@@ -233,6 +233,7 @@ Sobre las preguntas que dejó el agente previo a tu lectura de este alambique:
 
 1. Sí, de acuerdo con tu recomendación.
 2. Recomiendo usar brewstillery/settings.toml para definir permisos generales que el mantenedor "owner" quiera darle a los agentes y que el mismo tenga configurado en su equipo host, como el de MCP's, autorización a agentes para modificar sus propios settings cuando lo pida el matenedor (depende de cada agente y su interfaz), u algun otro que tu mismo puedas recomendar quepa aquí bajo tu propuesta de diseño.
+Para el tema que mencionas sobre separar lo que se pemite de lo que existe estoy de acuerdo en tus propuestas, y esto debe considerarse como idea de inicio, el diseño final después de que evalues como resuelven este tipo de cosas otros proyectos definrá nuestra mejor opción a este tipo de controversias.
 3. Recomiendo que por defecto así sea, cumple el criterio natural de todo es ingles en archivos técnicos.  Este puede ser otro setting.toml otorgado por el punto 2 a considerar por tu diseño.
 4. De acuerdo, y aquí hay una acotación, pedí externamente que se me ayudara a redactar el alambique del bootstrap de Fabrewk, es posible que algunos contextos de TickBrew se hayan escapado al mismo,  necesito me aydues a auditarlo y hacer mucho mas claro y entendible el alambique propio de este proyecto.
 5. De acuerdo con tu recomendación.
