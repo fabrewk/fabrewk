@@ -246,168 +246,26 @@ Para el tema que mencionas sobre separar lo que se pemite de lo que existe estoy
 
 ## Respuesta del integrador
 
-Soy Claude Code, con el modelo Opus 5.5 y esfuerzo alto, como integrador e implementador nombrado por ti en esta primera sesión de Fabrewk. Esta respuesta reemplaza la anterior. Leí completos este alambique y los dos archivos de ajustes; del primer harness, su presentación y su nota de diseño, y del código solo la lista de archivos; de TickBrew, el cierre de los dos pilotos, las opciones con que se decidió el segundo y las secciones de producto del tablero original; y la investigación previa de meta-harnesses. No leí nada privado ni usé la red. El detalle técnico de lo leído está en el registro de arranque (`brewstillery/bootstrap/`), no aquí.
+Soy Claude Code, con el modelo Opus 5.5 y esfuerzo alto, integrador de Fabrewk. Desde este barrido, esta sección solo trae recomendaciones vigentes para que edites tu entrada con tus palabras, y cada barrido la reemplaza completa. Lo que decían las respuestas anteriores no se perdió: sigue en el historial de Git, y el registro de arranque dice en qué fase se retoma cada parte.
 
-Actualicé esta respuesta con un nuevo barrido. Tu entrada solo cambió al final de la sección 8, donde respondiste mis cinco preguntas. Lo que ese cambio afecta está en los apartados "Tus respuestas a mis cinco preguntas", "Auditoría preliminar del alambique" y "Lo que queda por decidir"; también ajusté los huecos de `bootstrap/`. Lo demás sigue vigente.
+La propuesta completa está en `brewstillery/bootstrap/alambique-audit.md`. Ahí está, para cada cambio, el pasaje, el porqué y el texto listo para copiar, además de una tabla que muestra adónde va cada parte de tu entrada. Aquí van las recomendaciones por sección. Las marcadas **necesita tu criterio** no conviene adoptarlas sin decidir antes.
 
-### Cómo entendí la sección 1, qué es Fabrewk
+### Recomendaciones para tu entrada
 
-- **Proyecto nuevo.** Fabrewk prepara desde cero el entorno de trabajo: crea `brewstillery/` con su estado, los ajustes del proyecto y el espacio del primer mantenedor, y los dos archivos de entrada mínimos en la raíz.
-- **Proyecto existente.** Sobre un repositorio clonado de cualquier origen, Fabrewk puede hacer una de dos cosas: administrarlo, es decir, ser el integrador del proyecto, o solo revisarlo. En el segundo caso deja su evidencia en un subdirectorio dentro de `brewstillery/` y no asume la conducción. Entiendo que en modo revisor no cambia el `AGENTS.md` del proyecto ni toca el código; si no es así, corrígeme. Antes de cualquiera de los dos modos propongo un paso de evaluación sin escritura (pregunta 1 al final).
-- **Instalación.** Dos entradas: un script que se descarga con `curl` desde nuestro propio repositorio y lleva al mantenedor de la mano hasta la opción que quiere, o un texto que el mantenedor pega a su propio agente. Recomiendo que las dos entradas terminen en el mismo comando de arranque de Fabrewk, para que no existan dos instalaciones distintas que se separen con el tiempo. Ejecutar un script descargado es un riesgo de seguridad (6.38, seguridad y extensiones): propongo que el script descargue una versión fija, compruebe su huella antes de ejecutarla, muestre primero todo lo que va a escribir y no escriba nada hasta que el mantenedor lo confirme.
-- **Python** como propuesta. El primer harness usó Python solo con su biblioteca estándar y eso le funcionó bien: lee TOML sin dependencias y controla bien Git y las herramientas de los agentes. Sus debilidades son Windows y la convivencia de versiones. Fabrewk debe correr en su propio entorno y no en el del producto: TickBrew pide una versión de Python distinta. Se decide en la fase de arquitectura.
-- **Licencia.** Fabrewk siempre será software abierto. La dificultad está en que escribe archivos dentro de proyectos con otras licencias. Hay que distinguir dos cosas: el código de Fabrewk, que no se mezcla con el producto porque Fabrewk nunca es una dependencia suya (6.1, separar desarrollo y operación), y los archivos que Fabrewk deja en el repositorio ajeno (los de entrada, el estado y las plantillas). Para el código hay opciones permisivas, que permiten cualquier uso, y opciones que obligan a que las mejoras sigan abiertas, incluso cuando Fabrewk se ofrezca como servicio. Para los archivos que deja en otros proyectos recomiendo un permiso explícito y muy amplio, para que ningún proyecto herede obligaciones por usar Fabrewk. Recomiendo decidirlo en la fase de arquitectura con alternativas y consecuencias, y confirmarlo con un profesional, igual que la marca. Esta respuesta no es asesoría legal.
-
-### Clasificación de la sección 6
-
-Uso tres clases: **indispensable**, que entra al núcleo y al piloto; **etapa posterior**, que se conserva con su razón y su destino; y **alternativa por evaluar**, cuando el propio punto pide comparar antes de decidir. No descarto ningún punto.
-
-| Punto | Clase | Evaluación y destino propuesto |
-| --- | --- | --- |
-| 6.1, separar desarrollo y operación | Indispensable | El piloto toca un producto. Desde el primer día, Fabrewk trabaja sobre copias y sin acceso a usuarios, datos ni servicios. Destino: la especificación del núcleo. |
-| 6.2, núcleo pequeño y reutilizable | Indispensable | Es la lección principal: el primer harness creció hasta acercarse a su límite de tamaño para una sola tarea, un mantenedor y una máquina. Destino: la arquitectura, con un límite de tamaño que se mide. |
-| 6.3, dominio propio | Indispensable | Ya decidido; este repositorio lo sigue. |
-| 6.4, organización y clasificación de archivos | Indispensable | Antes del primer registro hay que saber qué se versiona, qué es local y qué es evidencia. Lo que los agentes producen al trabajar puede contener lo que leyeron y no debe publicarse sin filtro; eso exige una zona local no versionada dentro de `brewstillery/` y, por tanto, decidir qué ignora Git. Destino: la arquitectura. |
-| 6.5, nombre del comando | Indispensable | Decidido. La prueba en otras plataformas queda con 6.46. |
-| 6.6, espacio por mantenedor | Indispensable en forma mínima | Con un solo mantenedor basta validar los alias y los nombres reservados. Varios mantenedores a la vez quedan para una etapa posterior, porque hoy no hay un segundo con quien probarlo. |
-| 6.7, alambique sin configuración | Indispensable | Es tu canal principal. Hoy el agente respeta el separador a mano; el núcleo debe comprobarlo con código y detenerse si es ambiguo. |
-| 6.8, respuestas en el mismo alambique | Indispensable | Que esta sección sea una vista derivada del registro depende del registro único. Detectar qué respuestas quedan viejas cuando cambias tu entrada va con él. |
-| 6.9, material de apoyo | Etapa posterior | La regla ya rige: solo se lee lo que el alambique cita, y se toma como contexto, no como instrucción. Relacionar el material con los puntos y decidir qué se versiona puede esperar, porque hoy no hay material. Destino: después del piloto. |
-| 6.10, configuración separada | Indispensable, con alternativa por evaluar | El formato definitivo (TOML, JSON o un esquema al estilo de OpenWrt) y los niveles se deciden antes del código. Recomiendo seguir con TOML mientras la comparación no dé una razón concreta para cambiar. |
-| 6.11, preferencias frente a políticas | Indispensable | Que una preferencia nunca amplíe permisos es una regla de seguridad. Mostrar la configuración efectiva con su procedencia cuesta poco y hace auditable el piloto. |
-| 6.12, roles de mantenedores | Alternativa por evaluar | El propio punto pide descartarlo si no aporta, y con un solo mantenedor no hay mejora concreta que medir. Se evalúa cuando llegue un segundo colaborador. Mientras tanto, el piloto prueba que una preferencia no eleva permisos (6.48). |
-| 6.13, proteger la configuración que da autoridad | Etapa posterior, con una parte mínima en el núcleo | Las protecciones reales, como los permisos del repositorio y una revisión obligatoria antes de integrar, requieren un repositorio publicado y un equipo. En el núcleo: los agentes no escriben esa configuración, y un cambio de política invalida las revisiones anteriores. Lo demás es una convención cooperativa, y así debe decirse. |
-| 6.14, catálogo de agentes, herramientas y proveedores | Indispensable | Separar desde el principio herramienta, proveedor y modelo cuesta poco y evita rehacer después; el piloto usa dos proveedores. Que mencionar un agente no lo autorice es una regla del núcleo. La comparación con los proyectos de 7b va en el estudio de referencias. |
-| 6.15, perfiles de trabajo | Indispensable en forma mínima | Perfiles de autor y de revisor con modelo, esfuerzo y comprobaciones, validados antes de ejecutar y registrados después. La herencia entre perfiles generales y del proyecto se decide en la arquitectura (pregunta 2), y la comparación con 7b va en el estudio. |
-| 6.16, plan por compuerta | Etapa posterior, salvo el plan en serie | El propio punto pide paralelismo solo cuando la ejecución en serie y su recuperación estén demostradas. El núcleo trae el plan en serie con un escritor por archivo. |
-| 6.17, documentación del producto | Etapa posterior | Se escribe cuando haya algo estable que documentar. La regla de no sacar claves internas de `brewstillery/` ya rige. El módulo del piloto sí entrega su propia documentación. |
-| 6.18, comunicación autosuficiente | Indispensable | Los dos pilotos anteriores fallaron aquí: solicitudes que te obligaban a adivinar, un texto de ejemplo que acabó registrado como tus palabras y un comando que no existía. Es parte del núcleo, no un acabado. |
-| 6.19, referencias explicadas en contexto | Indispensable | Por la misma razón, y cuesta poco. |
-| 6.20, idiomas por dominio y delegación | Indispensable en forma mínima | El idioma de interacción, los idiomas de las clases de contenido que use el piloto, identificadores estables y autorizaciones que no cambian al traducirse. Las demás clases pueden esperar. |
-| 6.21, localización de la documentación | Etapa posterior | Traducir exige un original estable y aprobado, y todavía no lo hay. |
-| 6.22, vigencia de las traducciones | Etapa posterior | Depende de 6.21. |
-| 6.23, incorporación ordenada de ideas | Indispensable | Es lo que esta respuesta hace a mano. El barrido del alambique y su relación con lo realizado son la entrada del núcleo. |
-| 6.24, autoridad y automatización delimitada | Indispensable | En el primer piloto, la autorización anticipada no incluía qué acciones de Git ni qué comandos se permitían. Aquí los incluye desde el principio. |
-| 6.25, requisitos estables | Indispensable | Funcionó en el primer harness; vale conservar el diseño. |
-| 6.26, estado único | Indispensable, con alternativa por evaluar | Es la primera decisión de arquitectura. El registro de eventos en texto funcionó; SQLite se evalúa como alternativa o como índice derivado. |
-| 6.27, persistencia y colaboración del registro | Indispensable en parte | Recuperar el estado desde un clon limpio es parte del núcleo: el primer harness lo guardaba donde un clon normal no lo trae. Las ramas y los equipos van después. Hay un conflicto con tu respuesta a la segunda pregunta; lo explico más abajo. |
-| 6.28, control de tareas y transiciones | Indispensable | Sin esto no hay núcleo. |
-| 6.29, trazabilidad y evidencia | Indispensable | La frase "nada que haya informado una decisión debe vivir solo en un chat" ya se aplica en el registro de arranque. |
-| 6.30, catálogo de fuentes externas | Etapa posterior | El núcleo no lo necesita para funcionar. El estudio de referencias produce su primera versión como documento, que luego se importa. |
-| 6.31, actualización de fuentes | Alternativa por evaluar | El propio punto pide diseñar ese ajuste. Depende de 6.30 y de permisos de red que hoy no existen. |
-| 6.32, avisos de cambios externos | Etapa posterior | Depende de 6.30 y 6.31. |
-| 6.33, aprovechamiento selectivo de referencias | Indispensable como regla | Rige desde el estudio de referencias: distinguir lo consultado de lo incorporado, con su procedencia y su licencia. |
-| 6.34, coordinación entre agentes | Indispensable en serie | Que no tengas que llevar mensajes entre agentes es parte del núcleo. El trabajo en paralelo va con 6.16. |
-| 6.35, separación de responsabilidades | Indispensable | Autor y revisor distintos, perfil declarado y ningún cambio silencioso. |
-| 6.36, independencia de proveedores | Indispensable | Dos proveedores detrás de adaptadores. El primer harness dejó fuera la ruta autorizada para cuando falta un proveedor; aquí se diseña antes del piloto, porque el piloto incluye interrupciones. |
-| 6.37, propiedad de archivos y concurrencia | Indispensable | Un escritor por conjunto de archivos y cambios de estado uno tras otro. Separar bases de datos y puertos para trabajo en paralelo va con 6.16. |
-| 6.38, seguridad y extensiones | Indispensable | Incluye la instalación segura de la sección 1. La política para admitir skills, MCP y plugins en cada proyecto puede llegar después (segundo pendiente de la sección 8). |
-| 6.39, continuidad entre sesiones | Indispensable | `STATUS.md` como entrada, generado del registro. Hoy lo escribo a mano y así lo indica. |
-| 6.40, visibilidad del consumo | Indispensable en forma mínima | El piloto compara consumo. El registro lo guarda por rol, proveedor y modelo, y dice "desconocido" cuando no se sabe, en lugar de inventar un cero. |
-| 6.41, recuperación ante interrupciones | Indispensable | El diseño anterior vale conservarse, pero nunca se probó con una interrupción real; el piloto debe hacerlo. |
-| 6.42, revisión independiente | Indispensable | Revisión de otro proveedor, con hallazgos confirmados separados de las sospechas y las controversias presentadas a ti. |
-| 6.43, verificación de calidad | Indispensable | Una comprobación omitida, interrumpida o desconocida nunca cuenta como aprobada. |
-| 6.44, integración y entrega | Etapa posterior, salvo los commits locales | Los commits locales con autoría y atribución son parte del núcleo. El push y los PR requieren un remoto, que hoy no existe. |
-| 6.45, documentación para humanos y agentes | Indispensable en forma mínima | Las entradas breves (`STATUS.md` y `AGENTS.md`) son parte del núcleo; la documentación humana completa, a cargo de Codex, llega con 6.17. |
-| 6.46, portabilidad desde un clon limpio | Indispensable en Linux; etapa posterior en macOS y Windows | Probar desde un clon limpio en esta máquina es parte del núcleo. Las otras plataformas se validan cuando haya dónde probarlas. |
-| 6.47, supervisión y colaboración externa | Etapa posterior | Requiere un remoto y otro colaborador. La vista mínima del estado la cubre 6.39. |
-| 6.48, piloto acotado | Indispensable | Es la aceptación del núcleo y, por tu indicación, se aplica también a cada fase de construcción. |
-
-### Los pendientes de la sección 8
-
-- **Codex se lanza dentro de un repositorio, nunca en `~/Dev`.** Indispensable. Fabrewk lanzará a Codex, así que debe comprobar el directorio de arranque y negarse a lanzarlo fuera de un repositorio o de una copia de trabajo. No comprobé lo que ocurrió aquel día; me baso en tu relato.
-- **Decidir en cada barrido qué herramientas usa cada proyecto** (skills, MCP, Playwright y otras). Etapa posterior. Ya está cubierto en parte por 6.38 (evaluar una extensión antes de incorporarla) y 6.14 (el catálogo), pero decidirlo por proyecto en cada barrido es nuevo. Propongo agregarlo a 6.23 y 6.38 después del piloto, porque antes hacen falta la regla de 6.38 y las herramientas declaradas del siguiente punto.
-- **Declarar qué herramientas requiere cada tipo de tarea y comprobarlas al inicio.** Indispensable. Cuesta poco y evita una falla conocida; va con los perfiles (6.15).
-- **Auditar `~/Dev/tmp`.** La auditoría es una tarea de la máquina, ajena a la construcción de Fabrewk, y necesita su propio permiso. Solo medí su tamaño, sin abrirla: 1.8 GB, como dices. La regla que de ahí se desprende sí es indispensable (6.4): si Fabrewk necesita memoria temporal persistente, la declara, se autoriza y vive en `brewstillery/` de cada repositorio, en la zona local no versionada.
-- **El respaldo de configuración previo a la consolidación.** Etapa posterior y fuera de Fabrewk. Comprobé que existe y no lo abrí. Recomiendo conservarlo hasta que confirmes que la consolidación quedó bien; borrarlo es decisión tuya.
-
-### Tus respuestas anteriores a las tres preguntas del agente previo
-
-Retiraste esas respuestas de tu entrada. Como el repositorio todavía no tenía historial, las copié textuales al registro de arranque para que no se pierdan; lo que sigue las evalúa.
-
-**Primera, qué se reutiliza del primer harness.** Coincido con el objetivo: un producto limpio, no parchado, en el que los hallazgos de revisión se corrigen y se vuelven a revisar. Mi evaluación se basa en la nota de diseño, los recibos y la lista de archivos; **no leí el código ni corrí sus pruebas**, así que es provisional hasta la lectura a fondo, que propongo como tarea propia.
-
-- **Se reutiliza como diseño, reimplementado y revisado de nuevo:** el registro de eventos como única autoridad, con el estado derivado de él; la máquina de estados con las decisiones reservadas a la persona; ligar cada revisión y cada comprobación a la versión exacta del trabajo, y darlas por vencidas cuando algo cambia; registrar cada intento antes de ejecutarlo; que una comprobación omitida o interrumpida nunca cuente como aprobada; los mensajes que salen de un catálogo y nunca muestran una clave sin su descripción; y el límite de tamaño medido. También se reutiliza algo que vale mucho: **la lista de defectos que encontraron las revisiones**, convertida en pruebas que el código nuevo debe pasar desde el primer día.
-- **Se reescribe:** el código completo. Su versión final no tiene revisión independiente; el núcleo creció de forma notable entre los dos pilotos; está atado a una estructura de directorios anterior y a un nombre de comando retirado; y guardaba el estado donde un clon normal no lo trae. Los adaptadores de Claude y Codex dentro del aislamiento también se reescriben, aprovechando lo aprendido de sus formatos. Que esas herramientas sigan comportándose igual en sus versiones actuales **no está comprobado**.
-- **Se descarta:** la estructura de directorios anterior, los nombres de comandos en español que ya se retiraron, la autorización atada a los registros de compuertas de TickBrew y las entradas fijas del primer piloto. Todo eso queda como referencia en su origen; nada se borra.
-
-Una precisión sobre "no debe haber no-go's futuros": comparto la intención, y 6.48 ya la recoge. El riesgo que llevó a los cierres anteriores fue que la cantidad de defectos graves por revisión no bajaba. Para que corregir y repetir no se vuelva un ciclo sin fin, cada intento debe fijar antes cómo se mide su avance; propongo contar los defectos graves confirmados y los criterios de aceptación cumplidos.
-
-**Segunda, dónde vive el registro si un proyecto no publica `brewstillery/`.** Coincido: el repositorio anidado es la última salida, y lo que corresponde es un aviso claro al mantenedor, que decide bajo su propio riesgo. Esto choca con 6.27, que pide que el registro nunca quede encerrado en una computadora aunque no se publique. Propongo resolverlo así: Fabrewk ofrece las salidas, avisa y registra la decisión del mantenedor con sus propias palabras, pero no lo obliga. Si estás de acuerdo, conviene que ajustes la redacción de 6.27. Texto propuesto para el aviso, en el idioma del mantenedor:
-
-> **Aviso: decidiste no publicar `brewstillery/`.** Ahí guarda Fabrewk la historia de tu proyecto: qué se pidió, quién lo autorizó, qué se revisó y por qué se aceptó. Si no lo publicas, esa historia queda solo en esta computadora. Si el equipo se pierde o se daña, se pierde con él; otros mantenedores y sus agentes no podrán verla ni continuar el trabajo; y nadie podrá comprobar después cómo se tomó cada decisión. Fabrewk seguirá funcionando, pero conservar esa trazabilidad queda bajo tu responsabilidad. Como último recurso, puedes guardar `brewstillery/` en un repositorio propio, con un remoto privado. Si aun así decides no publicarlo, escríbelo con tus palabras para que quede registrado.
-
-Propongo mostrarlo al instalar y mantenerlo como aviso permanente en `STATUS.md` mientras dure esa situación.
-
-**Tercera, el primer piloto y el rechazo provocado.** Tu decisión de esta sesión lo acota: un primer módulo pequeño de TickBrew, reconstruido desde su tablero original en un repositorio nuevo. Propongo **el módulo de configuración persistente de TickBrew**, que el tablero describe como los ajustes por usuario, instancia y módulo, con reglas claras de precedencia, y como parte de la infraestructura de gestión de configuración. Lo que entrega: leer esos tres niveles, resolver el valor efectivo, decir de dónde viene cada valor y respetar que lo que el Administrador Universal fija para la instancia no lo cambia un usuario. Por qué este módulo: es pequeño; no toca dinero, brokers ni credenciales; su resultado se comprueba con pruebas ocultas al autor y al revisor; es lo primero que necesita un núcleo modular; y no depende de decisiones abiertas sobre NautilusTrader o Rust. Hay que cuidar que no se confunda con los ajustes del propio Fabrewk: es un módulo del producto y vive en el repositorio nuevo.
-
-Cómo provoca a propósito un rechazo, todo planeado y presupuestado antes de empezar:
-
-1. **Un defecto sembrado.** Después de la primera entrega del autor, Fabrewk, en un modo de prueba declarado, introduce en una copia un defecto conocido: un valor de usuario que se impone a uno bloqueado por la instancia. Lo envía al revisor como un intento aparte, marcado como sembrado. El revisor debe rechazarlo. Si lo acepta, el piloto encontró una debilidad de la revisión, que también es un resultado útil.
-2. **Un criterio exigente.** Entre los criterios va el del valor bloqueado, que una primera implementación suele olvidar. Si el autor lo acierta, el defecto sembrado garantiza de todos modos la ronda de rechazo.
-3. **Evidencia inválida.** Se presenta una revisión hecha sobre una versión anterior y una comprobación marcada como omitida; las dos deben rechazarse.
-4. **Una interrupción.** Se corta un trabajo de agente a la mitad; debe quedar como desconocido, sin reintento a ciegas.
-5. **Un conflicto.** Dos cambios simultáneos al estado; el segundo debe rechazarse.
-6. **Una preferencia que intenta dar autoridad.** En tus ajustes personales se pone un valor que pretende autorizar un proveedor o ampliar un permiso; debe ignorarse y reportarse.
-
-El presupuesto debe cubrir desde el inicio al menos una ronda completa: especificación, implementación, revisión con rechazo, corrección y nueva revisión, más el intento sembrado y un margen. El segundo piloto se quedó sin presupuesto justo ahí. Para comparar con el flujo actual, propongo hacer el mismo módulo con el método de hoy (Claude y Codex, con tus relevos) y medir ambos igual.
-
-### Huecos que veo en las dos decisiones de esta sesión
-
-- **En `bootstrap/`:**
-  - Ya agregaste `bootstrap` a los nombres reservados de los ajustes del proyecto; está comprobado.
-  - Recomiendo reservarlo también en los proyectos que Fabrewk sirva, aunque el directorio solo exista aquí, para que la regla sea igual en todas partes.
-  - Falta definir qué significa "llegar a producción". Propongo que sea tu declaración después de que el piloto pase, y que la importación sea una fase con su propio criterio: todo importado, y una comprobación que falle si algo cambia después dentro de `bootstrap/`. Sin esa comprobación, el "solo lectura" sería una convención.
-  - Por ahora, el único escritor del registro soy yo, con tu autoridad; Codex entrega sus hallazgos y yo los registro.
-- **En el piloto:**
-  - El tablero original vive en el repositorio que vas a migrar. En el repositorio nuevo, la parte de arriba del alambique es solo tuya, así que tú tendrías que poner ahí las secciones que quieres que el piloto use.
-  - El nombre y la ubicación del repositorio nuevo dependen de que la migración a "tickbrew-legacy" libere el nombre actual; conviene fijar ese orden.
-- **En 6.48:**
-  - Hay que fijar antes de cada reintento cómo se mide el "avance medible".
-  - "El flujo actual" debe quedar definido como el método de hoy, porque el repositorio actual pasará a ser el legado.
-  - Debe quedar claro que "corregir y reintentar" nunca incluye cambiar los criterios para aprobar (6.25, requisitos estables).
-  - Mientras no exista el registro único, las pausas por presupuesto y su estado se guardan en `bootstrap/`.
-
-### Tus respuestas a mis cinco preguntas
-
-1. **Evaluar un repositorio existente antes de escribir en él.** Aceptaste la recomendación. Queda registrada como decisión: primero un paso que solo lee y termina en un dictamen (adoptar, solo revisar o no entrar); después tu confirmación; solo entonces se escribe. Destino: se diseña en la fase de arquitectura y se construye en la de instalación.
-
-2. **El nivel "general" de los ajustes.** Propones que `brewstillery/settings.toml` guarde los permisos generales que el mantenedor responsable da a los agentes, incluidos los que dependen de lo que tiene en su equipo (como los MCP), y si los agentes pueden cambiar sus propios ajustes cuando ese mantenedor lo pida. Estoy de acuerdo en que el permiso viva ahí, porque es política del proyecto (6.11, preferencias frente a políticas). Hay un conflicto que conviene resolver desde el diseño: lo instalado cambia de un equipo a otro, y ese archivo se comparte con todos los colaboradores. Propongo separar lo que se permite de lo que existe:
-   - El archivo del proyecto dice qué MCP y qué herramientas pueden usar los agentes, y en qué casos.
-   - Al iniciar, Fabrewk detecta qué hay de verdad en el equipo (el tercer pendiente de la sección 8) y usa solo lo que esté a la vez permitido e instalado.
-   - Lo detectado se muestra en la configuración efectiva, pero no se guarda como otra configuración; así no aparece una segunda fuente ni un archivo nuevo en la máquina.
-   - Que los agentes cambien sus propios ajustes solo se habilita cuando tú lo pides expresamente en ese momento, queda registrado y nunca cubre un cambio que amplíe lo que el agente puede leer, ejecutar o enviar sin una confirmación aparte: es configuración que concede autoridad (6.13).
-   - Ese archivo nunca guarda credenciales, tokens ni direcciones con secretos (6.4).
-   - Por debajo del proyecto quedan los valores por defecto que trae Fabrewk.
-
-   Destino: la fase de arquitectura, en la decisión sobre el formato y los niveles de los ajustes.
-
-3. **Idioma de los archivos técnicos.** Inglés por defecto y configurable en los ajustes del proyecto. Registré la decisión. La clave ya existe comentada en tus ajustes del proyecto; falta que la actives. Las respuestas de los alambiques no son documentación: siguen en el idioma de cada mantenedor. El nombre definitivo de la clave y la división por clases de contenido (6.20, idiomas por dominio) se deciden en la fase de arquitectura.
-
-4. **Lenguaje del piloto y auditoría de este alambique.** El módulo del piloto se escribe en Python; quedó registrado. Sobre tu petición de auditar el alambique: la propongo como la siguiente fase, antes de la revisión de Codex, para que todo lo que sigue lea una entrada clara. Entrega una lista de hallazgos y un texto propuesto; tú decides qué adoptar y lo pasas a tu entrada, porque solo tú escribes arriba del separador. Abajo dejo los primeros hallazgos.
-
-5. **Comparación con el flujo actual.** Aceptada y registrada. El presupuesto del piloto cubrirá las dos formas de trabajo, medidas igual.
-
-### Auditoría preliminar del alambique
-
-Son los primeros hallazgos de una lectura atenta. No son la auditoría completa, que es su propia fase.
-
-- **Vocabulario heredado de TickBrew que Fabrewk todavía no define.** "Compuerta", "corte" y "fase" aparecen como si fueran unidades de trabajo de Fabrewk (sección 2, el barrido "tras cada fase, compuerta o corte"; 6.16, el plan por compuerta; 6.13). "Los niveles Git establecidos" (6.44, integración y entrega) se refiere a niveles que existen en TickBrew, no aquí. "ADR's" (sección 2) es otro término del método anterior. Propongo que la arquitectura decida la unidad de trabajo de Fabrewk y que el texto use solo esa.
-- **Historia mezclada con instrucciones actuales.** Lo que en la sección 4 pides evitar sucede en algunos puntos: 6.5 (el comando) nombra el comando provisional retirado; la sección 7c dice que el aislamiento es "herramienta de la que ya depende" el primer harness, cuando Fabrewk todavía no depende de nada; 6.45 (documentación) habla de un reparto "acordado" en TickBrew. Propongo pasar esa historia a la sección 3, de referencias, y dejar en la 6 solo lo que Fabrewk debe hacer.
-- **Rutas del repositorio de TickBrew.** Resuelto: ya actualizaste la sección 3 para que apunte al repositorio legado congelado. Comprobé que los archivos que leímos siguen idénticos ahí.
-- **Repeticiones y contradicciones de forma.** La sección 2 se titula "Estructura propuesta" pero empieza con "Decidido"; su primer punto dice dos veces que fuera de `brewstillery/` solo quedan los archivos que exigen las herramientas.
-- **Supuestos sobre agentes concretos.** La introducción de la sección 6 habla de "ambos agentes", lo que da por hecho que habrá dos, en contra de 6.36 (independencia de proveedores).
-- **El conflicto de 6.27 con tu aviso por no publicar `brewstillery/`.** Sigue abierto (lo explico en la segunda pregunta de arriba); la auditoría propondrá una redacción.
-- **Respuestas de la sección 8 sin su pregunta.** El encabezado todavía dice "preguntas que dejó el agente previo" y las respuestas dependen de una numeración que vive aquí abajo. En la siguiente ronda será difícil saber a qué responde cada una. Propongo que cada respuesta tuya repita en pocas palabras la pregunta, o que esas respuestas pasen al registro una vez incorporadas.
-
-### Cierre del arranque
-
-Declaraste cerrado el arranque. Antes, comprobé que no quedara nada abierto que lo impidiera. Quedó decidido que el texto propuesto por la auditoría se entregará en un archivo aparte dentro de `brewstillery/bootstrap/`: lo lees y copias a tu entrada lo que aceptes. Pasan a etapas siguientes, cada una con su destino:
-
-- El conflicto entre 6.27 (el registro que no debe quedar en una sola máquina) y tu aviso para quien no publique `brewstillery/`: lo resuelve la auditoría.
-- El vocabulario y las rutas heredados de TickBrew: también la auditoría.
-- El módulo del piloto: su fase de especificación.
-
-La migración al legado ya terminó. El repositorio anterior de TickBrew quedó congelado, solo para consulta; los cierres de los dos pilotos, el paquete de decisión y el tablero original siguen idénticos a los que leímos, y el primer harness sigue donde estaba. Ya actualizaste la sección 3 de tu entrada.
-
-También activaste en tus ajustes del proyecto los idiomas de publicación de la documentación: inglés como original y español de México. Lo registré como decisión. Concuerda con 6.21 (localización de la documentación): nada se traduce hasta que el original esté estable y aprobado, y las respuestas de este alambique no se ven afectadas.
+- **Introducción y punto 6.8 (respuestas en el alambique).** Que digan lo que acabas de decidir: los agentes responden con recomendaciones para editar tu entrada, y cada barrido reemplaza la respuesta completa. Agregar también una línea que explique la marca "(decidido)", que la propuesta usa donde una expectativa tuya ya quedó decidida.
+- **Sección 1 (qué es Fabrewk).** Separar lo decidido (nombre y comando), la intención (paquete, organización, dominio y logo) y lo pendiente (la licencia). Agregar la evaluación de un repositorio existente antes de escribir en él, que ya aceptaste. **Necesita tu criterio:** qué hace el modo revisor. Propongo que deje su evidencia dentro de `brewstillery/` y no cambie el código ni el `AGENTS.md` del proyecto.
+- **Sección 2 (estructura).** Quitar "propuesta" del título, porque la sección está decidida. Unir la frase repetida sobre los archivos de la raíz. Cambiar "fase, compuerta o corte" y la lista del directorio de datos por términos neutros. Nombrar los ajustes del proyecto y el registro de arranque. Enlazar la decisión de publicar `brewstillery/` con el aviso del punto 6.27.
+- **Sección 3 (lo ya construido).** Traer aquí, como historia, el comando provisional retirado y la ruta de la conversación "Proyecto IA en GitHub". **Necesita tu criterio:** agregar la lista de fuentes de la investigación previa.
+- **Secciones 4 y 5.** Decir que fases, compuertas y cortes son nombres del método de TickBrew. Quitar de la sección 5 lo que repiten la sección 7 y los puntos 6.30 y 6.33 (catálogo de fuentes y aprovechamiento selectivo).
+- **Introducción de la sección 6.** "Los agentes" en lugar de "ambos agentes", porque Fabrewk no supone dos proveedores (6.36). Decir que la tarea es la unidad de trabajo y que la arquitectura nombra cómo se agrupan. **Necesita tu criterio:** dice "ordenados por prioridad", pero el orden es por tema. Propongo "agrupados por tema", con subtítulos y sin cambiar la numeración.
+- **Puntos 6.10, 6.11 y 6.15 (configuración y perfiles).** "General" significa dos cosas: en 6.10 y 6.11 es el nivel del proyecto, y en 6.15 son perfiles reutilizables entre proyectos. Propongo nombrar el nivel del proyecto una sola vez. Pasar a 6.11 tu respuesta sobre los permisos generales y la idea de inicio de separar lo permitido de lo que existe en cada equipo. Pasar a 6.15 que cada tipo de tarea declara las herramientas que requiere.
+- **Punto 6.16 (plan de ejecución).** "Por compuerta" pasa a "por etapa de trabajo".
+- **Puntos 6.20 y 6.21 (idiomas).** Agregar que los archivos técnicos van en inglés por defecto. Decir que las claves de idioma ya están activas en los ajustes del proyecto.
+- **Punto 6.27 (persistencia del registro).** **Necesita tu criterio:** el choque con tu aviso por no publicar `brewstillery/`. Propongo conservar la meta de que el registro no quede en una sola computadora y describir el aviso: el riesgo queda bajo responsabilidad del mantenedor, el repositorio propio es el último recurso y no se obliga a nadie. La frase "registra su decisión con sus propias palabras" la agregué yo.
+- **Punto 6.38 (seguridad y extensiones).** Traer aquí, desde la sección 8, la regla de lanzar Codex solo dentro de un repositorio y la decisión, en cada barrido, de qué skills, MCP u otras herramientas usa cada proyecto.
+- **Punto 6.44 (integración y entrega).** **Necesita tu criterio:** "los niveles Git establecidos" vienen de TickBrew y aquí no están definidos. Propongo "las reglas de Git que fije cada proyecto", salvo que quisieras decir algo más concreto.
+- **Punto 6.45 (documentación).** Presentar el reparto entre Claude y Codex como la configuración inicial, no como un acuerdo de TickBrew.
+- **Punto 6.48 (piloto).** Separar sus dos párrafos, que hoy se juntan en uno. Agregar que la regla de no cancelar el proyecto rige cada fase de construcción. Agregar el piloto ya decidido: un módulo pequeño de TickBrew, en Python, reconstruido desde el tablero original y comparado con el flujo actual.
+- **Sección 7 (fuentes).** Pasar los vecinos de nicho a 7d, junto a las otras coincidencias de nombre. Ampliar el título de 7c. Marcar los dos puentes que no tienen enlace.
+- **Sección 8 (pendientes).** Dejar solo las tareas de la máquina. Tus respuestas a mis preguntas pasan a los puntos que afectan.
+- **Detalles menores** (puntos 6.2, 6.3 y 6.4, y la ortografía): en la auditoría.
