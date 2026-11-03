@@ -614,3 +614,16 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   is the disposition of the narrowing.
 - Sources: R-008; the maintainer's section 8, item 8.1.2 (6.38); chat of session 3.
 - Supersedes: none.
+
+## D-022 — Sessions close with a clean tree (bootstrap only)
+
+- Status: decided
+- Decided: 2026-11-03
+- Origin: maintainer XEL in session 3's chat: "anotalo para las sesiones siguientes durante nuestro bootstrap, hasta
+  que Fabrewk adopte sus propias reglas de diseño."
+- Decision: when a session closes, the integrator makes the commits needed to leave no pending changes; the
+  maintainer's edits are committed alone, with no AI co-author. It applies during the bootstrap, until Fabrewk's own
+  design sets its workflow.
+- Consequences: rule added to `AGENTS.md`; phase 5 decides the permanent version.
+- Sources: chat of session 3; commits `0d704bd` and `dc66a61`.
+- Supersedes: none.

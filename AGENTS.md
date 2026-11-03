@@ -31,6 +31,8 @@ summarizes the rules already fixed; the decisions and their origin are in `brews
 - **Commands.** Every command and flag Fabrewk develops is in English, unique and standard, never translated.
   Never name a command that does not exist.
 - **Shell.** A command a maintainer is asked to run must work in their shell (`environment.shell`; `xel`: fish).
+- **Closing.** During the bootstrap only, until Fabrewk adopts its own rules (D-022): closing a session, the integrator
+  commits everything so the tree is clean; the maintainer's edits go in their own commit with no AI co-author.
 - **Handover.** Closing a session, the integrator tells the maintainer the prompt, model and effort for the next
   chat, taken from `brewstillery/bootstrap/plan.md`, and writes them in `STATUS.md`.
 - **Not yet decided; do not create:** licence, `.gitignore`, code, `brewstillery/data/` or any other structure the
