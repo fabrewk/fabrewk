@@ -26,17 +26,12 @@ repository, is imported into the single registry at production and then stays re
 
 - **Done:** the legacy TickBrew repository now lives at `/home/xel/Dev/TickBrew/tickbrew-legacy`, frozen at tag
   `legacy-final` (R-004). Documentation publication languages: `en`, `es-MX` (D-014).
-- **Phase 1 delivered, not closed:** `brewstillery/bootstrap/alambique-audit.md` (D-016): findings, a proposed text
-  of the maintainer's input and a traceability table. Five findings marked **Decision** need the maintainer's answer.
-- **Next:** the maintainer copies into their input what they accept; the integrator sweeps the alambique, records
-  the outcome and closes phase 1. Then phase 2, Codex's review of the bootstrap and the audit, in a new chat; it needs
-  the maintainer's permission to launch Codex and its budget.
-- **Answers zone:** replaced on every sweep by current recommendations for editing the input (D-017); earlier
-  evaluations and where each is resumed are in R-006.
-- **Proposed in session 2's chat, not decided:** one level of division only: a phase is split into parts when it
-  does not fit one session; each part has its own inputs and checkable criterion, ends with a commit and this file
-  updated, and runs in its own chat; split where inputs separate. Recorded and added to `plan.md` only if the
-  maintainer accepts.
+- **Phase 1 closed (D-018):** the maintainer adopted the audited input (`brewstillery/bootstrap/alambique-audit.md`),
+  with a usage note and section 8 as their channel. Phases are split into parts only when needed (D-019, in
+  `plan.md`). The answers zone holds only current recommendations (D-017).
+- **Next: phase 2**, Codex's independent review of the bootstrap files and of the audit's fidelity (the input before
+  it is at `7aeec3d`, after it at `e0017cb`), in a new chat. Before launching, the integrator asks the maintainer for
+  permission to run Codex and its budget; Codex is launched inside this repository, never in `~/Dev`.
 
 Carried without blocking, with destinations, in D-013. A phase that does not pass is corrected and retried; it
 never ends the project (D-003).

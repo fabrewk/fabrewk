@@ -282,26 +282,26 @@ Agregué un "COMO USAR" en el texto inicial del alambique, creo que este era un 
 
 ## Respuesta del integrador
 
-Soy Claude Code, con el modelo Opus 5.5 y esfuerzo alto, integrador de Fabrewk. Desde este barrido, esta sección solo trae recomendaciones vigentes para que edites tu entrada con tus palabras, y cada barrido la reemplaza completa. Lo que decían las respuestas anteriores no se perdió: sigue en el historial de Git, y el registro de arranque dice en qué fase se retoma cada parte.
+Soy Claude Code, con el modelo Opus 5.5 y esfuerzo alto, integrador de Fabrewk. Este barrido reemplaza la respuesta anterior.
 
-La propuesta completa está en `brewstillery/bootstrap/alambique-audit.md`. Ahí está, para cada cambio, el pasaje, el porqué y el texto listo para copiar, además de una tabla que muestra adónde va cada parte de tu entrada. Aquí van las recomendaciones por sección. Las marcadas **necesita tu criterio** no conviene adoptarlas sin decidir antes.
+Comparé tu entrada con el texto propuesto en la auditoría: adoptaste todo, incluidas las cinco recomendaciones que necesitaban tu criterio, y no se perdió ninguna expectativa. Tus cambios propios son tres: el "COMO USAR", lo decidido de la sección 1 movido antes de la lista de capacidades, que se lee mejor, y la sección 8 como canal directo. Con esto la auditoría queda cerrada; falta la revisión independiente de Codex, que es el siguiente paso.
 
 ### Recomendaciones para tu entrada
 
-- **Introducción y punto 6.8 (respuestas en el alambique).** Que digan lo que acabas de decidir: los agentes responden con recomendaciones para editar tu entrada, y cada barrido reemplaza la respuesta completa. Agregar también una línea que explique la marca "(decidido)", que la propuesta usa donde una expectativa tuya ya quedó decidida.
-- **Sección 1 (qué es Fabrewk).** Separar lo decidido (nombre y comando), la intención (paquete, organización, dominio y logo) y lo pendiente (la licencia). Agregar la evaluación de un repositorio existente antes de escribir en él, que ya aceptaste. **Necesita tu criterio:** qué hace el modo revisor. Propongo que deje su evidencia dentro de `brewstillery/` y no cambie el código ni el `AGENTS.md` del proyecto.
-- **Sección 2 (estructura).** Quitar "propuesta" del título, porque la sección está decidida. Unir la frase repetida sobre los archivos de la raíz. Cambiar "fase, compuerta o corte" y la lista del directorio de datos por términos neutros. Nombrar los ajustes del proyecto y el registro de arranque. Enlazar la decisión de publicar `brewstillery/` con el aviso del punto 6.27.
-- **Sección 3 (lo ya construido).** Traer aquí, como historia, el comando provisional retirado y la ruta de la conversación "Proyecto IA en GitHub". **Necesita tu criterio:** agregar la lista de fuentes de la investigación previa.
-- **Secciones 4 y 5.** Decir que fases, compuertas y cortes son nombres del método de TickBrew. Quitar de la sección 5 lo que repiten la sección 7 y los puntos 6.30 y 6.33 (catálogo de fuentes y aprovechamiento selectivo).
-- **Introducción de la sección 6.** "Los agentes" en lugar de "ambos agentes", porque Fabrewk no supone dos proveedores (6.36). Decir que la tarea es la unidad de trabajo y que la arquitectura nombra cómo se agrupan. **Necesita tu criterio:** dice "ordenados por prioridad", pero el orden es por tema. Propongo "agrupados por tema", con subtítulos y sin cambiar la numeración.
-- **Puntos 6.10, 6.11 y 6.15 (configuración y perfiles).** "General" significa dos cosas: en 6.10 y 6.11 es el nivel del proyecto, y en 6.15 son perfiles reutilizables entre proyectos. Propongo nombrar el nivel del proyecto una sola vez. Pasar a 6.11 tu respuesta sobre los permisos generales y la idea de inicio de separar lo permitido de lo que existe en cada equipo. Pasar a 6.15 que cada tipo de tarea declara las herramientas que requiere.
-- **Punto 6.16 (plan de ejecución).** "Por compuerta" pasa a "por etapa de trabajo".
-- **Puntos 6.20 y 6.21 (idiomas).** Agregar que los archivos técnicos van en inglés por defecto. Decir que las claves de idioma ya están activas en los ajustes del proyecto.
-- **Punto 6.27 (persistencia del registro).** **Necesita tu criterio:** el choque con tu aviso por no publicar `brewstillery/`. Propongo conservar la meta de que el registro no quede en una sola computadora y describir el aviso: el riesgo queda bajo responsabilidad del mantenedor, el repositorio propio es el último recurso y no se obliga a nadie. La frase "registra su decisión con sus propias palabras" la agregué yo.
-- **Punto 6.38 (seguridad y extensiones).** Traer aquí, desde la sección 8, la regla de lanzar Codex solo dentro de un repositorio y la decisión, en cada barrido, de qué skills, MCP u otras herramientas usa cada proyecto.
-- **Punto 6.44 (integración y entrega).** **Necesita tu criterio:** "los niveles Git establecidos" vienen de TickBrew y aquí no están definidos. Propongo "las reglas de Git que fije cada proyecto", salvo que quisieras decir algo más concreto.
-- **Punto 6.45 (documentación).** Presentar el reparto entre Claude y Codex como la configuración inicial, no como un acuerdo de TickBrew.
-- **Punto 6.48 (piloto).** Separar sus dos párrafos, que hoy se juntan en uno. Agregar que la regla de no cancelar el proyecto rige cada fase de construcción. Agregar el piloto ya decidido: un módulo pequeño de TickBrew, en Python, reconstruido desde el tablero original y comparado con el flujo actual.
-- **Sección 7 (fuentes).** Pasar los vecinos de nicho a 7d, junto a las otras coincidencias de nombre. Ampliar el título de 7c. Marcar los dos puentes que no tienen enlace.
-- **Sección 8 (pendientes).** Dejar solo las tareas de la máquina. Tus respuestas a mis preguntas pasan a los puntos que afectan.
-- **Detalles menores** (puntos 6.2, 6.3 y 6.4, y la ortografía): en la auditoría.
+- **"COMO USAR" (inicio del alambique).** Está bien ubicado y sí faltaba. Te propongo tres ajustes:
+  - Que hable de lo que haces tú. Hoy mezcla lo que haces tú (abrir un chat y pegar el prompt) con lo que hace el agente.
+  - Que no use el marcador `<NombreDelProyecto>`. En los pilotos anteriores, un texto de ejemplo terminó copiado al pie de la letra. Mejor escribe el prompt real de este proyecto y explica aparte que en otro proyecto cambia el nombre.
+  - Que incluya la regla de la sección 8 como canal. Es permanente, y la sección 8 se irá vaciando. Agrega también abrir un chat nuevo al terminar cada parte del trabajo, que es lo que ahorra coste.
+
+  Texto propuesto, para reemplazar tu párrafo:
+
+  > **Cómo usar este alambique.** Escribo arriba del separador lo que quiero para el proyecto. Lo que quiero añadir, quitar o tratar lo planteo en la sección 8, nuestro canal más directo. En cada barrido, el agente reemplaza su respuesta, debajo del separador, solo con lo indispensable: qué editar en mi entrada y dónde, cuando lleguemos a un acuerdo. Yo lo adopto con mis palabras y quito de la sección 8 lo ya resuelto.
+  >
+  > Al empezar cada sesión, al terminar cada parte del trabajo y ante cualquier duda (una interrupción, una respuesta inventada o un chat que se cuelga), abro un chat nuevo con el agente integrador y pego: `Eres el integrador de Fabrewk; empieza por brewstillery/STATUS.md`. En otro proyecto integrado a Fabrewk, el prompt es el mismo con el nombre de ese proyecto.
+
+- **Sección 8 (pendientes, adiciones o remociones).** Una vez que adoptes el texto de arriba, quita de la sección 8 tres cosas, porque ya están resueltas y registradas:
+  - la línea sobre tus respuestas a mis preguntas y la aceptación de la auditoría, que además tiene un ".," de más;
+  - el párrafo que define la sección como canal, que pasa al "Cómo usar";
+  - el párrafo que me pide revisar el "COMO USAR".
+
+  Quedan solo las dos tareas de la máquina: auditar `~/Dev/tmp` y el respaldo de configuración.

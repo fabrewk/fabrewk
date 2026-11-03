@@ -4,13 +4,20 @@ Approved by the maintainer XEL in session 1's chat ("No veo objeciones a tu prop
 Two amendments made after that approval were confirmed by the maintainer (D-012): phase 1 (audit of the
 maintainer's alambique, requested in the alambique's section 8, answer 4; its proposed text is delivered as a separate
 file in `brewstillery/bootstrap/`) and phase 2 (the bootstrap review merged with the audit's review, one dispatch
-instead of two). Phase 0 is closed (D-013).
+instead of two). Phase 0 is closed (D-013). Phase 1 is closed (D-018).
 
 **Rule for every phase (alambique 6.48, D-003).** A phase that does not pass is corrected and retried; it never
 ends the project. Before each retry the progress measure is fixed (proposed: confirmed blocking findings, and
 acceptance criteria met). An exhausted budget pauses the phase with its state saved and asks for more budget or a
 smaller scope. Two consecutive retries without progress produce alternatives (reduce scope, change the design,
 replace a component) for the maintainer. Acceptance criteria are never changed by an agent to pass.
+
+**Splitting a phase (D-019).** A phase is split into parts (1a, 1b, …) only when it does not fit one session. The
+split is decided when the phase starts, where its inputs separate: two parts that need the same large input stay one.
+Each part has its own inputs and checkable criterion, ends with a commit and `STATUS.md` updated, and runs in its own
+chat, started from `STATUS.md`. Codex reviews at the end of a phase that delivers documents, and at the end of each
+part that delivers code. "Part" names a piece of this plan only; how Fabrewk groups work in the projects it serves is
+decided in phase 5.
 
 All architecture decisions (phase 5) come before any code. Codex model names come from the legacy receipts and
 their availability is not verified.

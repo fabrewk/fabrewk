@@ -509,3 +509,54 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 | Gaps in `bootstrap/`, the pilot and 6.48 | plan phases 11 and 13; D-003 |
 | Answers to the five questions | D-006 to D-009, D-015; the audit (F-10) |
 | Preliminary audit | the audit (`alambique-audit.md`) |
+
+---
+
+## D-018 — Audited alambique input adopted; phase 1 closed
+
+- Status: decided
+- Decided: 2026-11-03
+- Origin: maintainer XEL, by replacing their input with the audit's proposed text (commit `e0017cb`) and writing in
+  section 8: "todas tus recomendaciones hechas en tu auditoría de alambique fueron copiadas y aceptadas de mi parte";
+  in session 2's chat they asked to close the session if nothing was left open.
+- Decision: the five findings that needed the maintainer's answer are settled as proposed: reviewer mode leaves its
+  evidence in `brewstillery/` and changes neither code nor the project's `AGENTS.md` (F-16); `SOURCES.md` is listed in
+  section 3 (F-20); section 6 is grouped by theme and its numbering is stable (F-15); 6.27 keeps the goal of a record
+  that does not live on one machine and describes the warning when a project does not publish `brewstillery/`, with
+  the decision recorded in the maintainers' own words (F-09); 6.44 reads "las reglas de Git que fije cada proyecto"
+  (F-02). The maintainer added a usage note at the top of the input and made section 8 their channel for additions,
+  removals and open items. Phase 1 is closed; its fidelity review by Codex is part of phase 2 (D-012).
+- Consequences: D-007's statement that the "general" level of 6.15 is the project level no longer holds: 6.15 now
+  says "perfiles reutilizables entre proyectos" (F-12); for 6.10 and 6.11 D-007 stands. Phase 2 compares the input at
+  `7aeec3d` with the input at `e0017cb`, using the audit's traceability table.
+- Sources: `brewstillery/xel/alambique.md`; `brewstillery/bootstrap/alambique-audit.md`; chat of session 2.
+- Supersedes: D-007, only its consequence about 6.15.
+
+## D-019 — Splitting a phase into parts
+
+- Status: decided
+- Decided: 2026-11-03
+- Origin: maintainer XEL in session 2's chat, answering the integrator's proposal: "1. La acepto".
+- Decision: one level of division only. A phase is split into parts only when it does not fit one session, where its
+  inputs separate. Each part has its own inputs and checkable criterion, ends with a commit and `STATUS.md` updated,
+  and runs in its own chat. Codex reviews each phase that delivers documents and each part that delivers code.
+- Consequences: added to `brewstillery/bootstrap/plan.md`. Expected splits: phases 3, 4, 5, 7 and 9. The name "part"
+  belongs to this plan only; Fabrewk's own grouping of work is decided in phase 5 (alambique 6, introduction).
+- Sources: chat of session 2; the maintainer's premise there that long chats lost memory efficiency in TickBrew.
+- Supersedes: none.
+
+## R-007 — Session 2, closing sweep
+
+- Status: recorded
+- Date: 2026-11-03
+- Who: integrator Claude Code, `claude-opus-5-5`, effort high as the maintainer states it. No subagent, no dispatch,
+  no network.
+- Sweep: the new input (lines 1–277, sha256 `389dbea7…7314`; separator lines 278–281, found once) differs from the
+  audit's Part 2 only by the maintainer's three changes listed in D-018 (checked by diff).
+- Commits: the maintainer's edits are committed alone with no AI co-author: `e0d14e2` (input line 236, D-015) and
+  `e0017cb` (the adopted input). Between them, `ce6d0b9` holds the integrator's session 2 work. Both maintainer
+  versions were rebuilt exactly: the first matches the digest recorded in R-005. The first commit was created
+  without its subject line through a shell quoting error and was amended before any other commit; nothing was
+  pushed.
+- Written in this sweep: the answers zone (recommendations for the usage note and section 8), `AGENTS.md` (section 8
+  as the maintainer's channel), `plan.md` (D-019; phase 1 closed), `STATUS.md`, and this record.
