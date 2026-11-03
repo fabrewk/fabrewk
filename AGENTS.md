@@ -20,7 +20,8 @@ summarizes the rules already fixed; the decisions and their origin are in `brews
   are proposals. `brewstillery/<alias>/settings.toml` holds personal preferences, which never widen permissions
   or change criteria, providers or limits. Agents do not edit either file.
 - **Bootstrap record.** `brewstillery/bootstrap/` is the provisional record of Fabrewk's self-construction:
-  append-only, one writer (the integrator). `bootstrap` is a reserved name, exists only in this repository and
+  append-only for its entries (decisions and provenance), except `plan.md` and the audit, which the integrator
+  maintains; one writer (the integrator). `bootstrap` is a reserved name, exists only in this repository and
   never in a project Fabrewk serves; at production it is imported into the single registry and stays read-only,
   never deleted. Technical provenance (paths, revisions, lines read) goes there and in commit messages, not in
   the alambique.

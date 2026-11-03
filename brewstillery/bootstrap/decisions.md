@@ -573,3 +573,44 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   global setting defaults Sonnet to low); Codex GPT-6.1 Sol, effort medium, availability to be checked.
 - Sources: chat of session 2; `brewstillery/bootstrap/plan.md`, phase 2.
 - Supersedes: none.
+
+## R-008 — Session 3, phase 2 review by Codex
+
+- Status: recorded
+- Date: 2026-11-03
+- Who: integrator Claude Code, `claude-sonnet-5-5`. Reviewer: Codex `gpt-6.1-sol`, effort medium, read-only sandbox,
+  launched inside this repository, one pass, with the maintainer's permission and budget given in chat. Codex
+  version 0.166.0; the model was available.
+- Read by Codex: STATUS.md, plan.md, decisions.md, AGENTS.md, both settings files, the audit, the input at
+  `7aeec3d` and at `e0d14e2`/`e0017cb`. It wrote nothing.
+- Findings and dispositions:
+  - P2-01 (blocking): 6.38 narrows "analizar y decidir" to "analiza y propone"; the audit's table says only "moved".
+    Confirmed by the integrator. Disposition: question to the maintainer in the answers zone; open.
+  - P2-02: AGENTS.md calls all of `bootstrap/` append-only, but `plan.md` and the audit are maintained. Open: needs
+    the maintainer's wording (decisions.md entries and R/D records are append-only; plan and audit are not).
+  - P2-03: the answers zone carried identity, summary and stale recommendations. Fixed: it now holds only the open
+    recommendation.
+  - P2-04: the introduction of this file (line 17) still calls English a proposal and the key commented out. Not
+    edited, the record is append-only. Current rule: English is decided (D-008, D-014) and the key is active.
+  - P2-05: `STATUS.md` lacked the start prompt. Fixed in `STATUS.md`.
+  - P2-06: D-013 uses "Carried, not blocking, with destinations" instead of `Consequences`. Treat it as its
+    `Consequences` for the phase 13 importer.
+- Also confirmed by Codex: all 48 points of the input remain; the audit's input is the one at `e0d14e2`; the
+  differences to `e0017cb` are the maintainer's three edits; both settings files parse.
+- Next: the maintainer answers P2-01 and P2-02; the integrator applies and Codex's re-check is not needed unless
+  the maintainer asks.
+
+## D-021 — Phase 2 closed; append-only scope clarified
+
+- Status: decided
+- Decided: 2026-11-03
+- Origin: maintainer XEL in session 3's chat: acknowledged P2-03, P2-04, P2-05 and P2-06 (record internals are the
+  integrator's), asked for P2-02 in plain terms, and answered P2-01 in section 8 of the input.
+- Decision: 6.38 stays "analiza y propone": the integrator validates the tools a project incorporates and the
+  maintainer keeps the decision (P2-01 closed, no edit to the input). P2-02 is settled by the integrator as an
+  internal: `AGENTS.md` now says that only the entries of the record are append-only, and that `plan.md` and the
+  audit are maintained by the integrator. P2-04 and P2-06 stay as recorded in R-008. Phase 2 is closed.
+- Consequences: next is phase 3 (`plan.md`). The audit's traceability row for 6.38 keeps "moved"; the answer above
+  is the disposition of the narrowing.
+- Sources: R-008; the maintainer's section 8, item 8.1.2 (6.38); chat of session 3.
+- Supersedes: none.

@@ -279,26 +279,4 @@ Estas referencias complementan lo anterior. Su inclusión no constituye una deci
 
 ## Respuesta del integrador
 
-Soy Claude Code, con el modelo Opus 5.5 y esfuerzo alto, integrador de Fabrewk. Este barrido reemplaza la respuesta anterior.
-
-Comparé tu entrada con el texto propuesto en la auditoría: adoptaste todo, incluidas las cinco recomendaciones que necesitaban tu criterio, y no se perdió ninguna expectativa. Tus cambios propios son tres: el "COMO USAR", lo decidido de la sección 1 movido antes de la lista de capacidades, que se lee mejor, y la sección 8 como canal directo. Con esto la auditoría queda cerrada; falta la revisión independiente de Codex, que es el siguiente paso.
-
-### Recomendaciones para tu entrada
-
-- **"COMO USAR" (inicio del alambique).** Está bien ubicado y sí faltaba. Te propongo tres ajustes:
-  - Que hable de lo que haces tú. Hoy mezcla lo que haces tú (abrir un chat y pegar el prompt) con lo que hace el agente.
-  - Que no use el marcador `<NombreDelProyecto>`. En los pilotos anteriores, un texto de ejemplo terminó copiado al pie de la letra. Mejor escribe el prompt real de este proyecto y explica aparte que en otro proyecto cambia el nombre.
-  - Que incluya la regla de la sección 8 como canal. Es permanente, y la sección 8 se irá vaciando. Agrega también abrir un chat nuevo al terminar cada parte del trabajo, que es lo que ahorra coste.
-
-  Texto propuesto, para reemplazar tu párrafo:
-
-  > **Cómo usar este alambique.** Escribo arriba del separador lo que quiero para el proyecto. Lo que quiero añadir, quitar o tratar lo planteo en la sección 8, nuestro canal más directo. En cada barrido, el agente reemplaza su respuesta, debajo del separador, solo con lo indispensable: qué editar en mi entrada y dónde, cuando lleguemos a un acuerdo. Yo lo adopto con mis palabras y quito de la sección 8 lo ya resuelto.
-  >
-  > Al empezar cada sesión, al terminar cada parte del trabajo y ante cualquier duda (una interrupción, una respuesta inventada o un chat que se cuelga), abro un chat nuevo con el agente integrador y pego: `Eres el integrador de Fabrewk; empieza por brewstillery/STATUS.md`. En otro proyecto integrado a Fabrewk, el prompt es el mismo con el nombre de ese proyecto.
-
-- **Sección 8 (pendientes, adiciones o remociones).** Una vez que adoptes el texto de arriba, quita de la sección 8 tres cosas, porque ya están resueltas y registradas:
-  - la línea sobre tus respuestas a mis preguntas y la aceptación de la auditoría, que además tiene un ".," de más;
-  - el párrafo que define la sección como canal, que pasa al "Cómo usar";
-  - el párrafo que me pide revisar el "COMO USAR".
-
-  Quedan solo las dos tareas de la máquina: auditar `~/Dev/tmp` y el respaldo de configuración.
+- **Sección 8.** Tu decisión sobre el punto 6.38 (se queda "propone") ya está resuelta, así que no hay que editar el 6.38. Cuando quieras, quita de la sección 8 ese párrafo. Además hoy hay dos puntos numerados 8.1.2; si dejas solo el del respaldo de configuración, la numeración queda bien.
