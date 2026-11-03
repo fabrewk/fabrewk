@@ -279,4 +279,4 @@ Estas referencias complementan lo anterior. Su inclusión no constituye una deci
 
 ## Respuesta del integrador
 
-- **Sección 8.** Tu decisión sobre el punto 6.38 (se queda "propone") ya está resuelta, así que no hay que editar el 6.38. Cuando quieras, quita de la sección 8 ese párrafo. Además hoy hay dos puntos numerados 8.1.2; si dejas solo el del respaldo de configuración, la numeración queda bien.
+En este barrido no tengo recomendaciones para editar tu entrada.

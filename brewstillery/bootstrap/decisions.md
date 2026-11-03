@@ -627,3 +627,46 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Consequences: rule added to `AGENTS.md`; phase 5 decides the permanent version.
 - Sources: chat of session 3; commits `0d704bd` and `dc66a61`.
 - Supersedes: none.
+
+---
+
+## D-023 — Phase 3 split into parts 3a and 3b; permissions for phase 3
+
+- Status: decided
+- Decided: 2026-11-03
+- Origin: maintainer XEL in session 4's chat. The start message: "Te autorizo permiso de lectura sobre todo el
+  repositorio de tickbrew-harness." Then the answers to the integrator's three questions: "Dividir en 3a y 3b
+  (Recomendado)"; "Sí, en un clon desechable"; "Sí, los recibos y el paquete".
+- Decision: phase 3 is split where its inputs separate (D-019). Part 3a gives each file of `tickbrew-harness` a verdict
+  (reuse as design, rewrite, discard), in `brewstillery/bootstrap/harness-verdicts.md`. Part 3b turns the defects found
+  by past reviews into test cases, in its own chat. Codex reviews both parts together when phase 3 ends. The harness's
+  self-tests may run once in a disposable clone. For 3b the integrator may read, read-only, at `legacy-final`:
+  `docs/automation/receipts/FZ-2.md`, `docs/automation/receipts/FZ-2b.md` and
+  `docs/engineering/gates/FZ2B_DECISION_PACKET.md` of `/home/xel/Dev/TickBrew/tickbrew-legacy`.
+- Consequences: `plan.md` records the two parts. Part 3b's chat confirms these permissions with the maintainer at
+  its start, since authority is given in chat. Codex's review needs the maintainer's permission and budget, as in
+  phase 2.
+- Sources: chat of session 4; `brewstillery/bootstrap/plan.md`, phase 3 and the splitting rule.
+- Supersedes: none.
+
+## R-009 — Session 4, part 3a
+
+- Status: recorded
+- Date: 2026-11-03
+- Who: integrator Claude Code, `claude-opus-5-5`, effort high as the maintainer states it. No subagent, no dispatch,
+  no network.
+- Start checks: tree clean at `43f188c`; alambique input lines 1–274 sha256 `1ba1bf6d…9e5b`, separator lines 275–278,
+  found once (the maintainer's commit `0d704bd` removed the settled 6.38 paragraph and the duplicate 8.1.2);
+  `brewstillery/settings.toml` `05e9ba53…1397` and `brewstillery/xel/settings.toml` `1d2f11f3…1f33`, unchanged.
+- Read, read-only: every tracked file of `/home/xel/Dev/TickBrew/tickbrew-harness` at `0000bdc` (branch `gate/fz-2b`,
+  clean tree), whole; the subjects of its 21 commits and the three latest messages whole. Correction to R-001: the
+  repository tracks 40 files, not 38 (the two empty `__init__.py` were not counted); the 5,927 lines stand. In
+  `tickbrew-legacy`, only `git describe` and `git status` (at `legacy-final`, clean); no file opened.
+- Run, in a disposable clone of `0000bdc` in the session's scratch directory (D-023): the self-tests
+  (`python3 -I -m unittest discover -s tests -t .`), 198 passed in 63 s; `tools/size_count.py --check`, core 3,089 of
+  3,500, adapters 905 of 1,000; three probes written by the integrator, confirming H3A-01 to H3A-03 of
+  `harness-verdicts.md`. Python 3.14.8, Git 2.56.0, bubblewrap 0.12.0. The clone was deleted; nothing was written in
+  the original repository.
+- Written: `brewstillery/bootstrap/harness-verdicts.md`; this entry and D-023; `plan.md` (phase 3 parts);
+  `brewstillery/STATUS.md`; the answers zone of the alambique (no recommendation this sweep). The input is unchanged
+  by the integrator (digest above).
