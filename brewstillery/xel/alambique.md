@@ -291,4 +291,30 @@ Estas referencias complementan lo anterior. Su inclusión no constituye una deci
 
 ## Respuesta del integrador
 
-Sin recomendaciones en este barrido: adoptaste las que seguían vigentes. La frase que separaba las declaraciones de los casos de estudio de sus resultados comprobados ya la cubren tu regla del inicio (distinguir lo que deseas de lo que está verificado) y el punto 6.33, así que no hace falta recuperarla.
+Barrido de tus puntos 8.2 y 8.3, como pides en el 8.4. Primero mi opinión y mis críticas; al final, qué editar en tu entrada.
+
+### Sobre el punto 8.2 (núcleo en Rust con extensiones en otros lenguajes)
+
+Estoy de acuerdo con el fondo: un núcleo robusto y una capa modular donde las extensiones se escriban en Python, TypeScript u otro lenguaje. Eso ya cabe en tu punto 6.2 (núcleo pequeño, extensiones mediante adaptadores). Mis críticas, para que decidas con ellas:
+
+- Varias piezas que mencionas no están en el diseño actual: la indexación rápida de archivos, la base de datos vectorial, el bus de eventos y los sandboxes con Docker o WASM. El trabajo pesado (leer el código, buscar, razonar) lo hacen los agentes que Fabrewk lanza, como Claude Code y Codex, que ya indexan por su cuenta; lo que Fabrewk guarda es un registro pequeño de eventos. No encuentro hoy en tu entrada un requisito que pida un índice o una base vectorial. Si lo hay, por ejemplo la memoria entre sesiones del punto 6.39, conviene decirlo, porque cada pieza así agranda el núcleo, y que el núcleo creciera fue justo la lección de los pilotos anteriores (sección 4).
+- Rust tiene una ventaja real para Fabrewk: un solo programa por plataforma, sin intérprete, lo que facilita la instalación con `curl` y la portabilidad a macOS y Windows (punto 6.46). Su ventaja de velocidad pesa poco aquí, porque el tiempo lo consumen los agentes, que tardan minutos, no Fabrewk. Su costo es que escribirlo y revisarlo sale más caro. Además, tu sección 1 hoy propone un paquete de Python. Las dos opciones son viables y la decisión es tuya; te las presento lado a lado en el chat.
+- El esquema híbrido nació para TickBrew, un producto con otras necesidades. Traerlo a Fabrewk tal cual mezcla la arquitectura del producto con la del meta-harness (punto 6.1). Conviene decidirlo por lo que Fabrewk necesita.
+- Para la API local propongo empezar por lo más simple y más UNIX: el comando `fabrewk`, con una salida estructurada y estable, es el contrato, y cada extensión es un programa aparte que habla con él por la entrada y la salida estándar, como Git con sus subcomandos. Así sirve cualquier lenguaje, sin un servicio siempre encendido ni puertos abiertos. Un servicio con gRPC o WebSockets solo haría falta para lo que planteas en el 8.3, y puede llegar con él.
+- WASM sirve para aislar extensiones, no para encerrar a Claude Code o Codex, que necesitan el sistema operativo. Para ellos el diseño evalúa bubblewrap en Linux y su equivalente en cada sistema, con Docker como alternativa.
+
+### Sobre el punto 8.3 (servidor central al estilo X Window)
+
+Tu analogía es correcta: en X, las aplicaciones son los clientes y el servidor es la pantalla donde se ven; aquí cada Fabrewk sería un cliente y el tablero central, la pantalla. Me parece una buena adición para la supervisión y la colaboración del punto 6.47, y el registro que ya decidiste (archivos dentro de Git) la facilita: el servidor puede leer el registro de cada repositorio publicado sin inventar otro protocolo. Mis críticas:
+
+- El servidor debe mostrar, no mandar. La autoridad sigue en el registro de cada repositorio, para no crear una segunda fuente editable del mismo estado (punto 6.26). Si desde el tablero se autoriza o se acepta algo, esa acción debe llevar tu identidad y tus palabras y volver como entrada al registro del repositorio.
+- Enviar el registro a un servidor es publicarlo. Si un proyecto decide no publicar `brewstillery/`, conectarlo a la central contradice esa decisión, y Fabrewk debe avisarlo igual que en el punto 6.27.
+- Lo pondría en una etapa posterior al núcleo y al piloto, como pides para el paralelismo en el punto 6.16. Desde ahora el diseño solo tiene que dejarle la puerta abierta: que cada entrada del registro diga qué instancia la escribió y que las vistas tengan una salida estructurada estable.
+- No creo que sea "lo único que nos faltaría": los proyectos con que nos comparamos tienen muchas más piezas, y tu sección 4 pone por delante el software correcto y verificable. Lo veo como la siguiente pieza de valor una vez probado el núcleo.
+
+### Qué editar en tu entrada
+
+1. Sección 1, la frase de intención sobre el paquete de Python: si adoptas el núcleo en Rust, cámbiala por lo que decidas, porque hoy contradice el punto 8.2.
+2. Punto 8.2: escribe cada idea en su propia línea, con el problema que resuelve, para que cada una se evalúe por separado: el lenguaje del núcleo, las extensiones en cualquier lenguaje, la API local, el aislamiento de los agentes, la indexación con la base vectorial y el bus de eventos. En la indexación y la base vectorial, di qué necesidad cubren o quítalas. Donde dices "lo que tengas planeado en el diseño", toma en cuenta que esas piezas no están en él. Destino: las extensiones, como un punto nuevo de la sección 6 junto al 6.2 (por ejemplo 6.49); el lenguaje, a la decisión de arquitectura que sigue en el chat.
+3. Punto 8.3: llévalo a la sección 6 como un punto nuevo junto al 6.47, supervisión y colaboración (por ejemplo 6.50). Aclara tres cosas: qué se puede hacer desde el tablero (solo ver, o también autorizar y aceptar); qué significa "firmados" (una identidad comprobable de cada instancia, no un nombre que cualquiera pueda declarar); y que conectarse a la central es opcional, viene apagado y lo permite el archivo de settings del proyecto. Si el servidor vive en otro repositorio puede decidirse en su etapa.
+4. Punto 8.4: cuando adoptes lo anterior, quítalo de la sección 8.

@@ -5,6 +5,12 @@ Phase 5 deliverable, one part (D-030), written by the integrator in session 8. F
 answers in chat; each answer is then recorded in `decisions.md` with the maintainer's words, and this file marks it.
 Codex reviews this file for contradictions with the alambique before and after the maintainer decides.
 
+**State (session 8).** Codex accepted this file at its third pass (R-015). The maintainer decided AD-1 (option A), AD-2
+and AD-3 as recommended (D-031) and paused the rest for a sweep of input points 8.2 (a Rust core with extensions in
+other languages and a local API) and 8.3 (an optional central server). AD-4 to AD-11 stay open; AD-4 and AD-5 will be
+rewritten with those proposals as options, and a decision on the central server added, once the maintainer has acted on
+the sweep.
+
 How to read it. Each decision (AD-1 to AD-11) states what it settles and which alambique points and earlier decisions
 bind it, then the options, the recommendation and what the maintainer decides. Findings cited by key come from
 `harness-verdicts.md` (H3A, observations) and `reference-study.md` (PB, CA, PR, PP, IN, OT, UC, AP, SQ); the key is a

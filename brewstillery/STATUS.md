@@ -42,13 +42,19 @@ repository, is imported into the single registry at production and then stays re
   the consolidated source catalogue (6.30, 61 sources: studied, checked or pending). Codex (GPT-6.1 Sol, high) reviewed
   both: reject, two scoped re-checks, accept; every confirmed finding corrected. **Phase 4 closed (D-029).** UCI and
   apk-tools stay as design patterns only; their schema is out of scope (D-028).
-- **Next: phase 5, architecture decisions** (`plan.md`): options, consequences and a recommendation for each decision
-  of the packet (registry, settings, language classes, implementation language, core boundary and size budget,
-  command surface, safe installation, local unversioned area, licence), taking `harness-verdicts.md` and
-  `reference-study.md` as inputs. Whether it splits into parts is decided at its start (D-019). Start prompt:
+- **Phase 5 in progress, one part (D-030).** `brewstillery/bootstrap/architecture-decisions.md` gives options, consequences
+  and a recommendation for AD-1 to AD-11; Codex (GPT-6.1 Sol, high) accepted it at its third pass (R-015). Decided
+  (D-031): AD-1, the registry as immutable event files under `brewstillery/data/`; AD-2, settings in TOML with five
+  levels and authority read from a committed or confirmed policy; AD-3, the language classes. Licence criterion
+  (D-030): open source, able to live beside any open or closed product, obliging only credit; decided without a
+  professional.
+- **Paused for the maintainer.** The maintainer stopped the packet at AD-4 for a sweep of input points 8.2 (a Rust core
+  with extensions in other languages and a local API) and 8.3 (an optional central server with a dashboard). The
+  answers zone holds the integrator's opinion and four recommendations. **Next:** the maintainer acts on them; then the
+  integrator rewrites AD-4 and AD-5 with those proposals as options, adds a decision on the central server, and asks
+  for AD-4 to AD-11; Codex re-checks the recorded decisions against the alambique (plan row 5). Start prompt:
   `Eres el integrador de Fabrewk; empieza por brewstillery/STATUS.md`. Model and effort: Claude Code on Opus 5.5,
-  effort high; Codex GPT-6.1 Sol, effort high, reviews. At its start the maintainer confirms Codex's launch with its
-  budget, and whether the licence is decided with a professional.
+  effort high; Codex GPT-6.1 Sol, effort high, reviews, with its full budget (D-030).
 
 Carried without blocking, with destinations, in D-013. A phase that does not pass is corrected and retried; it
 never ends the project (D-003).

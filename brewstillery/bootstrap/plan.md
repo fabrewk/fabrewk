@@ -7,7 +7,8 @@ file in `brewstillery/bootstrap/`) and phase 2 (the bootstrap review merged with
 instead of two). Phase 0 is closed (D-013). Phase 1 is closed (D-018). Phase 2 is closed (D-021). Phase 3 was
 split into parts (D-023, section "Parts"); Codex's review accepted both (R-010) and it is closed (D-025). Phase 4 is
 split into parts 4a and 4b (D-026, section "Parts"); Codex's review accepted both (R-012) and it is closed (D-029). Phase 5 is
-not split (D-030): its deliverable is `brewstillery/bootstrap/architecture-decisions.md`.
+not split (D-030): its deliverable is `brewstillery/bootstrap/architecture-decisions.md`. AD-1 to AD-3 are decided (D-031);
+the rest waits for the sweep of input points 8.2 and 8.3.
 
 **Rule for every phase (alambique 6.48, D-003).** A phase that does not pass is corrected and retried; it never
 ends the project. Before each retry the progress measure is fixed (proposed: confirmed blocking findings, and

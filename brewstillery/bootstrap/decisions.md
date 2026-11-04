@@ -947,3 +947,67 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   marked unchecked in the phase deliverable. The deliverable is `brewstillery/bootstrap/architecture-decisions.md`.
 - Sources: chat of session 8; `brewstillery/bootstrap/plan.md`, phase 5; D-019.
 - Supersedes: none.
+
+## D-031 — Phase 5: registry, settings and languages decided; the packet paused for a sweep
+
+- Status: decided
+- Decided: 2026-11-04
+- Origin: maintainer XEL in session 8's chat, answering the integrator's questions on `architecture-decisions.md` after
+  Codex's review accepted it (R-015): AD-1 "A: archivos en el árbol (Recomendado)"; AD-2 "Adoptar tal cual
+  (Recomendado)"; AD-3 "Adoptar (Recomendado)". In place of an answer to AD-4: "DETENTE AQUÍ..!!! Creo que es imperante
+  que hagas un barrido previo al Alambique antes de continuar, porque hay muchas propuestas de diseño que pueden
+  modificar bastante tu plan arquitectónico. Registra de todas maneras lo ya respondido para integrarlo al plan que
+  resulte de nuestro consenso."
+- Decision: AD-1 option A: the registry's authority is immutable JSON event files under `brewstillery/data/`, replayed
+  into state, committed by Fabrewk only in the publication modes that allow it; no SQLite in the first core. AD-2 as
+  written: TOML never rewritten by Fabrewk; five levels (defaults, project, stage, task exception, and personal
+  preferences limited to preference keys); authority read from the base commit, from `brewstillery/`'s own repository,
+  or from a digest the responsible maintainer confirmed; detected values shown beside permitted ones and never stored;
+  the catalogue's three tables in the project file. AD-3 as written: the three language keys in use, plus
+  `codeLanguage`, `evidenceLanguage`, `delegationLanguage` (project) and `interfaceLanguage` (personal), optional and
+  inherited. AD-4 to AD-11 are paused until the maintainer has acted on the sweep of input points 8.2 (a Rust core with
+  extensions in other languages and a local API) and 8.3 (an optional central server with a dashboard).
+- Consequences: these three decisions enter the plan that results from the consensus on 8.2 and 8.3; if that consensus
+  changes one of them, the change is a new entry that supersedes this one. Points 8.2 and 8.3 reopen AD-4
+  (implementation language) and AD-5 (core boundary), and add a decision on the central server.
+- Sources: chat of session 8; `brewstillery/bootstrap/architecture-decisions.md` at `1f03deb`; the alambique input at
+  `ecb5958`, section 8.
+- Supersedes: none.
+
+## R-015 — Session 8, phase 5 options, Codex's review and the sweep of 8.2 and 8.3
+
+- Status: recorded
+- Date: 2026-11-04
+- Who: integrator Claude Code, `claude-opus-5-5`, effort high as the maintainer states it. Reviewer: Codex
+  `codex-cli 0.166.0`, `gpt-6.1-sol`, effort high, read-only sandbox, launched in this repository with
+  `codex exec --json`. No subagent, no network (D-030).
+- Start checks: tree clean at `21ba7b5`; alambique input lines 1–281 unchanged since R-014; separator found once.
+  Python 3.14.10 (3.14.8 in R-009), `uv` 0.13.5, Git 2.56.0, bubblewrap 0.12.0; `pipx` and the `sqlite3` command-line
+  tool absent.
+- Read: `STATUS.md`, `plan.md`, this file, the alambique, both settings files, `harness-verdicts.md`,
+  `reference-study.md`; licence texts under `/usr/share/licenses/` (Apache-2.0 in `abseil-cpp/LICENSE`, MIT in
+  `uv/LICENSE-MIT`); `uv tool install --help`. Nothing outside this repository otherwise.
+- Written: `brewstillery/bootstrap/architecture-decisions.md` (`7d2001c`), corrected in `4387a9f`, `2a14c8b` and
+  `1f03deb`; D-030, D-031 and this entry; `plan.md`; `STATUS.md`; the answers zone of the alambique.
+- Codex, pass 1, on `7d2001c`: 7 min 15 s; 46 commands, 2 non-zero exits; input 1,451,304 tokens (1,355,264 cached),
+  output 16,337 (12,390 reasoning). Verdict reject: two blocking findings, five minor, all confirmed by the integrator:
+  - P5-01 (blocking): committing events unconditionally broke the right not to publish `brewstillery/` (6.27). Commit
+    rules now depend on the publication mode (AD-1, AD-8, AD-11).
+  - P5-02 (blocking): the settings precedence lacked the stage level of 6.16. Added (AD-2).
+  - P5-03 to P5-07 (minor): alternatives for commands and installation; SQ-3's condition restored; one standard for
+    the three registry options; CA-6 no longer cited for unknown keys; Apache-2.0's NOTICE and patent wording narrowed
+    to its text.
+- Codex, pass 2, scoped to `7d2001c..2a14c8b`: 3 min 1 s; 34 commands, 2 non-zero exits; input 710,604 (628,736
+  cached), output 5,551. P5-01 to P5-07 closed; new P5-08 (blocking: no base commit exists when `brewstillery/` is
+  neither published nor in its own repository) and P5-09 (minor: an unchecked claim about pipx). Both confirmed and
+  corrected in `1f03deb`.
+- Codex, pass 3, scoped to `2a14c8b..1f03deb`: 55 s; 17 commands; input 256,363 (202,368 cached), output 1,930.
+  P5-08 and P5-09 closed, no new finding. **Verdict accept.**
+- Progress measure (D-003): confirmed blocking findings 2, then 1, then 0. Prompts, streams and last messages stay in
+  the session's scratch directory, not committed.
+- Input change during the session: the maintainer relabelled 8.1 and added 8.2, 8.3 and 8.4, committed alone with no AI
+  co-author in `ecb5958` (D-022). Separator lines 287–290, found once; input lines 1–286 sha256 `5f022423…55cd`. Codex's
+  passes did not read that edit (pass 3 was told to ignore it).
+- Sweep: the answers zone now holds the integrator's opinion on 8.2 and 8.3 and four recommendations for the input
+  (section 1's Python intent; 8.2 split by idea with the need of each; 8.3 as a new point of section 6 with three
+  clarifications; 8.4 removed once acted on). The input is unchanged by the integrator (digest above).
