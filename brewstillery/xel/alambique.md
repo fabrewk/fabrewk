@@ -279,4 +279,8 @@ Estas referencias complementan lo anterior. Su inclusión no constituye una deci
 
 ## Respuesta del integrador
 
-En este barrido no tengo recomendaciones para editar tu entrada.
+Tres recomendaciones para tu sección 7, a partir de lo comprobado en el estudio de referencias:
+
+1. **Sección 7b, los dos puentes entre agentes.** `openai/codex-plugin-cc` y `briandconnelly/amicus` ya tienen enlace comprobado: https://github.com/openai/codex-plugin-cc (el complemento oficial para usar Codex desde Claude Code) y https://github.com/briandconnelly/amicus (un solo servidor MCP que pide una segunda opinión a Codex, Kimi o Claude). Propongo que cambies "Sin enlace todavía; por comprobar" por esos enlaces y, si te parece, que digas de amicus que sirve de referencia para distinguir el agente que tú habilitas del que realmente está instalado y con sesión iniciada.
+2. **Sección 7b, Factory AI.** `factory.ai` ahora redirige a https://factory.com/. Propongo actualizar el enlace.
+3. **Sección 7d, HarnessBrew.** No gestiona recursos en general: es un gestor de paquetes, basado en Git, de habilidades, instrucciones y configuración MCP para Codex, que muestra los cambios antes de instalarlos y solo instala desde fuentes que confiaste. Propongo describirlo como referencia para instalar ese tipo de herramientas con vista previa, que es lo que interesa al punto 6.38 y a la instalación de la sección 1.

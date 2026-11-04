@@ -748,3 +748,50 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   `harness-verdicts.md` (observations for phase 5) and phase 6 takes `past-defect-cases.md` into its test plan.
 - Sources: chat of session 5; R-009; R-010; `brewstillery/bootstrap/plan.md`, phases 3 to 6.
 - Supersedes: none.
+
+---
+
+## D-026 — Phase 4 split into parts 4a and 4b; permissions for phase 4
+
+- Status: decided
+- Decided: 2026-11-03
+- Origin: maintainer XEL in session 6's chat, the start message: "Tienes autorizado permiso de red y la lista de
+  fuentes todo dentro de presupuesto. Si la fase no cabe en esta sesión, estas autorizado a dividirla." and "Usa Codex
+  GPT-6.1 Sol high para la revisión final."
+- Decision: network permission is granted for phase 4. "La lista de fuentes" is read as the sources plan row 4 names and
+  those of alambique sections 3 and 7, plus the references the earlier research had already analysed (alambique section
+  7, introduction). No amount was given; "todo dentro de presupuesto" is read as the session's own scope, with the rule
+  of D-003 if it runs out. The phase is split where its inputs separate (D-019): part 4a, the sources of section 7b and
+  below (Pullboard at source, catalogues and profiles 6.14 and 6.15, permitted versus present per D-015, installers that
+  preview their plan), delivered in `brewstillery/bootstrap/reference-study.md`; part 4b, section 7a (UCI, apk-tools,
+  SQLite) and the consolidated source catalogue (6.30), in its own chat. Codex (`gpt-6.1-sol`, effort high) reviews both
+  parts together when phase 4 ends, as "la revisión final".
+- Consequences: `plan.md` records the two parts. Part 4b's chat confirms network permission and Codex's launch with the
+  maintainer at its start, since authority is given in chat. Clones of external sources stay in the session's scratch
+  directory; nothing external is copied into this repository (plan row 4, "nothing copied").
+- Sources: chat of session 6; `brewstillery/bootstrap/plan.md`, phase 4 and the splitting rule; D-015; D-019.
+- Supersedes: none.
+
+## R-011 — Session 6, part 4a
+
+- Status: recorded
+- Date: 2026-11-03
+- Who: integrator Claude Code, `claude-opus-5-5`, effort high as the maintainer states it. No subagent, no dispatch.
+  Network used under D-026: `git` over HTTPS, the GitHub API through `gh` (account `xel-arjona`, read-only calls), a
+  summarizing web-fetch tool and one web search.
+- Start checks: tree clean at `b152acc`; alambique input lines 1–274 sha256 `1ba1bf6d…9e5b`, separator lines 275–278,
+  found once; `brewstillery/settings.toml` `05e9ba53…1397` and `brewstillery/xel/settings.toml` `1d2f11f3…1f33`,
+  unchanged. The `sqlite3` command-line tool is still absent.
+- Read, local and read-only: the four files alambique section 3 cites in `/home/xel/Dev/TickBrew/meta-harness/`
+  (`EVALUATION.md`, `comparison.csv`, `SOURCES.md`, `CONTEXT_PROYECTO_IA_GITHUB.md`), whole. Its other files
+  (`AW1_*`, `PILOT_PLAN.md`, `VALIDATION.md`, `evidence/`) were listed, not opened.
+- Pinned on 2026-11-04 00:33 UTC (2026-11-03 18:33 local): the default-branch head of 29 GitHub repositories and of
+  `gitlab.alpinelinux.org/alpine/apk-tools` and `git.openwrt.org/project/uci.git`, with each repository's default branch,
+  archived flag and licence. The revisions and what was read are in `reference-study.md`, section 1.
+- Cloned, read-only, never executed: 17 repositories at those heads, shallow, blobs over 2 MB filtered, in the session's
+  scratch directory; deleted with it. Two Bash calls were refused by a transient failure of the auto-mode check; the
+  same reads were done with the file reader.
+- Written: `brewstillery/bootstrap/reference-study.md`; this entry and D-026; `plan.md` (phase 4 parts);
+  `brewstillery/STATUS.md`; the answers zone of the alambique (three recommendations for section 7). The input is
+  unchanged by the integrator (digest above).
+- Not done in part 4a: Codex's review (at the end of phase 4, D-026); section 7a and the consolidated catalogue (4b).

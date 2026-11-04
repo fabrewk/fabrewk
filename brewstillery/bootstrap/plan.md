@@ -5,7 +5,8 @@ Two amendments made after that approval were confirmed by the maintainer (D-012)
 maintainer's alambique, requested in the alambique's section 8, answer 4; its proposed text is delivered as a separate
 file in `brewstillery/bootstrap/`) and phase 2 (the bootstrap review merged with the audit's review, one dispatch
 instead of two). Phase 0 is closed (D-013). Phase 1 is closed (D-018). Phase 2 is closed (D-021). Phase 3 was
-split into parts (D-023, section "Parts"); Codex's review accepted both (R-010) and it is closed (D-025).
+split into parts (D-023, section "Parts"); Codex's review accepted both (R-010) and it is closed (D-025). Phase 4 is
+split into parts 4a and 4b (D-026, section "Parts").
 
 **Rule for every phase (alambique 6.48, D-003).** A phase that does not pass is corrected and retried; it never
 ends the project. Before each retry the progress measure is fixed (proposed: confirmed blocking findings, and
@@ -49,3 +50,11 @@ reviews both together when phase 3 ends. Done in session 5 (D-024, R-010): three
 | --- | --- | --- | --- | --- |
 | 3a | `harness-verdicts.md`: a verdict and reason per file | `tickbrew-harness` at `0000bdc`; its self-tests once in a disposable clone | Each of the 40 tracked files has a verdict and a reason | Done, session 4 (R-009) |
 | 3b | The defects found by past reviews as test cases | The finding keys listed at the end of `harness-verdicts.md`; the review sections of the FZ-2 and FZ-2b receipts and the FZ-2b decision packet in `tickbrew-legacy` | Each confirmed past defect has a test case stated against Fabrewk's behaviour | Done, session 5 (R-010): `past-defect-cases.md` |
+
+**Phase 4 (D-026).** Split where its inputs separate. Both parts run on Opus 5.5, effort high; Codex (GPT-6.1 Sol),
+effort high, reviews both together when phase 4 ends. Network permission given at the start of session 6.
+
+| Part | Delivers | Inputs | Acceptance (checkable) | State |
+| --- | --- | --- | --- | --- |
+| 4a | `reference-study.md`, sections 1–9: Pullboard at source; catalogues and profiles (6.14, 6.15); permitted versus present (D-015); installers that preview their plan | The sources of alambique section 7b and below, pinned; the four files of the earlier research cited in section 3 | Each source read with revision, date and what was read; each finding tied to an alambique point and a destination; nothing copied | Done, session 6 (R-011) |
+| 4b | 7a in `reference-study.md` (UCI 6.10, apk-tools, SQLite 6.26 and 6.27) and the consolidated source catalogue (6.30): studied, verified, pending, with pinned revisions | The 7a sources (pinned in R-011 and re-checked); the earlier research's source list; part 4a | Same as 4a, plus every source of alambique sections 3 and 7 and of the earlier research in the catalogue with its status; then Codex's review of 4a and 4b with no confirmed blocking finding open | Next |

@@ -36,10 +36,15 @@ repository, is imported into the single registry at production and then stays re
   confirmed defect found by past reviews, and the three found in 3a, is a test case against Fabrewk's behaviour in
   `brewstillery/bootstrap/past-defect-cases.md` (46 cases). Codex (GPT-6.1 Sol, high) reviewed both: reject, two
   scoped re-checks, accept; every confirmed finding corrected.
-- **Next: phase 4**, the study of references (`plan.md`, row 4), which depends only on phase 0. Start prompt:
-  `Eres el integrador de Fabrewk; empieza por brewstillery/STATUS.md`. Model and effort (`plan.md`): Claude Code on Opus 5.5, effort high; Codex, effort high, reviews it. Decisions the maintainer gives
-  at its start: network permission, the list of sources and the budget; the integrator proposes a split into parts if
-  it does not fit one session (D-019).
+- **Phase 4 in progress, split into 4a and 4b (D-026).** Part 4a done (R-011): `brewstillery/bootstrap/reference-study.md`
+  covers the sources of section 7b and below, pinned: Pullboard at source, catalogues and profiles of agents (6.14,
+  6.15), what is permitted apart from what is present (D-015) and installers that preview their plan. Not yet reviewed
+  by Codex.
+- **Next: part 4b** (`plan.md`, section "Parts"): section 7a (UCI, apk-tools, SQLite) in the same file, the
+  consolidated source catalogue (6.30), then Codex's review of 4a and 4b together. Start prompt:
+  `Eres el integrador de Fabrewk; empieza por brewstillery/STATUS.md`. Model and effort: Claude Code on Opus 5.5,
+  effort high; Codex GPT-6.1 Sol, effort high, reviews. At its start the maintainer confirms network permission and
+  Codex's launch with its budget.
 
 Carried without blocking, with destinations, in D-013. A phase that does not pass is corrected and retried; it
 never ends the project (D-003).
