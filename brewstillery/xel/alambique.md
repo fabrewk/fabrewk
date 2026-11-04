@@ -222,8 +222,8 @@ Estas referencias complementan lo anterior. Su inclusión no constituye una deci
 ### 7a. Configuración, modularidad y almacenamiento
 
 - UNIX / Linux: referencia conceptual para composición de herramientas, modularidad y responsabilidades delimitadas.
-- OpenWrt y UCI: https://openwrt.org/ — Referencia para configuración consistente y administración de servicios.
-- apk-tools: https://gitlab.alpinelinux.org/alpine/apk-tools — Referencia para estudiar distribución, actualización y dependencias de componentes.
+- OpenWrt y UCI:  "Unified Configuration Interface", es un sistema para centralizar la configuración de servicios en OpenWrt. Es el sucesor de la configuración basada en NVRAM, opera como la principal interface de usuario para configurar los settings mas importntes del sistema. Su esquema y usabilidad no va enfocado a Fabrewk sino a Tickbrewk, sale del scope de este proyecto.
+- apk-tools: https://gitlab.alpinelinux.org/alpine/apk-tools — Referencia para estudiar distribución, actualización y dependencias de componentes.  Su esquema y usabilidad no va enfocado a Fabrewk sino a TickBrew, sale del scope de este proyecto.
 - SQLite: https://www.sqlite.org/ — Alternativa para evaluar persistencia estructurada del estado de Fabrewk.
 
 ### 7b. Meta-harnesses y coordinación del desarrollo
@@ -247,20 +247,27 @@ Estas referencias complementan lo anterior. Su inclusión no constituye una deci
 
 ### 7c. Casos de estudio, documentación y herramientas de trabajo
 
-- OpenAI Harness Engineering, Stripe Minions, StrongDM Software Factory, Gailleur Labs / Domi y CodePrism: casos mencionados en la investigación sobre desarrollo con agentes. Separar declaraciones de sus responsables de resultados verificados; no tratarlos como herramientas equivalentes.
-- awesome-software-factories: https://github.com/varun1505/awesome-software-factories — Colección para descubrir referencias que después deben comprobarse en sus fuentes originales.
+- OpenAI Harness Engineering - https://openai.com/index/harness-engineering/.
+- Stripe Minions - https://stripe.dev/blog/minions-stripes-one-shot-end-to-end-coding-agents
+- StrongDM - https://factory.strongdm.ai/
+- Domi de Gailleur Labs - https://www.gailleur.com/ai-first-software-factory
+- CodePrism - https://github.com/rustic-ai/codeprism.
+- Awesome-software-factories: https://github.com/varun1505/awesome-software-factories — Colección para descubrir referencias que después deben comprobarse en sus fuentes originales.
 - Diátaxis y Write the Docs: referencias para organizar documentación útil y comprensible.
 - Mermaid: referencia para diagramas mantenidos como texto.
 - markdownlint-cli2, Lychee y Vale: herramientas propuestas para formato, enlaces y consistencia editorial; su incorporación requiere evaluación.
 - W3C WAI: referencia para accesibilidad de documentación y contenido visual.
 - Git, GitHub, VS Code, Claude Code, OpenAI Codex y OpenCode: herramientas de trabajo cuyo papel, configuración y límites deben quedar documentados sin confundirlos con la autoridad del proyecto.
 - bubblewrap: aislamiento que usó `tickbrew-harness` para encerrar a cada agente en una copia del trabajo; por evaluar para Fabrewk.
+- PhotoCraft https://github.com/storytold/photocraft - Su modelo de cómo documenta sus reglas para agentes es útil como referencia.
+- OpenAlgo https://github.com/marketcalls/openalgo - Su escritura par reglas de negocio que los agentes no deben romper nos puede ser útil como referencia.
 
 ### 7d. Otras fuentes descubiertas
 
 - HarnessBrew: https://github.com/anzihenry/HarnessBrew — Es un gestor de paquetes, basado en Git, de habilidades, instrucciones y configuración MCP para Codex, que muestra los cambios antes de instalarlos y solo instala desde fuentes que confiaste. Puede servirnos como referencia para instalar ese tipo de herramientas con vista previa, que es lo que interesa al punto 6.38 y a la instalación de la sección 1.
 - BrewStillery: https://github.com/paul-jewell/BrewStillery — Coincidencia de nombre; es una aplicación de otro ámbito y no un candidato de meta-harness. Su registro evita confundir esa fuente con nuestro directorio `brewstillery/`.
-- Vecinos de nicho encontrados en la investigación del nombre (2026-11-02), por estudiar y distinguir de Fabrewk: Fabrika (https://tatiyants.com/fabrika-software-factory/), fabriqa.ai (https://fabriqa.ai/), Fabro (https://github.com/fkukuck/fabro) y Fabric de Daniel Miessler (paquete `fabric-ai`).
+- Vecinos de nicho encontrados en la investigación del nombre (2026-11-02), por estudiar y distinguir de Fabrewk: Fabrika (https://tatiyants.com/fabrika-software-factory/), fabriqa.ai (https://fabriqa.ai/), Fabro (https://github.com/fkukuck/fabro) y Fabric de Daniel Miessler (paquete `fabric-ai` es el nombre con el que se instala en Homebrew, Arch y Scoop; no existe como paquete de Python).
+- Superpowers https://github.com/obra/superpowers - Descartado por TickBrew en su primer legacy.
 
 ## 8. Pendientes, adiciones o remociones
 
