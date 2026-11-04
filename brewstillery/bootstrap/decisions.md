@@ -911,3 +911,17 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Written: D-028, D-029 and this entry; `reference-study.md` (section 10 scope note, rows C-07 and C-11); `plan.md`
   (phase 4 closed); `brewstillery/STATUS.md`; the answers zone of the alambique. The input is unchanged by the
   integrator (digest above).
+
+## R-014 — Session 7, final sweep
+
+- Status: recorded
+- Date: 2026-11-03
+- Who: integrator Claude Code, `claude-opus-5-5`, effort high.
+- Input change: the maintainer adopted the answers zone's recommendations (6.10 without the UCI-inspired schema; the UCI
+  line with its source link and corrected typos; the 7c links and OpenAlgo's typo; Superpowers' reason), committed alone
+  in `4bdb997` (D-022). Separator lines 282–285, found once; input lines 1–281 sha256 `5aa13fd1…7861`. Settings files
+  unchanged.
+- Not adopted: restoring the 7c sentence that separates the case studies' claims from verified results. The integrator
+  withdrew it: the alambique's opening rule (distinguish what is wanted from what is verified, check claims about
+  external projects) and 6.33 already hold that expectation.
+- Written: this entry; the answers zone (no recommendation this sweep). The input is unchanged by the integrator.

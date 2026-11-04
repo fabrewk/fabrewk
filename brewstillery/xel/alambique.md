@@ -286,9 +286,4 @@ Estas referencias complementan lo anterior. Su inclusión no constituye una deci
 
 ## Respuesta del integrador
 
-Cuatro recomendaciones, a partir de tu última edición de la sección 7:
-
-1. **Punto 6.10, el esquema inspirado en UCI.** Tu sección 7a deja ahora UCI fuera del alcance de Fabrewk, pero el punto 6.10 todavía propone evaluar "un esquema inspirado en UCI". Como acordamos conservar de UCI y de apk-tools solo sus patrones (una dirección estable para cada valor de configuración, cambios que se muestran antes de guardarse, lo que se pide separado de lo que está instalado), propongo dejar en 6.10 "TOML, JSON u otro formato de texto estructurado". Si quieres conservar el antecedente, puedes decir en 7a que de UCI y apk-tools solo se toman patrones de diseño.
-2. **Sección 7a, la línea de UCI.** Tu descripción es correcta: la documentación de OpenWrt dice que UCI sucedió a la configuración basada en NVRAM y que es su interfaz principal de configuración. La línea perdió su enlace; propongo añadir el del código que se estudió, https://git.openwrt.org/project/uci.git. Tres erratas: "Tickbrewk" por "TickBrew", "importntes" por "importantes" e "interface" por "interfaz".
-3. **Sección 7c, los casos de estudio.** Al poner los enlaces se perdió la frase que pedía separar lo que declaran sus responsables de lo que está comprobado y no tratarlos como herramientas equivalentes. Propongo recuperarla antes de los cinco casos. Además, quita el punto final pegado a los enlaces de OpenAI y CodePrism, porque rompe el enlace, y en OpenAlgo cambia "par" por "para".
-4. **Sección 7d, Superpowers.** "Descartado por TickBrew en su primer legacy" no dice por qué. La investigación previa registra que TickBrew lo descartó por el hook de metodología que instala. Propongo: "Descartado en TickBrew por el hook de metodología que instala".
+Sin recomendaciones en este barrido: adoptaste las que seguían vigentes. La frase que separaba las declaraciones de los casos de estudio de sus resultados comprobados ya la cubren tu regla del inicio (distinguir lo que deseas de lo que está verificado) y el punto 6.33, así que no hace falta recuperarla.
