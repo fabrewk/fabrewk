@@ -4,8 +4,9 @@ Approved by the maintainer XEL in session 1's chat ("No veo objeciones a tu prop
 Two amendments made after that approval were confirmed by the maintainer (D-012): phase 1 (audit of the
 maintainer's alambique, requested in the alambique's section 8, answer 4; its proposed text is delivered as a separate
 file in `brewstillery/bootstrap/`) and phase 2 (the bootstrap review merged with the audit's review, one dispatch
-instead of two). Phase 0 is closed (D-013). Phase 1 is closed (D-018). Phase 2 is closed (D-021). Phase 3 is
-split into parts (D-023, section "Parts").
+instead of two). Phase 0 is closed (D-013). Phase 1 is closed (D-018). Phase 2 is closed (D-021). Phase 3 was
+split into parts (D-023, section "Parts"); both are delivered and Codex's review accepted them (R-010), and its
+closure waits for the maintainer's word.
 
 **Rule for every phase (alambique 6.48, D-003).** A phase that does not pass is corrected and retried; it never
 ends the project. Before each retry the progress measure is fixed (proposed: confirmed blocking findings, and
@@ -43,9 +44,9 @@ their availability is not verified.
 ## Parts
 
 **Phase 3 (D-023).** Split where its inputs separate. Both parts run on Opus 5.5, effort high; Codex, effort high,
-reviews both together when phase 3 ends.
+reviews both together when phase 3 ends. Done in session 5 (D-024, R-010): three passes, accept at the third.
 
 | Part | Delivers | Inputs | Acceptance (checkable) | State |
 | --- | --- | --- | --- | --- |
 | 3a | `harness-verdicts.md`: a verdict and reason per file | `tickbrew-harness` at `0000bdc`; its self-tests once in a disposable clone | Each of the 40 tracked files has a verdict and a reason | Done, session 4 (R-009) |
-| 3b | The defects found by past reviews as test cases | The finding keys listed at the end of `harness-verdicts.md`; the review sections of the FZ-2 and FZ-2b receipts and the FZ-2b decision packet in `tickbrew-legacy` | Each confirmed past defect has a test case stated against Fabrewk's behaviour | Next |
+| 3b | The defects found by past reviews as test cases | The finding keys listed at the end of `harness-verdicts.md`; the review sections of the FZ-2 and FZ-2b receipts and the FZ-2b decision packet in `tickbrew-legacy` | Each confirmed past defect has a test case stated against Fabrewk's behaviour | Done, session 5 (R-010): `past-defect-cases.md` |

@@ -670,3 +670,66 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Written: `brewstillery/bootstrap/harness-verdicts.md`; this entry and D-023; `plan.md` (phase 3 parts);
   `brewstillery/STATUS.md`; the answers zone of the alambique (no recommendation this sweep). The input is unchanged
   by the integrator (digest above).
+
+## D-024 — Permissions for part 3b and Codex's review of phase 3
+
+- Status: decided
+- Decided: 2026-11-03
+- Origin: maintainer XEL in session 5's chat, the start message: "Te autorizo permisos de lectura para: tickbrew-harness
+  y de tickbrew-legacy." and "Tienes plena autorización de ejecutar Codex (GPT-6.1 Sol High) para revisa la fase 3
+  completa."
+- Decision: D-023's read permission is confirmed for part 3b. The grant names `tickbrew-legacy` without a file list;
+  the integrator used it as D-023 states it, the three named files only, and gave Codex the same limit. Codex
+  (`gpt-6.1-sol`, effort high) reviews parts 3a and 3b together. "Plena autorización" is read as a full review and
+  scoped re-checks of the corrections until no confirmed blocking finding is open, within the phase-rule of D-003.
+- Consequences: three Codex passes in session 5 (R-010). Any wider reading of `tickbrew-legacy` needs the maintainer's
+  words naming it.
+- Sources: chat of session 5; D-023; `brewstillery/bootstrap/plan.md`, phase 3.
+- Supersedes: none.
+
+## R-010 — Session 5, part 3b and Codex's review of phase 3
+
+- Status: recorded
+- Date: 2026-11-03
+- Who: integrator Claude Code, `claude-opus-5-5`, effort high as the maintainer states it. Reviewer: Codex
+  `codex-cli 0.166.0`, `gpt-6.1-sol`, effort high, read-only sandbox, launched in this repository with
+  `codex exec --json`; the stream names no model. No subagent, no network for the integrator.
+- Start checks: tree clean at `e319f67`; alambique input lines 1–274 sha256 `1ba1bf6d…9e5b`, separator lines 275–278,
+  found once; `brewstillery/settings.toml` `05e9ba53…1397` and `brewstillery/xel/settings.toml` `1d2f11f3…1f33`,
+  unchanged. `tickbrew-harness` at `0000bdc` (branch `gate/fz-2b`, clean); `tickbrew-legacy` at `legacy-final`, clean.
+- Read, read-only: in `tickbrew-legacy`, whole, `docs/automation/receipts/FZ-2.md` (774 lines),
+  `docs/automation/receipts/FZ-2b.md` (707) and `docs/engineering/gates/FZ2B_DECISION_PACKET.md` (103). In
+  `tickbrew-harness`: the finding keys across its files (by search), the message of `c569e29` (FX-1 to FX-8), the
+  subjects of its commits, and the test classes, names and bodies that hold each finding's variants
+  (`tests/test_review_fixes.py`, `test_hardening.py`, `test_disposition.py`, `adapters/test_adapters.py`,
+  `test_machine.py`, `test_state.py`), and lines of `orchestrate.py`, `gitops.py`, `config.py`, `machine.py`,
+  `adapters/agents.py` and `docs/DESIGN.md` to check the review's findings. Nothing was run in either repository.
+- Written: `brewstillery/bootstrap/past-defect-cases.md` (commit `2e6e9cf`), checked by script: every finding key in
+  the three legacy files and the harness appears in it.
+- Codex, pass 1, on `2e6e9cf`: 7 min 15 s; 41 commands, none failed; input 4,389,128 tokens (4,162,304 cached), output
+  17,127 (9,986 reasoning); stderr only a timed-out model-list refresh. Verdict reject: five blocking findings, seven
+  minor. Every one checked by the integrator against the sources and confirmed:
+  - P3-01 (blocking): the moved-base corner was excluded though confirmed. Added as PD-44.
+  - P3-02 (blocking): the candidate's missing co-author line had no case. Added as PD-45.
+  - P3-03 (blocking): C7C-9 and the commit made with a red test were excluded as conduct. C7C-9 joined PD-43; PD-46
+    added. C7C-10 stays excluded (ignored files only).
+  - P3-04 (blocking): PD-29 forbade agents' validated outputs in the log. Narrowed to raw diagnostic channels.
+  - P3-05 (blocking): `harness-verdicts.md` said tool, provider and model were one name; the model and effort are
+    separate fields. Corrected in the `agents.py` row and the observation.
+  - P3-06 to P3-11 (minor): H3A-02 also halts as `NO_CHANGE` when the mode change is alone (verdicts and PD-20); the
+    reducer's refusal relies on its copy, not on refusing before any change; `gitops.py` parses porcelain output on
+    newlines in two places; the count's unit; PD-41 restated with the maintainer's later confirmation; PD-19 and PD-21
+    made consistent. All corrected.
+  - P3-12 (minor): this entry did not exist yet; settled by writing it.
+  Corrections in commit `e48c22d`. `harness-verdicts.md` is a phase deliverable, not a record entry, so it was
+  corrected in place.
+- Codex, pass 2, scoped to `2e6e9cf..e48c22d`: 2 min 2 s; 13 commands; input 338,540 (278,144 cached), output 5,340.
+  P3-01 to P3-11 closed. New: P3-13 (blocking, PD-44 allowed a stop PD-14 forbids) and P3-14 (minor, section K's
+  attribution of C7C-9). Both confirmed and corrected in `d5cac90`.
+- Codex, pass 3, scoped to `e48c22d..d5cac90`: 10 commands; input 160,454 (122,496 cached), output 1,352. P3-13 and
+  P3-14 closed, no new finding. **Verdict accept.**
+- Progress measure (D-003): confirmed blocking findings 5, then 1, then 0. The prompts, streams and last messages of
+  the three passes stay in the session's scratch directory, not committed.
+- Result: phase 3's acceptance holds as reviewed: each of the 40 files has a verdict and a reason, and each confirmed
+  past defect has a test case (46 cases, PD-26 with 20 sub-cases). The input is unchanged by the integrator (digest
+  above); the answers zone has no recommendation this sweep.
