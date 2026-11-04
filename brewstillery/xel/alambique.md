@@ -113,7 +113,7 @@ Fabrewk tiene la tarea como unidad de trabajo (6.28). Cómo se agrupan las tarea
 
 ### Configuración y autoridad (6.10–6.13)
 
-**6.10. Configuración separada y comprensible:** Mantener los settings fuera del alambique, en archivos dedicados. Para el bootstrap hay dos archivos: `brewstillery/settings.toml`, del proyecto, y el `settings.toml` de cada mantenedor. Evaluar después TOML, JSON, un esquema inspirado en UCI u otro formato de texto estructurado según claridad, validación, portabilidad y mantenimiento. Definir dónde viven la configuración del proyecto, que incluye los permisos generales (punto 6.11), y las preferencias individuales. Cada dato debe tener una ubicación canónica; una vista individual podrá mostrar valores heredados sin duplicarlos como configuraciones independientes.
+**6.10. Configuración separada y comprensible:** Mantener los settings fuera del alambique, en archivos dedicados. Para el bootstrap hay dos archivos: `brewstillery/settings.toml`, del proyecto, y el `settings.toml` de cada mantenedor. Evaluar después TOML, JSON u otro formato de texto estructurado según claridad, validación, portabilidad y mantenimiento. Definir dónde viven la configuración del proyecto, que incluye los permisos generales (punto 6.11), y las preferencias individuales. Cada dato debe tener una ubicación canónica; una vista individual podrá mostrar valores heredados sin duplicarlos como configuraciones independientes.
 
 **6.11. Preferencias personales y políticas del proyecto:** Distinguir lo que un mantenedor puede personalizar —idioma de interacción, presentación u otras preferencias— de las políticas que requieren autoridad del proyecto. Definir una precedencia clara entre la configuración del proyecto, las preferencias individuales y las excepciones por tarea. Una preferencia personal nunca debe ampliar permisos ni modificar silenciosamente criterios de aceptación, proveedores autorizados o límites de ejecución. Antes de trabajar, Fabrewk debe poder mostrar la configuración efectiva y la procedencia de sus valores. La configuración del proyecto es donde el mantenedor responsable define los permisos generales que da a los agentes, incluidos los que dependen de lo que tenga configurado en su equipo (como los MCP) y si los agentes pueden modificar sus propios settings cuando ese mantenedor lo pida, según lo permita cada agente y su interfaz (decidido). Como idea de inicio, se separa lo que se permite de lo que existe: el archivo del proyecto dice qué se permite, lo que hay en cada equipo se detecta al iniciar y se muestra en la configuración efectiva sin guardarse como otra configuración, y los valores por defecto de Fabrewk quedan por debajo del proyecto. El diseño final se decide después de estudiar cómo resuelven esto otros proyectos.
 
@@ -222,7 +222,7 @@ Estas referencias complementan lo anterior. Su inclusión no constituye una deci
 ### 7a. Configuración, modularidad y almacenamiento
 
 - UNIX / Linux: referencia conceptual para composición de herramientas, modularidad y responsabilidades delimitadas.
-- OpenWrt y UCI:  "Unified Configuration Interface", es un sistema para centralizar la configuración de servicios en OpenWrt. Es el sucesor de la configuración basada en NVRAM, opera como la principal interface de usuario para configurar los settings mas importntes del sistema. Su esquema y usabilidad no va enfocado a Fabrewk sino a Tickbrewk, sale del scope de este proyecto.
+- OpenWrt y UCI:  https://git.openwrt.org/project/uci.git "Unified Configuration Interface", es un sistema para centralizar la configuración de servicios en OpenWrt. Es el sucesor de la configuración basada en NVRAM, opera como la principal interfaz de usuario para configurar los settings mas importantes del sistema. Su esquema y usabilidad no va enfocado a Fabrewk sino a TickBrew, sale del scope de este proyecto.
 - apk-tools: https://gitlab.alpinelinux.org/alpine/apk-tools — Referencia para estudiar distribución, actualización y dependencias de componentes.  Su esquema y usabilidad no va enfocado a Fabrewk sino a TickBrew, sale del scope de este proyecto.
 - SQLite: https://www.sqlite.org/ — Alternativa para evaluar persistencia estructurada del estado de Fabrewk.
 
@@ -247,11 +247,11 @@ Estas referencias complementan lo anterior. Su inclusión no constituye una deci
 
 ### 7c. Casos de estudio, documentación y herramientas de trabajo
 
-- OpenAI Harness Engineering - https://openai.com/index/harness-engineering/.
+- OpenAI Harness Engineering - https://openai.com/index/harness-engineering/
 - Stripe Minions - https://stripe.dev/blog/minions-stripes-one-shot-end-to-end-coding-agents
 - StrongDM - https://factory.strongdm.ai/
 - Domi de Gailleur Labs - https://www.gailleur.com/ai-first-software-factory
-- CodePrism - https://github.com/rustic-ai/codeprism.
+- CodePrism - https://github.com/rustic-ai/codeprism
 - Awesome-software-factories: https://github.com/varun1505/awesome-software-factories — Colección para descubrir referencias que después deben comprobarse en sus fuentes originales.
 - Diátaxis y Write the Docs: referencias para organizar documentación útil y comprensible.
 - Mermaid: referencia para diagramas mantenidos como texto.
@@ -260,14 +260,14 @@ Estas referencias complementan lo anterior. Su inclusión no constituye una deci
 - Git, GitHub, VS Code, Claude Code, OpenAI Codex y OpenCode: herramientas de trabajo cuyo papel, configuración y límites deben quedar documentados sin confundirlos con la autoridad del proyecto.
 - bubblewrap: aislamiento que usó `tickbrew-harness` para encerrar a cada agente en una copia del trabajo; por evaluar para Fabrewk.
 - PhotoCraft https://github.com/storytold/photocraft - Su modelo de cómo documenta sus reglas para agentes es útil como referencia.
-- OpenAlgo https://github.com/marketcalls/openalgo - Su escritura par reglas de negocio que los agentes no deben romper nos puede ser útil como referencia.
+- OpenAlgo https://github.com/marketcalls/openalgo - Su escritura para reglas de negocio que los agentes no deben romper nos puede ser útil como referencia.
 
 ### 7d. Otras fuentes descubiertas
 
 - HarnessBrew: https://github.com/anzihenry/HarnessBrew — Es un gestor de paquetes, basado en Git, de habilidades, instrucciones y configuración MCP para Codex, que muestra los cambios antes de instalarlos y solo instala desde fuentes que confiaste. Puede servirnos como referencia para instalar ese tipo de herramientas con vista previa, que es lo que interesa al punto 6.38 y a la instalación de la sección 1.
 - BrewStillery: https://github.com/paul-jewell/BrewStillery — Coincidencia de nombre; es una aplicación de otro ámbito y no un candidato de meta-harness. Su registro evita confundir esa fuente con nuestro directorio `brewstillery/`.
 - Vecinos de nicho encontrados en la investigación del nombre (2026-11-02), por estudiar y distinguir de Fabrewk: Fabrika (https://tatiyants.com/fabrika-software-factory/), fabriqa.ai (https://fabriqa.ai/), Fabro (https://github.com/fkukuck/fabro) y Fabric de Daniel Miessler (paquete `fabric-ai` es el nombre con el que se instala en Homebrew, Arch y Scoop; no existe como paquete de Python).
-- Superpowers https://github.com/obra/superpowers - Descartado por TickBrew en su primer legacy.
+- Superpowers https://github.com/obra/superpowers - Descartado por TickBrew en su primer legacy por el hook de metodología que instala.
 
 ## 8. Pendientes, adiciones o remociones
 
