@@ -330,8 +330,8 @@ agent can follow, both reaching the same command) and how it enters a repository
 | A standalone binary per platform | No Python needed | Only practical with a compiled language (AD-4), or with a bundler that adds a large build dependency |
 | Distribution packages (Homebrew, AUR, Fedora) | Native updates | One recipe per system to maintain; later, once there are users who ask for them |
 
-**Options for entering a repository.** Writing first and reporting after, idempotently (Pullboard, PB-10), was found and
-is excluded by D-006. A dry run that is optional (apk, AP-2) leaves the preview to the person's memory. A plan with its
+**Options for entering a repository.** Writing first and reporting after, even idempotently (Pullboard, PB-10), is
+excluded by D-006. A dry run that is optional (apk, AP-2) leaves the preview to the person's memory. A plan with its
 identity, confirmed and then applied only if unchanged (RSC-Harness, IN-1), is the one that meets D-006 as written.
 
 **Recommendation.**
