@@ -56,7 +56,8 @@ What the earlier work leaves: the harness kept an append-only event log as the o
 every write guarded by compare-and-swap (harness, "In short" 1); the log lived on its own Git ref, which a plain clone
 does not bring (observation "The state ref travels only on purpose"). Pullboard keeps SQLite as each machine's working
 copy and shares a linear log of moves on a dedicated ref (PB-9). The harness's design rejected SQLite as the authority;
-SQLite cannot be the channel between machines and a committed database file is unsafe and unmergeable (SQ-2, SQ-3).
+SQLite cannot be the channel between machines, and a database file committed to Git is unsafe unless it is closed and
+checkpointed first, and Git cannot merge it in any case (SQ-2, SQ-3).
 
 **Options.**
 
@@ -75,7 +76,8 @@ SQLite cannot be the channel between machines and a committed database file is u
 | --- | --- | --- | --- |
 | Inside `brewstillery/` (D-002) | Yes | No: a ref is outside every directory | No, for both the database and the ref |
 | A plain clone brings it (6.27) | Yes | No: needs an explicit fetch rule on each clone | No, same as B |
-| Readable without Fabrewk (6.27, "no depender de una interfaz") | Yes: files, in any Git host | Only with Git commands; hosts do not show such refs | No: needs Fabrewk to replay |
+| Its history inspected without Fabrewk (6.27, "no depender de una interfaz") | Yes: files, in any Git host | With Git commands on the ref; hosts do not show such refs | The log, with Git commands on the ref, as B; the database, with SQLite's tools on the machine that holds it |
+| Current state rebuilt | By Fabrewk replaying the files | By Fabrewk replaying the log | By Fabrewk replaying the log into the database |
 | Reviewed with the work, in a PR (6.13, 6.44) | Yes | No | No |
 | Order across machines | Per task; a fork needs a person | Linear; a rejected push replays and retries | Linear, same as B |
 | Server-side protection against rewriting | The default branch's protection applies | Not checked whether a host can protect such a ref | Same as B |
@@ -93,6 +95,12 @@ Consequences:
 - `STATUS.md` and the answers zone are generated and committed views; a check compares them with the replay (phase 8).
 - Agents never see `brewstillery/`: they work on an exported copy without `.git` or the domain (harness "In short" 5),
   so they cannot write events.
+- Fabrewk commits the event files into the product's history only when the maintainers publish `brewstillery/`. When
+  they do not (6.27), `brewstillery/` is ignored by the product's repository and Fabrewk never commits anything under
+  it there, since a later push would publish it. The record then lives in the working tree of one machine, which is
+  what the warning says; if the maintainers take the last exit the warning offers, `brewstillery/` is its own Git
+  repository and Fabrewk commits there instead. The publication mode is recorded with the maintainers' words at
+  installation (AD-7), and every commit rule in this file depends on it.
 - Open for phase 6, stated here so it is not lost: where the events of unmerged work live when the default branch is
   protected. The candidate is that a task's events travel on the task's branch and merge with its work, and that
   views read the open task branches Fabrewk knows. Phase 6 specifies it with its refusals.
@@ -119,7 +127,8 @@ effective configuration and by every message that names a value (UC-1). Keys kee
 **Levels, lowest to highest.**
 
 1. **Fabrewk's defaults**, in code. Every key is declared once, with its type, the levels allowed to set it and its
-   description; an unknown key in any file is refused, not ignored (CA-6).
+   description. Proposed rule: an unknown key in any file is refused, not ignored; it carries to settings the lesson
+   of CA-6, where an unsupported value was silently dropped.
 2. **Project**, `brewstillery/settings.toml`: what is permitted (D-007), the catalogue, the profiles, the technical
    languages, limits and budgets. For anything that grants authority, Fabrewk reads this file from the base commit, not
    from the working tree, so an uncommitted or proposed change cannot authorize itself (PB-4; the harness observation
@@ -127,9 +136,15 @@ effective configuration and by every message that names a value (UC-1). Keys kee
 3. **Personal**, `brewstillery/<alias>/settings.toml`: preferences only, from an allowlist of keys (interaction
    language, presentation). A key outside the allowlist is refused with its code (PP-9). A preference can never widen
    permissions or change criteria, providers or limits (6.11).
-4. **Per-task exceptions**: not a file. They are part of a task's authorization in the registry, given by the
-   responsible maintainer with their words (6.24). An exception may narrow freely; a widening needs that explicit
-   authorization, recorded, and is shown as an exception in the effective configuration.
+4. **Stage values**: not a file. The plan of a stage (AD-10): its steps, profiles, models, efforts, files per writer
+   and budget, fixed by the stage's authorization in the registry (6.16). They override project values for that
+   stage's tasks.
+5. **Per-task exceptions**: not a file either. They are part of a task's authorization in the registry, given by the
+   responsible maintainer with their words (6.24), and override the stage's values for that task only.
+
+For levels 4 and 5 the same rule holds: a value may narrow what the level below allows at once; a widening needs the
+responsible maintainer's explicit authorization naming it, recorded, and is shown as a widening in the effective
+configuration. Personal preferences apply only to preference keys and are not changed by levels 4 and 5.
 
 **Present, apart from permitted (D-015).** What exists on the machine (tools, their versions, logins, MCP servers) is
 detected at each start from the machine itself, never from a record of an earlier install (PP-4), cached with its date
@@ -158,7 +173,7 @@ Codex adapter and is checked at every launch; it is not a setting a file could t
 outside the repository in the first core: what is personal travels in the alias's file, what belongs to the machine is
 detected.
 
-**The maintainer decides:** TOML; the four levels and their rule; reading authority from the base commit; the
+**The maintainer decides:** TOML; the five levels and their rule; reading authority from the base commit; the
 catalogue's three tables in the project file. Key names are fixed in phase 6.
 
 ---
@@ -252,6 +267,18 @@ not counted.
 **What it settles.** The rules every command follows and the first set of commands (6.5, D-001). Final names and
 arguments are fixed in phase 6 with the table of transitions.
 
+**Options for the shape.**
+
+| Option | For | Against |
+| --- | --- | --- |
+| **Flat verbs** (`fabrewk run`, `fabrewk accept`), as Git's porcelain | Short; one word per move of the transition table, so the table and the commands stay one list | The list grows with every move; it must stay small by design |
+| Noun groups (`fabrewk task run`, `fabrewk config show`) | Scales to many objects | Longer commands, and two words to remember for every move; with few objects it adds a level that buys nothing |
+| One command per role (`fabrewk-review`, `fabrewk-install`) | Each tool small | Several names to install and document; breaks D-001's single command `fabrewk` |
+| Conversational only, through an agent | Nothing to learn | Nothing a person can run or a test can check; a person's words would pass through the agent (6.24) |
+
+**Recommendation: flat verbs**, with one exception kept for reading: `fabrewk config` takes an optional key to show one
+value. If a later stage adds many objects, groups can come then, under 6.5's rule for an ordered change.
+
 **Rules.**
 
 - One declaration lists every command, its arguments, the moves it may cause and its refusals; help, the reference
@@ -292,6 +319,20 @@ arguments are fixed in phase 6 with the table of transitions.
 
 **What it settles.** How Fabrewk is installed (section 1: a script fetched with `curl`, or a prompt the maintainer's
 agent can follow, both reaching the same command) and how it enters a repository without writing first (D-006, 6.38).
+
+**Options for installing the tool.**
+
+| Option | For | Against |
+| --- | --- | --- |
+| **`uv tool install`**, called by the script | One command; an isolated environment per tool; `uv` can also fetch a Python when the machine lacks a suitable one; present on this machine (0.13.5) | `uv` must be installed first |
+| `pipx install` | Same isolation, an older and widely packaged tool | Needs a suitable Python already present; absent on this machine |
+| `pip install` into the user's or the system's Python | Nothing else needed | Mixes Fabrewk's packages with the machine's; distributions increasingly refuse it (externally managed environments) |
+| A standalone binary per platform | No Python needed | Only practical with a compiled language (AD-4), or with a bundler that adds a large build dependency |
+| Distribution packages (Homebrew, AUR, Fedora) | Native updates | One recipe per system to maintain; later, once there are users who ask for them |
+
+**Options for entering a repository.** Writing first and reporting after, idempotently (Pullboard, PB-10), was found and
+is excluded by D-006. A dry run that is optional (apk, AP-2) leaves the preview to the person's memory. A plan with its
+identity, confirmed and then applied only if unchanged (RSC-Harness, IN-1), is the one that meets D-006 as written.
 
 **Recommendation.**
 
@@ -348,7 +389,7 @@ receipt), with one rule, `local/`, which matches `brewstillery/local/` and a `lo
 
 | Kind | Where | Rule |
 | --- | --- | --- |
-| Versioned | Settings, alambiques and their material, `data/`, `STATUS.md`, `brewstillery/.gitignore` | In Git when `brewstillery/` is published |
+| Versioned | Settings, alambiques and their material, `data/`, `STATUS.md`, `brewstillery/.gitignore` | In the product's Git when `brewstillery/` is published; otherwise only in the working tree, or in `brewstillery/`'s own repository if the maintainers took that exit (AD-1) |
 | Conserved local evidence | `brewstillery/local/evidence/` | Providers' raw streams and logs that informed a verdict: never deleted automatically; `fabrewk status` lists them; the record holds their digests (harness "In short" 7) |
 | Cache | `brewstillery/local/cache/` | Rebuildable, safe to delete: detection results with their date, a future SQLite index |
 | Temporary | `brewstillery/local/tmp/` | Agents' exported copies and scratch files, deleted when the attempt ends; no machine-wide temporary directory (section 8.1.1) |
@@ -379,7 +420,7 @@ which the project may remove) and the name is protected by trademark, not by the
 | Licence | Obligation | Patents | Fits the criterion |
 | --- | --- | --- | --- |
 | MIT | Keep the copyright and permission notice in copies or substantial portions | No explicit grant | Yes. Compatible with GPL-2.0, GPL-3.0 and closed products |
-| Apache-2.0 | Keep the notices; carry the `NOTICE` file in redistributions (section 4 d), the strongest credit among permissive licences; mark modified files (4 b) | Explicit grant, ended for whoever sues over a patent (section 3) | Yes, with one gap: the FSF considers it incompatible with GPL-2.0-only code (stated, not re-read) |
+| Apache-2.0 | Keep the notices; a distributed derivative work includes a readable copy of the attribution notices of the `NOTICE` file, in a `NOTICE` file, its source or documentation, or its display (section 4 d), the strongest credit among permissive licences; mark modified files (4 b) | Explicit grant, ended for whoever brings a patent suit claiming that the Work or a contribution in it infringes (section 3) | Yes, with one gap: the FSF considers it incompatible with GPL-2.0-only code (stated, not re-read) |
 | BSD-2-Clause, ISC | As MIT | No | Yes, as MIT |
 | **MIT OR Apache-2.0** | The recipient chooses either; both keep the credit | The Apache grant, for whoever chooses it | Yes, and closes Apache's GPL-2.0 gap; used by `uv` and Rust (their licence files are on this machine) |
 | GPL, LGPL, AGPL, MPL | Share source of modified files or works | Varies | No: more than credit |
@@ -434,8 +475,10 @@ execution and its recovery are shown to work (6.16).
 **What it settles.** D-022 left to this phase the permanent form of "a session closes with a clean tree, and the
 maintainer's edits go in their own commit with no AI co-author".
 
-**Recommendation.** With AD-1 A, Fabrewk commits its own events and views as they happen, so a clean close becomes a
-check: a stage does not close while a file Fabrewk owns is uncommitted. Files the maintainer owns (alambique input,
+**Recommendation.** With AD-1 A and `brewstillery/` published, or in its own repository (AD-1), Fabrewk commits its
+own events and views as they happen, so a clean close becomes a check: a stage does not close while a file Fabrewk owns
+is uncommitted. When `brewstillery/` is neither published nor in its own repository, there is nothing to commit and the
+close says once more that the record lives only on this machine. Files the maintainer owns (alambique input,
 settings, their material) are committed by Fabrewk only on the maintainer's word, alone, authored by the maintainer and
 with no AI co-author line (6.44, preserving authorship). The project's own Git rules (6.44) decide whether those commits
 go to a branch or a pull request. During the bootstrap, D-022 stays in force.
