@@ -40,7 +40,8 @@ repository, is imported into the single registry at production and then stays re
   source, catalogues and profiles of agents (6.14, 6.15), permitted versus present (D-015) and installers that preview
   their plan; part 4b (R-012), section 7a (UCI, apk-tools, SQLite, with three storage options for 6.26 and 6.27) and
   the consolidated source catalogue (6.30, 61 sources: studied, checked or pending). Codex (GPT-6.1 Sol, high) reviewed
-  both: reject, two scoped re-checks, accept; every confirmed finding corrected. It closes on the maintainer's word.
+  both: reject, two scoped re-checks, accept; every confirmed finding corrected. **Phase 4 closed (D-029).** UCI and
+  apk-tools stay as design patterns only; their schema is out of scope (D-028).
 - **Next: phase 5, architecture decisions** (`plan.md`): options, consequences and a recommendation for each decision
   of the packet (registry, settings, language classes, implementation language, core boundary and size budget,
   command surface, safe installation, local unversioned area, licence), taking `harness-verdicts.md` and

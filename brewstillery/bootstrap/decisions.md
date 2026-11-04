@@ -865,3 +865,49 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Result: phase 4's acceptance holds as reviewed: each source with revision, date and what was read; each finding tied
   to an alambique point and a destination; nothing copied; every source of alambique sections 3 and 7 and of the
   earlier research in the catalogue (61 entries) with its status.
+
+## D-028 — UCI and apk-tools: patterns only, their schema out of scope
+
+- Status: decided
+- Decided: 2026-11-03
+- Origin: maintainer XEL in session 7. In the alambique (commit `b999993`), section 7a: UCI's and apk-tools' "esquema y
+  usabilidad no va enfocado a Fabrewk sino a TickBrew, sale del scope de este proyecto". Asked in chat whether the
+  study's findings from them stay as phase 5 inputs, the maintainer chose "Conservar como patrones (Recomendado)".
+- Decision: neither UCI nor apk-tools, nor their formats, is a candidate for Fabrewk. The findings UC-1 to UC-6 and
+  AP-1 to AP-7 of `reference-study.md` stay as design patterns for phase 5 (a stable address per value, staged changes,
+  "wanted" apart from "present", a preview with default deny, explicit trust of sources).
+- Consequences: `reference-study.md` section 10 and catalogue rows C-07 and C-11 say so. Point 6.10 still names "un
+  esquema inspirado en UCI" as an option; the answers zone recommends removing or clarifying it. The maintainer's
+  description of UCI (successor of the NVRAM-based configuration, main configuration interface of OpenWrt) is stated by
+  OpenWrt's documentation, seen only in search excerpts of its pages (bot check); the name is verified in
+  `package/system/uci/Makefile` of `openwrt/openwrt`.
+- Sources: alambique at `b999993`, section 7a; chat of session 7; `reference-study.md` section 10.
+- Supersedes: none.
+
+## D-029 — Phase 4 closed
+
+- Status: decided
+- Decided: 2026-11-03
+- Origin: maintainer XEL in session 7's chat: "Si despues de esto ya no encuentras pendientes ni controversias por
+  resolver, declara cerrado este chat."
+- Decision: with D-028 settling the only controversy found in the maintainer's edit, phase 4 is closed on the evidence
+  of R-011 and R-012: every source with revision, date and what was read; every finding tied to an alambique point and
+  a destination; the catalogue complete; Codex's review accepted with no confirmed finding open. Session 7 closes with
+  a clean tree (D-022).
+- Consequences: next is phase 5, architecture decisions, in a fresh chat (Opus 5.5, effort high; Codex GPT-6.1 Sol,
+  effort high, reviews). The recommendations in the answers zone are the maintainer's to adopt; none blocks phase 5.
+- Sources: chat of session 7; R-011; R-012; D-028; `brewstillery/bootstrap/plan.md`, phases 4 and 5.
+- Supersedes: none.
+
+## R-013 — Session 7, closing sweep
+
+- Status: recorded
+- Date: 2026-11-03
+- Who: integrator Claude Code, `claude-opus-5-5`, effort high.
+- Input change: the maintainer's edit of sections 7a, 7c and 7d, committed alone in `b999993` (D-022). The separator
+  moved to lines 282–285 and was found once; input lines 1–281 sha256 `2df9849f…40d2`. Settings files unchanged.
+- Checked: the maintainer's description of UCI (D-028), through one web search and `gh` (the OpenWrt package
+  Makefile); the openSUSE build page that repeats it answered 403.
+- Written: D-028, D-029 and this entry; `reference-study.md` (section 10 scope note, rows C-07 and C-11); `plan.md`
+  (phase 4 closed); `brewstillery/STATUS.md`; the answers zone of the alambique. The input is unchanged by the
+  integrator (digest above).

@@ -210,6 +210,10 @@ The documentation pages were read through the same summarizing fetch tool as in 
 
 ## 10. Configuration, modularity and storage (7a)
 
+Scope (D-028). The maintainer declared UCI's and apk-tools' schema and usability out of Fabrewk's scope (alambique
+7a: they serve TickBrew). The UC and AP findings below stay as design patterns for phase 5, not as an adoption of
+either tool or its format.
+
 ### UCI (6.10, 6.11, 6.37)
 
 | # | What it does | For Fabrewk | Destination |
@@ -296,11 +300,11 @@ now `tickbrew-legacy` (R-004). They are TickBrew's own files, not external sourc
 | # | Source | Kind | Status | Revision | Licence | What was read, where | Points |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | C-06 | UNIX and Linux | Conceptual reference | Studied as a principle; nothing to pin | — | — | Composition and bounded responsibilities, applied in UC-1 to UC-6 and AP-1 to AP-7 | 6.2 |
-| C-07 | OpenWrt UCI, `git.openwrt.org/project/uci.git` (mirror `openwrt/uci`) | Library and tool | Studied | `74f6277` | LGPL-2.1 | Section 9; UC-1 to UC-6 | 6.10, 6.11, 6.37 |
+| C-07 | OpenWrt UCI, `git.openwrt.org/project/uci.git` (mirror `openwrt/uci`) | Library and tool | Studied | `74f6277` | LGPL-2.1 | Section 9; UC-1 to UC-6 | 6.10, 6.11, 6.37; patterns only, schema out of scope (D-028) |
 | C-08 | OpenWrt procd | Service manager | Studied, in part | `fb61168` | LGPL-2.1 and others | Section 9; UC-5 | 6.15 |
 | C-09 | OpenWrt main tree, `openwrt/openwrt` | Distribution | Studied, one file | `f8e7af4` | GitHub cannot classify its licence file; not read | Section 9; UC-6 | 6.27 |
 | C-10 | `https://openwrt.org/` and its UCI page | Documentation | Pending | — | — | Bot check that requires JavaScript; not circumvented | 6.10 |
-| C-11 | apk-tools, `gitlab.alpinelinux.org/alpine/apk-tools` | Development tool | Studied | `f419028` (= `v3.0.9`) | GPL-2.0 | Section 9; AP-1 to AP-7 | D-015, 6.30, 6.31, 6.38 |
+| C-11 | apk-tools, `gitlab.alpinelinux.org/alpine/apk-tools` | Development tool | Studied | `f419028` (= `v3.0.9`) | GPL-2.0 | Section 9; AP-1 to AP-7 | D-015, 6.30, 6.31, 6.38; patterns only, schema out of scope (D-028) |
 | C-12 | SQLite, `https://www.sqlite.org/` (mirror `sqlite/sqlite`) | Library | Studied | `38b4005` (3.55.0 in development); latest release 3.54.1; used here 3.51.2 | Public domain | Section 9; SQ-1 to SQ-6 | 6.26, 6.27 |
 
 ### Section 7b
