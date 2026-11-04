@@ -1,10 +1,10 @@
 # Study of references (plan phase 4)
 
-Phase 4 deliverable, split into two parts (D-026). This file holds part 4a: the sources of alambique section 7b and
+Phase 4 deliverable, split into two parts (D-026). Part 4a, sections 1 to 8: the sources of alambique section 7b and
 below, read for Pullboard at source (5, 6.30), the catalogues and profiles of agents (6.14, 6.15), how each project
 separates what is permitted from what is present on a machine (D-015), and installers that show their plan before
-writing (section 1, D-006). Part 4b adds section 7a (UCI, apk-tools, SQLite) and the consolidated source catalogue
-(6.30), and Codex reviews both parts together.
+writing (section 1, D-006). Part 4b, sections 9 to 11: section 7a (UCI, apk-tools, SQLite) and the consolidated
+source catalogue (6.30). Codex reviews both parts together.
 
 How to read it. Each finding says what the source does at the pinned revision, what it means for Fabrewk, and where
 it goes (the plan phase that decides it). "Verified" means read in the source at that revision; "stated" means only
@@ -176,10 +176,183 @@ settings (Pullboard, RSC-Harness, Agent Orchestrator, codex-plugin-cc's optional
   successors are `open-gsd/gsd-core` and `open-gsd/gsd-pi`.
 - Codex's documentation moved: `developers.openai.com/codex/...` redirects to `learn.chatgpt.com/docs/...`.
 
-## 9. Left for part 4b
+## 9. Sources read in part 4b
 
-Section 7a: UCI (6.10) at `openwrt/uci` `74f6277` (the GitHub mirror and `git.openwrt.org/project/uci.git` have the
-same head), apk-tools at `gitlab.alpinelinux.org/alpine/apk-tools` `f419028`, SQLite (6.26, 6.27) at the
-`sqlite/sqlite` mirror `38b4005` and its documentation. The consolidated catalogue of every source in sections 3 and
-7 (6.30): studied, verified, pending, each with revision, date, licence and what was read, including the 7c case
-studies and tools and the 7d neighbours, without repeating evaluations that exist. Then Codex's review of 4a and 4b.
+Read on 2026-11-03 (America/Mexico_City). The three 7a heads were re-checked at 2026-11-04 01:03 UTC and are those
+pinned in part 4a (R-011); `git.openwrt.org/project/uci.git` and its GitHub mirror `openwrt/uci` have the same head.
+Shallow clones in the session's scratch directory, read-only, never executed, not kept. Run on this machine, outside
+any source: a Python 3.14.8 probe against an in-memory SQLite database (version, compile options, module API,
+`STRICT` tables), and `bwrap --version` and `git --version`.
+
+| Source | Revision | Licence | What was read |
+| --- | --- | --- | --- |
+| `openwrt/uci` (6,149 lines of C) | `74f6277` (commit 2026-03-12) | LGPL-2.1, from the file headers; GitHub detects none | `uci.h` (defaults, errors), `cli.c` (usage), `file.c` (tokenizer, `uci_file_commit`, `uci_file_load`), `delta.c` (save directory, delta paths, `uci_save`, `uci_load_delta`), the message of `fb3c234` (override directory), `tests/` (list) |
+| `openwrt/procd` (`git.openwrt.org/project/procd.git`) | `fb61168` | LGPL-2.1 for its own sources, with others (`COPYING`) | `service/validate.c` (head), `service/service.c` (search for validation and triggers) |
+| `openwrt/openwrt` | `f8e7af4` | GitHub cannot classify its licence file; not read | `package/base-files/files/etc/init.d/boot` (`uci_apply_defaults`) |
+| OpenWrt UCI wiki page | — | — | Not read: `openwrt.org` serves its pages only after a JavaScript bot check; it was not circumvented. The code above replaces it. |
+| `alpine/apk-tools` (GitLab) | `f419028`, the commit of tag `v3.0.9` (2026-11-02) | GPL-2.0 (`LICENSE`) | `README.md`, `SECURITY.md`; in `doc/`: `apk.8` (description, global options, files), `apk-world.5`, `apk-audit.8`, `apk-protected_paths.5`, `apk-policy.8`, `apk-fix.8`, `apk-keys.5`, `apk-add.8` and `apk-repositories.5` (search); `src/commit.c` lines 420–470, `src/database.c` (search) |
+| `sqlite/sqlite` (mirror of SQLite's Fossil repository) | `38b4005` (2026-11-03), version 3.55.0 in development | Public domain; build scripts under BSD-style licences (`LICENSE.md`) | `LICENSE.md`; help of `tool/sqldiff.c` and `tool/dbhash.c`; presence of `tool/sqlite3_rsync.c` |
+| SQLite documentation | pages read 2026-11-03, each with its own "last updated" | — | `useovernet.html` (2022-06-22), `howtocorrupt.html` (2026-04-13), `wal.html` (2026-08-25), `sessionintro.html` (2025-05-31), `appfileformat.html` (no date), `index.html` (latest release 3.54.1, 2026-10-16) |
+
+The documentation pages were read through the same summarizing fetch tool as in part 4a, so their findings are
+"stated".
+
+## 10. Configuration, modularity and storage (7a)
+
+### UCI (6.10, 6.11, 6.37)
+
+| # | What it does (verified unless marked) | For Fabrewk | Destination |
+| --- | --- | --- | --- |
+| UC-1 | One plain-text file per package in one directory (`/etc/config`), three statements (`config <type> ['<name>']`, `option`, `list`), and one address per value, `package.section.option`, used by `get`, `set`, `show` and `delete`. | A format a person reads and a tool addresses by a stable path. The address, not the syntax, is what UCI adds over TOML: one way to name every value, which the effective configuration of 6.11 can use to say where each value came from. | Phase 5 (settings format and levels) |
+| UC-2 | A change does not touch the file. `set` appends a delta line to a save directory (`/tmp/.uci`, created with the mode of `/etc/config`, or 0700); `changes` lists pending deltas and `revert` drops them; `commit` locks the file, re-reads the deltas other processes saved, writes a temporary file, syncs it and renames it over the original. | A pending change that can be shown and undone before it takes effect, and one serialized writer (6.37). The same shape fits a widening of permissions that waits for the responsible maintainer's confirmation (D-007, 6.13). | Phase 5, phase 7 |
+| UC-3 | The tokenizer ends a line at `#` and `commit` regenerates the file from the parsed model (`uci_export`), so a `uci commit` does not keep comments. Read in the code, not run. | A tool that rewrites a settings file a person edits loses that person's words. Fabrewk's settings writer, if it has one, must keep comments and order, or never rewrite those files (the rule today: agents do not edit them). | Phase 5 (settings format) |
+| UC-4 | Since `fb3c234` (2025-01-17), a file of the same name in an override directory (`/var/run/uci`) is read instead of the one in `/etc/config`, whole, and commits go to it. The commit message: so a configuration manager can generate files at run time "without overwriting existing config files on flash". | A layer that replaces whole files, not values: the effective value comes from one file or the other, and nothing shows which. D-015 and 6.11 need precedence per value, with its source shown. | Phase 5 |
+| UC-5 | UCI has no schema. Each service declares to procd its validation rules (package, section type, option, rule), procd keeps them and lists all of them on request. | Validation declared next to the values it checks and listable in one place: the shape of 6.15's "validate the configuration before running". | Phase 5, phase 6 |
+| UC-6 | At boot, each script in `/etc/uci-defaults` runs; only the ones that exit with success are deleted, then one `uci commit`. A failed script runs again at the next boot. | A run-once migration that retries until it succeeds (6.27, 6.41). Its only record is the deleted file; Fabrewk would record each migration and its result (6.29). | Phase 5 (registry migrations) |
+
+### apk-tools (D-015, 6.30, 6.31, 6.38, section 1)
+
+Each row says which part was verified in `src/` and which is only stated by apk's manual pages or `SECURITY.md`.
+
+| # | What it does | For Fabrewk | Destination |
+| --- | --- | --- | --- |
+| AP-1 | `/etc/apk/world` holds only constraints, one per line: a name, an optional version (`=`, `<`, `>`, `~`…), an optional repository tag, or `!name` to forbid. What is installed is a separate database under `lib/apk/db/`; the solver derives the changes from one to the other. A hand edit of `world` takes effect only through `apk fix`. Both paths verified (`database.c`); the format and `apk fix`, stated. | The closest precedent for D-015: what is wanted lives in one file, what is present in another, and neither is mistaken for the other. A prohibition is a first-class line, not the absence of a permission. | Phase 5 |
+| AP-2 | Before committing, apk prints the plan (packages removed, downgraded, new, upgraded, reinstalled; download and disk sizes). Interactive mode asks "Do you want to continue [Y/n]?", and `--simulate` opens the database read-only and changes nothing. apk is non-interactive by default, and in `commit.c` an empty line or end of input counts as yes. Verified (`commit.c`). | The preview D-006 asks for, with a sharp edge: a confirmation that proceeds when nobody answers. Fabrewk's confirmation must refuse on no answer (default deny, as IN-3). | Phase 10 |
+| AP-3 | Trust is a file: a public key in `/etc/apk/keys` makes every package it signs acceptable; `--allow-untrusted` is an explicit flag. `SECURITY.md`: "If a package signing key is trusted, it is approved to modify the system." The two key directories verified (`context.c`); the rest, stated. | The trust model stated in one sentence, as 6.38 asks of Fabrewk: trusting a source is a grant of full authority, and the installer says so. | Phase 5 (safe installation), phase 10 |
+| AP-4 | A tagged repository (`@edge`) is never used by default; a package comes from it only when `world` names the tag, and its dependencies only when they need it. `apk policy` lists, per package, the versions each repository offers. Stated. | Following newer sources is opt-in per item (6.31), and the version used is shown beside the versions available (6.30). | Phase 5 |
+| AP-5 | Protected paths: a configuration file the administrator changed is not overwritten; the new version is written beside it as `.apk-new`. `apk audit` compares the disk with the database's checksums and lists files added, modified, deleted or with changed metadata. The `.apk-new` suffix verified (`context.c`, `database.c`); the audit, stated. | Never overwrite a maintainer's edit, and find drift by digest (IN-3, PP-4, 6.37). | Phase 10 |
+| AP-6 | Configuration by whole files: only the first of `/etc/apk/config` and `/lib/apk/config` is read; in the key and repository directories a file name seen once hides the same name in later directories. The first, verified (`apk.c`); the second, stated. | The same whole-file precedence as UC-4, simple and easy to explain, and with the same limit: no per-value source. | Phase 5 |
+| AP-7 | Commit hooks run before and after a commit, and a failing pre-commit hook aborts it; `--no-scripts` or `--no-commit-hooks` skips them. Every command that changes the database is logged to `/var/log/apk.log`. The log path verified (`context.c`); the rest, stated. | A check its operator can switch off by a flag is a cooperative control (6.13): Fabrewk states which of its checks can be bypassed and by whom. | Phase 6 |
+
+### SQLite (6.26, 6.27)
+
+| # | What it does | For Fabrewk | Destination |
+| --- | --- | --- | --- |
+| SQ-1 | Stated: one file, atomic transactions, concurrent processes on one machine, queryable with common tools. Verified here: Python 3.14.8 ships the `sqlite3` module, linked to SQLite 3.51.2, and accepts `STRICT` tables. | The structured store 6.26 asks to evaluate is available with no new dependency in the language section 1 proposes. | Phase 5 (registry) |
+| SQ-2 | Stated: SQLite over a network filesystem risks corruption; WAL mode needs every process on the same host. SQLite recommends a client/server database or a proxy on the database's machine. | The database file cannot be the channel of collaboration between machines (6.27); that has to be Git (text) or a service. | Phase 5 |
+| SQ-3 | Stated: copying the file during a transaction, or without its `-wal` or `-journal` file, can corrupt the copy; safe copies are the backup API, `VACUUM INTO` and `sqlite3_rsync`. WAL mode is persistent and keeps `-wal` and `-shm` files while a connection is open. | Committing the database file to Git is unsafe unless it is closed and checkpointed, and Git cannot merge it. A copy for evidence or backup is made by one of the safe routes (6.27 "copias consistentes"). | Phase 5 |
+| SQ-4 | Stated: the session extension records the changes to tables with a declared primary key as a changeset that can be applied to another database, inverted, or applied with a conflict handler that omits, aborts or replaces; rows with NULL in the key and virtual tables are not captured; it is off unless compiled in. Verified here: the local library is compiled with it, but Python's `sqlite3` module exposes no session or changeset call. | Branch and machine collaboration through changesets is possible but would need another binding (a dependency, 6.2) and a primary key on every table. | Phase 5 |
+| SQ-5 | Verified in the tools' help: `sqldiff` prints the SQL that turns one database into another, or writes a changeset; `dbhash` hashes the content (SHA1) independent of page layout, leaving out statistics tables. | A reviewable difference and a content digest for a binary store, if one is chosen: what 6.29 needs to bind evidence to the exact state. | Phase 5, phase 6 |
+| SQ-6 | Latest release 3.54.1 (2026-10-16, stated); development tree 3.55.0 at `38b4005`; the library Python uses here, 3.51.2. | A concrete case of 6.30: the version used is not the latest, and both are recorded. | Catalogue (section 11) |
+
+Recommendation for phase 5 (6.26, 6.27), with PB-9: three options to put to the maintainer. (a) The registry's authority
+is text files in Git, and SQLite, if used, is a local index rebuilt from them, so a clean clone rebuilds it (6.27) and
+it is never the only copy of a record (6.4). (b) SQLite is the authority, with a text export committed by the tool
+and never edited by hand, as Pullboard does; the export lags the database between commits. (c) SQLite with changesets
+exchanged between machines, which needs a binding and a primary key on every table. Option (a) meets one authority per
+datum, a clean clone and a reviewable history with the fewest parts; phase 5 decides.
+
+Recommendation for phase 5 (6.10, 6.11): UCI and apk show two patterns worth taking and one to avoid. Take a stable
+address for every value (UC-1) and a pending change shown before it takes effect (UC-2, AP-2). Take "wanted" and
+"present" as separate files that are never mixed (AP-1). Avoid precedence by whole files (UC-4, AP-6), because it
+cannot say which file supplied each value. Neither changes the decision to keep TOML for the bootstrap files.
+
+## 11. Consolidated source catalogue (6.30)
+
+Every source of alambique sections 3 and 7, and every external source of the earlier research, with its status:
+
+- **Studied**: its content was read at a pinned revision, or on the date given for a page, and the findings are in
+  this file or in the earlier research.
+- **Checked**: its identity was confirmed (it exists at that address, with that revision and licence) and its content
+  was not studied. This is the plan's "verified" and the alambique's "comprobó"; the name differs so it is not confused
+  with the "verified" of a single finding.
+- **Pending**: not located, or not readable, with the reason.
+
+Revisions are default-branch heads: part 4a's were pinned at 2026-11-04 00:33 UTC, part 4b's between 01:03 and
+01:12 UTC. The relation of every external source to Fabrewk is "design reference": Fabrewk incorporates and adapts no
+component yet (6.33). Tools this bootstrap uses to work are marked as such; using one does not make it a dependency.
+The earlier research's verdicts (`EVALUATION.md`, `comparison.csv`) are cited, not repeated.
+
+### Section 3: our own earlier work (local)
+
+| # | Source | Status | Revision | What was read, where | Points |
+| --- | --- | --- | --- | --- | --- |
+| C-01 | `tickbrew-harness` | Studied | `0000bdc` (no licence, no remote) | Every tracked file, phase 3: `harness-verdicts.md` | 6.2, 6.28; phases 5–6 |
+| C-02 | `tickbrew-legacy`: `FZ-2.md`, `FZ-2b.md`, `FZ2B_DECISION_PACKET.md` | Studied | tag `legacy-final` (`8a9e1bf`) | The three files whole, phase 3b: `past-defect-cases.md` | 6.43, 6.48; phase 6 |
+| C-03 | `tickbrew-legacy`: `docs/development/XEL-DRAFTINGBOARD.md` | Pending | `legacy-final` | Not opened: the read permission (D-023, D-024) names three files only | Phase 11 (pilot module) |
+| C-04 | The earlier research, `/home/xel/Dev/TickBrew/meta-harness/` | Studied | Not a Git repository; files of 2026-10-27, sha256 `EVALUATION.md` `9185b472…f6eb`, `comparison.csv` `9341bc14…bf3a`, `SOURCES.md` `3dff14f5…f03a`, `CONTEXT_PROYECTO_IA_GITHUB.md` `556889b3…ad49` | The four files whole, part 4a | 5, 6.30 |
+| C-05 | The imported chat "Proyecto IA en GitHub" (`evidence/proyecto-ia-github-transcript.md`) | Studied, by search only | sha256 `44e2078d…3093` | Searched in part 4b for the addresses of the 7c case studies | 7c |
+
+The earlier research's local anchors (`SOURCES.md`, "Local source anchors") point to `/home/xel/Dev/TickBrew/tickbrew`,
+now `tickbrew-legacy` (R-004). They are TickBrew's own files, not external sources, and were not read in phase 4.
+
+### Section 7a
+
+| # | Source | Kind | Status | Revision | Licence | What was read, where | Points |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| C-06 | UNIX and Linux | Conceptual reference | Studied as a principle; nothing to pin | — | — | Composition and bounded responsibilities, applied in UC-1 to UC-6 and AP-1 to AP-7 | 6.2 |
+| C-07 | OpenWrt UCI, `git.openwrt.org/project/uci.git` (mirror `openwrt/uci`) | Library and tool | Studied | `74f6277` | LGPL-2.1 | Section 9; UC-1 to UC-6 | 6.10, 6.11, 6.37 |
+| C-08 | OpenWrt procd | Service manager | Studied, in part | `fb61168` | LGPL-2.1 and others | Section 9; UC-5 | 6.15 |
+| C-09 | OpenWrt main tree, `openwrt/openwrt` | Distribution | Studied, one file | `f8e7af4` | GitHub cannot classify its licence file; not read | Section 9; UC-6 | 6.27 |
+| C-10 | `https://openwrt.org/` and its UCI page | Documentation | Pending | — | — | Bot check that requires JavaScript; not circumvented | 6.10 |
+| C-11 | apk-tools, `gitlab.alpinelinux.org/alpine/apk-tools` | Development tool | Studied | `f419028` (= `v3.0.9`) | GPL-2.0 | Section 9; AP-1 to AP-7 | D-015, 6.30, 6.31, 6.38 |
+| C-12 | SQLite, `https://www.sqlite.org/` (mirror `sqlite/sqlite`) | Library | Studied | `38b4005` (3.55.0 in development); latest release 3.54.1; used here 3.51.2 | Public domain | Section 9; SQ-1 to SQ-6 | 6.26, 6.27 |
+
+### Section 7b
+
+| # | Source | Kind | Status | Revision | Licence | What was read, where | Points |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| C-13 | Pullboard, `pullboard-dev/pullboard` | Meta-harness candidate | Studied | `6231e10` (npm 0.9.3) | MIT | Section 1; PB-1 to PB-12 | 5, 6.13, 6.25, 6.26–6.29 |
+| C-14 | `https://pullboard.dev` | Project site | Checked (answers; not read) | — | — | — | 7b |
+| C-15 | RSC-Harness, `ericrisco/rsc-harness` | Meta-harness candidate | Studied | `d9d6bb3` (4.0.4); earlier research `34acd5e` (3.5.0) | MIT | Section 1; CA-9, PP-4, IN-1; earlier research | 6.14, 6.15, section 1 |
+| C-16 | Agent Deck, `asheshgoplani/agent-deck` | Meta-harness candidate | Studied | `2e897f2` | MIT | Section 1; PR-3, PP-2, PP-9 | 6.11, 6.15 |
+| C-17 | Omnigent, `omnigent-ai/omnigent` | Meta-harness candidate | Studied | `541dd13` (0.22.0.dev0); earlier research `0675793` | Apache-2.0 | Section 1; CA-1, OT-4; earlier research | 6.14, 6.43 |
+| C-18 | OpenHarness, `autonomous-ai/openharness` | Meta-harness candidate | Studied | `beccfd2`; earlier research `0fe0778` | MIT | Section 1; PR-6; earlier research | 6.15 |
+| C-19 | dmux, `standardagents/dmux` | Development tool | Studied | `8cb3d92` | MIT | Section 1; CA-6 | 6.35, 6.38 |
+| C-20 | Agent Orchestrator, `OrchestratorInc/agent-orchestrator` | Meta-harness candidate | Studied | `a1fe965` | Apache-2.0 | Section 1; CA-7, PP-3 | 6.14, 6.11 |
+| C-21 | OpenSpec, `Fission-AI/OpenSpec` | Specification tool | Studied | `2bd5bc3` | MIT | Section 1; CA-5, PP-10 | 6.14, 6.38 |
+| C-22 | Spec Kit, `github/spec-kit` | Specification tool | Studied | `a227e38` | MIT | Section 1; CA-5, PP-5, IN-3 | 6.14, section 1 |
+| C-23 | Open GSD Core, `open-gsd/gsd-core` | Meta-harness candidate | Studied | `3730c67` (branch `next`) | MIT | Section 1; CA-3, CA-4, PR-1, PR-5 | 6.10, 6.15, 6.36 |
+| C-24 | GSD Pi, `open-gsd/gsd-pi` | Meta-harness candidate | Studied, by search | `b631874` | MIT | Section 1; PR-6 | 6.15 |
+| C-25 | `gsd-build/get-shit-done` and `gsd-build/gsd-2` (historical names) | Archived predecessors | Checked | `bdcaab2`, `33c00aa`; both archived | — | Earlier research read their READMEs | 7b |
+| C-26 | `ruvnet/metaharness` | Harness generator | Studied, README head | `2f415bf` | MIT | Section 1; OT-5; its performance claims not checked | 6.36 |
+| C-27 | MetaGPT, `FoundationAgents/MetaGPT` | Secondary reference | Checked | `11cdf46` (last push 2026-01-21) | MIT | — | 6.35 |
+| C-28 | OpenClaw, `openclaw/openclaw` | Secondary reference | Checked | `bf10667` in part 4a; head `754f04f` in part 4b | MIT | — | 7b |
+| C-29 | Factory and Droid, `https://factory.com` (`factory.ai` redirects) | Commercial tool | Studied, one page (stated) | Page read 2026-11-03; repository `Factory-AI/factory` checked at `892925c`, no licence detected | Commercial | Section 1; CA-10 | 6.14, 6.15 |
+| C-30 | `openai/codex-plugin-cc` | Agent bridge | Studied | `db52e28` | Apache-2.0 | Section 1; PR-7, IN-6, OT-1 | 6.24, 6.38 |
+| C-31 | amicus, `briandconnelly/amicus` | Agent bridge | Studied | `8f378d1` (0.11.1) | MIT | Section 1; CA-8, PP-1, IN-5, OT-2, OT-3 | 6.14, 6.31, 6.32, 6.38 |
+
+### Section 7c
+
+| # | Source | Kind | Status | Revision | Licence | What was read, where | Points |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| C-32 | OpenAI Harness Engineering, `https://openai.com/index/harness-engineering/` (address from the imported chat) | Case study | Pending | — | — | The page refuses automated reads (HTTP 403); only secondary coverage was found, not used | 6.48 |
+| C-33 | Stripe Minions, `https://stripe.dev/blog/minions-stripes-one-shot-end-to-end-coding-agents` | Case study | Checked (answers; not read) | — | — | — | 6.48 |
+| C-34 | StrongDM Software Factory, `https://factory.strongdm.ai/` | Case study | Checked (answers; not read) | Repositories `strongdm/attractor` `fb57a55` and `strongdm/leash` `fd8e0c1`, both Apache-2.0, listed by awesome-software-factories as unmaintained (not checked) | — | — | 6.48 |
+| C-35 | Gailleur Labs / Domi, `https://www.gailleur.com/ai-first-software-factory` (address from the imported chat) | Case study | Checked (answers; not read) | — | — | A web search found no other source | 6.48 |
+| C-36 | CodePrism, `rustic-ai/codeprism` | Case study | Checked | `8115b77` (last push 2026-02-14) | None detected | Its blog posts are marked as sponsored; not read | 6.48 |
+| C-37 | awesome-software-factories, `varun1505/awesome-software-factories` | Discovery list | Studied, README head | `c39c5ce` | CC0-1.0 | Section 1; OT-7; searched in part 4b for the case studies | 6.33 |
+| C-38 | Diátaxis, `https://diataxis.fr/` | Documentation reference | Checked | Repository `evildmp/diataxis-documentation-framework` `957c09c` | `LICENSE.rst`, not read | — | 6.17, 6.45 |
+| C-39 | Write the Docs, `https://www.writethedocs.org/` | Documentation reference | Checked | Repository `writethedocs/www` `f33cfda` | `LICENSE.md`, not read | — | 6.17 |
+| C-40 | Mermaid, `mermaid-js/mermaid` | Development tool | Checked | `ea53556` (branch `develop`) | MIT | — | 6.45 |
+| C-41 | markdownlint-cli2, `DavidAnson/markdownlint-cli2` | Development tool | Checked | `341e2a3` | MIT | — | 6.43 |
+| C-42 | Lychee, `lycheeverse/lychee` | Development tool | Checked | `d119b68` | Apache-2.0 | — | 6.43 |
+| C-43 | Vale, `vale-cli/vale` (`errata-ai/vale` redirects there) | Development tool | Checked | `0d9e802` (branch `v3`) | MIT | — | 6.43 |
+| C-44 | W3C WAI, `https://www.w3.org/WAI/` | Accessibility reference | Checked | Repository `w3c/wai-website` `321da62` | Use with attribution, per its `LICENSE.md` | — | 6.17 |
+| C-45 | Git, `git/git` | Work tool, used in this bootstrap | Checked | `750f5de`; here 2.56.0 | GitHub cannot classify its licence file; not read | — | 6.44 |
+| C-46 | GitHub and its CLI, `cli/cli` | Service and work tool, used in this bootstrap | Checked | `eeb44bc`; earlier research read three GitHub documentation pages | MIT | Earlier research (`SOURCES.md`) | 6.13, 6.44 |
+| C-47 | VS Code, `microsoft/vscode` | Editor | Checked | `7ea5245`; earlier research read three documentation pages | MIT | Earlier research (`SOURCES.md`) | 6.36 |
+| C-48 | Claude Code, `anthropics/claude-code` | Work tool, the integrator of this bootstrap | Studied, one page (stated) | Settings page read 2026-11-03; repository `26382c0` | Proprietary ("All rights reserved", commercial terms) | Section 1; PP-7 | 6.11, 6.13, 6.36 |
+| C-49 | OpenAI Codex, `openai/codex` | Work tool, the reviewer of this bootstrap | Studied, pages (stated) | Configuration pages read 2026-11-03; repository `f39e45e`; here 0.166.0; earlier research read three more pages | Apache-2.0 | Section 1; PR-4, PP-8; earlier research | 6.11, 6.15, 6.36 |
+| C-50 | OpenCode, `anomalyco/opencode` (`sst/opencode` redirects there) | Work tool, considered (alambique 4) | Studied, one page (stated) | Agents page read 2026-11-03; repository `27dd925` (branch `dev`) | MIT | Section 1; CA-2 | 6.14 |
+| C-51 | bubblewrap, `containers/bubblewrap` | Isolation tool | Checked | `1fb0aa2`; here 0.12.0 | LGPL-2.1 (`COPYING`) | Its use in `tickbrew-harness`: `harness-verdicts.md` | 6.38; phase 9 |
+
+### Section 7d
+
+| # | Source | Kind | Status | Revision | Licence | What was read, where | Points |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| C-52 | HarnessBrew, `anzihenry/HarnessBrew` | Agent-asset installer | Studied | `60141ca` (1.3.0) | MIT | Section 1; IN-2 | 6.38, section 1 |
+| C-53 | BrewStillery, `paul-jewell/BrewStillery` | Name coincidence | Checked | `b9b8672` (last push 2022-07-19) | AGPL-3.0 | — | Section 2 (name) |
+| C-54 | Fabrika, `https://tatiyants.com/fabrika-software-factory/` | Name neighbour | Checked (answers; not read) | — | — | — | 1 (name) |
+| C-55 | fabriqa.ai, `https://fabriqa.ai/` | Name neighbour | Checked (answers; not read) | — | — | — | 1 (name) |
+| C-56 | Fabro, `fkukuck/fabro` | Name neighbour | Checked | `ac667f5` | MIT | — | 1 (name) |
+| C-57 | Fabric, `danielmiessler/Fabric` | Name neighbour | Checked | `8e8511c` | MIT | `fabric-ai` is the name of its Homebrew, AUR and Scoop packages (its README); PyPI has no package of that name (checked) | 1 (name) |
+
+### In the earlier research, not in alambique section 7
+
+| # | Source | Kind | Status | Revision | Licence | What was read, where | Points |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| C-58 | PhotoCraft, `storytold/photocraft` | Case study (public method) | Studied by the earlier research | `dacecbf` (2026-10-27); head `81bd973` in part 4a, `205db62` in part 4b | Apache-2.0 (and `LICENSE-MIT`, per the earlier research) | Earlier research (`SOURCES.md`, AW-1 prelude) | 6.17 |
+| C-59 | OpenAlgo, `marketcalls/openalgo` | Case study lead | Checked | `e2797fd` | AGPL-3.0 | Imported chat only | 6.48 |
+| C-60 | Superpowers, `obra/superpowers` | Skill set | Checked | `22f0b46` | MIT | TickBrew declined it in OP-1 (earlier research); no new audit | 6.38 |
+| C-61 | sharp-edges skill, `~/.agents/skills/sharp-edges/SKILL.md` | Review method, local | Checked (present; not read) | — | — | Admitted in TickBrew, used by the earlier research | 6.38 |
