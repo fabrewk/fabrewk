@@ -241,9 +241,9 @@ Estas referencias complementan lo anterior. Su inclusión no constituye una deci
 - ruvnet/metaharness: https://github.com/ruvnet/metaharness — Referencia mencionada para generación de harnesses; conservar su estado real de evaluación.
 - MetaGPT: https://github.com/FoundationAgents/MetaGPT — Referencia secundaria para división de responsabilidades entre agentes.
 - OpenClaw: https://github.com/openclaw/openclaw — Referencia secundaria de automatización e integraciones.
-- Factory AI / Droid: https://factory.ai/ — Referencia comercial para comparar experiencia de desarrollo y automatización.
-- openai/codex-plugin-cc — Puente para que un agente llame a otro. Sin enlace todavía; por comprobar.
-- briandconnelly/amicus — Puente para que un agente llame al otro. Sin enlace todavía; por comprobar.
+- Factory AI / Droid: https://factory.com/ — Referencia comercial para comparar experiencia de desarrollo y automatización.
+- Codex-plugin-cc: https://github.com/openai/codex-plugin-cc - Es el complemento oficial para usar Codex desde Claude Code.
+- Amicus: https://github.com/briandconnelly/amicus - Es un solo servidor MCP que pide una segunda opinión a Codex, Kimi o Claude (Nos sirve de referencia para distinguir el agente que se habilita del que realmente está instalado y con sesión iniciada).
 
 ### 7c. Casos de estudio, documentación y herramientas de trabajo
 
@@ -258,7 +258,7 @@ Estas referencias complementan lo anterior. Su inclusión no constituye una deci
 
 ### 7d. Otras fuentes descubiertas
 
-- HarnessBrew: https://github.com/anzihenry/HarnessBrew — Proyecto descubierto durante la búsqueda de nombres; posible referencia sobre gestión de recursos para agentes, todavía distinto de una evaluación de adopción.
+- HarnessBrew: https://github.com/anzihenry/HarnessBrew — Es un gestor de paquetes, basado en Git, de habilidades, instrucciones y configuración MCP para Codex, que muestra los cambios antes de instalarlos y solo instala desde fuentes que confiaste. Puede servirnos como referencia para instalar ese tipo de herramientas con vista previa, que es lo que interesa al punto 6.38 y a la instalación de la sección 1.
 - BrewStillery: https://github.com/paul-jewell/BrewStillery — Coincidencia de nombre; es una aplicación de otro ámbito y no un candidato de meta-harness. Su registro evita confundir esa fuente con nuestro directorio `brewstillery/`.
 - Vecinos de nicho encontrados en la investigación del nombre (2026-11-02), por estudiar y distinguir de Fabrewk: Fabrika (https://tatiyants.com/fabrika-software-factory/), fabriqa.ai (https://fabriqa.ai/), Fabro (https://github.com/fkukuck/fabro) y Fabric de Daniel Miessler (paquete `fabric-ai`).
 
