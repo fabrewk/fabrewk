@@ -925,3 +925,25 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   withdrew it: the alambique's opening rule (distinguish what is wanted from what is verified, check claims about
   external projects) and 6.33 already hold that expectation.
 - Written: this entry; the answers zone (no recommendation this sweep). The input is unchanged by the integrator.
+
+---
+
+## D-030 — Phase 5: one part, Codex's review, and the licence criterion
+
+- Status: decided
+- Decided: 2026-11-04
+- Origin: maintainer XEL in session 8's chat, the start message: "Modelo y esfuerzo: Claude Code en Opus 5.5, esfuerzo
+  alto. Revisa Codex GPT-6.1 Sol, esfuerzo alto. Codex cuenta con su presupuesto completo, la licencia la decidiremos
+  nosotros en función a que nuestro meta-harness FOSS debe poder convivir con cualquier otro producto de licencia
+  abierta y/o cerrada, por lo que debmos buscar aquella(s) que solo obliguen a mencionarnos en proyectos que nos usen o
+  hagan fork."
+- Decision: Codex (`gpt-6.1-sol`, effort high) reviews phase 5 with its full budget, read as a full review and scoped
+  re-checks until no confirmed finding is open (D-003). The licence is decided by the maintainer and the integrator,
+  without a professional, against this criterion: Fabrewk stays open source, can live beside any product under an open
+  or closed licence, and obliges those who use or fork it only to credit it. The trademark check before commercial use
+  (alambique section 1) is not part of this and stays with a professional. Phase 5 is not split (D-019): its decisions
+  share the same inputs and depend on one another.
+- Consequences: no network permission was given for this session; none is used, and facts that would need it are
+  marked unchecked in the phase deliverable. The deliverable is `brewstillery/bootstrap/architecture-decisions.md`.
+- Sources: chat of session 8; `brewstillery/bootstrap/plan.md`, phase 5; D-019.
+- Supersedes: none.
