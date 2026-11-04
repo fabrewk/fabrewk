@@ -271,10 +271,15 @@ Estas referencias complementan lo anterior. Su inclusión no constituye una deci
 
 ## 8. Pendientes, adiciones o remociones
 
-8.1 Tareas de la máquina, fuera de la construcción de Fabrewk, de la sesión de organización de `~/Dev` (2026-11-02):
+8.1 PENDIENTE:  Tareas de la máquina, fuera de la construcción de Fabrewk, de la sesión de organización de `~/Dev` (2026-11-02):
+8.1.a PENDIENTE: Auditar `~/Dev/tmp` (1.8 GB). Esta carpeta no debe existir. La regla que de aquí sale para Fabrewk está en el punto 6.4.
+8.1.b Respaldo de configuración previo a la consolidación: `~/.local/state/config-backups/20261102-192449/`.
 
-8.1.1 Auditar `~/Dev/tmp` (1.8 GB). Esta carpeta no debe existir. La regla que de aquí sale para Fabrewk está en el punto 6.4.
-8.1.2 Respaldo de configuración previo a la consolidación: `~/.local/state/config-backups/20261102-192449/`.
+8.2 PROPUESTA (modificación/adición):   Creo que deberiamos trabajar con el mismo esquema híbrido propuesto en TickBrew:  Escribir nuestro Core o Nucleo en Rust (Encargado de la orquestación pesada. control de los Sandboxes (Docker/WASM API, no se que mas hayas planteado en el diseño), la indexación rápida de archivos que tanto estabamos proponiendo, la base de datos vectorial local (ej. embebiendo LanceDB o DuckDB o SQLite que habia sido el único propuesto), bus de eventos de comunicación o cualquier otro elemento que tengas planeado en el diseño, ver 8.3), y dejar una capa Modular para allí si diseñar extensiones de función en Python / TypeScript u algún otro lenguaje que nos beneficie: El Nucleo así expone una API local (vía gRPC o JSON-RPC sobre WebSockets o lo que mejor propongas para nuestro diseño) o un SDK ligero. Así podemos añadir la modularidad deseada para escribir cualquier extención o herramientas en Python, integrar muchas ya existentes e interactuar con el arnés robusto mediante comandos sencillos como en TickBrew.
+
+8.3 PROPUESTA (adición):  Podriamos añadir como parte del diseño propuesto; que Fabrewk funcione también bajo un paradigma cliente/servidor, pero en este caso al estilo X-Windows, me explico:  Cada equipo con su repo local y Fabrewk integrado a este fungirían como "clientes" exportando o publicando su propio trabajo local o dominio (las apps en X-Windows), cada instancia física de Fabrewk declararía en sus settings (siempre preservando el objetivo de seguridad descrito) a un server central (el servidor en X) que podriamos diseñar después (decidir si sería otro repo o integrarlo al mismo) que se instale como una imagen docker de servicio y exponga un web-dashboard de monitoreo y/o administración centralizado (como lo hace Pullboard), con la capacidad de ver a uno o cualquier "cliente" firmados a dicha central administrativa.  Creo que esto es lo único que nos faltaría para hacer de Fabrewk una propuesta mucho mas robusta y competitiva con los proyectos a los que nos comparamos, seguiría preservando la capacidad siempre modular (seguimos con el paradigma UNIX) de poder funcionar independiente a un solo equipo repo local o integrarse y ser  coordinado su flujo de trabajo entre muchas otras instancias "Fabrewk" (esto ayudaría mucho a proyectos que requieran portabildiad entre plataformas, como pedimos en TickBrew).
+
+8.4 Derivado de los puntos 8.2 y 8.3 en este alambique, contestame cual es tu opinión, aporte, críticas, si mis puntos anteriores fueron suficientemente claros o deja abiertas amiguedades para el diseño y si estas de acuerdo en la mayoría de estas modificaciones/adiciones, me presentes tus propuestas de mejoras para clarificar este alambique antes de continuar.
 
 
 
