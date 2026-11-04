@@ -132,7 +132,16 @@ effective configuration and by every message that names a value (UC-1). Keys kee
 2. **Project**, `brewstillery/settings.toml`: what is permitted (D-007), the catalogue, the profiles, the technical
    languages, limits and budgets. For anything that grants authority, Fabrewk reads this file from the base commit, not
    from the working tree, so an uncommitted or proposed change cannot authorize itself (PB-4; the harness observation
-   "Configuration read from the working tree"). An uncommitted edit is shown as pending and not used.
+   "Configuration read from the working tree"). An uncommitted edit is shown as pending and not used. The policy a
+   task uses is bound to it by revision or digest, in every publication mode (AD-1):
+   - `brewstillery/` published: the file at the product's base commit.
+   - `brewstillery/` in its own repository: the file at a commit of that repository, recorded with the task.
+   - `brewstillery/` neither published nor in its own repository: there is no commit to read. The policy in force is
+     the file's digest that the responsible maintainer confirmed with their words, recorded as an event; Fabrewk
+     reads the file, refuses to use it if its digest differs from the confirmed one, and a changed file takes effect
+     only when the maintainer confirms its new digest. The comparison of the old and new policy below applies to that
+     confirmation. This control is weaker than a commit protected by a Git host, since one machine holds both the file
+     and the record, and Fabrewk says so with the warning of 6.27.
 3. **Personal**, `brewstillery/<alias>/settings.toml`: preferences only, from an allowlist of keys (interaction
    language, presentation). A key outside the allowlist is refused with its code (PP-9). A preference can never widen
    permissions or change criteria, providers or limits (6.11).
@@ -324,9 +333,9 @@ agent can follow, both reaching the same command) and how it enters a repository
 
 | Option | For | Against |
 | --- | --- | --- |
-| **`uv tool install`**, called by the script | One command; an isolated environment per tool; `uv` can also fetch a Python when the machine lacks a suitable one; present on this machine (0.13.5) | `uv` must be installed first |
-| `pipx install` | Same isolation, an older and widely packaged tool | Needs a suitable Python already present; absent on this machine |
-| `pip install` into the user's or the system's Python | Nothing else needed | Mixes Fabrewk's packages with the machine's; distributions increasingly refuse it (externally managed environments) |
+| **`uv tool install`**, called by the script | One command; an isolated environment per tool; `uv` can also download a Python when the machine lacks a suitable one (its `--no-python-downloads` option, seen in `uv tool install --help`); present on this machine (0.13.5) | `uv` must be installed first |
+| `pipx install` | Same isolation, an older and widely packaged tool | Absent on this machine; whether it can fetch a Python itself depends on its version and was not checked (no network) |
+| `pip install` into the user's or the system's Python | Nothing else needed | Mixes Fabrewk's packages with the machine's; PEP 668 lets a distribution refuse it (an externally managed environment); this machine's Python 3.14 carries no such marker |
 | A standalone binary per platform | No Python needed | Only practical with a compiled language (AD-4), or with a bundler that adds a large build dependency |
 | Distribution packages (Homebrew, AUR, Fedora) | Native updates | One recipe per system to maintain; later, once there are users who ask for them |
 
