@@ -795,3 +795,73 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   `brewstillery/STATUS.md`; the answers zone of the alambique (three recommendations for section 7). The input is
   unchanged by the integrator (digest above).
 - Not done in part 4a: Codex's review (at the end of phase 4, D-026); section 7a and the consolidated catalogue (4b).
+
+## D-027 — Permissions for part 4b and Codex's review of phase 4
+
+- Status: decided
+- Decided: 2026-11-03
+- Origin: maintainer XEL in session 7's chat, the start message: "Usa Codex GPT-6.1 Sol high para la revisión final." and
+  "Tienes autorizado permiso de red y cuentas con presupuesto suficiente."
+- Decision: D-026's network permission is confirmed for part 4b. Codex (`gpt-6.1-sol`, effort high) reviews parts 4a and
+  4b together. "Presupuesto suficiente" is read as a full review and scoped re-checks of the corrections until no
+  confirmed finding is open, within the phase rule of D-003.
+- Consequences: three Codex passes in session 7 (R-012). Network use stays within the sources of phase 4; nothing
+  external is copied into this repository.
+- Sources: chat of session 7; D-026; `brewstillery/bootstrap/plan.md`, phase 4.
+- Supersedes: none.
+
+## R-012 — Session 7, part 4b and Codex's review of phase 4
+
+- Status: recorded
+- Date: 2026-11-03
+- Who: integrator Claude Code, `claude-opus-5-5`, effort high as the maintainer states it. Reviewer: Codex
+  `codex-cli 0.166.0`, `gpt-6.1-sol`, effort high, read-only sandbox, no network, launched in this repository with
+  `codex exec --json`; the stream names no model. No subagent. Network used under D-026 and D-027: `git` over HTTPS,
+  the GitHub API through `gh` (read-only calls), `curl` for reachability, a summarizing web-fetch tool and five web
+  searches.
+- Start checks: tree clean at `39ec6a6`; alambique input lines 1–274 sha256 `1ba1bf6d…9e5b`, separator lines 275–278,
+  found once; `brewstillery/settings.toml` `05e9ba53…1397` and `brewstillery/xel/settings.toml` `1d2f11f3…1f33`,
+  unchanged. The `sqlite3` command-line tool is still absent.
+- Input change during the session: the maintainer adopted the three recommendations for section 7 (links for Factory,
+  codex-plugin-cc and amicus; HarnessBrew's description), committed alone with no AI co-author in `e386dd4` (D-022).
+  Input lines 1–274 now sha256 `88e707b0…4fcc`; separator lines 275–278, found once.
+- Read: the 7a sources at the heads pinned in R-011, re-checked unchanged at 2026-11-04 01:03 UTC, plus procd, OpenWrt's
+  boot script and SQLite's pages; the identity, licence and head of every other catalogue source; in the earlier
+  research, a search of the imported chat's transcript for the 7c addresses. What was read, file by file, is in
+  `reference-study.md`, sections 1 (its "Re-read in part 4b" paragraph) and 9. Run on this machine: a Python probe on an
+  in-memory SQLite database, `bwrap --version`, `git --version`. No source was run.
+- Not read: OpenWrt's wiki, which requires passing a JavaScript bot check; one attempt to open it in a browser tool was
+  refused by the auto-mode check and it was not circumvented (catalogue C-10, pending). OpenAI's Harness Engineering
+  page answers 403 to automated reads (C-32, pending).
+- Written: `reference-study.md` sections 9–11 (commit `4c27398`) and its corrections (`dda141c`, `98600d7`); this entry
+  and D-027; `plan.md` (part 4b done); `brewstillery/STATUS.md`; the answers zone of the alambique (four
+  recommendations for section 7). The input is unchanged by the integrator (digest above).
+- Evidence for the review: the part 4a sources were cloned again at their pinned revisions, sparse where large, in the
+  session's scratch directory; a disk quota on `/tmp` stopped a full clone of GSD Pi, so large clones were pruned to
+  the files read. GitHub's commit API refused the short id `a227e38` (Spec Kit); the full id from `git ls-remote`
+  resolved it.
+- Codex, pass 1, on `4c27398`: 4 min 50 s; 41 commands, none failed; input 2,116,084 tokens (1,961,344 cached), output
+  11,961 (4,594 reasoning). Verdict reject: six blocking findings, five minor. Every one checked by the integrator
+  against the sources and confirmed:
+  - P4-01 (blocking): PB-9 said Pullboard needs an export or a hosted relay across machines; `pullboard sync` shares an
+    ordered append-only log through a Git ref. PB-9 and the storage options rewritten.
+  - P4-02 (blocking): CA-4 and PR-5 missed ADR 2313's amendment (model and effort per invocation when the schema allows).
+  - P4-03 (blocking): UC-2 called UCI deltas a pending change before it takes effect; UCI readers already apply them.
+  - P4-04 (blocking): UC-4 and AP-6 said whole-file precedence cannot attribute a value; its limit is granularity.
+  - P4-05 (blocking): part 4a marked documentation-only rows as verified, and attributed a refusal "by code" to amicus.
+    Every finding of sections 2 to 7 and 10 now carries its label and, when verified, the file read.
+  - P4-06 (blocking): SQ-5 presented `dbhash` as an exact-state digest; it omits `sqlite_` tables' content.
+  - P4-07 to P4-11 (minor): PB-3's rejection is per frozen criterion; PR-3's model and effort resolve differently;
+    IN-2's dry-run exceptions; OT-2's separate streams; AP-2's preview is conditional.
+  The integrator also fixed a misquotation in IN-2. Corrections in `dda141c`.
+- Codex, pass 2, scoped to `4c27398..dda141c`: 2 min 48 s; 40 commands, one non-zero exit; input 1,341,721 (1,226,752
+  cached), output 6,616. Verdict accept: P4-01 to P4-10 closed, P4-11 still open (minor), new P4-12 and P4-13 (minor:
+  `dbhash` keeps those tables' schema entries; PB-9's rewrite detection needs an acknowledged prefix). All three
+  confirmed and corrected in `98600d7`.
+- Codex, pass 3, scoped to `dda141c..98600d7`: 31 s; 8 commands; input 109,795 (82,432 cached), output 866. P4-11 to
+  P4-13 closed, no new finding. **Verdict accept.**
+- Progress measure (D-003): confirmed blocking findings 6, then 0; open findings 11, then 3, then 0. The prompts,
+  streams and last messages stay in the session's scratch directory, not committed.
+- Result: phase 4's acceptance holds as reviewed: each source with revision, date and what was read; each finding tied
+  to an alambique point and a destination; nothing copied; every source of alambique sections 3 and 7 and of the
+  earlier research in the catalogue (61 entries) with its status.

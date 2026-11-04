@@ -36,15 +36,18 @@ repository, is imported into the single registry at production and then stays re
   confirmed defect found by past reviews, and the three found in 3a, is a test case against Fabrewk's behaviour in
   `brewstillery/bootstrap/past-defect-cases.md` (46 cases). Codex (GPT-6.1 Sol, high) reviewed both: reject, two
   scoped re-checks, accept; every confirmed finding corrected.
-- **Phase 4 in progress, split into 4a and 4b (D-026).** Part 4a done (R-011): `brewstillery/bootstrap/reference-study.md`
-  covers the sources of section 7b and below, pinned: Pullboard at source, catalogues and profiles of agents (6.14,
-  6.15), what is permitted apart from what is present (D-015) and installers that preview their plan. Not yet reviewed
-  by Codex.
-- **Next: part 4b** (`plan.md`, section "Parts"): section 7a (UCI, apk-tools, SQLite) in the same file, the
-  consolidated source catalogue (6.30), then Codex's review of 4a and 4b together. Start prompt:
+- **Phase 4 delivered (D-026, D-027).** `brewstillery/bootstrap/reference-study.md`: part 4a (R-011), Pullboard at
+  source, catalogues and profiles of agents (6.14, 6.15), permitted versus present (D-015) and installers that preview
+  their plan; part 4b (R-012), section 7a (UCI, apk-tools, SQLite, with three storage options for 6.26 and 6.27) and
+  the consolidated source catalogue (6.30, 61 sources: studied, checked or pending). Codex (GPT-6.1 Sol, high) reviewed
+  both: reject, two scoped re-checks, accept; every confirmed finding corrected. It closes on the maintainer's word.
+- **Next: phase 5, architecture decisions** (`plan.md`): options, consequences and a recommendation for each decision
+  of the packet (registry, settings, language classes, implementation language, core boundary and size budget,
+  command surface, safe installation, local unversioned area, licence), taking `harness-verdicts.md` and
+  `reference-study.md` as inputs. Whether it splits into parts is decided at its start (D-019). Start prompt:
   `Eres el integrador de Fabrewk; empieza por brewstillery/STATUS.md`. Model and effort: Claude Code on Opus 5.5,
-  effort high; Codex GPT-6.1 Sol, effort high, reviews. At its start the maintainer confirms network permission and
-  Codex's launch with its budget.
+  effort high; Codex GPT-6.1 Sol, effort high, reviews. At its start the maintainer confirms Codex's launch with its
+  budget, and whether the licence is decided with a professional.
 
 Carried without blocking, with destinations, in D-013. A phase that does not pass is corrected and retried; it
 never ends the project (D-003).
