@@ -155,9 +155,11 @@ Points: 6.28, 6.29.
 **PD-44. A task whose target reached its candidate after a moved base had no way out.**
 Defect: a task invalidated as a moved base whose target then reached its candidate could not be retried; the only way
 out was moving the target back by hand (FZ2B-C3 disposition 1, a known corner; carried at FZ-2b's closure).
-Case: a task in any waiting state whose target is found at its candidate has a way out through Fabrewk: the person can
-finish it as a merge, held to every precondition of PD-12, or stop it with the record saying where the target is. No
-manual move of the target is needed.
+Case: a task in any waiting state whose target is found at its candidate has a way out through Fabrewk, and PD-14
+still holds. With a merge authorization on record, stopping stays refused and the person can finish the merge, held to
+every precondition of PD-12. With none, the person can either finish it as a merge, after authorizing it and under the
+same preconditions, or stop it, the record saying where the target is. No manual move of the target is needed.
+Variants: with and without a merge authorization on record.
 Points: 6.41, 6.44.
 
 **PD-45. A candidate lost the agent's attribution.**
@@ -415,8 +417,9 @@ Points: 6.40, 6.39.
 
 ## K. Records
 
-Found by Codex's review of the legacy repository's records, not of the harness. They are behaviour Fabrewk takes over
-when it writes its own record.
+Found in the legacy repository's records, not in the harness: FZ2B-C0-01 to 04 by Codex's review of those records,
+C7C-9 by the integrator rereading its own evidence. They are behaviour Fabrewk takes over when it writes its own
+record.
 
 **PD-41. A maintainer's edit was committed inside an agent's delivery.**
 Defect: an integrator commit mixed the maintainer's board edit with its own work, against the rule that a
