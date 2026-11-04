@@ -56,11 +56,11 @@ Lines are physical lines at `0000bdc`.
 | File | Lines | Verdict | Reason |
 | --- | ---: | --- | --- |
 | `state.py` | 132 | Reuse as design | The log on its own Git ref, one commit per transition, compare-and-swap, a hash chain, a rollback mark replaced atomically, and only a newline ends an event (FZ2B-C3-05). Meets 6.26 and 6.37; its location leaves 6.27 open (observations). |
-| `machine.py` | 297 | Reuse as design | Pure reducer with every guard in code, refusing before any change; person events need words and bind to digests. Fabrewk needs one declarative table and the halt code apart from its reason (observations), and the task fields of 6.28 that are missing: dependencies, allowed files, profile. |
+| `machine.py` | 297 | Reuse as design | Pure reducer with every guard in code; a refused event leaves the stored state unchanged because the reducer works on a copy and only a committed event counts (one guard runs after a partial change of that copy, so the rewrite must validate before changing anything); person events need words and bind to digests. Fabrewk needs one declarative table and the halt code apart from its reason (observations), and the task fields of 6.28 that are missing: dependencies, allowed files, profile. |
 | `identity.py` | 42 | Reuse as design | Canonical JSON digests, the input identity of a check or a verdict, stale fields recomputed on use (6.29, 6.43). The policy part must bind to a revision (observations). |
 | `checks.py` | 48 | Reuse as design | Only a finished, successful check counts; the gate takes the union of the configured and the approved checks and recomputes their identity (6.43, FZ2-C5-03). |
 | `orchestrate.py` | 386 | Reuse as design | The run loop: attempt recorded before the dispatch and ended once, a lost result sent to the person, copies without the domain, the change set computed by the harness, the merge revalidated before and after a compare-and-swap move. Holds H3A-01 and H3A-02, which the new code must not repeat. |
-| `gitops.py` | 95 | Reuse as design | Git plumbing only, objects read as stored (no replacement refs or grafts), commits through a temporary index, paths delimited by NUL. Its `export` holds H3A-03. |
+| `gitops.py` | 95 | Reuse as design | Git plumbing for the state and the commits, objects read as stored (no replacement refs or grafts), commits through a temporary index, changed and ignored paths delimited by NUL. The worktree lookup and the dirty check parse porcelain output split on newlines, which the rewrite must also delimit by NUL. Its `export` holds H3A-03. |
 | `config.py` | 121 | Rewrite | Loading and validation are tied to `.meta-harness/config/harness.toml` and a single level; Fabrewk has `brewstillery/settings.toml`, personal files and levels still to design (D-002, D-007, D-015; 6.10, 6.11). The lane matcher and write guard in the same file (lines 44–121) are reused as design: exact intersection of glob languages, no backtracking (FZ2-C8-01, FZ2B-C1-01). |
 | `schemas.py` | 61 | Reuse as design | One output schema per role, checked again by the core; a rejection needs a confirmed blocking finding and an acceptance may carry none (6.42). Standard library only. |
 | `errors.py` | 18 | Reuse as design | Refusals as language-neutral codes with parameters; an adapter error keeps the provider's text out of the log (FZ2R-4). |
@@ -77,7 +77,7 @@ Lines are physical lines at `0000bdc`.
 | File | Lines | Verdict | Reason |
 | --- | ---: | --- | --- |
 | `confine.py` | 41 | Reuse as design | bubblewrap arguments: read-only system, an empty home, only the CLI and its own credential, the copy at `/work`, no network for checks. Linux only, and bubblewrap itself is still to be evaluated (7c, 6.46). |
-| `agents.py` | 205 | Rewrite | Tool, provider and model are one name and the router keys on it (6.14); there is no route when a provider is missing (6.36); the flags are pinned to CLI versions of October 2026, not rechecked; Claude runs with its own permissions bypassed inside the confinement. Kept as design: headless runs with a schema, raw channels kept locally, the CLI's release directory bound read-only. |
+| `agents.py` | 205 | Rewrite | Tool and provider are one name and the router keys on it, while the model and effort are separate fields (6.14); there is no route when a provider is missing (6.36); the flags are pinned to CLI versions of October 2026, not rechecked; Claude runs with its own permissions bypassed inside the confinement. Kept as design: headless runs with a schema, raw channels kept locally, the CLI's release directory bound read-only. |
 | `audit.py` | 177 | Reuse as design | A fail-closed audit of a Codex or Claude stream: any anomaly voids the examination count and an unknown exit code never counts as success (AW1BR-1 to 4, FZ2B-C3-R4, FZ2B-C4-01). It depends on each CLI's stream format. |
 | `__init__.py` | 8 | Discard | A one-function indirection. |
 
@@ -120,8 +120,10 @@ them against the receipts and turns them into test cases.
   reports every symlink in the author's copy as a change, even an untouched one, so the attempt halts with
   `LANE_VIOLATION` or `SYMLINK_REFUSED`. Probe: a base with `link -> ok.txt`; the task blocked on `link`.
 - **H3A-02. A change of the executable bit alone is lost without notice.** `changes()` compares bytes only, so a file
-  made executable with the same content is not in the change set; the candidate keeps mode 100644 and the task is
-  accepted. Probe: the author runs `chmod 755` on a tracked `tool.sh`; the candidate's tree shows 100644.
+  made executable with the same content is not in the change set; with another change in the same attempt, the
+  candidate keeps mode 100644 and the task is accepted; with no other change, the attempt halts as `NO_CHANGE`, which
+  misreports what the author did. Probe: the author runs `chmod 755` on a tracked `tool.sh` and edits another file; the
+  candidate's tree shows 100644.
 - **H3A-03. A symlink to an absolute path in the base raises a raw error before any dispatch.** `Git.export`
   (`gitops.py` lines 63–69) extracts with tarfile's `data` filter, which refuses such a link with `AbsoluteLinkError`.
   Nothing is recorded, the task stays proposed and `run` fails the same way on every call. Probe: a base with
@@ -143,8 +145,9 @@ Not defects of the pilot: places where the harness's design meets a decision Fab
 - **Confinement.** The Claude adapter bypasses Claude's own permission prompts and relies on the outer `bwrap` alone;
   the shared network and the readable credential are the residual risk the maintainer accepted for FZ-2; `/etc` is
   readable; only Linux has a confinement (6.38, 6.46; bubblewrap still to be evaluated, 7c).
-- **Tool, provider and model.** `provider = "claude"` names all three, and the router keys on it; 6.14 asks to tell
-  them apart and 6.36 for a route when a provider is missing; neither exists.
+- **Tool and provider.** `provider = "claude"` names both the CLI and the provider, and the router keys on it; the
+  model and effort are separate fields. 6.14 asks to tell tool and provider apart and 6.36 for a route when a provider
+  is missing; neither exists. (Corrected after Codex's review of phase 3, which found that the model is not conflated.)
 - **What the examination count proves.** It guards against a lazy or failed run, not a hostile agent (DESIGN.md
   section 7). Fabrewk must state that limit as plainly (6.38).
 - **One table for the transitions.** The allowed moves are spread over `FROM`, `ROLE_FROM` and the handlers, two

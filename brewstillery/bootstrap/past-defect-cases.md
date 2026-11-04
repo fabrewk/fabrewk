@@ -28,9 +28,11 @@ receipt and the harness's tests state them.
 - Each case needs a test that fails on a build without its fix. The harness's practice, kept as the standard: the test
   is red before the fix, green after, and mutations of the fix are caught (plan, phase 7).
 
-Totals: 43 cases, one of them (PD-26) with 20 sub-cases, for 61 finding keys plus the variants the integrator found
-while correcting them. Six items are not turned into cases, each with its reason. The table at the end traces every key
-to its case.
+Totals: 46 cases, one of them (PD-26) with 20 sub-cases. They cover 61 named findings (58 keys of the past reviews and
+H3A-01 to 03) and 8 findings without a key of their own (four single defects named by where they were recorded, and
+four groups of variants the integrator found while correcting). FX-1 to FX-7 name corrections of findings already
+counted, so they are traced but not counted. Five items are not turned into cases, each with its reason. The table at
+the end traces every finding to its case. PD-44 to PD-46 were added after Codex's review of phase 3.
 
 ## A. The registry and its integrity
 
@@ -150,6 +152,29 @@ merge can be finished. With no authorization on record, stopping stays available
 Variants: the reviewer's: authorized, failed before moving, retried back to accepted, then the target moved by hand.
 Points: 6.28, 6.29.
 
+**PD-44. A task whose target reached its candidate after a moved base had no way out.**
+Defect: a task invalidated as a moved base whose target then reached its candidate could not be retried; the only way
+out was moving the target back by hand (FZ2B-C3 disposition 1, a known corner; carried at FZ-2b's closure).
+Case: a task in any waiting state whose target is found at its candidate has a way out through Fabrewk: the person can
+finish it as a merge, held to every precondition of PD-12, or stop it with the record saying where the target is. No
+manual move of the target is needed.
+Points: 6.41, 6.44.
+
+**PD-45. A candidate lost the agent's attribution.**
+Defect: the candidate the harness committed for the author carried a sign-off but no co-author line naming the agent,
+while the manual arm's commits carried both (FZ-2 C7 delivery; corrected in FZ-2b C2).
+Case: a candidate Fabrewk commits for an agent names the agent (tool, provider and model) as co-author and carries the
+sign-off the project requires; a test reads both from the commit.
+Points: 6.29, 6.44.
+
+**PD-46. A delivery was committed with a test failing.**
+Defect: a command chained the commit after the test run without stopping on its failure, and a commit with one red test
+was made (FZ-2 C8 corrections, disclosure; fixed by the next commit).
+Case: a delivery Fabrewk finalizes (a candidate, a merge, or its own record) is committed only after its required checks
+pass in the same step; a failed check stops the commit and says so. Intermediate commits on a task branch are not
+forbidden by this case.
+Points: 6.43, 6.44.
+
 ## D. What an agent's change may hold
 
 **PD-15. The lane guard compared sample paths.**
@@ -194,22 +219,26 @@ Points: 6.37, 6.38, 6.44.
 **PD-19. An untouched symbolic link in the base stopped every task.**
 Defect: every symbolic link in the author's copy was reported as a change, even one already tracked and untouched, so
 the task stopped as a lane violation or a refused link (H3A-01).
-Case: a symbolic link tracked in the base and left untouched is not in the change set and the task proceeds. Whether a
-new or changed link is refused or allowed is a phase 6 rule; an untouched one is never a change.
+Case: a symbolic link tracked in the base and left untouched is not in the change set and the task proceeds, whatever
+the link points to (the copy holds it as stored, PD-21). Whether a new or changed link is refused or allowed is a
+phase 6 rule; an untouched one is never a change.
 Points: 6.37, 6.44.
 
 **PD-20. A change of the executable bit alone was lost without notice.**
-Defect: the change set compared bytes only; a file made executable with the same content was dropped, the candidate
-kept mode 100644 and the task was accepted (H3A-02).
-Case: a mode change alone is in the change set and the candidate carries it, or the change is refused by name; it is
-never dropped silently.
+Defect: the change set compared bytes only; a file made executable with the same content was dropped. With another
+change in the attempt, the candidate kept mode 100644 and the task was accepted; with none, the attempt halted as "no
+change", which misreports what the author did (H3A-02).
+Case: a mode change is in the change set and the candidate carries it, or it is refused by a name that says a mode
+change is not allowed; it is never dropped silently nor reported as no change.
+Variants: the mode change alone; the mode change with another file edited.
 Points: 6.29, 6.44.
 
 **PD-21. A symbolic link to an absolute path in the base failed before any dispatch.**
 Defect: exporting the task copy refused such a link with a raw error; nothing was recorded and every run failed the
 same way (H3A-03).
-Case: the copy holds the link as a link, never followed, or the task is refused by name and the refusal recorded
-before any dispatch. A raw error never reaches the person.
+Case: the copy holds every tracked link as stored, as a link, never followed while exporting; the task proceeds as in
+PD-19. A raw error never reaches the person; if exporting fails for another reason, the failure is a named refusal
+recorded before any dispatch.
 Points: 6.41, 6.38.
 
 **PD-22. Configuration and maintainers' spaces reached the agents.**
@@ -300,8 +329,10 @@ Points: 6.29, 6.38, 6.41.
 **PD-29. Provider text reached the versioned log.**
 Defect: provider error text entered the log through the attempt's end (FZ2R-4, C3 review 1); then the provider's error
 subtype (FZ2B-C3-04).
-Case: from a dispatch, the log holds only Fabrewk's own short texts, codes, counts and digests. Provider text, error
-subtypes and free-form usage fields stay in the local raw files. The model and CLI version the CLI reports are kept as
+Case: the raw diagnostic channels of a dispatch (the provider's error text, error subtypes, stderr, free-form usage
+fields) never enter the versioned log: they stay in the local raw files, and the log keeps Fabrewk's own short reason,
+the counts and the digests. The validated output of the role (a specification, a summary, findings, a verdict) and the
+person's decisions are evidence and stay in the log (6.29). The model and CLI version the CLI reports are kept as
 client-reported identity.
 Points: 6.38, 6.26.
 
@@ -388,8 +419,8 @@ Found by Codex's review of the legacy repository's records, not of the harness. 
 when it writes its own record.
 
 **PD-41. A maintainer's edit was committed inside an agent's delivery.**
-Defect: an integrator commit mixed the maintainer's board edit with its own work; authorship could not be shown
-(FZ2B-C0-01).
+Defect: an integrator commit mixed the maintainer's board edit with its own work, against the rule that a
+maintainer's edit is committed alone; the maintainer later confirmed the edit as theirs (FZ2B-C0-01).
 Case: a change to a maintainer's input is committed alone, attributed to the maintainer, with no AI co-author; a commit
 that mixes it with an agent's writes is refused.
 Points: 6.7, 6.37.
@@ -401,9 +432,11 @@ Case: counts and states a record cites are computed from the registry, or checke
 committed.
 Points: 6.26, 6.29.
 
-**PD-43. A status line stated a fact that would become false.**
-Defect: the status named the branch head as fixed, false as soon as the branch moved (FZ2B-C0-04).
-Case: the status is a view generated from the registry; regenerated, it matches.
+**PD-43. A view stated a fact that would become false, or went stale.**
+Defect: the status named the branch head as fixed, false as soon as the branch moved (FZ2B-C0-04); a receipts index
+row was placed by hand and the generated index went stale (C7C-9).
+Case: the status and every index are views generated from the registry and never edited by hand; before a commit,
+regenerating them gives the committed text.
 Points: 6.26.
 
 ## Not turned into cases
@@ -414,8 +447,7 @@ Points: 6.26.
 | C8F-3 | Git levels, task dependencies and a same-provider review fallback were not implemented: missing features, not defects | Phase 5 and 6.28, 6.42, 6.44 |
 | C8F-5, FX-8 | No test named three check refusal codes; the gate raised each correctly | Phase 6 test plan, refusal list |
 | C7C-3, C7C-8 | How interventions and response time were counted | Phase 11, pilot measures |
-| C7C-9, C7C-10 | A hand-placed index row; ignored files the integrator left in the pilot | Integrator conduct, not Fabrewk behaviour |
-| A task invalidated to "base moved" whose target then reaches its candidate | A known corner with only a manual way out, accepted at FZ-2b's closure | Phase 6, with PD-14 |
+| C7C-10 | Ignored files (caches, a local folder) the integrator's own reads left in the pilot; no tracked file or reference changed | Integrator conduct, not Fabrewk behaviour |
 
 ## Trace of keys
 
@@ -461,4 +493,8 @@ Points: 6.26.
 | FZ2B-C5-R-1 to R-4 | PD-31, PD-26.19, PD-18, PD-26.20 |
 | H3A-01 to 03 | PD-19, PD-20, PD-21 |
 | FZ-2 C7 delivery, item 3 | PD-22 |
+| C7C-9 | PD-43 |
+| Missing co-author on candidates (FZ-2 C7; FZ-2b C2) | PD-45 |
+| Commit with a red test (FZ-2 C8 corrections) | PD-46 |
+| Moved base, then target at the candidate (FZ-2b C3 disposition 1) | PD-44 |
 | C3 dispositions and closure, integrator's variants | PD-26.7, PD-26.9, PD-26.10, PD-26.17 |
