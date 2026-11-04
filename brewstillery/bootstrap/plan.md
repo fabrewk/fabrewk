@@ -5,8 +5,7 @@ Two amendments made after that approval were confirmed by the maintainer (D-012)
 maintainer's alambique, requested in the alambique's section 8, answer 4; its proposed text is delivered as a separate
 file in `brewstillery/bootstrap/`) and phase 2 (the bootstrap review merged with the audit's review, one dispatch
 instead of two). Phase 0 is closed (D-013). Phase 1 is closed (D-018). Phase 2 is closed (D-021). Phase 3 was
-split into parts (D-023, section "Parts"); both are delivered and Codex's review accepted them (R-010), and its
-closure waits for the maintainer's word.
+split into parts (D-023, section "Parts"); Codex's review accepted both (R-010) and it is closed (D-025).
 
 **Rule for every phase (alambique 6.48, D-003).** A phase that does not pass is corrected and retried; it never
 ends the project. Before each retry the progress measure is fixed (proposed: confirmed blocking findings, and

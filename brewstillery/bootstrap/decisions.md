@@ -733,3 +733,18 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Result: phase 3's acceptance holds as reviewed: each of the 40 files has a verdict and a reason, and each confirmed
   past defect has a test case (46 cases, PD-26 with 20 sub-cases). The input is unchanged by the integrator (digest
   above); the answers zone has no recommendation this sweep.
+
+## D-025 — Phase 3 closed
+
+- Status: decided
+- Decided: 2026-11-03
+- Origin: maintainer XEL in session 5's chat: "Dado que ya no quedan pendientes ni controversias por definir en este
+  chat, cierralo."
+- Decision: phase 3 is closed on the evidence of R-009 and R-010: every file of `tickbrew-harness` has a verdict and a
+  reason, every confirmed past defect has a test case, and Codex's review accepted both parts with no confirmed blocking
+  finding open. Session 5 closes with a clean tree (D-022).
+- Consequences: next is phase 4, the study of references, in a fresh chat (Opus 5.5, effort high; Codex, effort high,
+  reviews it). Its start asks the maintainer for network permission, the list of sources and the budget. Phase 5 takes
+  `harness-verdicts.md` (observations for phase 5) and phase 6 takes `past-defect-cases.md` into its test plan.
+- Sources: chat of session 5; R-009; R-010; `brewstillery/bootstrap/plan.md`, phases 3 to 6.
+- Supersedes: none.
