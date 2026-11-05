@@ -163,8 +163,8 @@ pub fn parse(path: &Path, text: &str, level: Level) -> Result<Settings, Vec<Erro
     match DeTable::parse(text) {
         Ok(doc) => cx.walk(doc.get_ref(), &mut Vec::new()),
         Err(e) => {
-            let line = cx.line(e.span().map_or(0, |s| s.start));
-            let why = format!("{} (line {line}): {}", locate(text, line), e.message());
+            let offset = e.span().map_or(0, |s| s.start);
+            let why = format!("{} (line {}): {}", locate(text, offset), cx.line(offset), e.message());
             return Err(vec![refuse(Code::SettingsInvalid, Some(path), why)]);
         }
     }
@@ -172,24 +172,24 @@ pub fn parse(path: &Path, text: &str, level: Level) -> Result<Settings, Vec<Erro
     if cx.errors.is_empty() { Ok(cx.out) } else { Err(cx.errors) }
 }
 
-/// The key path a line of text that is not valid TOML names, as far as the line and the table header above it show:
-/// a header names its table, `key = …` its key inside the last header; `(document)` when the line names none.
-fn locate(text: &str, line: usize) -> String {
-    let lines: Vec<&str> = text.lines().collect();
-    let header =
-        |l: &str| l.trim().strip_prefix('[').map(|h| h.trim_matches(|c| c == '[' || c == ']' || c == ' ').to_owned());
-    let at = lines.get(line.wrapping_sub(1)).copied().unwrap_or_default();
-    if let Some(h) = header(at) {
-        return h;
+/// The key path that text which is not valid TOML is wrong at, read from the parser's own positions: the last key it
+/// read up to the error (for a duplicate, the first of the two); `(document)` when none.
+fn locate(text: &str, offset: usize) -> String {
+    let (doc, _) = DeTable::parse_recoverable(text);
+    let mut best: Option<(usize, String)> = None;
+    let mut stack = vec![(doc.get_ref(), String::new())];
+    while let Some((table, prefix)) = stack.pop() {
+        for (k, v) in table.iter() {
+            let path = if prefix.is_empty() { k.get_ref().to_string() } else { format!("{prefix}.{}", k.get_ref()) };
+            if k.span().start <= offset && best.as_ref().is_none_or(|b| k.span().start >= b.0) {
+                best = Some((k.span().start, path.clone()));
+            }
+            if let DeValue::Table(inner) = v.get_ref() {
+                stack.push((inner, path));
+            }
+        }
     }
-    let Some((key, _)) = at.split_once('=').filter(|(k, _)| !k.trim().is_empty()) else {
-        return "(document)".into();
-    };
-    let key = key.trim().trim_matches(|c| c == '"' || c == '\'');
-    match lines[..line.saturating_sub(1).min(lines.len())].iter().rev().find_map(|l| header(l)) {
-        Some(table) => format!("{table}.{key}"),
-        None => key.to_owned(),
-    }
+    best.map(|b| b.1).filter(|p| !p.is_empty()).unwrap_or_else(|| "(document)".into())
 }
 
 struct Cx<'a> {
@@ -317,8 +317,9 @@ pub(crate) fn admit(ty: Type, value: &Val) -> Result<(), (Code, &'static str)> {
 }
 
 /// The SSH key types `ssh-keygen -Y` signs with (REQ-ID-5 reports which one a maintainer holds).
-pub const KEY_TYPES: [&str; 6] = [
+pub const KEY_TYPES: [&str; 7] = [
     "ssh-ed25519",
+    "ssh-rsa",
     "sk-ssh-ed25519@openssh.com",
     "ecdsa-sha2-nistp256",
     "ecdsa-sha2-nistp384",
@@ -388,6 +389,7 @@ mod tests {
     use super::*;
     use std::collections::BTreeMap;
 
+    const RSA: &str = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDDcwAENgdH/zyYbUd3tD5jYGYOuRHZlALoYcEU3VpIz/RCyoVwLyESOa428vi8r5Q+oXQxc/1rPy+l2Rn61+dI8S16CO883Ti46jIXOXSg+nN+9QFxo0HKCRS0lDR/GP2wWTFuhhkU6I+FaFz6H9f/xv+FXJwQzNfeDI/nc7EJ5c9OdEjcak0Tb4Bd6BDRpAe88hAA1u2eG7Yu4dNUsnOjvMqzv2RYBePAtWc2/G47g8mEfby11l+qym+Dsuis/gOk7lEPBWv46r4PtYAHpIq1+p7CrvaIRSkZWopvRGp8dedojby+8AMDZIHsX+DGFp+DykyKdWHK3o8Vh/utJDeN";
     const KEY: &str = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIByTOVQl/Cf6KVagH6iburcFw5dfZyrrEe+CbRpOAb6Y ana";
 
     fn at(level: Level) -> PathBuf {
@@ -521,9 +523,23 @@ mod tests {
             "project.name (line 3)",
         );
         refused(Level::Project, "[project\n", Code::SettingsInvalid, "project (line 1)");
-        refused(Level::Project, "a = 1\na = 2\n", Code::SettingsInvalid, "a (line 2)");
+        refused(Level::Project, "a = 1\na = 2\nb = 3\n", Code::SettingsInvalid, "a (line 2)");
+        refused(Level::Project, "[project]\nname = 'x'\n[project]\n", Code::SettingsInvalid, "project (line 3)");
         refused(Level::Project, "[t]\n\"a\" = 1\n\"a\" = 2\n", Code::SettingsInvalid, "t.a (line 3)");
         refused(Level::Project, "'b' = 1\n'b' = 2\n", Code::SettingsInvalid, "b (line 2)");
+        refused(
+            Level::Project,
+            "[project] # note\nname = 'x'\nname = 'y'\n",
+            Code::SettingsInvalid,
+            "project.name (line 3)",
+        );
+        refused(
+            Level::Project,
+            "limits = {\nrounds = 1,\nrounds = 2,\n}\n",
+            Code::SettingsInvalid,
+            "limits.rounds (line 3)",
+        );
+        refused(Level::Project, "[a]\nx = 1\n[ \"b\" . c ] # n\n[b.c]\n", Code::SettingsInvalid, "b.c (line 4)");
         refused(Level::Project, "\n\n= 1\n", Code::SettingsInvalid, "(document) (line 3)");
     }
 
@@ -533,6 +549,8 @@ mod tests {
         let s = ok(Level::Project, "limits = {\n  rounds = 4,\n  minutes = 9,\n}\n[project]\nname = \"x\"\n");
         assert_eq!(s.values["limits.rounds"].value, Val::Int(4));
         assert_eq!(s.values["limits.minutes"].line, 3);
+        let personal = ok(Level::Personal, "maintainer = {\n  alias = 'ana',\n}\n");
+        assert_eq!(personal.values["maintainer.alias"], Entry { value: Val::Str("ana".into()), line: 2 });
     }
 
     #[test]
@@ -630,6 +648,7 @@ mod tests {
             &format!("{head}role = \"supervisor\"\nkey = \"{KEY}\"\nhostAccount = \"ana\"\narea = [\"docs/\"]\n"),
         );
         assert_eq!(s.values["maintainers.ana.area"].value, Val::List(vec!["docs/".into()]));
+        ok(Level::Project, &format!("{head}role = \"maestro\"\nkey = \"{RSA}\"\n"));
         assert_eq!(s.tables["maintainers.ana"], 3);
         refused(
             Level::Project,

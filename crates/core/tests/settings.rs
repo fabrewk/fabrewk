@@ -78,7 +78,13 @@ fn req_set_4_the_policy_is_the_last_adopted_content_whatever_the_file_says() {
         fs::create_dir_all(f.domain.join("xel")).unwrap();
         fs::write(f.domain.join("xel/fermento.md"), "[limits]\nrounds = 9\n").unwrap();
         fs::write(f.domain.join("ALAMBIQUE.md"), "[limits]\nrounds = 9\n").unwrap();
-        let again = settings::effective(&policy, None, &[], &[]).unwrap();
+        let personal_file = f.domain.join("xel/settings.toml");
+        let personal_text = "maintainer = {\n  alias = \"xel\",\n}\nlanguages.agentInteraction = \"es-MX\"\n";
+        fs::write(&personal_file, personal_text).unwrap();
+        let personal = settings::read(&personal_file, settings::Level::Personal).unwrap();
+        let again = settings::effective(&policy, Some(&personal), &[], &[]).unwrap();
+        assert_eq!(again.values["languages.agentInteraction"].1, Source::Personal("xel".into()));
+        assert_eq!(fs::read(&personal_file).unwrap(), personal_text.as_bytes(), "never rewritten");
         assert_eq!(again.values["limits.rounds"].0, Val::Int(3));
 
         // The second adoption, named, moves the policy; the event lists the widening.
