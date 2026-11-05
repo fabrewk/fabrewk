@@ -51,17 +51,16 @@ fn check(binary: PathBuf, target: &str) -> Result<bool, String> {
     let root = budget::workspace_root();
     let counts = rings::count_rings(&root, RINGS).map_err(|e| e.to_string())?;
     print_counts(&counts);
-    let metadata = deps::cargo_metadata(&budget::cargo(), &root, target)?;
-    let report = deps::analyse(
-        &metadata,
-        BINARY_PACKAGE,
-        &budget::own_packages(&root, RINGS),
-        &counts,
-    )?;
+    let own = budget::own_packages(&root, RINGS);
+    let mut report = deps::Report::default();
+    for platform in [target.to_string(), budget::host_tuple()?] {
+        let metadata = deps::cargo_metadata(&budget::cargo(), &root, &platform)?;
+        report.merge(deps::analyse(&metadata, BINARY_PACKAGE, &own, &counts)?);
+    }
     println!(
         "direct runtime crates: {} {:?}",
         report.direct.len(),
-        report.direct
+        report.direct.values().collect::<Vec<_>>()
     );
     println!(
         "crates in the release build for {target}: {}",

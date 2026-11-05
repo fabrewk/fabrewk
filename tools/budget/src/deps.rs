@@ -35,13 +35,14 @@ pub fn cargo_metadata(cargo: &Path, root: &Path, target: &str) -> Result<String,
     String::from_utf8(out.stdout).map_err(|_| "cargo metadata printed non-UTF-8".to_string())
 }
 
-/// What the release build depends on.
+/// What the release build depends on. Crates are keyed by Cargo's package id, which tells apart two packages of the
+/// same name and version from different sources.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Report {
-    /// Names of crates a ring package the binary reaches depends on directly.
-    pub direct: BTreeSet<String>,
-    /// Every crate the binary reaches that is not a local package, by name and version.
-    pub all: BTreeSet<(String, String)>,
+    /// Crates a ring package the binary reaches depends on directly: id to name.
+    pub direct: BTreeMap<String, String>,
+    /// Every crate the binary reaches that is not a local package: id to `name version`.
+    pub all: BTreeMap<String, String>,
     /// The ring packages the binary reaches, by directory.
     pub local: BTreeSet<PathBuf>,
     /// What breaks the closed world, as sentences.
@@ -152,14 +153,14 @@ pub fn analyse(
         } else {
             report
                 .all
-                .insert((p.name.to_string(), p.version.to_string()));
+                .insert(id.to_string(), format!("{} {}", p.name, p.version));
         }
         for dep in edges.get(id).map_or(&[][..], Vec::as_slice) {
             let d = packages
                 .get(dep)
                 .ok_or_else(|| format!("cargo metadata: unknown package {dep}"))?;
             if ring && !d.local {
-                report.direct.insert(d.name.to_string());
+                report.direct.insert(dep.to_string(), d.name.to_string());
             }
             if seen.insert(dep) {
                 queue.push(dep);
@@ -167,6 +168,20 @@ pub fn analyse(
         }
     }
     Ok(report)
+}
+
+impl Report {
+    /// Adds what `other` found, so that one report covers the target's graph and the host's.
+    pub fn merge(&mut self, other: Report) {
+        self.direct.extend(other.direct);
+        self.all.extend(other.all);
+        self.local.extend(other.local);
+        for problem in other.problems {
+            if !self.problems.contains(&problem) {
+                self.problems.push(problem);
+            }
+        }
+    }
 }
 
 /// A ring package's targets: `lib` and `bin` roots counted, no build script, no procedural macro.
@@ -194,8 +209,9 @@ fn target_problems(p: &Package, counted: &BTreeSet<&PathBuf>) -> Vec<String> {
     problems
 }
 
-/// A `.cargo` directory anywhere in the repository, or `RUSTFLAGS` with a `cfg` among `env`, as sentences: either
-/// can change how the rings compile, and Fabrewk keeps none.
+/// What may change how the rings compile, as sentences: a `.cargo` directory anywhere in the repository, a directory
+/// the scan cannot read, and among `env` a `CARGO_HOME` inside the repository, `RUSTFLAGS` with a `cfg`, or a
+/// replaced or wrapped compiler. Fabrewk keeps none of them.
 pub fn config_problems(
     root: &Path,
     env: impl IntoIterator<Item = (String, String)>,
@@ -203,10 +219,17 @@ pub fn config_problems(
     let mut problems = Vec::new();
     let mut dirs = vec![root.to_path_buf()];
     while let Some(dir) = dirs.pop() {
-        let Ok(entries) = std::fs::read_dir(&dir) else {
+        let entries = std::fs::read_dir(&dir).and_then(|it| {
+            it.map(|e| e.map(|e| e.path()))
+                .collect::<Result<Vec<_>, _>>()
+        });
+        let Ok(mut entries) = entries else {
+            problems.push(format!(
+                "{} cannot be read, so the check cannot see what it holds",
+                dir.display()
+            ));
             continue;
         };
-        let mut entries: Vec<PathBuf> = entries.filter_map(|e| e.ok().map(|e| e.path())).collect();
         entries.sort();
         for path in entries {
             let name = path
@@ -227,9 +250,24 @@ pub fn config_problems(
         }
     }
     problems.sort();
+    const COMPILER: &[&str] = &[
+        "RUSTC",
+        "RUSTC_WRAPPER",
+        "RUSTC_WORKSPACE_WRAPPER",
+        "CARGO_BUILD_RUSTC",
+        "CARGO_BUILD_RUSTC_WRAPPER",
+        "CARGO_BUILD_RUSTC_WORKSPACE_WRAPPER",
+    ];
+    let root = canonical(root);
     for (name, value) in env {
         if name.ends_with("RUSTFLAGS") && value.contains("cfg") {
             problems.push(format!("{name} sets a cfg for the build: {value}"));
+        } else if COMPILER.contains(&name.as_str()) && !value.is_empty() {
+            problems.push(format!("{name} replaces or wraps the compiler: {value}"));
+        } else if name == "CARGO_HOME" && canonical(Path::new(&value)).starts_with(&root) {
+            problems.push(format!(
+                "CARGO_HOME is inside the repository, so its configuration applies: {value}"
+            ));
         }
     }
     problems

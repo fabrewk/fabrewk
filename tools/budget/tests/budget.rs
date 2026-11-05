@@ -85,14 +85,7 @@ fn req_bud_2_a_ring_over_its_limit_is_reported() {
 fn real_report() -> Report {
     let root = workspace_root();
     let counts = count_rings(&root, RINGS).unwrap();
-    let metadata = cargo_metadata(&cargo(), &root, RELEASE_TARGET).unwrap();
-    analyse(
-        &metadata,
-        BINARY_PACKAGE,
-        &own_packages(&root, RINGS),
-        &counts,
-    )
-    .unwrap()
+    budget::release_report(&root, &counts).unwrap()
 }
 
 #[test]
@@ -150,12 +143,14 @@ fn req_bud_2_metadata_is_classified() {
     ];
     let count = ring_count(&["/w/crates/fabrewk/src/main.rs"]);
     let report = analyse(METADATA, "fabrewk", &own, std::slice::from_ref(&count)).unwrap();
-    assert_eq!(
-        report.direct,
-        ["cc", "serde"].map(String::from).into_iter().collect()
-    );
-    let all: Vec<_> = report.all.iter().map(|(n, v)| format!("{n} {v}")).collect();
-    assert_eq!(all, ["cc 1.1.0", "serde 1.0.0", "serde_derive 1.0.0"]);
+    let direct: Vec<_> = report
+        .direct
+        .iter()
+        .map(|(id, name)| format!("{id}={name}"))
+        .collect();
+    assert_eq!(direct, ["cc=cc", "serde=serde"]);
+    let all: Vec<_> = report.all.values().map(String::as_str).collect();
+    assert_eq!(all, ["cc 1.1.0", "serde_derive 1.0.0", "serde 1.0.0"]);
     assert_eq!(report.local, own.iter().cloned().collect());
     assert_eq!(
         report.problems,
@@ -245,30 +240,37 @@ fn req_bud_2_crate_counts_over_limits_are_reported() {
     let mut report = Report::default();
     report.local.insert(PathBuf::from("/w/crates/core"));
     for (name, _) in APPROVED_RUNTIME_CRATES {
-        report.direct.insert(name.to_string());
+        report.direct.insert(format!("id-{name}"), name.to_string());
     }
     for n in 0..MAX_RELEASE_CRATES {
-        report.all.insert((format!("c{n}"), "1.0.0".into()));
+        report.all.insert(format!("c{n}"), format!("c{n} 1.0.0"));
     }
     assert_eq!(dependency_problems(&report), Vec::<String>::new());
 
     let mut more = report.clone();
-    more.all.insert(("one-more".into(), "1.0.0".into()));
+    more.all.insert("one-more".into(), "one-more 1.0.0".into());
     assert_eq!(dependency_problems(&more).len(), 1);
 
     let mut unapproved = report.clone();
-    unapproved.direct.insert("unapproved".into());
+    unapproved
+        .direct
+        .insert("id-unapproved".into(), "unapproved".into());
+    assert_eq!(dependency_problems(&unapproved).len(), 1);
+    // Two packages with one name count twice and are reported once.
+    unapproved
+        .direct
+        .insert("id-unapproved-2".into(), "unapproved".into());
     assert_eq!(dependency_problems(&unapproved).len(), 1);
 
     let mut at_limit = report.clone();
     at_limit.direct = (0..MAX_DIRECT_RUNTIME_CRATES)
-        .map(|n| format!("d{n}"))
+        .map(|n| (format!("i{n}"), format!("d{n}")))
         .collect();
     assert_eq!(dependency_problems(&at_limit).len(), at_limit.direct.len());
 
     let mut too_many = report.clone();
     too_many.direct = (0..=MAX_DIRECT_RUNTIME_CRATES)
-        .map(|n| format!("d{n}"))
+        .map(|n| (format!("i{n}"), format!("d{n}")))
         .collect();
     assert_eq!(
         dependency_problems(&too_many).len(),
@@ -345,7 +347,7 @@ fn req_bud_3_msrv_and_edition() {
 
 #[test]
 fn req_bud_4_direct_crates_are_approved() {
-    for name in &real_report().direct {
+    for name in real_report().direct.values() {
         assert!(
             APPROVED_RUNTIME_CRATES.iter().any(|(a, _)| a == name),
             "{name} has no approved reason"
@@ -599,4 +601,77 @@ fn req_bud_1_cargo_configuration_and_rustflags_are_reported() {
     let found = config_problems(&root, clean);
     assert_eq!(found.len(), 3, "{found:?}");
     assert!(found[0].ends_with(".cargo may change how the rings compile; Fabrewk keeps none"));
+}
+
+#[test]
+fn req_bud_2_packages_are_told_apart_by_id_and_platforms_are_merged() {
+    // Codex's case in its fifth review of part 7a: packages of one name and version from distinct sources.
+    let doc = r#"{"packages":[
+     {"id":"bin","name":"fabrewk","version":"0.0.0","source":null,"manifest_path":"/w/crates/fabrewk/Cargo.toml","targets":[]},
+     {"id":"git-a","name":"serde","version":"0.0.1","source":"git+a","manifest_path":"/g/a/Cargo.toml","targets":[]},
+     {"id":"git-b","name":"serde","version":"0.0.1","source":"git+b","manifest_path":"/g/b/Cargo.toml","targets":[]}],
+     "workspace_members":["bin"],
+     "resolve":{"nodes":[{"id":"bin","deps":[{"pkg":"git-a","dep_kinds":[{"kind":null}]},{"pkg":"git-b","dep_kinds":[{"kind":null}]}]},
+      {"id":"git-a","deps":[]},{"id":"git-b","deps":[]}]}}"#;
+    let own = [PathBuf::from("/w/crates/fabrewk")];
+    let report = analyse(doc, "fabrewk", &own, &[]).unwrap();
+    assert_eq!((report.direct.len(), report.all.len()), (2, 2));
+    // The host's graph adds what only the host builds; merging keeps one copy of each problem.
+    let mut merged = analyse(METADATA, "fabrewk", &own, &[]).unwrap();
+    let before = merged.problems.len();
+    merged.merge(report.clone());
+    merged.merge(analyse(METADATA, "fabrewk", &own, &[]).unwrap());
+    assert_eq!(merged.problems.len(), before);
+    assert!(
+        merged.all.contains_key("git-a")
+            && merged.all.contains_key("git-b")
+            && merged.all.contains_key("cc")
+    );
+    assert!(merged.direct.contains_key("git-b"));
+    assert!(merged.local.contains(&PathBuf::from("/w/crates/fabrewk")));
+}
+
+#[test]
+fn req_bud_1_compiler_and_cargo_home_in_the_environment_are_reported() {
+    let root = Path::new(env!("CARGO_TARGET_TMPDIR")).join("environment");
+    let _ = fs::remove_dir_all(&root);
+    fs::create_dir_all(root.join("home")).unwrap();
+    let inside = root.join("home").display().to_string();
+    let env = [
+        ("CARGO_HOME", inside.as_str()),
+        ("RUSTC_WRAPPER", "/usr/bin/sccache"),
+        ("CARGO_BUILD_RUSTC", "/opt/rustc"),
+        ("RUSTC_WORKSPACE_WRAPPER", ""),
+        ("CARGO_HOME_X", inside.as_str()),
+    ]
+    .map(|(k, v)| (k.to_string(), v.to_string()));
+    assert_eq!(
+        config_problems(&root, env),
+        [
+            format!("CARGO_HOME is inside the repository, so its configuration applies: {inside}"),
+            "RUSTC_WRAPPER replaces or wraps the compiler: /usr/bin/sccache".to_string(),
+            "CARGO_BUILD_RUSTC replaces or wraps the compiler: /opt/rustc".to_string(),
+        ]
+    );
+    let outside = [("CARGO_HOME".to_string(), "/nonexistent/cargo".to_string())];
+    assert_eq!(config_problems(&root, outside), Vec::<String>::new());
+}
+
+#[test]
+fn req_bud_1_an_unreadable_directory_is_reported() {
+    use std::os::unix::fs::PermissionsExt;
+    let root = Path::new(env!("CARGO_TARGET_TMPDIR")).join("unreadable");
+    let _ = fs::set_permissions(root.join("opaque"), fs::Permissions::from_mode(0o755));
+    let _ = fs::remove_dir_all(&root);
+    fs::create_dir_all(root.join("opaque/.cargo")).unwrap();
+    fs::set_permissions(root.join("opaque"), fs::Permissions::from_mode(0o111)).unwrap();
+    let problems = config_problems(&root, Vec::new());
+    fs::set_permissions(root.join("opaque"), fs::Permissions::from_mode(0o755)).unwrap();
+    assert_eq!(
+        problems,
+        [format!(
+            "{} cannot be read, so the check cannot see what it holds",
+            root.join("opaque").display()
+        )]
+    );
 }
