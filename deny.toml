@@ -1,0 +1,14 @@
+# cargo-deny, a development tool (core-specification section 9, item 4): `cargo deny check licenses advisories`.
+# The licence allowlist is REQ-BUD-4's; development crates are inside this check (11.6).
+
+[graph]
+targets = ["aarch64-unknown-linux-musl", "aarch64-unknown-linux-gnu"]
+all-features = true
+
+[advisories]
+yanked = "deny"
+
+[licenses]
+allow = ["MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC", "Unicode-3.0", "Zlib", "MIT-0"]
+confidence-threshold = 0.93
+unused-allowed-license = "allow"

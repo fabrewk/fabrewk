@@ -1,0 +1,11 @@
+[package]
+name = "fabrewk-core"
+description = "Fabrewk's core: the record, settings, identity, transitions and checks"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true

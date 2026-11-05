@@ -1,0 +1,21 @@
+# Fabrewk workspace. One crate per ring (D-041): the core is `crates/core` and `crates/fabrewk`, the binary that
+# wires the core to the built-in modules; each later module gets its own `crates/<name>`. `tools/` holds development
+# tools that never ship. The size budget and the approved runtime crates are checked by `tools/budget`.
+
+[workspace]
+resolver = "3"
+members = ["crates/core", "crates/fabrewk", "tools/budget"]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+# The Fedora rustc at phase 7's start (AD-4, REQ-BUD-3); raised only by a maestro's recorded decision.
+rust-version = "1.99.1"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[profile.release]
+strip = "symbols"

@@ -15,7 +15,7 @@ integrator, with Codex checking its fidelity against the archived original (D-03
 in session 11: AD-4, AD-5 and AD-7 rewritten and AD-12 to AD-15 added for what D-032 still needed; Codex accepted the
 file at its second pass (R-018). The maintainer decided AD-4 to AD-15 as recommended (D-036), and Codex re-checked
 the decided file (R-019). Phase 5 is closed (D-037). Phase 6 is split into parts 6a and 6b, and the size budget is frozen at phase 7's start (D-038, section "Parts"). Codex
-accepted both parts at its fifth pass (R-021); the maestro approved the text and phase 6 is closed (D-040).
+accepted both parts at its fifth pass (R-021); the maestro approved the text and phase 6 is closed (D-040). Phase 7 is split into parts 7a to 7d (D-041, section "Parts").
 
 **Rule for every phase (alambique 6.48, D-003).** A phase that does not pass is corrected and retried; it never
 ends the project. Before each retry the progress measure is fixed (proposed: confirmed blocking findings, and
@@ -76,3 +76,13 @@ effort high, reviews both together when phase 6 ends; then the maintainer approv
 | --- | --- | --- | --- | --- |
 | 6a | `core-specification.md`: every alambique point classified, each indispensable one mapped to a requirement or an explicit deferral; states and the transition table; commands and refusals; check semantics; settings keys and the items phase 5 left open | `ALAMBIQUE.md`; `architecture-decisions.md` (decided); `decisions.md`; the observations of `harness-verdicts.md` and the phase 6 findings of `reference-study.md` | Every point of section 6 has a class; every indispensable point has a requirement or a deferral with its reason; every command has its moves and refusals; every item AD-1 to AD-15 left to phase 6 is settled or deferred with a reason | Done, session 12 (R-020) |
 | 6b | The test plan and the acceptance criteria, in the same file | Part 6a; `past-defect-cases.md` | Every past-defect case maps to a requirement and a test; every requirement has a checkable criterion; then Codex's review of 6a and 6b with no confirmed blocking finding open | Done, session 13 (R-021): five Codex passes, accept at the fifth; approved (D-040) |
+
+**Phase 7 (D-041).** Split where its inputs separate. Every part runs on Opus 5.5, effort high, and delivers code, so
+Codex (GPT-6.1 Sol), effort high, reviews each part. The exact cut between 7b and 7d is reviewed when 7b starts.
+
+| Part | Delivers | Inputs | Acceptance (checkable) | State |
+| --- | --- | --- | --- | --- |
+| 7a | The skeleton (workspace, one crate per ring), the line counter `tools/budget`, the licence files, `cargo-deny`'s configuration; then the maestro's freeze of the size budget | `core-specification.md` REQ-BUD-1 to REQ-BUD-5, 11.2, 11.6; AD-4, AD-5, AD-9 | BUD's criteria of section 12; the counter's fixture tests; tests green in a clean clone and on the musl release build; mutants caught or listed as equivalent; Codex's review with no confirmed blocking finding open | In progress, session 14 |
+| 7b | The record: events, replay, compare-and-swap, fork detection, the history walk; the crash suite on the record | REG; section 3; 11.3 and 11.5 for the record; 7a | REG's criteria; PD-01 to PD-06, PD-10 and PD-46 (record); the crash suite on the record; as 7a for clean clone, mutants and review | Planned |
+| 7c | Settings with provenance, identity, roles and signatures | SET, ID, SEC-4, SEC-5, DOM-2 to DOM-5 and DOM-7 on fixture records; 7b | Their criteria and refusals; as 7a | Planned |
+| 7d | The transition table, the command surface, the message catalogue and `check` | TASK (but TASK-5 and TASK-6), CLI, VIEW-4, SEC-3 at `check`; 7b, 7c | Their criteria; PD-15, PD-17, PD-24, PD-30 to PD-32, PD-34 to PD-38; as 7a | Planned |
