@@ -215,19 +215,28 @@ pub(crate) fn check(v: &Value, stream: &str, seq: u64) -> Result<Class, (Code, &
     Ok(class)
 }
 
-/// `policy-adopted`'s payload (part 7c1): exactly `content` (the project file's text), `digest` (its SHA-256) and
-/// `widened` (the widenings named, each a key path).
+/// `policy-adopted`'s payload (parts 7c1 and 7c2a, D-050): exactly `content` (the project file's text), `digest` (its
+/// SHA-256), `heads` (the seal: every other stream's head at the adoption, `{"digest","seq"}` by stream) and `widened`
+/// (the widenings named, each a key path).
 fn policy_payload(p: &Value) -> Result<(), (Code, &'static str)> {
-    let o = p.as_object().filter(|o| o.len() == 3);
+    let o = p.as_object().filter(|o| o.len() == 4);
     let field = |f: &str| o.and_then(|o| o.get(f));
-    let (Some(content), Some(digest), Some(widened)) = (
+    let (Some(content), Some(digest), Some(heads), Some(widened)) = (
         field("content").and_then(Value::as_str),
         field("digest").and_then(Value::as_str),
+        field("heads").and_then(Value::as_object),
         field("widened").and_then(Value::as_array),
     ) else {
         return Err((Code::RecordVersionUnknown, "payload"));
     };
-    if !widened.iter().all(|w| w.as_str().is_some_and(|w| !w.is_empty())) {
+    let head = |(stream, h): (&String, &Value)| {
+        let h = h.as_object().filter(|h| h.len() == 2);
+        stream != "project"
+            && stream_kind(stream).is_some()
+            && h.and_then(|h| h.get("digest")?.as_str()).is_some_and(|d| is_hex(d, 64))
+            && h.and_then(|h| h.get("seq")?.as_u64()).is_some_and(|s| s > 0)
+    };
+    if !widened.iter().all(|w| w.as_str().is_some_and(|w| !w.is_empty())) || !heads.iter().all(head) {
         return Err((Code::RecordVersionUnknown, "payload"));
     }
     if sha256_hex(content.as_bytes()) != digest {
@@ -364,18 +373,28 @@ mod tests {
             };
             check(&d.build("project", 1, None), "project", 1).map(|_| ()).map_err(|e| e.0)
         };
-        assert_eq!(event(json!({"content": content, "digest": digest, "widened": ["limits.rounds"]})), Ok(()));
+        let h = json!({"digest": "a".repeat(64), "seq": 2});
+        let ok = json!({"content": content, "digest": digest, "heads": {"task-t-0123abcd": h}, "widened": ["limits.rounds"]});
+        assert_eq!(event(ok), Ok(()));
         for bad in [
             json!({}),
-            json!({"content": content, "digest": digest}),
-            json!({"content": content, "digest": digest, "widened": [""]}),
-            json!({"content": content, "digest": digest, "widened": [1]}),
-            json!({"content": 1, "digest": digest, "widened": []}),
-            json!({"content": content, "digest": digest, "widened": [], "x": 1}),
+            json!({"content": content, "digest": digest, "heads": {}}),
+            json!({"content": content, "digest": digest, "widened": []}),
+            json!({"content": content, "digest": digest, "heads": {}, "widened": [""]}),
+            json!({"content": content, "digest": digest, "heads": {}, "widened": [1]}),
+            json!({"content": 1, "digest": digest, "heads": {}, "widened": []}),
+            json!({"content": content, "digest": digest, "heads": {}, "widened": [], "x": 1}),
+            json!({"content": content, "digest": digest, "heads": [], "widened": []}),
+            json!({"content": content, "digest": digest, "heads": {"project": h}, "widened": []}),
+            json!({"content": content, "digest": digest, "heads": {"other": h}, "widened": []}),
+            json!({"content": content, "digest": digest, "heads": {"rules": {"digest": "a".repeat(64)}}, "widened": []}),
+            json!({"content": content, "digest": digest, "heads": {"rules": {"digest": "a", "seq": 1}}, "widened": []}),
+            json!({"content": content, "digest": digest, "heads": {"rules": {"digest": "a".repeat(64), "seq": 0}}, "widened": []}),
+            json!({"content": content, "digest": digest, "heads": {"rules": {"digest": "a".repeat(64), "seq": 1, "x": 1}}, "widened": []}),
         ] {
             assert_eq!(event(bad.clone()), Err(Code::RecordVersionUnknown), "{bad}");
         }
-        let other = json!({"content": "other", "digest": digest, "widened": []});
+        let other = json!({"content": "other", "digest": digest, "heads": {}, "widened": []});
         assert_eq!(event(other), Err(Code::RecordBroken));
     }
 

@@ -171,7 +171,12 @@ Every point classified I has at least one requirement; every deferral has its re
   (D-048): the public key the signature carries must be exactly the key the policy the event cites gives the event's
   alias, and `ssh-keygen -Y check-novalidate -n fabrewk` must accept the signature over the file's bytes. The signer
   must hold, in that policy, the role the event claims, and the role must allow the event's kind (section 4). The
-  signature is written before the event file is moved into place. (6.12, AD-14)
+  same holds in the policy in force at the event's place (D-050): in the `project` stream, the stream's own order
+  (the events `apply` writes before the first adoption cite it, the first adoption cites itself, a later one the
+  adoption before it, any other event the policy in force at its place); in any other stream, the last adoption whose
+  seal holds that stream below the event's position, so that a change of a maintainer, their key or their role takes
+  effect for every event written after the adoption. The signature is written before the event file is moved into
+  place. (6.12, AD-14)
 - **REQ-REG-5.** One writer per repository: every command that writes holds an operating-system advisory lock on
   `.brewstillery/local/lock` for its whole run; a second writer is refused at once (`LOCK_HELD`), never queued. Each
   append re-reads the stream's head under the lock and fails if it moved (compare-and-swap; `RECORD_HEAD_MOVED`,
@@ -612,7 +617,7 @@ named are fixed in phase 7 with the code and recorded in this file.
 | --- | --- | --- | --- |
 | `project` | `assessed` | person, signed | verdict, reasons, plan and its digest |
 | `project` | `publication-decided` | person, signed | mode, whether the warning was shown |
-| `project` | `policy-adopted` | person, signed | the project file's content and digest, the widenings named |
+| `project` | `policy-adopted` | person, signed | the project file's content and digest, the seal of every other stream's head (D-050), the widenings named |
 | `project` | `installed` | fabrewk | the receipt: every file written and its digest |
 | `alambique` | `alambique-baseline` | person, signed | the alambique's digest at `apply` (or at the bootstrap's import) |
 | `fermento-<alias>` | `sweep-recorded` | agent | the input's digest, per point its number, text digest and recommendation, the stage and task heads seen |
@@ -667,6 +672,19 @@ creating nonce are fixed by the part that first builds each kind.
   history is walked, it is `RECORD_ROLLBACK`, and the walk runs before the mark.
 - The record commit's message is `fabrewk: record`, a blank line, and one `Fabrewk-Event: <digest>` line per event, the
   full 64-digit digest.
+- `policy-adopted`'s payload is exactly `content` (the project file's text), `digest` (its SHA-256), `heads` (the seal:
+  for every stream but `project` that holds an event, `{"digest","seq"}` of its head when the adoption was written)
+  and `widened` (the key paths named with `--widen`) (parts 7c1 and 7c2a, D-050). A malformed payload is
+  `RECORD_VERSION_UNKNOWN`; a digest that is not its content's is `RECORD_BROKEN`; a seal naming a position its stream
+  does not reach, or a digest its stream does not hold there, is `RECORD_ROLLBACK`: the seal is a signed mark.
+- A person's event is checked, after the record is read field by field, against the policy it cites and the policy in
+  force at its place (REQ-REG-4, D-050); every failure is `RECORD_SIGNATURE_INVALID`: a citation of a digest no
+  adoption holds, an event of `project` citing another policy than the one in force at its place, an event outside
+  `project` that every seal holds (written before any adoption), an alias either policy does not list, a role other
+  than the one either gives, a key that differs between them or from the one the `.sig` carries, a role that may not
+  make the move (only a maestro makes a person's move in the first core, REQ-ID-3), and `ssh-keygen -Y
+  check-novalidate -n fabrewk` refusing. A write refuses the same move before signing (`ROLE_FORBIDDEN`), and checks
+  the signature it made against the signer's own key before the event exists.
 - Canonical JSON nests arrays and objects at most 64 deep, the event itself being 1; a deeper value is not written
   (`RECORD_NONCANONICAL`, nothing written) and a deeper file is not canonical. REQ-REG-3's property holds for every
   value within that depth.

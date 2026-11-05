@@ -1,6 +1,8 @@
 //! Replay (REQ-REG-6, REQ-REG-7, REQ-REG-1's identifiers): every stream read and every event checked, each failure
 //! refused by its code and never by a raw error. Readers take no lock and skip names starting with `.`; a signature
-//! whose event never reached its place is an interrupted write's leftover and is skipped too.
+//! whose event never reached its place is an interrupted write's leftover and is skipped too. Signatures are checked
+//! last, by the caller's [`Verify`], on the record read field by field: a person's signer comes from the policy the
+//! event cites, which the `project` stream holds (part 7c2a, D-050).
 
 use super::event::{self, Class, StreamKind};
 pub use super::sign::Verify;
@@ -124,7 +126,7 @@ pub fn replay(domain: &Path, verifier: &dyn Verify) -> Result<Replay, Vec<Error>
     names.sort();
     let mut out = Replay::default();
     for name in names {
-        match stream(&root.join(&name), &name, verifier) {
+        match stream(&root.join(&name), &name) {
             Ok(events) if events.is_empty() => {}
             Ok(events) => {
                 out.streams.insert(name, events);
@@ -138,10 +140,11 @@ pub fn replay(domain: &Path, verifier: &dyn Verify) -> Result<Replay, Vec<Error>
     if out.streams.is_empty() {
         return Err(absent());
     }
+    verifier.verify(&out)?;
     Ok(out)
 }
 
-fn stream(dir: &Path, name: &str, verifier: &dyn Verify) -> Result<Vec<Event>, Error> {
+fn stream(dir: &Path, name: &str) -> Result<Vec<Event>, Error> {
     let listing = list_stream(dir)?;
     if let Some(path) = listing.unknown.first() {
         return Err(refuse(Code::RecordBroken, Some(path), "not an event file"));
@@ -150,7 +153,7 @@ fn stream(dir: &Path, name: &str, verifier: &dyn Verify) -> Result<Vec<Event>, E
     for (&seq, files) in &listing.events {
         let mut at_seq = Vec::new();
         for path in files {
-            at_seq.push(file(path, name, seq, &listing, verifier)?);
+            at_seq.push(file(path, name, seq, &listing)?);
         }
         read.insert(seq, at_seq);
     }
@@ -196,7 +199,7 @@ fn stream(dir: &Path, name: &str, verifier: &dyn Verify) -> Result<Vec<Event>, E
     Ok(events)
 }
 
-fn file(path: &Path, stream: &str, seq: u64, listing: &Listing, verifier: &dyn Verify) -> Result<Event, Error> {
+fn file(path: &Path, stream: &str, seq: u64, listing: &Listing) -> Result<Event, Error> {
     let bytes = fs::read(path).map_err(io_at(path))?;
     let digest = canon::sha256_hex(&bytes);
     if !name_matches(path, &digest) {
@@ -206,7 +209,7 @@ fn file(path: &Path, stream: &str, seq: u64, listing: &Listing, verifier: &dyn V
     let class = event::check(&value, stream, seq).map_err(|(code, why)| refuse(code, Some(path), why))?;
     let sig = signature_of(path);
     match (class, listing.signatures.contains(&sig)) {
-        (Class::Person, true) => verifier.verify(value["actor"]["alias"].as_str().unwrap_or(""), &bytes, &sig)?,
+        (Class::Person, true) => {}
         (Class::Person, false) => {
             return Err(refuse(Code::RecordSignatureInvalid, Some(path), "no signature"));
         }

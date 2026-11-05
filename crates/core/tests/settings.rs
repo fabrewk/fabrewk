@@ -32,8 +32,8 @@ fn adopt_in(f: &Fixture, repo: Option<Repo>, widen: &[String]) -> Result<Replay,
     let adoption = settings::adopt(&f.domain, in_force.as_ref(), widen, repo.as_ref())?;
     assert_eq!(fs::read(f.domain.join("settings.toml")).unwrap(), before);
     let head = s.head("project").unwrap();
-    s.append("project", head.as_ref(), &person("policy-adopted", "Adopto.", adoption.payload()), Some(&f.signer()))
-        .unwrap();
+    let payload = adoption.payload(&s.seal().unwrap());
+    s.append("project", head.as_ref(), &person("policy-adopted", "Adopto.", payload), Some(&f.signer())).unwrap();
     s.finish(&f.verifier(), &[]).unwrap();
     Ok(replay(&f.domain, &f.verifier()).unwrap())
 }
@@ -171,7 +171,10 @@ fn refusal_widening_unnamed() {
         assert_eq!(codes(adopt(&["limits.rounds"]).map(|_| ())), [Code::WideningUnnamed]);
         let a = adopt(&["maintainers.ana"]).unwrap();
         assert_eq!(a.widened, ["maintainers.ana"]);
-        assert_eq!(a.payload()["digest"], json!(fabrewk_core::record::sha256_hex(a.content.as_bytes())));
+        assert_eq!(
+            a.payload(&Default::default())["digest"],
+            json!(fabrewk_core::record::sha256_hex(a.content.as_bytes()))
+        );
         // A narrowing needs no name.
         write_settings(&f, &format!("{first}[limits]\nrounds = 2\n"));
         commit_settings(&f);
@@ -200,7 +203,7 @@ fn refusal_settings_invalid_at_adoption_and_in_an_adopted_policy() {
     // A policy this binary does not accept is refused naming the event that carries it.
     let mut s = begin(&f, None);
     let text = "[project]\nname = \"x\"\nnosuch = 1\n";
-    let payload = json!({"content": text, "digest": fabrewk_core::record::sha256_hex(text.as_bytes()), "widened": []});
+    let payload = json!({"content": text, "digest": fabrewk_core::record::sha256_hex(text.as_bytes()), "heads": {}, "widened": []});
     let head = s.head("project").unwrap();
     let event =
         s.append("project", head.as_ref(), &person("policy-adopted", "Adopto.", payload), Some(&f.signer())).unwrap();

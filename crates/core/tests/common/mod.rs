@@ -3,7 +3,8 @@
 #![allow(dead_code)]
 
 use fabrewk_core::record::{
-    Code, Draft, Error, KeySigner, Publication, Repo, Say, Session, SshVerifier, encode, nonce, sha256_hex,
+    Class, Code, Draft, Error, KeySigner, Publication, Replay, Repo, Say, Session, Verify, class_of, encode, nonce,
+    sha256_hex,
 };
 use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
@@ -123,8 +124,10 @@ impl Fixture {
         KeySigner(self.keys.join("stranger"))
     }
 
-    pub fn verifier(&self) -> SshVerifier {
-        SshVerifier(self.keys.join("allowed"))
+    /// A verifier that knows only `xel`'s key, for the record's own tests; the identity's tests use the policy's.
+    pub fn verifier(&self) -> FixedVerifier {
+        let public = std::fs::read_to_string(self.keys.join("xel.pub")).unwrap();
+        FixedVerifier(vec![("xel".into(), fabrewk_core::settings::key_blob(public.trim()).unwrap())])
     }
 
     pub fn stream_dir(&self, stream: &str) -> PathBuf {
@@ -169,6 +172,24 @@ impl Fixture {
     }
 }
 
+/// Verifies every person's event with the key a fixed list gives its alias, by the same check as the policy's.
+pub struct FixedVerifier(pub Vec<(String, Vec<u8>)>);
+
+impl Verify for FixedVerifier {
+    fn verify(&self, record: &Replay) -> Result<(), Vec<Error>> {
+        let mut errors = Vec::new();
+        for e in record.streams.values().flatten().filter(|e| class_of(&e.kind) == Some(Class::Person)) {
+            let alias = e.value["actor"]["alias"].as_str().unwrap_or("");
+            let key = self.0.iter().find(|k| k.0 == alias).map(|k| k.1.clone()).unwrap_or_default();
+            let bytes = std::fs::read(&e.path).unwrap();
+            if let Err(err) = fabrewk_core::record::check(&key, &bytes, &sig(&e.path)) {
+                errors.push(err);
+            }
+        }
+        if errors.is_empty() { Ok(()) } else { Err(errors) }
+    }
+}
+
 /// Copies a directory tree, files and directories only.
 pub fn copy_tree(from: &Path, to: &Path) {
     std::fs::create_dir_all(to).unwrap();
@@ -187,13 +208,18 @@ pub fn copy_tree(from: &Path, to: &Path) {
 /// to its exec, a copy of every open descriptor, the lock's included; a test that begins right after ending a
 /// session in the same process waits out that window instead of reading it as a second writer.
 pub fn try_begin(f: &Fixture, repo: Option<Repo>) -> Result<Session, Error> {
+    begin_with(f, repo, &f.verifier())
+}
+
+/// As [`try_begin`], with `verifier`.
+pub fn begin_with(f: &Fixture, repo: Option<Repo>, verifier: &dyn Verify) -> Result<Session, Error> {
     for _ in 0..300 {
-        match Session::begin(&f.domain, repo.clone(), &f.verifier()) {
+        match Session::begin(&f.domain, repo.clone(), verifier) {
             Err(e) if e.code() == Some(Code::LockHeld) => std::thread::sleep(std::time::Duration::from_millis(10)),
             other => return other,
         }
     }
-    Session::begin(&f.domain, repo, &f.verifier())
+    Session::begin(&f.domain, repo, verifier)
 }
 
 pub fn begin(f: &Fixture, repo: Option<Repo>) -> Session {
@@ -232,7 +258,7 @@ pub const PROJECT: &str = "[project]\nname = \"fixture\"\n";
 pub fn project_payload(kind: &str) -> Value {
     match kind {
         "policy-adopted" => {
-            json!({"content": PROJECT, "digest": sha256_hex(PROJECT.as_bytes()), "widened": []})
+            json!({"content": PROJECT, "digest": sha256_hex(PROJECT.as_bytes()), "heads": {}, "widened": []})
         }
         _ => json!({}),
     }

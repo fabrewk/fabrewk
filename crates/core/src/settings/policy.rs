@@ -4,7 +4,7 @@
 
 use super::{Def, Dir, KEYS, Key, Level, Settings, Type, Val, admit, convert, declared, instances, table_of};
 use crate::code::{Code, Error, refuse};
-use crate::record::{Replay, Repo, sha256_hex};
+use crate::record::{Head, Replay, Repo, sha256_hex};
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
@@ -205,9 +205,12 @@ pub struct Adoption {
 }
 
 impl Adoption {
-    /// The `policy-adopted` payload: `content`, `digest` (its SHA-256) and `widened` (the widenings named).
-    pub fn payload(&self) -> Value {
-        json!({"content": self.content, "digest": self.digest, "widened": self.widened})
+    /// The `policy-adopted` payload: `content`, `digest` (its SHA-256), `heads` (the seal, from
+    /// [`crate::record::Session::seal`], D-050) and `widened` (the widenings named).
+    pub fn payload(&self, seal: &BTreeMap<String, Head>) -> Value {
+        let heads: serde_json::Map<String, Value> =
+            seal.iter().map(|(s, h)| (s.clone(), json!({"digest": h.digest, "seq": h.seq}))).collect();
+        json!({"content": self.content, "digest": self.digest, "heads": heads, "widened": self.widened})
     }
 }
 

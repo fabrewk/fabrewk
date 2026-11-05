@@ -403,7 +403,7 @@ fn refusal_lock_held() {
 fn lock_child() {
     if let Some(domain) = std::env::var_os("FABREWK_TEST_LOCK_DOMAIN") {
         let started = std::time::Instant::now();
-        let verifier = fabrewk_core::record::SshVerifier(PathBuf::from("/nonexistent"));
+        let verifier = FixedVerifier(Vec::new());
         assert_eq!(code(&Session::begin(Path::new(&domain), None, &verifier).err().unwrap()), Some(Code::LockHeld));
         assert!(started.elapsed() < std::time::Duration::from_secs(2));
     }

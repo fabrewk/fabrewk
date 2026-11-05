@@ -347,7 +347,7 @@ pub(crate) fn admit(ty: Type, value: &Val) -> Result<(), (Code, &'static str)> {
         (Type::Command, Val::List(l)) => l.first().is_some_and(|c| !c.is_empty()),
         (Type::Tag, Val::Str(s)) => is_tag(s),
         (Type::Tags, Val::List(l)) => l.iter().all(|s| is_tag(s)),
-        (Type::SignerKey, Val::Str(s)) => is_signer_key(s),
+        (Type::SignerKey, Val::Str(s)) => key_blob(s).is_some(),
         (Type::Enum(set) | Type::Ordered(set), Val::Str(s)) => set.contains(&s.as_str()),
         _ => return Err((Code::SettingsInvalid, "wrong type")),
     };
@@ -365,18 +365,17 @@ pub const KEY_TYPES: [&str; 7] = [
     "sk-ecdsa-sha2-nistp256@openssh.com",
 ];
 
-/// A public key as an allowed-signers line holds it after the principal: `<type> <base64> [comment]`, the base64
-/// being a key blob made only of SSH strings, the first one the same type (REQ-ID-1).
-fn is_signer_key(s: &str) -> bool {
+/// The key blob of a public key as an allowed-signers line holds it after the principal: `<type> <base64> [comment]`,
+/// the base64 being a blob made only of SSH strings, the first one the same type (REQ-ID-1); `None` if it is not one.
+pub fn key_blob(s: &str) -> Option<Vec<u8>> {
     if s.chars().any(char::is_control) {
-        return false;
+        return None;
     }
     let mut parts = s.split(' ').filter(|p| !p.is_empty());
-    let (Some(ty), Some(blob)) = (parts.next(), parts.next()) else {
-        return false;
-    };
-    let bytes = base64(blob).unwrap_or_default();
-    KEY_TYPES.contains(&ty) && ssh_strings(&bytes).is_some_and(|s| s.first() == Some(&ty.as_bytes()))
+    let (ty, blob) = (parts.next()?, parts.next()?);
+    let bytes = base64(blob)?;
+    let ok = KEY_TYPES.contains(&ty) && ssh_strings(&bytes).is_some_and(|s| s.first() == Some(&ty.as_bytes()));
+    ok.then_some(bytes)
 }
 
 /// The SSH strings (a 32-bit length, then the bytes) that make up `b` exactly; `None` if they do not.

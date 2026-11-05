@@ -100,6 +100,22 @@ impl Session {
         Ok(Some(Head { seq, digest }))
     }
 
+    /// The seal a `policy-adopted` records (D-050): the head of every stream but `project`, as it is on disk now.
+    pub fn seal(&self) -> Result<std::collections::BTreeMap<String, Head>, Error> {
+        let mut heads = std::collections::BTreeMap::new();
+        let events = self.domain.join("data/events");
+        for entry in fs::read_dir(&events).into_iter().flatten() {
+            let name = entry.map_err(io_at(&events))?.file_name().to_string_lossy().into_owned();
+            if name != "project"
+                && event::stream_kind(&name).is_some()
+                && let Some(head) = self.head(&name)?
+            {
+                heads.insert(name, head);
+            }
+        }
+        Ok(heads)
+    }
+
     /// Appends one event to `stream` if its head is still `expected` (`RECORD_HEAD_MOVED` otherwise, nothing written).
     /// A person's event needs `signer`; the event is checked against schema 1 before anything is written.
     pub fn append(
@@ -133,16 +149,27 @@ impl Session {
         let digest = canon::sha256_hex(&bytes);
         let path = dir.join(format!("{seq:06}-{}.json", &digest[..16]));
         let signature = match (class, signer) {
-            (Class::Person, Some(s)) => Some(s.sign(&bytes)?),
+            (Class::Person, Some(s)) => {
+                let key = crate::settings::key_blob(&s.public()?).ok_or_else(|| {
+                    refuse(Code::RecordSignatureInvalid, Some(&path), "the signer's key is not a key")
+                })?;
+                Some((s.sign(&bytes)?, key))
+            }
             (Class::Person, None) => {
                 return Err(refuse(Code::RecordSignatureInvalid, Some(&path), "no signer"));
             }
             (_, _) => None,
         };
         create_dir(&dir)?;
-        if let Some(sig) = signature {
+        if let Some((sig, key)) = signature {
+            // Checked in place before the event exists, so a signature that would not verify writes no event: the
+            // `.sig` alone is an interrupted write's leftover, removed here or by the next writer.
             let sig_path = replay::signature_of(&path);
             write_atomic(&sig_path, &sig)?;
+            if let Err(e) = super::sign::check(&key, &bytes, &sig_path) {
+                fs::remove_file(&sig_path).map_err(io_at(&sig_path))?;
+                return Err(e);
+            }
             self.appended.push((digest.clone(), sig_path));
         }
         write_atomic(&path, &bytes)?;

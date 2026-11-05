@@ -1988,3 +1988,35 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Residuals, not blocking: the source of a value that follows another key reads `default`, and `config` (7d) should
   say which key it follows; a language tag's subtags are not checked against IANA's registry.
 - Not done: parts 7c2 and 7d.
+
+## D-050 — Part 7c2 split into 7c2a and 7c2b; the policy an event cites; a seal of every head at adoption
+
+- Status: decided
+- Decided: 2026-11-05
+- Origin: maintainer XEL in session 18's chat, answering the integrator's three questions before any code: "7c2a y
+  7c2b (Recomendado)"; "La de la 1.ª adopción (Recomendado)"; "Sello en la adopción (Recomendado)". The first was
+  asked because the maintainer's five-hour window stood at 79 % at the session's start.
+- Decision:
+  1. Part 7c2 is split in two, each with its own Codex review. 7c2a, signatures and identity: signers derived from the
+     cited policy and the role checked against the kind (REQ-REG-4's second half, REQ-ID-2 to REQ-ID-5), the private
+     folder (REQ-SEC-4), the machine key and `instance` (REQ-REG-12). 7c2b, the machine and the domain: the machine
+     file, detection (REQ-SET-8), the validation of profiles (REQ-SET-9), and REQ-DOM-2, REQ-DOM-4, REQ-DOM-5 and
+     REQ-DOM-7 on fixture records.
+  2. The events `apply` writes before the first `policy-adopted` (`assessed`, `publication-decided`) cite the digest of
+     the policy that first adoption adopts; the first `policy-adopted` cites its own content's digest (trust on first
+     use, REQ-ID-6); every later `policy-adopted` cites the policy in force before it; every other event of the
+     `project` stream cites the policy in force at its place in that stream.
+  3. Every `policy-adopted` records, besides `content`, `digest` and `widened`, a seal: `heads`, the position and full
+     digest of the head of every other stream at the adoption. A person's event of another stream at position `k`
+     was written after an adoption whose seal holds its stream below `k` (or not at all); the last such adoption is
+     the policy in force at its place. The signer must hold the key and the role the event claims both in the policy
+     the event cites and in the policy in force at its place, so that removing a maintainer, or changing their key or
+     role, takes effect for every event written after the adoption, also one forged by hand, while the concurrent work
+     of a maintainer who keeps their key and role is accepted. A seal naming a position its stream does not reach, or
+     a digest its stream does not hold there, is a rollback.
+- Consequences: `plan.md` shows 7c2a and 7c2b instead of 7c2. `core-specification.md` records the citation rule and
+  the seal in section 3 and in REQ-REG-4; `policy-adopted`'s payload, fixed by 7c1, gains `heads` (no record exists
+  yet in any repository). The work affected is parts 7c2a and 7d.
+- Sources: chat of session 18; `STATUS.md`'s two open items for 7c2; D-047, D-048; AD-14 ("Changing the list");
+  `core-specification.md` REQ-REG-4, REQ-ID-3, REQ-ID-4, REQ-ID-6, sections 3 and 4.
+- Supersedes: none (D-048's point 1 stands; this entry splits 7c2's destination).
