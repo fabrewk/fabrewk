@@ -8,14 +8,17 @@ use crate::rings::{RingCount, canonical};
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 
-/// The prerequisites of a Makefile-style dep-info: `target: dep dep …`, spaces escaped as `\ `, lines continued
-/// with a trailing `\`.
+/// The prerequisites of a Makefile-style dep-info holding one rule: `target: dep dep …`, spaces escaped as `\ `,
+/// lines continued with a trailing `\`.
 pub fn parse_dep_info(text: &str) -> Result<Vec<PathBuf>, String> {
     let joined = text.replace("\\\n", " ");
-    let line = joined
-        .lines()
-        .find(|l| !l.trim().is_empty())
-        .ok_or("empty dep-info")?;
+    let mut lines = joined.lines().filter(|l| !l.trim().is_empty());
+    let line = lines.next().ok_or("empty dep-info")?;
+    if lines.next().is_some() {
+        // Cargo writes the binary's dep-info as one rule; a second line could be the rest of a path holding a newline,
+        // which this reader cannot tell apart, so it refuses rather than drop what follows.
+        return Err("dep-info with more than one rule; it cannot be read safely".to_string());
+    }
     let (mut deps, mut current, mut chars) = (Vec::new(), String::new(), line.chars());
     let mut target_done = false;
     while let Some(c) = chars.next() {
