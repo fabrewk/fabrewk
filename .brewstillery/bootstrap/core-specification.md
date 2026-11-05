@@ -871,18 +871,22 @@ valid in it and in POSIX `sh`).
 **Machine file** (`machine.toml`, private folder): `tools.<name>.path` (where a tool is, when detection cannot find
 it). Every value is shown as declared.
 
-**Detection, as part 7c2b fixed it (D-051).** Each built-in module declares, for the program it drives, the
+**Detection, as part 7c2b fixed it (D-051, D-052).** Each built-in module declares, for the program it drives, the
 executable's name and the arguments that print its version on the first line of standard output without calling a
-model; `git` (`--version`) and `ssh-keygen` (no version) are the core's. Detected are the core's programs, each
-module's program that serves no adapter (a backend's), every catalogued tool (by its adapter's program), every
-profile's required tool (by its own name) and every name `machine.toml` declares. A machine file's path must be
-absolute; it takes the place of the search of `PATH` (present there or absent, `declared`), except for the core's own
-programs, which are always found in `PATH`, as the core runs them. `PATH` is searched in order, absolute directories
-only, for an executable file; a name holding `/` is never searched. A version is read only when its arguments exit 0.
-`local/cache/detected.json` is canonical JSON `{"at","schema":1,"tools":{"<name>":null | {"how","path","verified",
-"version"}}}` (`how` is `observed` or `declared`), written only by write commands; the next detection reads from it
-only `verified`, the date of the last successful use, kept while the path and version are the same; a cache that does
-not read is none. The effective set is the catalogued tools that are present.
+model; `git` (`--version`) and `ssh-keygen` (no version) are the core's. Names are looked for in three spaces, apart,
+so that a name in one is never found as the same name in another: programs, by executable (the core's and each
+module's program that serves no adapter, a backend's); tools (every catalogued tool, by its adapter's program, and
+every name `machine.toml` declares); and required tools (every profile's, each by its own name). A machine file's path
+must be absolute; it takes the place of the search of `PATH` (present there or absent, `declared`), except for the
+core's own programs, which are always found in `PATH`, as the core runs them. `PATH` is searched in order, absolute
+directories only; a name holding `/` is never searched. A file is executable when it is a regular file with an execute
+bit that `/bin/sh -c 'test -x "$1"'`, run with no environment, accepts (D-052). A version is read only when its
+arguments exit 0. `local/cache/detected.json` is canonical JSON
+`{"at","programs":{…},"required":{…},"schema":1,"tools":{…}}`, each entry `null` or
+`{"how","path","verified","version"}` (`how` is `observed` or `declared`; a path that is not UTF-8 is `null`), written
+only by write commands; the next detection reads from it only `verified`, the date of the last successful use, kept
+while the path and version are the same (never for a path that is not UTF-8); a cache that does not read is none. The
+effective set is the catalogued tools that are present.
 
 **This repository.** `project.command`, `project.domain`, `maintainers.aliases` and `layout.reservedNames` are bootstrap
 keys: the first core does not declare them, so they are refused there. They are replaced at production (phase 13),

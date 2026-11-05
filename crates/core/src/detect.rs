@@ -1,10 +1,10 @@
 //! What is present on the machine (REQ-SET-8, REQ-SET-9; AD-2, "Present, apart from permitted"; part 7c2b, D-051).
-//! A command that needs it detects at its start, in memory: the core's own programs, each program a built-in module
-//! drives, every catalogued tool, every profile's required tools and every name `machine.toml` declares, each found in
-//! `PATH` or where `machine.toml` declares it, with its version. Write commands keep the result in
-//! `local/cache/detected.json`, which carries one thing forward: when a use verified a program at that path and
-//! version. Presence is never read from it. Naming a tool grants nothing: the effective set is what is both permitted
-//! and present.
+//! A command that needs it detects at its start, in memory: the core's own programs and each built-in module's, by
+//! executable; and apart from them, by name, every catalogued tool, every profile's required tools and every name
+//! `machine.toml` declares; each found in `PATH` or where `machine.toml` declares it, with its version. Write commands
+//! keep the result in `local/cache/detected.json`, which carries one thing forward: when a use verified a program at
+//! that path and version. Presence is never read from it. Naming a tool grants nothing: the effective set is what is
+//! both permitted and present.
 
 use crate::code::{Code, Error, io_at, refuse};
 use crate::record::{decode, encode, now_utc, write_atomic};
@@ -50,11 +50,34 @@ pub struct Found {
     pub verified: Option<String>,
 }
 
-/// One detection: when it ran, and every name looked for, `None` when absent.
+/// Where a name is looked for: the core's programs and each module's own, by executable; the catalogued tools and the
+/// names `machine.toml` declares; and the profiles' required tools, each by its own name. The three are apart, so that
+/// a name in one is never found as the same name in another.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Space {
+    Program,
+    Tool,
+    Required,
+}
+
+impl Space {
+    const ALL: [Space; 3] = [Space::Program, Space::Tool, Space::Required];
+
+    /// The space's key in `local/cache/detected.json`.
+    pub const fn key(self) -> &'static str {
+        match self {
+            Space::Program => "programs",
+            Space::Tool => "tools",
+            Space::Required => "required",
+        }
+    }
+}
+
+/// One detection: when it ran, and every name looked for in each space, `None` when absent.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Detection {
     pub at: String,
-    pub tools: BTreeMap<String, Option<Found>>,
+    pub found: BTreeMap<(Space, String), Option<Found>>,
 }
 
 /// What to look for under one name: its executable (none when no module drives a catalogued tool's adapter), its
@@ -90,8 +113,19 @@ fn cache(domain: &Path) -> PathBuf {
     domain.join("local/cache/detected.json")
 }
 
+/// Whether this process may execute `path`: a file with an execute bit, which `sh`'s `test -x` accepts (D-052), so
+/// the operating system answers for the user, its groups, access lists and mounts.
 fn is_executable(path: &Path) -> bool {
     std::fs::metadata(path).is_ok_and(|m| m.is_file() && m.permissions().mode() & 0o111 != 0)
+        && Command::new("/bin/sh")
+            .args(["-c", "test -x \"$1\"", "sh"])
+            .arg(path)
+            .env_clear()
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .is_ok_and(|s| s.success())
 }
 
 /// The first executable file named `executable` in an absolute directory of `path`; a name with a `/` is none.
@@ -115,60 +149,66 @@ fn version(path: &Path, args: &[&str]) -> Option<String> {
 /// Detects, in memory, every program `eff` and `modules` name (REQ-SET-8). `path` is the value of `PATH`. The cache
 /// under `domain` is read only for when a use verified a program; a cache that does not read is none. Writes nothing.
 pub fn detect(domain: &Path, eff: &Effective, modules: &[Program], path: Option<&OsStr>) -> Detection {
-    let mut wanted: BTreeMap<&str, Want> = BTreeMap::new();
-    let program = |p: &Program, declarable| Want { executable: Some(p.executable), version: p.version, declarable };
-    for p in &CORE {
-        wanted.insert(p.executable, program(p, false));
-    }
-    for p in modules.iter().filter(|p| p.adapter.is_none()) {
-        wanted.entry(p.executable).or_insert_with(|| program(p, true));
+    let mut wanted: BTreeMap<(Space, &str), Want> = BTreeMap::new();
+    let own = CORE.iter().map(|p| (p, false)).chain(modules.iter().filter(|p| p.adapter.is_none()).map(|p| (p, true)));
+    for (p, declarable) in own {
+        let want = Want { executable: Some(p.executable), version: p.version, declarable };
+        wanted.entry((Space::Program, p.executable)).or_insert(want);
     }
     for name in names(eff, "tools", "adapter") {
         let adapter = text(eff, &format!("tools.{name}.adapter"));
         let module = modules.iter().find(|p| p.adapter.is_some() && p.adapter == adapter);
-        let none = Want { executable: None, version: &[], declarable: true };
-        wanted.entry(name).or_insert_with(|| module.map_or(none, |p| program(p, true)));
+        let version = module.map_or(&[][..], |p| p.version);
+        wanted
+            .insert((Space::Tool, name), Want { executable: module.map(|p| p.executable), version, declarable: true });
+    }
+    for name in names(eff, "tools", "path") {
+        wanted.entry((Space::Tool, name)).or_insert(Want { executable: None, version: &[], declarable: true });
     }
     let required =
         names(eff, "profiles", "requiredTools").flat_map(|p| list(eff, &format!("profiles.{p}.requiredTools")));
     for name in required.map(String::as_str) {
-        wanted.entry(name).or_insert(Want { executable: Some(name), version: &[], declarable: true });
-    }
-    for name in names(eff, "tools", "path") {
-        wanted.entry(name).or_insert(Want { executable: None, version: &[], declarable: true });
+        wanted.insert((Space::Required, name), Want { executable: Some(name), version: &[], declarable: true });
     }
     let marks = std::fs::read(cache(domain)).ok().and_then(|b| decode(&b));
-    let marks = marks.as_ref().and_then(|v| v.get("tools")?.as_object());
-    let mut tools = BTreeMap::new();
-    for (name, want) in wanted {
+    let mut found = BTreeMap::new();
+    for ((space, name), want) in wanted {
         let declared = if want.declarable { text(eff, &format!("tools.{name}.path")) } else { None };
-        let (found, how) = match declared {
+        let (at, how) = match declared {
             Some(p) => (Some(PathBuf::from(p)).filter(|p| is_executable(p)), How::Declared),
             None => (want.executable.and_then(|e| search(path, e)), How::Observed),
         };
-        let found = found.map(|path| {
+        let at = at.map(|path| {
             let version = version(&path, want.version);
-            let mark = marks.and_then(|m| m.get(name)?.as_object());
+            // A path that is not UTF-8 is kept as none, so no verification is carried to it.
+            let mark = marks.as_ref().and_then(|m| m.get(space.key())?.get(name)?.as_object());
             let same = mark.is_some_and(|m| {
-                m.get("path") == Some(&json!(path.to_string_lossy())) && m.get("version") == Some(&json!(version))
+                path.to_str().is_some_and(|p| m.get("path") == Some(&json!(p)))
+                    && m.get("version") == Some(&json!(version))
             });
             let verified = mark.filter(|_| same).and_then(|m| Some(m.get("verified")?.as_str()?.to_owned()));
             Found { path, version, how, verified }
         });
-        tools.insert(name.to_owned(), found);
+        found.insert((space, name.to_owned()), at);
     }
-    Detection { at: now_utc(), tools }
+    Detection { at: now_utc(), found }
 }
 
 impl Detection {
-    /// Whether `name` was found.
-    pub fn present(&self, name: &str) -> bool {
-        matches!(self.tools.get(name), Some(Some(_)))
+    /// Whether `name` was found in `space`.
+    pub fn present(&self, space: Space, name: &str) -> bool {
+        self.get(space, name).is_some()
     }
 
-    /// Records that a use of `name` succeeded now, at the path and version detected; a write command keeps it.
-    pub fn used(&mut self, name: &str) {
-        if let Some(Some(found)) = self.tools.get_mut(name) {
+    /// What was found for `name` in `space`; `None` when absent or not looked for.
+    pub fn get(&self, space: Space, name: &str) -> Option<&Found> {
+        self.found.get(&(space, name.to_owned()))?.as_ref()
+    }
+
+    /// Records that a use of `name` in `space` succeeded now, at the path and version detected; a write command keeps
+    /// it.
+    pub fn used(&mut self, space: Space, name: &str) {
+        if let Some(Some(found)) = self.found.get_mut(&(space, name.to_owned())) {
             found.verified = Some(now_utc());
         }
     }
@@ -178,11 +218,19 @@ impl Detection {
     pub fn keep(&self, domain: &Path) -> Result<(), Error> {
         let entry = |f: &Found| {
             let how = if f.how == How::Declared { "declared" } else { "observed" };
-            json!({"how": how, "path": f.path.to_string_lossy(), "verified": f.verified, "version": f.version})
+            json!({"how": how, "path": f.path.to_str(), "verified": f.verified, "version": f.version})
         };
-        let tools: Map<String, Value> =
-            self.tools.iter().map(|(n, f)| (n.clone(), f.as_ref().map_or(Value::Null, entry))).collect();
-        let bytes = encode(&json!({"at": self.at, "schema": 1, "tools": tools})).expect("three levels deep");
+        let mut kept = json!({"at": self.at, "schema": 1});
+        for space in Space::ALL {
+            let map: Map<String, Value> = self
+                .found
+                .iter()
+                .filter(|((s, _), _)| *s == space)
+                .map(|((_, n), f)| (n.clone(), f.as_ref().map_or(Value::Null, entry)))
+                .collect();
+            kept[space.key()] = Value::Object(map);
+        }
+        let bytes = encode(&kept).expect("three levels deep");
         let dir = domain.join("local/cache");
         std::fs::create_dir_all(&dir).map_err(io_at(&dir))?;
         write_atomic(&cache(domain), &bytes)
@@ -192,7 +240,7 @@ impl Detection {
 /// The effective tools (REQ-SET-8): catalogued in `eff` and present in `detection`. A permitted tool that is absent,
 /// and a present one the catalogue does not hold, are both outside it.
 pub fn effective_tools(eff: &Effective, detection: &Detection) -> BTreeSet<String> {
-    names(eff, "tools", "adapter").filter(|n| detection.present(n)).map(str::to_owned).collect()
+    names(eff, "tools", "adapter").filter(|n| detection.present(Space::Tool, n)).map(str::to_owned).collect()
 }
 
 /// Validates the profile `name` before a run (REQ-SET-9, D-051): its tool in the catalogue, its model in the catalogue
@@ -232,8 +280,9 @@ pub fn check_profile(policy: &Policy, eff: &Effective, detection: &Detection, na
     if !list(eff, &format!("models.{model}.efforts")).iter().any(|e| e == effort) {
         return bad("effort", "not one of the model's efforts");
     }
-    for t in std::iter::once(tool).chain(list(eff, &key("requiredTools")).iter().map(String::as_str)) {
-        if !detection.present(t) {
+    let required = list(eff, &key("requiredTools")).iter().map(|t| (Space::Required, t.as_str()));
+    for (space, t) in std::iter::once((Space::Tool, tool)).chain(required) {
+        if !detection.present(space, t) {
             return Err(refuse(Code::ToolMissing, None, format!("{t}: not present on this machine")));
         }
     }

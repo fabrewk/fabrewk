@@ -5,7 +5,7 @@
 mod common;
 
 use common::*;
-use fabrewk_core::detect::{self, Detection, How, Program};
+use fabrewk_core::detect::{self, Detection, How, Program, Space};
 use fabrewk_core::machine;
 use fabrewk_core::record::{Code, is_utc_timestamp, sha256_hex};
 use fabrewk_core::settings::{self, Effective, Level, Policy, Source, Val};
@@ -116,7 +116,16 @@ fn req_set_1_the_machine_file_is_read_from_the_private_folder_and_shown_as_decla
 }
 
 fn found(d: &Detection, name: &str) -> detect::Found {
-    d.tools[name].clone().unwrap_or_else(|| panic!("{name} absent: {d:?}"))
+    d.get(Space::Tool, name).cloned().unwrap_or_else(|| panic!("{name} absent: {d:?}"))
+}
+
+fn own(d: &Detection, executable: &str) -> detect::Found {
+    d.get(Space::Program, executable).cloned().unwrap_or_else(|| panic!("{executable} absent: {d:?}"))
+}
+
+/// The names looked for in `space`.
+fn names(d: &Detection, space: Space) -> Vec<String> {
+    d.found.keys().filter(|(s, _)| *s == space).map(|(_, n)| n.clone()).collect()
 }
 
 #[test]
@@ -141,22 +150,23 @@ fn req_set_8_detection_is_fresh_at_every_start_and_the_effective_set_is_permitte
 
     let d = detect::detect(&domain, &e, &modules, Some(&path));
     assert!(is_utc_timestamp(&d.at), "{}", d.at);
-    let names: Vec<&str> = d.tools.keys().map(String::as_str).collect();
-    assert_eq!(names, ["claude", "codex", "fake-bwrap", "fake-cargo", "git", "other", "ssh-keygen"]);
+    assert_eq!(names(&d, Space::Program), ["fake-bwrap", "git", "ssh-keygen"]);
+    assert_eq!(names(&d, Space::Tool), ["claude", "codex", "other"]);
+    assert_eq!(names(&d, Space::Required), ["fake-cargo"]);
     let c = found(&d, "claude");
     assert_eq!(
         (c.path, c.version.as_deref(), c.how, c.verified),
         (claude.clone(), Some("9.9.0 (fake)"), How::Observed, None)
     );
-    assert_eq!(found(&d, "fake-bwrap").version.as_deref(), Some("bubblewrap 0.0.1"));
+    assert_eq!(own(&d, "fake-bwrap").version.as_deref(), Some("bubblewrap 0.0.1"));
     // A required tool has no module: present, with no version read.
-    assert_eq!(found(&d, "fake-cargo").version, None);
-    assert!(found(&d, "git").version.unwrap().starts_with("git version "));
-    assert_eq!(found(&d, "ssh-keygen").version, None);
+    assert_eq!(d.get(Space::Required, "fake-cargo").unwrap().version, None);
+    assert!(own(&d, "git").version.unwrap().starts_with("git version "));
+    assert_eq!(own(&d, "ssh-keygen").version, None);
     // Declared in `machine.toml`, present, and not in the catalogue: not effective. `codex` is permitted, but no
     // module drives its adapter here and nothing declares where it is: absent, and not effective either.
     assert_eq!(found(&d, "other").how, How::Declared);
-    assert_eq!(d.tools["codex"], None);
+    assert_eq!(d.get(Space::Tool, "codex"), None);
     assert_eq!(detect::effective_tools(&e, &d).into_iter().collect::<Vec<_>>(), ["claude"]);
     assert!(!domain.join("local").exists(), "detection writes nothing");
 
@@ -164,7 +174,7 @@ fn req_set_8_detection_is_fresh_at_every_start_and_the_effective_set_is_permitte
     d.keep(&domain).unwrap();
     fs::remove_file(&claude).unwrap();
     let d = detect::detect(&domain, &e, &modules, Some(&path));
-    assert_eq!(d.tools["claude"], None);
+    assert_eq!(d.get(Space::Tool, "claude").cloned(), None);
     assert!(detect::effective_tools(&e, &d).is_empty());
     assert_eq!(fs::read_to_string(folder.join("machine.toml")).unwrap(), machine_text, "no settings file is written");
     assert_eq!(fs::read_to_string(base.join("settings.toml")).ok(), None);
@@ -178,7 +188,8 @@ fn req_set_8_where_a_program_is_found_and_where_it_is_not() {
     program(&base.join("later"), "fake-claude", "2");
     let p = policy(&base, CATALOGUE);
     let e = eff(&p, None);
-    let detect = |path: &OsString| detect::detect(&domain, &e, &[CLAUDE], Some(path)).tools["claude"].clone();
+    let detect =
+        |path: &OsString| detect::detect(&domain, &e, &[CLAUDE], Some(path)).get(Space::Tool, "claude").cloned();
     // The first directory of `PATH` that holds it; a relative directory and an empty entry are never searched.
     let later = base.join("later");
     let both = std::env::join_paths([bin.clone(), later.clone()]).unwrap();
@@ -201,10 +212,10 @@ fn req_set_8_where_a_program_is_found_and_where_it_is_not() {
     // A version that fails is none, whatever it printed; the program is still present.
     let failing = Program { version: &["--fail"], ..CLAUDE };
     let d = detect::detect(&domain, &e, &[failing], Some(&both));
-    assert_eq!(d.tools["claude"].as_ref().unwrap().version, None);
+    assert_eq!(d.get(Space::Tool, "claude").cloned().as_ref().unwrap().version, None);
     // No `PATH`: only what is declared.
     assert_eq!(detect(&OsString::new()), None);
-    assert_eq!(detect::detect(&domain, &e, &[CLAUDE], None).tools["claude"], None);
+    assert_eq!(detect::detect(&domain, &e, &[CLAUDE], None).get(Space::Tool, "claude"), None);
 
     // A declared path takes the place of the search: present there, or absent, never looked for in `PATH`.
     let folder = base.join("private");
@@ -215,7 +226,7 @@ fn req_set_8_where_a_program_is_found_and_where_it_is_not() {
         fs::write(folder.join("machine.toml"), format!("[tools.claude]\npath = \"{}\"\n", declared.display())).unwrap();
         let m = machine::machine_file(&folder).unwrap();
         let e = eff(&p, m.as_ref());
-        let got = detect::detect(&domain, &e, &[CLAUDE], Some(&both)).tools["claude"].clone();
+        let got = detect::detect(&domain, &e, &[CLAUDE], Some(&both)).get(Space::Tool, "claude").cloned();
         assert_eq!(got.as_ref().map(|f| (&f.path, f.how)), expected.as_ref().map(|p| (p, How::Declared)));
         if expected.is_some() {
             assert_eq!(got.unwrap().version.as_deref(), Some("7"));
@@ -226,13 +237,20 @@ fn req_set_8_where_a_program_is_found_and_where_it_is_not() {
     let m = machine::machine_file(&folder).unwrap();
     let e = eff(&p, m.as_ref());
     let path = path_with(&bin);
-    let git = detect::detect(&domain, &e, &[], Some(&path)).tools["git"].clone().unwrap();
-    assert_eq!(git.how, How::Observed);
+    let d = detect::detect(&domain, &e, &[], Some(&path));
+    assert_eq!(own(&d, "git").how, How::Observed);
+    assert_eq!(d.get(Space::Tool, "git").cloned(), None, "the declared name, apart, is absent there");
+    // A tool the catalogue names like a program is not that program: absent here, and not effective.
+    let text = CATALOGUE.replace("[tools.codex]", "[tools.git]");
+    let e = eff(&policy(&base, &text), None);
+    let d = detect::detect(&domain, &e, &[CLAUDE], Some(&path));
+    assert_eq!((d.get(Space::Tool, "git").cloned().clone(), own(&d, "git").how), (None, How::Observed));
+    assert!(detect::effective_tools(&e, &d).is_empty(), "`claude` is a directory here, and `git` is not the program");
     // A required tool's name holding `/` is never a path.
     let text = CATALOGUE.replace("[\"fake-cargo\"]", &format!("[\"{}\"]", base.join("bin/fake-claude").display()));
     let e = eff(&policy(&base, &text), None);
     let d = detect::detect(&domain, &e, &[], Some(&path));
-    assert_eq!(d.tools[&base.join("bin/fake-claude").display().to_string()], None);
+    assert_eq!(d.get(Space::Required, &base.join("bin/fake-claude").display().to_string()), None);
 }
 
 #[test]
@@ -247,11 +265,11 @@ fn req_set_8_write_commands_keep_the_detection_dated_and_only_a_use_verifies() {
     let detect = || detect::detect(&domain, &e, &[CLAUDE], Some(&path));
 
     let mut d = detect();
-    d.used("claude");
-    d.used("codex");
+    d.used(Space::Tool, "claude");
+    d.used(Space::Tool, "codex");
     let at = found(&d, "claude").verified.unwrap();
     assert!(is_utc_timestamp(&at));
-    assert_eq!(d.tools["codex"], None, "an absent program is never verified");
+    assert_eq!(d.get(Space::Tool, "codex").cloned(), None, "an absent program is never verified");
     d.keep(&domain).unwrap();
     let kept = fs::read(domain.join("local/cache/detected.json")).unwrap();
     let value = fabrewk_core::record::decode(&kept).expect("canonical JSON");
@@ -264,7 +282,8 @@ fn req_set_8_write_commands_keep_the_detection_dated_and_only_a_use_verifies() {
     // The next start observes again and carries the verification: same path, same version.
     let again = detect();
     assert_eq!(found(&again, "claude").verified.as_deref(), Some(at.as_str()));
-    assert_eq!(found(&again, "git").verified, None);
+    assert_eq!(own(&again, "git").verified, None);
+    assert_eq!(value["programs"]["git"]["how"], "observed");
     // A new version, or the program elsewhere, is not the one verified.
     program(&bin, "fake-claude", "10.0.0");
     assert_eq!(found(&detect(), "claude").verified, None);
@@ -356,4 +375,65 @@ fn req_set_9_each_invalid_profile_is_refused_before_any_dispatch() {
     // What the policy says is checked before what the machine holds.
     let p = profile_case(&base, |t| t.replace("effort = \"high\"\nrequired", "effort = \"low\"\nrequired"));
     assert_eq!(check(&p, &[]).unwrap_err().code(), Some(Code::SettingsInvalid));
+}
+
+#[test]
+fn req_set_8_presence_is_what_this_process_may_execute_and_each_space_is_apart() {
+    let base = tmp("detect-spaces");
+    let (domain, bin) = (base.join(".brewstillery"), base.join("bin"));
+    fs::create_dir_all(&domain).unwrap();
+    let claude = program(&bin, "fake-claude", "1");
+    program(&bin, "fake-cargo", "1");
+    let path = std::env::join_paths([bin.clone()]).unwrap();
+    let p = policy(&base, CATALOGUE);
+    let e = eff(&p, None);
+
+    // An execute bit this process may not use is no presence (D-052): `0601` gives it to others only.
+    for (mode, present) in [(0o601, false), (0o100, true), (0o755, true)] {
+        fs::set_permissions(&claude, fs::Permissions::from_mode(mode)).unwrap();
+        let d = detect::detect(&domain, &e, &[CLAUDE], Some(&path));
+        assert_eq!(d.present(Space::Tool, "claude"), present, "{mode:o}");
+    }
+
+    // A required tool is looked for by its own name, never as the catalogued tool of that name (P7C2B-2).
+    let text = CATALOGUE.replace("requiredTools = [\"fake-cargo\"]", "requiredTools = [\"claude\"]");
+    let p = policy(&base, &text);
+    let e = eff(&p, None);
+    let d = detect::detect(&domain, &e, &[CLAUDE], Some(&path));
+    assert!(d.present(Space::Tool, "claude"));
+    assert!(!d.present(Space::Required, "claude"));
+    let err = detect::check_profile(&p, &e, &d, "build").unwrap_err();
+    assert_eq!(err.code(), Some(Code::ToolMissing));
+    program(&bin, "claude", "1");
+    let d = detect::detect(&domain, &e, &[CLAUDE], Some(&path));
+    detect::check_profile(&p, &e, &d, "build").unwrap();
+
+    // A catalogued tool named like a core program is not that program (P7C2B-1): `git` in `PATH`, its module's
+    // executable absent, and the profile that uses it refused.
+    let text = CATALOGUE.replace("[tools.claude]", "[tools.git]").replace("tool = \"claude\"", "tool = \"git\"");
+    let p = policy(&base, &text);
+    let e = eff(&p, None);
+    let real = std::env::var_os("PATH").unwrap();
+    let d = detect::detect(&domain, &e, &[CLAUDE], Some(&real));
+    assert!(d.present(Space::Program, "git") && !d.present(Space::Tool, "git"));
+    assert!(detect::effective_tools(&e, &d).is_empty());
+    assert_eq!(detect::check_profile(&p, &e, &d, "build").unwrap_err().code(), Some(Code::ToolMissing));
+
+    // A path that is not UTF-8 carries no verification, to itself or to another that reads the same (P7C2B-4).
+    use std::os::unix::ffi::OsStrExt;
+    let odd = |b: u8| base.join(std::ffi::OsStr::from_bytes(&[b'd', b]));
+    let e = eff(&policy(&base, CATALOGUE), None);
+    let (first, second) = (odd(0xff), odd(0xfe));
+    program(&first, "fake-claude", "1");
+    program(&second, "fake-claude", "1");
+    let in_dir = |d: &Path| std::env::join_paths([d.to_path_buf()]).unwrap();
+    let mut d = detect::detect(&domain, &e, &[CLAUDE], Some(&in_dir(&first)));
+    d.used(Space::Tool, "claude");
+    d.keep(&domain).unwrap();
+    let kept = fabrewk_core::record::decode(&fs::read(domain.join("local/cache/detected.json")).unwrap()).unwrap();
+    assert_eq!(kept["tools"]["claude"]["path"], serde_json::Value::Null);
+    for dir in [&first, &second] {
+        let d = detect::detect(&domain, &e, &[CLAUDE], Some(&in_dir(dir)));
+        assert_eq!(found(&d, "claude").verified, None, "{dir:?}");
+    }
 }

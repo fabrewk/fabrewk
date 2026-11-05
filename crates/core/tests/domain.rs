@@ -290,7 +290,7 @@ fn req_dom_5_write_commands_rebuild_the_cache_and_reading_ones_leave_it_absent()
             s.finish(&f.verifier(), &[]).unwrap();
             identity::write_allowed_signers(&f.domain, &p.settings).unwrap();
             let mut d = detect::detect(&f.domain, &eff, &[], path.as_deref());
-            d.used("git");
+            d.used(detect::Space::Program, "git");
             d.keep(&f.domain).unwrap();
         };
         // A reading command: everything it looks at, nothing written.
@@ -318,7 +318,7 @@ fn req_dom_5_write_commands_rebuild_the_cache_and_reading_ones_leave_it_absent()
         assert_eq!(names(&cache), ["allowed_signers", "detected.json", "heads.json"]);
         assert_eq!(fs::read_to_string(cache.join("allowed_signers")).unwrap(), identity::allowed_signers(&p.settings));
         let kept = fabrewk_core::record::decode(&fs::read(cache.join("detected.json")).unwrap()).unwrap();
-        assert!(kept["tools"]["git"]["verified"].is_string(), "{kept}");
+        assert!(kept["programs"]["git"]["verified"].is_string(), "{kept}");
         assert_eq!(findings(&f.domain), []);
     });
 }

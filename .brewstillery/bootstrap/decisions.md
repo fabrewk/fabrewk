@@ -2106,3 +2106,20 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   AD-4 ("External tools the core calls"), AD-5 (the rings), AD-15; `core-specification.md` REQ-SET-8, REQ-SET-9,
   REQ-DOM-2, REQ-DOM-4, REQ-DOM-5, REQ-DOM-7, sections 6, 7, 11.4 and 12.
 - Supersedes: none.
+
+## D-052 — Part 7c2b: whether a file is executable is asked of `sh`'s `test -x`
+
+- Status: decided
+- Decided: 2026-11-05
+- Origin: maintainer XEL in session 19's chat, answering the integrator's question on Codex's first-pass finding
+  P7C2B-3 (any execute bit taken as executable, a file of mode `0601` reported present): "sh -c 'test -x'
+  (Recomendado)".
+- Decision: detection takes a file as executable only when it is a regular file with an execute bit and `/bin/sh -c
+  'test -x "$1"'`, run with no environment, says the current process may execute it: the operating system's own answer
+  (effective user and group, supplementary groups, access lists, mounts without execution). `sh` becomes the third
+  external program the core calls, after `git` and `ssh-keygen` (AD-4); it is run only for a file that passed the
+  check of its bits. No crate is added and no `unsafe` code is allowed.
+- Consequences: section 8's paragraph on detection says so; AD-4's list of external tools is read with this entry.
+- Sources: chat of session 19; Codex's first pass of 7c2b (P7C2B-3); AD-4 ("External tools the core calls"); D-036;
+  the workspace's `unsafe_code = "forbid"`; D-051.
+- Supersedes: none.
