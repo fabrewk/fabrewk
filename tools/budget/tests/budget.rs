@@ -402,6 +402,9 @@ fn req_bud_1_dep_info_is_parsed() {
     assert!(parse_dep_info("").is_err());
     // A path holding a newline would split the rule; the reader refuses instead of dropping the rest.
     assert!(parse_dep_info("/t/x: /w/a\nb.rs /w/c.rs\n").is_err());
+    // A literal backslash would be read as an escape and name another file: Codex's P7A-22.
+    assert!(parse_dep_info("/t/x: /w/a\\b.inc\n").is_err());
+    assert!(parse_dep_info("/t/x: /w/a\\").is_err());
     assert!(parse_dep_info("/w/a.rs /w/b.rs\n").is_err());
 }
 

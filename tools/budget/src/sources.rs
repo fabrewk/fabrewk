@@ -9,7 +9,7 @@ use std::collections::BTreeSet;
 use std::path::PathBuf;
 
 /// The prerequisites of a Makefile-style dep-info holding one rule: `target: dep dep …`, spaces escaped as `\ `,
-/// lines continued with a trailing `\`.
+/// lines continued with a trailing `\`; any other backslash is refused.
 pub fn parse_dep_info(text: &str) -> Result<Vec<PathBuf>, String> {
     let joined = text.replace("\\\n", " ");
     let mut lines = joined.lines().filter(|l| !l.trim().is_empty());
@@ -23,7 +23,17 @@ pub fn parse_dep_info(text: &str) -> Result<Vec<PathBuf>, String> {
     let mut target_done = false;
     while let Some(c) = chars.next() {
         match c {
-            '\\' => current.extend(chars.next()),
+            // Cargo escapes only spaces; any other backslash is either part of a name or an escape this reader does
+            // not know, and taking it either way could match the wrong file (Codex's P7A-22), so it refuses.
+            '\\' => {
+                match chars.next() {
+                    Some(' ') => current.push(' '),
+                    _ => return Err(
+                        "dep-info with a backslash that escapes no space; it cannot be read safely"
+                            .to_string(),
+                    ),
+                }
+            }
             ':' if !target_done && chars.clone().next().is_none_or(char::is_whitespace) => {
                 target_done = true;
                 current.clear();
