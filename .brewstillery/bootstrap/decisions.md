@@ -1919,3 +1919,72 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   gating every part. R-024's note that the record counts 212 lines more at width 100 is settled by this entry.
 - Sources: chat of session 17; D-042; R-024 ("Size"); `tools/budget`.
 - Supersedes: none.
+
+## R-025 — Session 17, part 7c1: settings and policy
+
+- Status: recorded
+- Date: 2026-11-05
+- Who: integrator Claude Code, `claude-opus-5-5`. Reviewer: Codex `codex-cli 0.166.0`, `gpt-6.1-sol`, effort high,
+  launched with `codex exec --json`, standard input closed, sandbox `workspace-write`, no network, in a user systemd
+  scope capped at 3 GB, in a disposable clone under `target/` with a copy of the Cargo registry (35 MB). No subagent.
+- Start: HEAD `3928ef9`, tree clean. The fermento was not swept: its answer has no current recommendation and the
+  maestro added no input.
+- Read: `STATUS.md`, `AGENTS.md`, `plan.md`, this file (D-041, D-047, R-024), `core-specification.md` (sections 0, 2
+  DOM, REG, SET, ID and SEC, 3 to 9, 11.2, 11.4's rows for 7c, 12 DOM, REG, SET, ID and SEC, 13),
+  `architecture-decisions.md` AD-2, AD-3, AD-14 and AD-15, the record's code (`crates/core/src/record/`) and its test
+  fixtures; the sources of `toml` 1.1.6 and 1.2.0 (features, `DeTable`, `DeValue`, errors).
+- Decided before any code: the split of 7c, signatures verified with the key the signature carries, TOML 1.1, network
+  for Cargo (D-048). Network used for Cargo against crates.io only: `toml` 1.2.0 (TOML 1.1; resolved instead of the
+  1.1.6 first named, the same API) with `toml_parser` 1.1.5, `winnow` 1.0.5, `serde_spanned` 1.1.2, `toml_datetime`
+  1.1.2; `indexmap`, `hashbrown`, `equivalent` and `toml_writer` are in `Cargo.lock` as optional and not built. After
+  the first code the maestro decided the formatting (D-049).
+- Written: `crates/core/src/settings/` (`keys.rs`, every key of section 8; `mod.rs`, reading with file, key path and
+  line; `policy.rs`, the policy in force, pending changes, the effect of a change, adoption and the effective values
+  with their sources; `lang.rs`, language tags), `crates/core/src/code.rs` (the codes and the error, moved from the
+  record, with ten new codes), `policy-adopted`'s payload fixed and checked (`content`, `digest`, `widened`), `git.rs`'s
+  read of a committed file; tests in the modules and in `crates/core/tests/settings.rs`; `rustfmt.toml` (D-049).
+  `core-specification.md` (REQ-REG-4, REQ-SET-1 and their criteria, D-048), `plan.md`, `STATUS.md`, this entry.
+- Interpretations, given to the review and not re-opened by it: stage and task layers may set `limits.*`, a profile's
+  tool, model, effort, checks, required tools and limits, `review.differentProvider` and `gate.protectedPaths`, only
+  for tables the policy holds; a change with no order (a name, a key, a list that both gains and loses) widens a key
+  that has a direction; no value is the widest (an absent `area` is the whole project, absent `tokens` unlimited); any
+  change to a maintainer's table widens (REQ-SET-5 over section 8's "removing a table narrows"); a value that only
+  follows another key is not a change of its own and its source is `default`; `gate.protectedPaths`' default holds the
+  three literal paths, the files a check names being added where REQ-GATE-9 is enforced (phase 9); `environment.shell`
+  defaults to `sh`; the first adoption names no widening (it is `apply`'s); a comment-only edit is pending with no
+  change of value; a malformed `policy-adopted` payload is `RECORD_VERSION_UNKNOWN` and a digest that is not its
+  content's `RECORD_BROKEN`; a maintainer's key is one line `<type> <base64> [comment]` whose blob is made only of SSH
+  strings, the type one of seven `ssh-keygen -Y` signs with; a language tag is checked for its form (RFC 5646), not
+  against IANA's registry; text that is not TOML is refused with the key path the parser's own positions give.
+- Size: the default formatting gave the core 2,915 of 4,000 counted lines; after D-049, 2,068 at the session's end
+  (settings about 830 of them). The commit `28cad57` also carries a formatting-only change to three files of
+  `tools/budget`, left by measuring the widths (`rustfmt` is not idempotent across settings); `1547175` reformats them
+  again.
+- Codex, seven passes, the first whole and the others scoped to the findings and the changed code: pass 1 (`50412e6`):
+  reject, 5 blocking and 1 minor (P7C1-1 language tags with repeated variants or singletons accepted, a private-use
+  tag and the irregular ones refused; P7C1-2 a maintainer's key spanning lines accepted; P7C1-3 text that is not TOML
+  refused without its key path; P7C1-4 `WIDENING_UNNAMED` without lines; P7C1-5 a pending removal without a place;
+  P7C1-6 tests missing for TOML 1.1, the stage and task levels, byte-identical files and the modes). Pass 2
+  (`0e704d7`): P7C1-1, 2, 4, 5 closed; P7C1-3 open (a locator guessing from the text); P7C1-6 partly; new P7C1-7
+  (`ssh-rsa` refused). Pass 3 (`1163514`): P7C1-6 and 7 closed, P7C1-3 open. Pass 4 (`702146f`): P7C1-3 open, new
+  P7C1-8 (a regression of the locator). The design changed then: the parser itself resolves the path, the text at the
+  error replaced by a marker key or a valid value and read again. Pass 5 (`9dbda25`): P7C1-3 and 8 closed, new P7C1-9
+  (a key of the file named as the marker) and P7C1-10 minor (an inserted `0` in the path). Pass 6 (`b3afc79`): P7C1-10
+  closed, P7C1-9 open (the marker spelled with escapes). Pass 7 (`7511d13`): **accept**, no new finding. Confirmed
+  blocking findings by pass: 5, 2, 1, 2, 1, 1, 0. Every pass ran in 5 to 11 minutes.
+- Found by the integrator before the review: `ROLE_NOT_ENFORCED` raised by any value `"supervisor"`, not only a role;
+  by the mutation run: a key that narrows treated its absence as its narrowest.
+- Mutation (`cargo mutants`, rustup 1.99.1, `-j 2`, in its own scope as R-022 says, `TMPDIR` under `target/`): the
+  settings and `policy_payload`, 262 mutants: 229 caught, 17 unviable, 12 missed, 4 timeouts (loops in `is_tag`). Each
+  missed one killed by a test or by simpler code and re-run by function after each correction (125, 76, 7, 4, 3, 8 and
+  10 mutants), all caught but these declared equivalents: `>` → `>=` in `table_of` (a path as long as a key's is a
+  leaf, read before), and `>` → `>=` three times in `effect` (both callers skip equal values).
+- Clean clone of `7511d13`, rustup 1.99.1: 144 tests green, and the crash suite (3 tests) with `--features
+  fault-injection`; the musl release build; `budget check --binary` exits 0: core 2,102 of 4,000 counted lines in 17
+  files, 3 direct runtime crates (`serde_json`, `sha2`, `toml`), 30 crates in the release build counting every
+  platform, the binary 397,600 bytes (the binary does not use the core yet); `clippy --workspace --all-targets -D
+  warnings` with and without the feature, `fmt --check`, `cargo deny --offline check licenses advisories` clean. A
+  first run with `CARGO_TARGET_DIR` set failed one counter test, which reads its fixture's own `target/`; not a defect.
+- Residuals, not blocking: the source of a value that follows another key reads `default`, and `config` (7d) should
+  say which key it follows; a language tag's subtags are not checked against IANA's registry.
+- Not done: parts 7c2 and 7d.

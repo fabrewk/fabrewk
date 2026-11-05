@@ -5,12 +5,13 @@ view generated from that registry. Technical files are in English by default (D-
 
 ## Current state
 
-**Phases 0 to 6 are closed (D-037, D-040). Phase 7 (the first code) is split into parts 7a to 7d (D-041, D-047);
-parts 7a (R-023) and 7b, the record (R-024), are closed; 7c, settings, identity, roles and signatures, is next.** The repository now holds the first code at its root: a Cargo workspace with one crate per ring
+**Phases 0 to 6 are closed (D-037, D-040). Phase 7 (the first code) is split into parts 7a, 7b, 7c1, 7c2 and 7d
+(D-041, D-047, D-048); parts 7a (R-023), 7b, the record (R-024), and 7c1, settings and policy (R-025), are closed;
+7c2, identity and the machine, is next.** The repository now holds the first code at its root: a Cargo workspace with one crate per ring
 (`crates/core`, `crates/fabrewk`, a binary that only answers `--version`) and the size counter `tools/budget`, the
 licence files, `deny.toml` and a root `.gitignore` with `/target`. The size budget is frozen (D-042). The record is
-built as a library in `crates/core/src/record/` (1,697 of the core's 4,000 counted lines); no command uses it yet and
-no `data/` exists in this repository. The domain is `.brewstillery/`, hidden (D-032).
+built as a library in `crates/core/src/record/`, the settings in `crates/core/src/settings/` (the core counts 2,102
+of 4,000 lines, formatted at width 120, D-049); no command uses them yet and no `data/` exists in this repository. The domain is `.brewstillery/`, hidden (D-032).
 
 ## Read first
 
@@ -126,14 +127,29 @@ repository, is imported into the single registry at production and then stays re
   corrected). Mutation: every mutant caught but two declared equivalents. Clean clone: 118 tests and the crash suite
   green, musl build, `budget check`, clippy, fmt, `cargo deny` clean. Interpretations the maestro may want to read
   are in `core-specification.md` section 3, "Schema 1's envelope". With `rustfmt`'s default width the record counts
-  212 lines more than at 120; nothing changed (a maestro's choice if wanted).
-- **Next: part 7c (plan, "Phase 7").** Settings with provenance, identity, roles and signatures (SET, ID, SEC-4,
-  SEC-5, DOM-2 to DOM-5 and DOM-7 on fixture records), REQ-REG-12 (the machine key, `instance`) and the signers derived
-  from the cited policy, the role checked against the kind (D-047). Open for 7c: where a reading command finds the
-  allowed-signers file `ssh-keygen -Y verify` needs without writing anything (R-024, residuals); `toml` is the approved
-  crate for the settings (D-036).
-- **Start prompt:** `Eres el integrador de Fabrewk; fase 7, parte 7c: ajustes con procedencia, identidad, roles y
-  firmas; empieza por .brewstillery/STATUS.md`. Model and effort: Claude Code on Opus 5.5, effort high; Codex GPT-6.1
+  212 lines more than at 120 (settled by D-049).
+- **Part 7c1 closed (session 17, D-048, D-049, R-025).** Before any code the maestro split 7c into 7c1 and 7c2 (SEC-5
+  moves to 7d), chose to verify a signature with the key it carries against the cited policy and
+  `ssh-keygen -Y check-novalidate` (no allowed-signers file, so reading commands write nothing; REQ-REG-4 amended),
+  and `toml` 1.2 reading TOML 1.1 without `serde` (REQ-SET-1 amended). 7c1 delivers every key of section 8 declared
+  once, the three files read with file, key path and line in every refusal, the policy in force from the last
+  `policy-adopted` (its payload is now `content`, `digest`, `widened`), pending changes located, each change classed
+  by direction, adoption's refusals, and the effective values with their sources and the stage and task layers. With
+  7c1 the core reached 2,915 counted lines at `rustfmt`'s default; the maestro chose width 120 with "Max" heuristics
+  (D-049, `rustfmt.toml`): 2,102 now. Codex accepted at its seventh pass (confirmed blocking 5, 2, 1, 2, 1, 1, 0; most
+  passes were on how a TOML syntax error names its key path, now resolved by the parser itself). Mutation: caught but
+  four declared equivalents. Clean clone: 144 tests and the crash suite green, musl build, `budget check`, clippy,
+  fmt, `cargo deny` clean.
+- **Next: part 7c2 (plan, "Phase 7").** Identity and the machine: the signers derived from the policy each event cites
+  and the role checked against the kind (REQ-REG-4's second half, D-048's route: the key the `.sig` carries, exactly
+  the policy's key for that alias, then `ssh-keygen -Y check-novalidate -n fabrewk`; base64 and SSH strings already
+  exist in `settings`), REQ-ID-2 to REQ-ID-5, REQ-REG-12 (the machine key in the private folder, `instance`), REQ-SEC-4,
+  the machine file, detection (REQ-SET-8), profiles (REQ-SET-9), and REQ-DOM-2, REQ-DOM-4, REQ-DOM-5 and REQ-DOM-7 on
+  fixture records. Open for 7c2: which policy an event cites at `apply` before the first `policy-adopted` exists (the
+  first adoption's own digest is the natural reading), and whether a person's event must cite the policy in force
+  when written (cross-stream order is not recorded).
+- **Start prompt:** `Eres el integrador de Fabrewk; fase 7, parte 7c2: identidad, firmas, clave de máquina, detección y
+  dominio; empieza por .brewstillery/STATUS.md`. Model and effort: Claude Code on Opus 5.5, effort high; Codex GPT-6.1
   Sol, effort high, reviews each part that delivers code (plan row 7).
 
 Carried without blocking, with destinations, in D-013. A phase that does not pass is corrected and retried; it
