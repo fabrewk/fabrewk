@@ -1,21 +1,21 @@
 # Fabrewk project settings for this repository (bootstrap).
 #
-# Project-wide values. A maintainer's personal file (brewstillery/<alias>/settings.toml)
+# Project-wide values. A maintainer's personal file (.brewstillery/<alias>/settings.toml)
 # never overrides what grants authority here: permissions, acceptance criteria, providers
-# or limits. Active keys are decisions recorded in brewstillery/xel/alambique.md;
+# or limits. Active keys are decisions recorded in .brewstillery/xel/alambique.md;
 # commented keys are proposals, not decisions.
 
 [project]
 name = "Fabrewk"          # alambique, section 1 (decided 2026-11-02)
 command = "fabrewk"       # alambique, section 6, command point; commands and flags in English
-domain = "brewstillery"   # alambique, section 2: the only Fabrewk directory in a repository
+domain = ".brewstillery"   # alambique, section 2: the only Fabrewk directory in a repository
 
 [maintainers]
-aliases = ["xel"]         # each alias has brewstillery/<alias>/ with alambique.md and settings.toml
+aliases = ["xel"]         # each alias has .brewstillery/<alias>/ with alambique.md and settings.toml
 
 [layout]
-# Names an alias may not take, because they belong to brewstillery/ itself (alambique, section 2).
-reservedNames = ["bootstrap", "data", "settings.toml", "STATUS.md"]
+# Names an alias may not take, because they belong to .brewstillery/ itself (alambique, section 2).
+reservedNames = ["bootstrap", "data", "settings.toml", "STATUS.md", "ALAMBIQUE.md"]
 
 [languages]
 canonicalDocumentationLanguage = "en"
