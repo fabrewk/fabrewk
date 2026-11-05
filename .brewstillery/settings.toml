@@ -15,7 +15,7 @@ aliases = ["xel"]           # each alias has .brewstillery/<alias>/ with ferment
 
 [layout]
 # Names an alias may not take, because they belong to .brewstillery/ itself (alambique, section 2).
-reservedNames = ["bootstrap", "data", "settings.toml", "STATUS.md", "ALAMBIQUE.md"]
+reservedNames = ["bootstrap", "data", "local", "settings.toml", "STATUS.md", "ALAMBIQUE.md", "RULES.md", ".gitignore"]
 
 [languages]
 canonicalDocumentationLanguage = "en"

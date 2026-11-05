@@ -7,8 +7,10 @@ Mi entrada es exclusivamente mía. Lo que cite desde aquí (capturas, PDF, otros
 ## Propuestas y pendientes
 
 1. PENDIENTE: Tareas de la máquina, fuera de la construcción de Fabrewk, de la sesión de organización de `~/Dev` (2026-11-02):
-   - PENDIENTE: Auditar `~/Dev/tmp` (1.8 GB). Esta carpeta no debe existir. La regla que de aquí sale para Fabrewk está en el punto 6.4 del alambique.
-   - Respaldo de configuración previo a la consolidación: `~/.local/state/config-backups/20261102-192449/`.
+   - RESUELTO: Audité `~/Dev/tmp` (1.8 GB). Esta carpeta no tiene nada que ver con Fabrewk, su contenido es de otros proyectos y los reconozco como válidos.  Ignoralo
+   - No se si resulte útil para nuestra actual fase, si no lo es descartalo para borrarlo de esta lista: `~/.local/state/config-backups/20261102-192449/`.
+
+2. AUTORIZACIÓN: Tienes autorizado realizar los cambios automaticamente que has propuesto en mi fermento para el ALAMBIQUE.md sobre las 2 secciones sin que tenga que hacerlo yo de forma manual.
 
 
 ################################################################################
