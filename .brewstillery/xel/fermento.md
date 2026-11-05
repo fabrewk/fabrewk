@@ -18,4 +18,4 @@ Mi entrada es exclusivamente mía. Lo que cite desde aquí (capturas, PDF, otros
 
 ## Respuesta del integrador
 
-**Punto 2, alambique conciso.** Ya está en su lugar y coincide con el texto que aprobaste. Puedes quitar el punto 2 de tu entrada.
+Sin recomendaciones vigentes.

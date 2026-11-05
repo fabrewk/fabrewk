@@ -1261,3 +1261,43 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   chat (plan row 5).
 - Sources: chat of session 10; R-017.
 - Supersedes: none.
+
+## R-018 — Session 11, phase 5 resumed: AD-4, AD-5, AD-7 rewritten, AD-12 to AD-15 added
+
+- Status: recorded
+- Date: 2026-11-04
+- Who: integrator Claude Code, `claude-opus-5-5`, effort as STATUS.md names it (high). Reviewer: Codex
+  `codex-cli 0.166.0`, `gpt-6.1-sol`, effort high, read-only sandbox, launched in this repository with
+  `codex exec --json`, standard input closed. No subagent, no network (none was granted this session).
+- Start: HEAD `f251bd4`; the maintainer had removed fermento point 2, as the last answer recommended. That edit is
+  committed alone in `11a022f`, with no AI co-author (D-022); the separator's marker line found once. The fermento's
+  answer was replaced: no current recommendation (point 1 is a machine task outside Fabrewk's construction). Input
+  above the answer heading unchanged by the integrator (digest compared before and after).
+- Read: `STATUS.md`, `ALAMBIQUE.md`, the fermento, both settings files, `plan.md`, this file (D-030 to D-035, R-015 to
+  R-017), `architecture-decisions.md`, `harness-verdicts.md` ("In short", observations for phase 5), the finding keys of
+  `reference-study.md`.
+- Checked on this machine: `rustc`/`cargo` 1.99.1 (Fedora), no `rustup`; OpenSSH 10.2p1 with `ssh-keygen -Y`;
+  no Git signing configured in this repository; `codex-cli` 0.166.0, `gh` 2.97.0, `curl` 8.18.0; `minisign`,
+  `cosign`, `docker`, `podman`, `tokei`, `cargo-deny` absent. Recorded in section 0 of the deliverable.
+- Written: `architecture-decisions.md`: AD-4 (Rust toolchain, platforms, dependencies, tests), AD-5 (three rings and
+  the extension contract, budget in Rust), AD-7 (release binaries, the curl route with onboarding in the binary, the
+  agent route ending at `assess`, the download checked by an SSH signature) rewritten; AD-12 (domain layout, entry
+  files, `RULES.md`, reserved names, separator marker), AD-13 (alambique edits and proposal state), AD-14 (identity,
+  roles, signed events), AD-15 (private folder, instance identity) added for D-032 points 1 to 10 and 17; AD-6, AD-8 to
+  AD-11 and the closing list adjusted; "Since D-032" notes under the decided AD-1 to AD-3, whose text is unchanged.
+  6,688 words to 12,358. This entry; `plan.md`; `STATUS.md`.
+- Codex, pass 1, on the working tree (sha256 `ce5aecd8…`): 4 min 53 s; 17 commands, 1 non-zero exit; input 1,027,905
+  tokens (921,856 cached), output 9,377 (5,849 reasoning). Verdict reject; all confirmed by the integrator:
+  - P5-10 (blocking): staleness of a proposal checked by finding its passage anywhere in the fermento; now bound to the
+    numbered input point above the separator (AD-13).
+  - P5-11 (blocking): a confined extension could not ask the core for changes from inside its confinement; requests
+    now go out on its standard output to the outer core, which validates and applies them (AD-5).
+  - P5-12 (blocking): the instance's name included the digest of the first event, which itself carries the name; now
+    events record the machine key's fingerprint and the project is given by the registry that holds them (AD-15).
+  - P5-13 to P5-16 (minor): the agent route overstated that an agent cannot confirm for the person (AD-7); "verifiable
+    from the first event" overstated an unsigned fingerprint (AD-15); a static binary does not run on "any" Linux
+    (AD-4); a hardware key's type does not prove touch enforcement (AD-14).
+- Codex, pass 2, scoped to the corrections (sha256 `bb1a1d80…`): 1 min 26 s; 19 commands, none failed; input 462,060
+  (395,904 cached), output 2,902. P5-10 to P5-16 closed, no new finding. **Verdict accept.**
+- Progress measure (D-003): confirmed blocking findings 3, then 0. Prompts, streams and last messages stay in the
+  session's scratch directory, not committed.

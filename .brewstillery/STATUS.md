@@ -66,11 +66,13 @@ repository, is imported into the single registry at production and then stays re
   pass. The preview is in XEL's fermento answer, between the markers.
 - **Adopted (D-035).** The maintainer validated the rewrite in chat and copied it over `.brewstillery/ALAMBIQUE.md`
   (sha256 checked against the preview). The fermento's answer recommends removing point 2.
-- **Next: phase 5 resumes (plan row 5).** Rewrite AD-4 for the Rust core, AD-5 for the extension contract and AD-7 for
-  a binary installation with both routes (a `curl` script with guided onboarding, a preset prompt for any agent) and
-  how the script checks what it downloads; add the decisions D-032 points 1 to 10 and 17 need where
-  `architecture-decisions.md` lacks them (including the name and form of the agents' rules file inside the domain);
-  Codex re-checks the file against the new alambique; then the maintainer decides AD-4 to AD-11.
+- **Session 11 (R-018).** Phase 5 resumed. `architecture-decisions.md` now has AD-4 (Rust: MSRV, platforms, crates,
+  tests), AD-5 (three rings and the extension contract), AD-7 (release binaries, the `curl` route with onboarding in
+  the binary, the agent route ending at `assess`, downloads checked by an SSH signature) and the new AD-12 (domain
+  layout, `RULES.md`, separator marker), AD-13 (alambique edits and proposal state), AD-14 (identity, roles, signed
+  events) and AD-15 (private folder, instance identity). Codex accepted it at its second pass.
+- **Next: the maintainer decides AD-4 to AD-15** (plan row 5), recorded with their words; then Codex checks the
+  decided file once more and phase 5 closes, and phase 6 (core specification) starts.
 - **Start prompt:** `Eres el integrador de Fabrewk; empieza por .brewstillery/STATUS.md`. Model and effort: Claude
   Code on Opus 5.5, effort high; Codex GPT-6.1 Sol, effort high, reviews, with its full budget (D-030).
 

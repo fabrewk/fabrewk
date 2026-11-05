@@ -11,8 +11,9 @@ not split (D-030): its deliverable is `.brewstillery/bootstrap/architecture-deci
 The sweep of input points 6.47.a and 8.2 to 8.4 became D-032 (domain, governance, core architecture) and D-033 (the
 alambique's form); a second audit gave the full new alambique and fermento, and the repository migrated to
 `.brewstillery/` (R-016). Before phase 5 resumes, the alambique is rewritten concise for the maestro and the
-integrator, with Codex checking its fidelity against the archived original (D-034). Phase 5 then resumes with AD-4,
-AD-5 and AD-7 rewritten and the decisions D-032 still needs.
+integrator, with Codex checking its fidelity against the archived original (D-034); adopted (D-035). Phase 5 resumed
+in session 11: AD-4, AD-5 and AD-7 rewritten and AD-12 to AD-15 added for what D-032 still needed; Codex accepted the
+file at its second pass (R-018). The maintainer decides AD-4 to AD-15.
 
 **Rule for every phase (alambique 6.48, D-003).** A phase that does not pass is corrected and retried; it never
 ends the project. Before each retry the progress measure is fixed (proposed: confirmed blocking findings, and
