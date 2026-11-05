@@ -379,15 +379,23 @@ fn req_bud_5_licence_declared_and_files_present() {
 
 #[test]
 fn req_bud_1_dep_info_is_parsed() {
-    let deps = parse_dep_info("/t/fabrewk: /w/a.rs /w/my\\ dir/b.rs \\\n /w/c.txt\n\n").unwrap();
+    let deps = parse_dep_info("/t/fabrewk: /w/a.rs /w/b.rs  /w/c.txt\n\n").unwrap();
     assert_eq!(
         deps,
         [
             PathBuf::from("/w/a.rs"),
-            PathBuf::from("/w/my dir/b.rs"),
+            PathBuf::from("/w/b.rs"),
             PathBuf::from("/w/c.txt")
         ]
     );
+    // Any backslash refuses: an escaped space, a continued line, a name ending in a backslash (Codex's P7A-23).
+    for text in [
+        "/t/x: /w/my\\ dir/b.rs\n",
+        "/t/x: /w/a.rs \\\n /w/b.rs\n",
+        "/t/x: /w/ab.inc\\ /w/c.rs\n",
+    ] {
+        assert!(parse_dep_info(text).is_err(), "{text:?}");
+    }
     assert_eq!(parse_dep_info("/t/x:\n").unwrap(), Vec::<PathBuf>::new());
     // A colon after the target belongs to a path.
     let deps = parse_dep_info("/t/x: /w/a:b.rs /w/c: /w/d.rs\n").unwrap();

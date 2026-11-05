@@ -8,11 +8,18 @@ use crate::rings::{RingCount, canonical};
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 
-/// The prerequisites of a Makefile-style dep-info holding one rule: `target: dep dep …`, spaces escaped as `\ `,
-/// lines continued with a trailing `\`; any other backslash is refused.
+/// The prerequisites of a Makefile-style dep-info holding one rule: `target: dep dep …`. A backslash anywhere is
+/// refused: Cargo writes `\ ` for a space in a name, but a name may also end in a backslash, so `a\ b` can be one path
+/// or two, and reading it either way could match the wrong file (Codex's P7A-22 and P7A-23). A repository whose path
+/// holds a space therefore cannot be checked: a false positive D-044 accepts.
 pub fn parse_dep_info(text: &str) -> Result<Vec<PathBuf>, String> {
-    let joined = text.replace("\\\n", " ");
-    let mut lines = joined.lines().filter(|l| !l.trim().is_empty());
+    if text.contains('\\') {
+        return Err(
+            "dep-info with a backslash; a path with a space or a backslash cannot be read safely"
+                .to_string(),
+        );
+    }
+    let mut lines = text.lines().filter(|l| !l.trim().is_empty());
     let line = lines.next().ok_or("empty dep-info")?;
     if lines.next().is_some() {
         // Cargo writes the binary's dep-info as one rule; a second line could be the rest of a path holding a newline,
@@ -23,17 +30,6 @@ pub fn parse_dep_info(text: &str) -> Result<Vec<PathBuf>, String> {
     let mut target_done = false;
     while let Some(c) = chars.next() {
         match c {
-            // Cargo escapes only spaces; any other backslash is either part of a name or an escape this reader does
-            // not know, and taking it either way could match the wrong file (Codex's P7A-22), so it refuses.
-            '\\' => {
-                match chars.next() {
-                    Some(' ') => current.push(' '),
-                    _ => return Err(
-                        "dep-info with a backslash that escapes no space; it cannot be read safely"
-                            .to_string(),
-                    ),
-                }
-            }
             ':' if !target_done && chars.clone().next().is_none_or(char::is_whitespace) => {
                 target_done = true;
                 current.clear();
