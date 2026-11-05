@@ -6,7 +6,7 @@ Mi entrada es exclusivamente mía. Lo que cite desde aquí (capturas, PDF, otros
 
 ## Propuestas y pendientes
 
-
+1. NOTA:  En el prompt del chat Claude Code activo veo que ya no estas registrando la etapa/fase o compuerta con su pequeña descripción para cada chat.  Todos ahora salen con el titulo "Integrador de Fabrewk con STATUS.md"  Si esto puede ser corregido, hazlo.
 
 
 ################################################################################
@@ -16,6 +16,4 @@ Mi entrada es exclusivamente mía. Lo que cite desde aquí (capturas, PDF, otros
 
 ## Respuesta del integrador
 
-**Punto 1, tareas de la máquina.** Las dos quedan atendidas y puedes quitar el punto completo. La carpeta `~/Dev/tmp` ya la revisaste. El respaldo `~/.local/state/config-backups/20261102-192449/` solo guarda la configuración anterior de Claude Code y Codex (vi los nombres de sus archivos, no su contenido). No sirve para la fase actual: Fabrewk detecta lo que hay en el equipo cada vez que arranca y nunca copia la configuración de esas herramientas. Puedes borrarlo de la lista; conservar o no el respaldo en disco es decisión tuya.
-
-**Punto 2, autorización.** Ya apliqué las dos ediciones al alambique, con el texto exacto que aprobaste: la licencia en la sección 1 y el archivo de reglas en la sección 2. Puedes quitar el punto.
+No hay recomendaciones vigentes: tu entrada no tiene puntos abiertos.

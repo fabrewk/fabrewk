@@ -1399,3 +1399,51 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Sources: chat of session 11; `.brewstillery/xel/fermento.md` at `a577341`; R-019.
 - Supersedes: D-034 point 6 only where it has the maestro paste the text: for these two edits the integrator applied
   it on the maestro's explicit authorization.
+
+## D-038 — Phase 6 split into parts 6a and 6b; the size budget frozen at phase 7's start
+
+- Status: decided
+- Decided: 2026-11-04
+- Origin: maintainer XEL in session 12's chat, answering the integrator's three questions at the start of phase 6:
+  "Dos partes, 6a y 6b (Recomendado)"; "Congelarlo al inicio de la fase 7 (Recomendado)";
+  "bootstrap/core-specification.md (Recomendado)".
+- Decision:
+  1. Phase 6 is split where its inputs separate (D-019). Part 6a reads the alambique and the decided architecture and
+     delivers: the classification of every alambique point (indispensable for the code, later stage, or alternative to
+     evaluate) with each indispensable point mapped to a requirement or an explicit deferral; the states and the
+     transition table; the commands with their refusals; the semantics of the checks; the names of the settings keys and
+     what else phase 5 left to phase 6. Part 6b reads part 6a and `past-defect-cases.md` and delivers the test plan, with
+     every past-defect case taken in, and the acceptance criteria. Each part runs in its own chat; Codex (GPT-6.1 Sol,
+     effort high) reviews both together when phase 6 ends, since the phase delivers documents.
+  2. The size budget is not frozen in phase 6: no code is written before phase 7 (`AGENTS.md`) and the counting tool
+     does not exist yet. Phase 6 fixes the counting rule and keeps AD-5's limits as provisional ceilings. The first
+     commit of phase 7 is the skeleton with its line counter; a maestro freezes the budget after measuring it, before
+     any feature is built. This amends plan rows 6 and 7 and AD-5's "phase 6 freezes".
+  3. The specification is written in English in `.brewstillery/bootstrap/core-specification.md`.
+- Consequences: `plan.md` records the parts and the amended rows. The maintainer's approval of the text (plan row 6)
+  comes after Codex's review of both parts.
+- Sources: chat of session 12; `plan.md` rows 6 and 7; D-019; AD-5 in `architecture-decisions.md`.
+- Supersedes: D-036 only where it says phase 6 freezes the size budget (AD-5): it is frozen at phase 7's start.
+
+## R-020 — Session 12, phase 6 started: part 6a
+
+- Status: recorded
+- Date: 2026-11-05
+- Who: integrator Claude Code, `claude-opus-5-5`. No subagent, no dispatch, no network.
+- Start: HEAD `b387346`; the maintainer had removed fermento points 1 and 2, as the last answer recommended. That
+  edit is committed alone in `919886d`, with no AI co-author (D-022); the separator's banner line found once. The
+  fermento's answer was replaced: no current recommendation. Input above the separator unchanged by the integrator
+  (sha256 `9d9c2158…` before and after).
+- Read: `STATUS.md`, `ALAMBIQUE.md` (`f2cac00b…`), the fermento, both settings files, `plan.md`, this file (its rules,
+  D-026, R-011, R-018 to D-037), `architecture-decisions.md` whole (`9e45b1bc…`), the summary and observations of
+  `harness-verdicts.md`, the phase 6 findings of `reference-study.md`, the case titles and sections A to C of
+  `past-defect-cases.md`.
+- Decided at the start: D-038 (two parts; the size budget frozen at phase 7's start; the file's place).
+- Written: `core-specification.md` sections 0 to 10 (10075 words, sha256 `24c94c05…`): every point of alambique sections 1,
+  2 and 6 classified (I, L or A) with its requirements or the reason for its deferral; 101 requirements in 12 areas;
+  the record's events; the transition tables of tasks, stages, proposals and the project; 16 commands (AD-6's 14 plus
+  `adopt` and `close`); the semantics of `fabrewk check`; 83 refusal codes; the settings keys; the 13 items phase 5
+  left open; nine choices for the maestro to approve with the text. A script checked that every code used is in the
+  single list, every requirement cited exists, and every requirement is reached from the classification. `plan.md`
+  (part 6a done); `STATUS.md`; this entry and D-038.
+- Not done: Codex's review, which covers parts 6a and 6b together (D-038).

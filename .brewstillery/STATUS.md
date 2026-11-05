@@ -5,7 +5,7 @@ view generated from that registry. Technical files are in English by default (D-
 
 ## Current state
 
-**Phases 0 to 5 are closed (D-037). Nothing of Fabrewk is built yet.** No code, no licence files (the licence is
+**Phases 0 to 5 are closed (D-037); phase 6 is in progress, part 6a delivered (D-038, R-020). Nothing of Fabrewk is built yet.** No code, no licence files (the licence is
 decided, D-036), no `.gitignore`, no `data/` yet. The repository holds the project's alambique, the maintainer's
 fermento and settings, this file, the root entry files (`AGENTS.md`, `CLAUDE.md`) and the bootstrap record. The domain is `.brewstillery/`, hidden
 (D-032).
@@ -76,13 +76,18 @@ repository, is imported into the single registry at production and then stays re
   first code).
 - **Phase 5 closed (D-037).** On the maestro's authorization the integrator applied the two drafted alambique edits
   (licence in section 1, `RULES.md` in section 2). `layout.reservedNames` now includes `local`, `RULES.md` and
-  `.gitignore`. The fermento's answer recommends removing points 1 and 2.
-- **Next: phase 6, core specification and criteria (plan row 6).** Frozen requirements, states, refusals, check
-  semantics, the test plan with the past-defect cases and the size budget frozen after measuring a skeleton (AD-5);
-  every alambique point classified indispensable maps to a requirement or an explicit deferral. Phase 6 decides at its
-  start whether it splits into parts (D-019).
+  `.gitignore`. The maintainer then removed fermento points 1 and 2; the answer has no current recommendation.
+- **Phase 6 started (D-038, R-020).** Split into two parts. The size budget is frozen at phase 7's start, after
+  measuring the skeleton, since no code exists before then. Part 6a is delivered in
+  `.brewstillery/bootstrap/core-specification.md`: every alambique point classified, 101 requirements, the record's
+  events, the transition tables, 16 commands, `fabrewk check`, 83 refusal codes, the settings keys, the items phase 5
+  left open, and nine choices for the maestro to approve with the text (its section 10).
+- **Next: part 6b (plan, section "Parts").** Read `core-specification.md` and `past-defect-cases.md` whole; add the
+  test plan, mapping every past-defect case to a requirement and a test, and an acceptance criterion for every
+  requirement. Then Codex reviews parts 6a and 6b together, and the maestro approves the text and the choices of its
+  section 10.
 - **Start prompt:** `Eres el integrador de Fabrewk; empieza por .brewstillery/STATUS.md`. Model and effort: Claude
-  Code on Opus 5.5, effort high; Codex GPT-6.1 Sol, effort high, reviews (plan row 6).
+  Code on Opus 5.5, effort high; Codex GPT-6.1 Sol, effort high, reviews at the end of part 6b (plan row 6).
 
 Carried without blocking, with destinations, in D-013. A phase that does not pass is corrected and retried; it
 never ends the project (D-003).
