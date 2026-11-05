@@ -1375,3 +1375,27 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   P5-18 closed by the draft pending a maestro's approval; both replaced passages occur once in the alambique; the
   fermento's input unchanged since `069c4d2`. **Verdict accept.**
 - Progress measure (D-003): confirmed blocking findings 1, then 0.
+
+## D-037 — Two alambique edits applied by the integrator on the maestro's authorization; phase 5 closed
+
+- Status: decided
+- Decided: 2026-11-04
+- Origin: maintainer XEL. In the fermento, point 2 (committed alone in `a577341`): "AUTORIZACIÓN: Tienes autorizado
+  realizar los cambios automaticamente que has propuesto en mi fermento para el ALAMBIQUE.md sobre las 2 secciones sin
+  que tenga que hacerlo yo de forma manual." Ratified in session 11's chat: "Tengo instrucciones y autorizaciones
+  pendientes para tí en mi fermento, ratifico las mismas por este chat." On closing phase 5, answering the
+  integrator's question: "Cerrar la fase 5 (Recomendado)".
+- Decision:
+  1. The integrator applied the two edits drafted in the fermento's answer and checked by Codex (R-019), byte for byte:
+     section 1's licence line, now "[decidido]", and section 2's sentence on the agents' rules file, now naming
+     `.brewstillery/RULES.md`. Each replaced passage occurred once. `ALAMBIQUE.md` sha256 `f2cac00b…`. This is the
+     maestro's approval of those two edits; the general rule (an agent drafts, a maestro approves, nobody edits the
+     alambique directly) is unchanged, and the maestro may again authorize an agent to apply a specific approved edit.
+  2. Phase 5 is closed: every decision of its packet is decided (D-031, D-036) and Codex's review found no open
+     blocking contradiction with the alambique (R-018, R-019).
+- Consequences: phase 6 (core specification and criteria) starts in a new chat. The fermento's answer recommends
+  removing points 1 and 2. The settings key `layout.reservedNames` now lists `local`, `RULES.md` and `.gitignore`,
+  changed by the maintainer (TOML parsed, checked by the integrator).
+- Sources: chat of session 11; `.brewstillery/xel/fermento.md` at `a577341`; R-019.
+- Supersedes: D-034 point 6 only where it has the maestro paste the text: for these two edits the integrator applied
+  it on the maestro's explicit authorization.

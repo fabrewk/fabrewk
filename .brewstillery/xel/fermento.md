@@ -20,24 +20,6 @@ Mi entrada es exclusivamente mía. Lo que cite desde aquí (capturas, PDF, otros
 
 ## Respuesta del integrador
 
-Sobre tu entrada: sin recomendaciones vigentes.
+**Punto 1, tareas de la máquina.** Las dos quedan atendidas y puedes quitar el punto completo. La carpeta `~/Dev/tmp` ya la revisaste. El respaldo `~/.local/state/config-backups/20261102-192449/` solo guarda la configuración anterior de Claude Code y Codex (vi los nombres de sus archivos, no su contenido). No sirve para la fase actual: Fabrewk detecta lo que hay en el equipo cada vez que arranca y nunca copia la configuración de esas herramientas. Puedes borrarlo de la lista; conservar o no el respaldo en disco es decisión tuya.
 
-**Edición propuesta del alambique: licencia y archivo de reglas.** Ya decidiste la licencia de Fabrewk y el nombre y la forma del archivo de reglas para los agentes, pero el alambique todavía los da por pendientes. Propongo dos cambios de una frase cada uno; si los apruebas, los haces tú en tu propio commit.
-
-1. Sección 1: la línea que empieza con "Por decidir: la licencia" se reemplaza completa por:
-
-```text
-Licencia: el código y la documentación de Fabrewk, bajo MIT o Apache-2.0, a elección de quien los recibe; lo que Fabrewk escribe en los repositorios que sirve va bajo MIT-0 y no obliga a nada [decidido].
-```
-
-2. Sección 2, primer punto: el fragmento
-
-```text
-viven dentro de `.brewstillery/`, no en esos archivos; su nombre y forma los decide el diseño.
-```
-
-se reemplaza por
-
-```text
-viven en `.brewstillery/RULES.md`, que Fabrewk genera y nadie edita a mano, no en esos archivos.
-```
+**Punto 2, autorización.** Ya apliqué las dos ediciones al alambique, con el texto exacto que aprobaste: la licencia en la sección 1 y el archivo de reglas en la sección 2. Puedes quitar el punto.

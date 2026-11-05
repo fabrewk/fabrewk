@@ -36,7 +36,7 @@ Fabrewk es nuestro meta-harness: una fábrica de software asistida por IA, **sie
 
 Intención, sin decidir: que repositorio, directorio y paquete se llamen `fabrewk`, con distribución e instalación prácticas, manual o por prompt a un agente; a futuro, la organización de GitHub `fabrewk` y el dominio `fabrewk.ai`. La marca y los logotipos se diseñan con el agente de diseño gráfico (sección 4). Antes de un uso comercial, un profesional verifica la marca.
 
-Por decidir: la licencia más adecuada para un meta-harness que puede integrarse a código con otra licencia.
+Licencia: el código y la documentación de Fabrewk, bajo MIT o Apache-2.0, a elección de quien los recibe; lo que Fabrewk escribe en los repositorios que sirve va bajo MIT-0 y no obliga a nada [decidido].
 
 Fabrewk debe poder:
 
@@ -49,7 +49,7 @@ Fabrewk debe poder:
 
 Igual en el repositorio de Fabrewk y en cada repositorio al que sirva [decidido]:
 
-- `.brewstillery/` es el único directorio de todo lo que Fabrewk trabaja en un repositorio: evidencia, settings y directorios de soporte. Es oculto, como `.github/`, para no llenar la raíz de lo que los mantenedores no quieran ahí. Fuera de él solo quedan los archivos que las herramientas exigen en la raíz (`AGENTS.md`, `CLAUDE.md`), declarados y mínimos, que apuntan a `.brewstillery/STATUS.md`; si el proyecto ya tiene `AGENTS.md`, Fabrewk le añade una referencia delimitada sin reemplazarlo. Las reglas de trabajo que Fabrewk administra para los agentes viven dentro de `.brewstillery/`, no en esos archivos; su nombre y forma los decide el diseño. En el repositorio de Fabrewk, su código es el producto y vive en la raíz; `.brewstillery/` es su dominio de desarrollo.
+- `.brewstillery/` es el único directorio de todo lo que Fabrewk trabaja en un repositorio: evidencia, settings y directorios de soporte. Es oculto, como `.github/`, para no llenar la raíz de lo que los mantenedores no quieran ahí. Fuera de él solo quedan los archivos que las herramientas exigen en la raíz (`AGENTS.md`, `CLAUDE.md`), declarados y mínimos, que apuntan a `.brewstillery/STATUS.md`; si el proyecto ya tiene `AGENTS.md`, Fabrewk le añade una referencia delimitada sin reemplazarlo. Las reglas de trabajo que Fabrewk administra para los agentes viven en `.brewstillery/RULES.md`, que Fabrewk genera y nadie edita a mano, no en esos archivos. En el repositorio de Fabrewk, su código es el producto y vive en la raíz; `.brewstillery/` es su dominio de desarrollo.
 - `.brewstillery/STATUS.md` existe siempre y es lo primero que lee cualquier agente para saber el estado del desarrollo. El `AGENTS.md` de la raíz lo llama cuando Fabrewk ya es el integrador del proyecto. En el bootstrap de Fabrewk, `STATUS.md` indica leer primero este alambique.
 - `.brewstillery/ALAMBIQUE.md` es el único alambique del proyecto: lo que el proyecto debe ser, aprobado por sus maestros, con títulos y numeración estables, sin settings ni zona de respuestas.
 - `.brewstillery/<alias>/` es el espacio de cada mantenedor, bajo su responsabilidad: su `fermento.md`, el único archivo que el sistema barre oficialmente al cerrar cada etapa de trabajo, y el material que quiera citar desde él.

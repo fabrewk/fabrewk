@@ -5,9 +5,9 @@ view generated from that registry. Technical files are in English by default (D-
 
 ## Current state
 
-**Phase 0 (bootstrap) is closed (D-013). Nothing of Fabrewk is built yet.** No code, no licence, no `.gitignore`,
-no `data/` yet. The repository holds the project's alambique, the maintainer's fermento and settings, this file,
-the root entry files (`AGENTS.md`, `CLAUDE.md`) and the bootstrap record. The domain is `.brewstillery/`, hidden
+**Phases 0 to 5 are closed (D-037). Nothing of Fabrewk is built yet.** No code, no licence files (the licence is
+decided, D-036), no `.gitignore`, no `data/` yet. The repository holds the project's alambique, the maintainer's
+fermento and settings, this file, the root entry files (`AGENTS.md`, `CLAUDE.md`) and the bootstrap record. The domain is `.brewstillery/`, hidden
 (D-032).
 
 ## Read first
@@ -74,10 +74,9 @@ repository, is imported into the single registry at production and then stays re
 - **Decided (D-036, R-019).** The maintainer adopted AD-4 to AD-15 as recommended; Codex re-checked the decided file
   and accepted. Every decision of the phase 5 packet is decided. The licence is MIT OR Apache-2.0 (files come with the
   first code).
-- **Waiting on the maintainer:** close phase 5 in chat; approve or not the two alambique edits drafted in the
-  fermento's answer (licence in section 1, `RULES.md` in section 2) and, if approved, make them in their own commit;
-  add `local`, `RULES.md` and `.gitignore` to `layout.reservedNames` in `.brewstillery/settings.toml` (agents do not
-  edit settings).
+- **Phase 5 closed (D-037).** On the maestro's authorization the integrator applied the two drafted alambique edits
+  (licence in section 1, `RULES.md` in section 2). `layout.reservedNames` now includes `local`, `RULES.md` and
+  `.gitignore`. The fermento's answer recommends removing points 1 and 2.
 - **Next: phase 6, core specification and criteria (plan row 6).** Frozen requirements, states, refusals, check
   semantics, the test plan with the past-defect cases and the size budget frozen after measuring a skeleton (AD-5);
   every alambique point classified indispensable maps to a requirement or an explicit deferral. Phase 6 decides at its
