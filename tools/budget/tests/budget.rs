@@ -5,10 +5,9 @@ use budget::budget::{
     APPROVED_RUNTIME_CRATES, BINARY_PACKAGE, MAX_BINARY_BYTES, MAX_DIRECT_RUNTIME_CRATES,
     MAX_RELEASE_CRATES, MSRV, RELEASE_TARGET, RINGS, RingKind,
 };
-use budget::deps::{Report, TreeLine, analyse, cargo_tree, parse_tree};
+use budget::deps::{Report, analyse, cargo_metadata, config_problems};
 use budget::rings::{RingCount, count_rings};
 use budget::sources::{parse_dep_info, unaccounted};
-use budget::targets::{Target, cargo_metadata, config_problems, parse_targets, target_problems};
 use budget::{
     binary_problem, cargo, dependency_problems, own_packages, ring_problems, source_problems,
     workspace_root,
@@ -82,79 +81,163 @@ fn req_bud_2_a_ring_over_its_limit_is_reported() {
     );
 }
 
+/// The real workspace's release build, from `cargo metadata`.
+fn real_report() -> Report {
+    let root = workspace_root();
+    let counts = count_rings(&root, RINGS).unwrap();
+    let metadata = cargo_metadata(&cargo(), &root, RELEASE_TARGET).unwrap();
+    analyse(
+        &metadata,
+        BINARY_PACKAGE,
+        &own_packages(&root, RINGS),
+        &counts,
+    )
+    .unwrap()
+}
+
 #[test]
 fn req_bud_2_crate_counts_within_budget() {
+    let report = real_report();
     let root = workspace_root();
-    let tree = cargo_tree(&cargo(), &root, BINARY_PACKAGE, RELEASE_TARGET).unwrap();
-    let report = analyse(&parse_tree(&tree).unwrap(), &own_packages(&root, RINGS)).unwrap();
-    assert!(
-        report.local.contains(&root.join("crates/fabrewk")),
-        "{report:?}"
+    assert_eq!(
+        report.local,
+        [root.join("crates/core"), root.join("crates/fabrewk")]
+            .into_iter()
+            .collect()
     );
     assert_eq!(dependency_problems(&report), Vec::<String>::new());
 }
 
-fn line(depth: usize, name: &str, path: Option<&str>) -> TreeLine {
-    TreeLine {
-        depth,
-        name: name.into(),
-        version: "1.0.0".into(),
-        path: path.map(PathBuf::from),
+/// A metadata document shaped like Cargo's, with every case the analysis tells apart.
+const METADATA: &str = r#"{"packages":[
+ {"id":"bin","name":"fabrewk","version":"0.0.0","source":null,"manifest_path":"/w/crates/fabrewk/Cargo.toml",
+  "targets":[{"kind":["bin"],"src_path":"/w/crates/fabrewk/src/main.rs"},{"kind":["test"],"src_path":"/w/crates/fabrewk/tests/t.rs"}]},
+ {"id":"core","name":"fabrewk-core","version":"0.0.0","source":null,"manifest_path":"/w/crates/core/Cargo.toml",
+  "targets":[{"kind":["lib"],"src_path":"/w/crates/core/src/lib.rs"},{"kind":["custom-build"],"src_path":"/w/crates/core/build.rs"},
+             {"kind":["proc-macro"],"src_path":"/w/crates/core/src/m.rs"},{"kind":["bench"],"src_path":"/w/crates/core/benches/b.rs"}]},
+ {"id":"serde","name":"serde","version":"1.0.0","source":"registry+https://github.com/rust-lang/crates.io-index","manifest_path":"/r/serde/Cargo.toml","targets":[]},
+ {"id":"derive","name":"serde_derive","version":"1.0.0","source":"registry+r","manifest_path":"/r/derive/Cargo.toml","targets":[]},
+ {"id":"cc","name":"cc","version":"1.1.0","source":"registry+r","manifest_path":"/r/cc/Cargo.toml","targets":[]},
+ {"id":"proptest","name":"proptest","version":"1.0.0","source":"registry+r","manifest_path":"/r/proptest/Cargo.toml","targets":[]},
+ {"id":"vendored","name":"serde","version":"0.0.0","source":null,"manifest_path":"/w/tools/serde (x)/Cargo.toml","targets":[]},
+ {"id":"budget","name":"budget","version":"0.0.0","source":null,"manifest_path":"/w/tools/budget/Cargo.toml","targets":[]},
+ {"id":"stray","name":"stray","version":"0.0.0","source":null,"manifest_path":"/w/stray/Cargo.toml","targets":[]}],
+ "workspace_members":["bin","core","budget"],
+ "resolve":{"nodes":[
+  {"id":"bin","deps":[{"pkg":"core","dep_kinds":[{"kind":null,"target":null}]},{"pkg":"proptest","dep_kinds":[{"kind":"dev"}]},
+                      {"pkg":"vendored","dep_kinds":[{"kind":null}]}]},
+  {"id":"core","deps":[{"pkg":"serde","dep_kinds":[{"kind":null}]},{"pkg":"cc","dep_kinds":[{"kind":"build"}]}]},
+  {"id":"serde","deps":[{"pkg":"derive","dep_kinds":[{"kind":null}]}]},
+  {"id":"derive","deps":[]},{"id":"cc","deps":[]},{"id":"proptest","deps":[]},{"id":"vendored","deps":[]},
+  {"id":"budget","deps":[{"pkg":"core","dep_kinds":[{"kind":null}]}]},{"id":"stray","deps":[]}]}}"#;
+
+fn ring_count(sources: &[&str]) -> RingCount {
+    RingCount {
+        name: "core",
+        kind: RingKind::Core,
+        files: sources.len(),
+        lines: 1,
+        sources: sources.iter().map(PathBuf::from).collect(),
+        data: vec![],
     }
 }
 
 #[test]
-fn req_bud_2_tree_is_parsed_and_classified() {
-    let text = "0fabrewk v0.0.0 (/w/crates/fabrewk)\n1fabrewk-core v0.0.0 (/w/crates/core)\n2serde v1.0.229\n\
-                3serde_derive v1.0.229 (proc-macro)\n4syn v3.0.9\n2cc v1.11.0\n1sha2 v0.10.9\n2cfg-if v1.0.5\n\
-                1other v0.1.0 (/elsewhere/other)\n2leaf v2.0.0\n1vendored v0.1.0 (/w/vendor/vendored)\n\
-                2tools v0.0.0 (/w/tools/budget)\n";
-    let lines = parse_tree(text).unwrap();
-    assert_eq!(
-        lines[0],
-        TreeLine {
-            depth: 0,
-            name: "fabrewk".into(),
-            version: "0.0.0".into(),
-            path: Some("/w/crates/fabrewk".into()),
-        }
-    );
-    assert_eq!(lines[3].path, None);
-    // Fabrewk's own packages are the ring directories exactly; a package elsewhere under the repository is a crate.
+fn req_bud_2_metadata_is_classified() {
     let own = [
         PathBuf::from("/w/crates/fabrewk"),
         PathBuf::from("/w/crates/core"),
     ];
-    let report = analyse(&lines, &own).unwrap();
-    let direct: Vec<_> = report.direct.iter().map(String::as_str).collect();
-    assert_eq!(direct, ["cc", "other", "serde", "sha2", "vendored"]);
-    assert_eq!(report.all.len(), 10);
-    assert_eq!(report.local, own.clone().into_iter().collect());
-    let paths: Vec<_> = report
-        .path_packages
-        .iter()
-        .map(|p| p.to_str().unwrap())
-        .collect();
+    let count = ring_count(&["/w/crates/fabrewk/src/main.rs"]);
+    let report = analyse(METADATA, "fabrewk", &own, std::slice::from_ref(&count)).unwrap();
     assert_eq!(
-        paths,
-        ["/elsewhere/other", "/w/tools/budget", "/w/vendor/vendored"]
+        report.direct,
+        ["cc", "serde"].map(String::from).into_iter().collect()
     );
-    // Cargo prints `(proc-macro)` before the path: a vendored macro named like an approved crate is still a path
-    // package, Codex's case in its third review of part 7a.
-    let renamed = parse_tree(
-        "0fabrewk v0.0.0 (/w/crates/fabrewk)\n1serde v0.0.0 (proc-macro) (/w/vendor/serde)\n",
-    )
-    .unwrap();
-    assert_eq!(renamed[1].path, Some(PathBuf::from("/w/vendor/serde")));
-    let report = analyse(&renamed, &own).unwrap();
+    let all: Vec<_> = report.all.iter().map(|(n, v)| format!("{n} {v}")).collect();
+    assert_eq!(all, ["cc 1.1.0", "serde 1.0.0", "serde_derive 1.0.0"]);
+    assert_eq!(report.local, own.iter().cloned().collect());
     assert_eq!(
-        dependency_problems(&report),
-        ["/w/vendor/serde is a package taken from a path outside the rings"]
+        report.problems,
+        [
+            "/w/stray is a local package outside the workspace",
+            "/w/tools/serde (x) is a local package outside the workspace",
+            "/w/tools/serde (x) is a local package the binary reaches outside the rings",
+            "/w/crates/core/src/lib.rs is the root of a lib target but not counted",
+            "/w/crates/core/build.rs is a build script in a ring",
+            "/w/crates/core/src/m.rs is a procedural macro in a ring",
+        ]
     );
-    assert!(parse_tree("fabrewk v0.0.0\n").is_err());
-    assert!(parse_tree("0fabrewk\n").is_err());
-    assert!(parse_tree("0fabrewk 0.0.0\n").is_err());
-    assert!(analyse(&[line(0, "a", None), line(2, "b", None)], &[]).is_err());
+    // The problems of the closed world are budget problems too, beside `cc`, which has no approved reason.
+    let problems = dependency_problems(&report);
+    assert_eq!(problems.len(), 7);
+    assert_eq!(
+        problems[0],
+        "direct runtime crate cc has no approved reason"
+    );
+    let counted = ring_count(&["/w/crates/fabrewk/src/main.rs", "/w/crates/core/src/lib.rs"]);
+    let report = analyse(METADATA, "fabrewk", &own, &[counted]).unwrap();
+    assert_eq!(report.problems.len(), 5);
+    assert!(analyse(METADATA, "budget-missing", &own, &[]).is_err());
+    assert!(
+        analyse(
+            &METADATA.replace("\"resolve\"", "\"other\""),
+            "fabrewk",
+            &own,
+            &[]
+        )
+        .is_err()
+    );
+    assert!(
+        analyse(
+            &METADATA.replace("{\"pkg\":\"cc\"", "{\"pkg\":\"gone\""),
+            "fabrewk",
+            &own,
+            &[]
+        )
+        .is_err()
+    );
+    assert!(
+        analyse(
+            &METADATA.replace("\"manifest_path\":\"/w/stray/Cargo.toml\",", ""),
+            "fabrewk",
+            &own,
+            &[]
+        )
+        .is_err()
+    );
+}
+
+#[test]
+fn req_bud_1_json_is_read() {
+    let doc = budget::json::parse(r#"{"esc":"a\"\\\/\b\f\n\r\t\ud83d\ude00\u00e9","n":-1.5e3,"t":true,"f":false,"z":null,"o":{}}"#).unwrap();
+    assert_eq!(
+        doc.get("esc").and_then(|v| v.as_str()),
+        Some("a\"\\/\u{8}\u{c}\n\r\t😀é")
+    );
+    assert_eq!(
+        doc.get("n"),
+        Some(&budget::json::Value::Number("-1.5e3".into()))
+    );
+    assert_eq!(doc.get("t"), Some(&budget::json::Value::Bool(true)));
+    assert_eq!(doc.get("z"), Some(&budget::json::Value::Null));
+    let literal = budget::json::parse("[\"é€😀a\\u00e9\"]").unwrap();
+    assert_eq!(literal.as_array()[0].as_str(), Some("é€😀aé"));
+    for bad in [
+        "",
+        "{",
+        "[1,]",
+        "{\"a\" 1}",
+        "\"\\x\"",
+        "\"\\u12\"",
+        "tru",
+        "{} x",
+        "[1 2]",
+        "\"open",
+        "{1:2}",
+    ] {
+        assert!(budget::json::parse(bad).is_err(), "{bad:?}");
+    }
 }
 
 #[test]
@@ -229,14 +312,7 @@ fn req_bud_2_binary_within_budget() {
         source_problems(&dep_info, &counts).unwrap(),
         Vec::<String>::new()
     );
-    let metadata = cargo_metadata(&cargo(), &workspace_root()).unwrap();
-    let targets = parse_targets(&metadata).unwrap();
-    assert!(targets.len() >= 3, "{targets:?}");
-    let own = own_packages(&workspace_root(), RINGS);
-    assert_eq!(
-        target_problems(&targets, &own, &counts),
-        Vec::<String>::new()
-    );
+    assert_eq!(real_report().problems, Vec::<String>::new());
     assert_eq!(
         config_problems(&workspace_root(), std::env::vars()),
         Vec::<String>::new()
@@ -269,13 +345,7 @@ fn req_bud_3_msrv_and_edition() {
 
 #[test]
 fn req_bud_4_direct_crates_are_approved() {
-    let root = workspace_root();
-    let report = analyse(
-        &parse_tree(&cargo_tree(&cargo(), &root, BINARY_PACKAGE, RELEASE_TARGET).unwrap()).unwrap(),
-        &own_packages(&root, RINGS),
-    )
-    .unwrap();
-    for name in &report.direct {
+    for name in &real_report().direct {
         assert!(
             APPROVED_RUNTIME_CRATES.iter().any(|(a, _)| a == name),
             "{name} has no approved reason"
@@ -363,10 +433,11 @@ fn req_bud_1_unaccounted_sources_are_named() {
     );
 }
 
-/// Builds a small workspace with the escapes Codex found in its second and third reviews of part 7a: a quoted
+/// Builds a small workspace with the escapes Codex found in its second to fourth reviews of part 7a: a quoted
 /// `"build"` key and a `'path'` key pointing at `tools/`; a library whose root is a file also included as data; a
-/// build script inside a ring that turns on `cfg(test)`. The walk sees none of them; the dep-info and the targets
-/// together report each one.
+/// build script inside a ring that turns on `cfg(test)`; a ring package excluded from the workspace, with its own build
+/// script; an optional dependency, enabled only by a feature, from a path whose name holds ` (`; a Cargo configuration
+/// inside a package. The walk sees none of them; the dep-info, the metadata and the configuration check report each.
 #[test]
 fn req_bud_1_compiled_sources_outside_the_count_are_reported() {
     let root = Path::new(env!("CARGO_TARGET_TMPDIR")).join("escapes");
@@ -374,23 +445,34 @@ fn req_bud_1_compiled_sources_outside_the_count_are_reported() {
     let package = |name: &str, extra: &str| {
         format!("[package]\nname = \"{name}\"\nversion = \"0.0.0\"\nedition = \"2024\"\n{extra}")
     };
+    let workspace = "[workspace]\nresolver = \"3\"\nmembers = [\"crates/lib\", \"crates/data\", \"crates/bin\"]\n\
+                     exclude = [\"crates/nonmember\", \"tools/serde (x)\"]\n";
+    let bin = "\n[dependencies]\nlib = { path = \"../lib\" }\ndata = { path = \"../data\" }\n\
+               nonmember = { path = \"../nonmember\" }\nserde = { path = \"../../tools/serde (x)\", optional = true }\n\n\
+               [features]\nhidden = [\"dep:serde\"]\n";
     let files = [
-        ("Cargo.toml", "[workspace]\nresolver = \"3\"\nmembers = [\"crates/lib\", \"crates/data\", \"crates/bin\"]\n".to_string()),
+        ("Cargo.toml", workspace.to_string()),
         ("crates/lib/Cargo.toml", package("lib", "\"build\" = \"../../tools/b.rs\"\n\n[lib]\n'path' = \"../../tools/lib.inc\"\n")),
         ("crates/lib/src/lib.rs", "pub fn never_built() {}\n".to_string()),
         ("crates/data/Cargo.toml", package("data", "\n[lib]\npath = \"src/payload.inc\"\n")),
         ("crates/data/src/payload.inc", "pub fn p() -> u32 { 4 }\n".to_string()),
-        ("crates/bin/Cargo.toml", package("bin", "\n[dependencies]\nlib = { path = \"../lib\" }\ndata = { path = \"../data\" }\n")),
+        ("crates/nonmember/Cargo.toml", package("nonmember", "")),
+        ("crates/nonmember/build.rs", "fn main() {}\n".to_string()),
+        ("crates/nonmember/src/lib.rs", "pub fn n() -> u32 { 5 }\n".to_string()),
+        ("crates/bin/Cargo.toml", package("bin", bin)),
         ("crates/bin/build.rs", "fn main() { println!(\"cargo::rustc-cfg=test\"); }\n".to_string()),
+        ("crates/bin/.cargo/config.toml", "[build]\nrustflags = [\"--cfg\", \"test\"]\n".to_string()),
         (
             "crates/bin/src/main.rs",
             "const T: &str = include_str!(\"data.txt\");\nconst P: &str = include_str!(\"../../data/src/payload.inc\");\n\
-             fn main() { println!(\"{} {} {} {}\", lib::c(), data::p(), T.len(), P.len()); }\n"
+             fn main() { println!(\"{} {} {} {} {}\", lib::c(), data::p(), nonmember::n(), T.len(), P.len()); }\n"
                 .to_string(),
         ),
         ("crates/bin/src/data.txt", "data\n".to_string()),
         ("tools/lib.inc", "pub fn c() -> u32 { 3 }\n".to_string()),
         ("tools/b.rs", "fn main() {}\n".to_string()),
+        ("tools/serde (x)/Cargo.toml", package("serde", "")),
+        ("tools/serde (x)/src/lib.rs", "pub fn s() {}\n".to_string()),
     ];
     for (path, content) in files {
         fs::create_dir_all(root.join(path).parent().unwrap()).unwrap();
@@ -412,21 +494,35 @@ fn req_bud_1_compiled_sources_outside_the_count_are_reported() {
     let rings = [budget::budget::Ring {
         name: "core",
         kind: RingKind::Core,
-        dirs: &["crates/lib", "crates/data", "crates/bin"],
+        dirs: &[
+            "crates/lib",
+            "crates/data",
+            "crates/bin",
+            "crates/nonmember",
+        ],
     }];
     let counts = count_rings(&root, &rings).unwrap();
     assert_eq!(
-        counts[0].files, 3,
-        "the walk sees only lib.rs, build.rs and main.rs"
+        counts[0].files, 5,
+        "lib.rs, both build.rs, main.rs and nonmember's lib.rs"
     );
     let dep_info = fs::read_to_string(root.join("target/release/bin.d")).unwrap();
     let mut problems = source_problems(&dep_info, &counts).unwrap();
-    let targets = parse_targets(&cargo_metadata(&cargo(), &root).unwrap()).unwrap();
-    problems.extend(target_problems(
-        &targets,
-        &own_packages(&root, &rings),
-        &counts,
-    ));
+    let host = String::from_utf8(
+        Command::new("rustc")
+            .args(["--print", "host-tuple"])
+            .output()
+            .unwrap()
+            .stdout,
+    )
+    .unwrap();
+    let metadata = cargo_metadata(&cargo(), &root, host.trim()).unwrap();
+    problems.extend(
+        analyse(&metadata, "bin", &own_packages(&root, &rings), &counts)
+            .unwrap()
+            .problems,
+    );
+    problems.extend(config_problems(&root, Vec::new()));
     problems.sort();
     let real = root.canonicalize().unwrap();
     let at = |p: &str| real.join(p).display().to_string();
@@ -449,79 +545,38 @@ fn req_bud_1_compiled_sources_outside_the_count_are_reported() {
             at("crates/data/src/payload.inc")
         ),
         format!("{} is a build script in a ring", at("crates/bin/build.rs")),
+        format!(
+            "{} is a build script in a ring",
+            at("crates/nonmember/build.rs")
+        ),
+        format!(
+            "{} is a local package outside the workspace",
+            at("crates/nonmember")
+        ),
+        format!(
+            "{} is a local package outside the workspace",
+            at("tools/serde (x)")
+        ),
+        format!(
+            "{} is a local package the binary reaches outside the rings",
+            at("tools/serde (x)")
+        ),
+        format!(
+            "{} may change how the rings compile; Fabrewk keeps none",
+            root.join("crates/bin/.cargo").display()
+        ),
     ];
     expected.sort();
     assert_eq!(problems, expected);
 }
 
 #[test]
-fn req_bud_1_targets_are_read_from_metadata() {
-    let text = r#"{"packages":[{"name":"x","manifest_path":"/w/crates/core/Cargo.toml","targets":[
-        {"kind":["lib"],"src_path":"/w/crates/core/src/lib.rs"},
-        {"kind":["proc-macro"],"src_path":"/w/crates/core/src/m.rs"},
-        {"kind":["test"],"src_path":"/w/crates/core/tests/t.rs"},
-        {"kind":["bin"],"src_path":"/w/crates/core/src/\u00e9.rs"}]},
-        {"name":"y","manifest_path":"/w/tools/budget/Cargo.toml","targets":[{"kind":["custom-build"],"src_path":"/w/tools/budget/build.rs"}]}],
-        "version":1,"ok":true,"none":null,"n":-1.5e3,"esc":"a\"\\\/\b\f\n\r\t\ud83d\ude00"}"#;
-    let targets = parse_targets(text).unwrap();
-    assert_eq!(targets.len(), 5);
-    assert_eq!(
-        targets[3],
-        Target {
-            package_dir: PathBuf::from("/w/crates/core"),
-            kinds: vec!["bin".into()],
-            src_path: PathBuf::from("/w/crates/core/src/é.rs"),
-        }
-    );
-    let doc = budget::json::parse(text).unwrap();
-    assert_eq!(
-        doc.get("esc").and_then(|v| v.as_str()),
-        Some("a\"\\/\u{8}\u{c}\n\r\t😀")
-    );
-    let count = RingCount {
-        name: "core",
-        kind: RingKind::Core,
-        files: 1,
-        lines: 1,
-        sources: vec![PathBuf::from("/w/crates/core/src/lib.rs")],
-        data: vec![],
-    };
-    let problems = target_problems(&targets, &[PathBuf::from("/w/crates/core")], &[count]);
-    assert_eq!(
-        problems,
-        [
-            "/w/crates/core/src/m.rs is a procedural macro in a ring",
-            "/w/crates/core/src/é.rs is the root of a bin target but not counted",
-        ]
-    );
-    let literal = budget::json::parse("[\"é€😀a\\u00e9\"]").unwrap();
-    assert_eq!(literal.as_array()[0].as_str(), Some("é€😀aé"));
-    for bad in [
-        "",
-        "{",
-        "[1,]",
-        "{\"a\" 1}",
-        "\"\\x\"",
-        "\"\\u12\"",
-        "tru",
-        "{} x",
-        "[1 2]",
-        "\"open",
-    ] {
-        assert!(budget::json::parse(bad).is_err(), "{bad:?}");
-    }
-    assert!(parse_targets("{\"packages\":[{\"targets\":[]}]}").is_err());
-    assert!(
-        parse_targets("{\"packages\":[{\"manifest_path\":\"/m\",\"targets\":[{\"kind\":[]}]}]}")
-            .is_err()
-    );
-}
-
-#[test]
 fn req_bud_1_cargo_configuration_and_rustflags_are_reported() {
     let root = Path::new(env!("CARGO_TARGET_TMPDIR")).join("config");
     let _ = fs::remove_dir_all(&root);
-    fs::create_dir_all(root.join(".cargo")).unwrap();
+    for dir in [".git/.cargo", "target/.cargo", "src"] {
+        fs::create_dir_all(root.join(dir)).unwrap();
+    }
     let env = |pairs: &[(&str, &str)]| {
         pairs
             .iter()
@@ -538,11 +593,10 @@ fn req_bud_1_cargo_configuration_and_rustflags_are_reported() {
         ),
     ]);
     assert_eq!(config_problems(&root, flags).len(), 2);
-    fs::write(
-        root.join(".cargo/config.toml"),
-        "[build]\nrustflags = [\"--cfg\", \"test\"]\n",
-    )
-    .unwrap();
-    fs::write(root.join(".cargo/config"), "").unwrap();
-    assert_eq!(config_problems(&root, clean).len(), 2);
+    for dir in [".cargo", "crates/core/.cargo", "a/b/c/.cargo"] {
+        fs::create_dir_all(root.join(dir)).unwrap();
+    }
+    let found = config_problems(&root, clean);
+    assert_eq!(found.len(), 3, "{found:?}");
+    assert!(found[0].ends_with(".cargo may change how the rings compile; Fabrewk keeps none"));
 }
