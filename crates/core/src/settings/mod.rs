@@ -172,39 +172,57 @@ pub fn parse(path: &Path, text: &str, level: Level) -> Result<Settings, Vec<Erro
     if cx.errors.is_empty() { Ok(cx.out) } else { Err(cx.errors) }
 }
 
-/// The key path that text which is not valid TOML is wrong at, read from the parser's own positions. When the error
-/// stands on a key (a duplicate), it is the last key read before it with that name; otherwise the last key read up to
+/// The key path that text which is not valid TOML is wrong at, resolved by the parser itself: the text at the error is
+/// replaced by a key no file holds and read again, and that key's place is the path (a duplicate key or table); if the
+/// error is in a value, the text is replaced by `0` and the key holding it is the path; else the last key read before
 /// the error; `(document)` when none.
 fn locate(text: &str, span: std::ops::Range<usize>) -> String {
-    let chain = |t: &DeTable| {
-        let (mut path, mut t) = (Vec::new(), t);
-        while let Some((k, v)) = t.iter().next() {
-            path.push(k.get_ref().to_string());
-            let DeValue::Table(inner) = v.get_ref() else { break };
-            t = inner;
+    const MARK: &str = "fabrewk-locate-0b5e";
+    let Some(at) = text.get(span.clone()) else { return "(document)".into() };
+    let keys = |with: &str| {
+        let changed = format!("{}{with}{}", &text[..span.start], &text[span.end..]);
+        let (doc, _) = DeTable::parse_recoverable(&changed);
+        let mut out = Vec::new();
+        let mut stack = vec![(doc.get_ref().clone(), Vec::new())];
+        while let Some((table, prefix)) = stack.pop() {
+            for (k, v) in table.iter() {
+                let mut path = prefix.clone();
+                path.push(k.get_ref().to_string());
+                out.push((path.clone(), v.span(), k.span().start));
+                if let DeValue::Table(inner) = v.get_ref() {
+                    stack.push((inner.clone(), path));
+                }
+            }
         }
-        path.join(".")
+        out
     };
-    let probe = text.get(span.clone()).map(|k| format!("{k} = 0")).unwrap_or_default();
-    let named = DeTable::parse(&probe).ok().map(|d| chain(d.get_ref()));
-    let (doc, _) = DeTable::parse_recoverable(text);
-    let mut read: Vec<(usize, String)> = Vec::new();
-    let mut stack = vec![(doc.get_ref(), String::new())];
-    while let Some((table, prefix)) = stack.pop() {
-        for (k, v) in table.iter() {
-            let path = if prefix.is_empty() { k.get_ref().to_string() } else { format!("{prefix}.{}", k.get_ref()) };
-            if k.span().start <= span.start {
-                read.push((k.span().start, path.clone()));
+    let probe = format!("{at} = 0");
+    let name =
+        DeTable::parse(&probe).ok().and_then(|d| d.get_ref().iter().next().map(|(k, _)| k.get_ref().to_string()));
+    if let (Some(name), Some((mut path, ..))) =
+        (name, keys(MARK).into_iter().find(|(p, ..)| p.last().map(String::as_str) == Some(MARK)))
+    {
+        path.pop();
+        path.push(name);
+        let rest = DeTable::parse(&probe).ok().map(|d| {
+            let (mut segs, mut t) = (Vec::new(), d.into_inner());
+            while let Some((_, v)) = t.into_iter().next() {
+                let DeValue::Table(inner) = v.into_inner() else { break };
+                if let Some((k, _)) = inner.iter().next() {
+                    segs.push(k.get_ref().to_string());
+                }
+                t = inner;
             }
-            if let DeValue::Table(inner) = v.get_ref() {
-                stack.push((inner, path));
-            }
-        }
+            segs
+        });
+        path.extend(rest.unwrap_or_default());
+        return path.join(".");
     }
-    read.sort();
-    let same = |p: &String| named.as_ref().is_some_and(|n| p == n || p.ends_with(&format!(".{n}")));
-    let last = read.iter().rev().find(|(_, p)| same(p)).or(read.last());
-    last.map(|b| b.1.clone()).filter(|p| !p.is_empty()).unwrap_or_else(|| "(document)".into())
+    let holding = keys("0").into_iter().filter(|(_, v, _)| v.start == span.start).max_by_key(|(p, ..)| p.len());
+    // Else the last key read before the error (an unclosed header names its table).
+    let before = || keys(at).into_iter().filter(|(.., k)| *k <= span.start).max_by_key(|(p, _, k)| (*k, p.len()));
+    let path = holding.or_else(before).map(|(p, ..)| p.join(".")).unwrap_or_default();
+    if path.is_empty() { "(document)".into() } else { path }
 }
 
 struct Cx<'a> {
@@ -544,6 +562,19 @@ mod tests {
         refused(Level::Project, between, Code::SettingsInvalid, "limits.rounds (line 4)");
         refused(Level::Project, "[t]\na.b = 1\nc = 2\n\"a\".b = 3\n", Code::SettingsInvalid, "t.a.b (line 4)");
         refused(Level::Project, "[t]\n\"x y\" = 1\nc = 2\n'x y' = 3\n", Code::SettingsInvalid, "t.x y (line 4)");
+        let parent = "limits.rounds = 1\nprofiles.p.rounds = 2\nlimits.rounds = 3\n";
+        refused(Level::Project, parent, Code::SettingsInvalid, "limits.rounds (line 3)");
+        refused(
+            Level::Project,
+            "[limits]\nminutes = 1\nrounds = minutes\n",
+            Code::SettingsInvalid,
+            "limits.rounds (line 3)",
+        );
+        refused(Level::Project, "a = { b = { c = 1, c = 2 } }\n", Code::SettingsInvalid, "a.b.c (line 1)");
+        refused(Level::Project, "limits = { rounds = nope }\n", Code::SettingsInvalid, "limits.rounds (line 1)");
+        let multiline = "[t]\ns = \"\"\"\n[u]\nk = 0\n\"\"\"\nk = 1\nk = 2\n";
+        refused(Level::Project, multiline, Code::SettingsInvalid, "t.k (line 7)");
+        refused(Level::Project, "[t]\nk = 1\n[t.k]\n", Code::SettingsInvalid, "t.k (line 3)");
         refused(Level::Project, "[t]\n\"a\" = 1\n\"a\" = 2\n", Code::SettingsInvalid, "t.a (line 3)");
         refused(Level::Project, "'b' = 1\n'b' = 2\n", Code::SettingsInvalid, "b (line 2)");
         refused(
