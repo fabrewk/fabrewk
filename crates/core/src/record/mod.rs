@@ -114,3 +114,47 @@ pub(crate) fn io_at(path: &Path) -> impl FnOnce(std::io::Error) -> Error + '_ {
         error,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Code::*;
+
+    #[test]
+    fn codes_are_named_as_the_specification_lists_them() {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../.brewstillery/bootstrap/core-specification.md"
+        );
+        let spec = std::fs::read_to_string(path).unwrap();
+        let list = &spec[spec.find("All codes, in one list:").unwrap()..];
+        let list = &list[..list.find("\n\n").unwrap()];
+        for code in [
+            CheckUnknown,
+            HeadDetached,
+            LockHeld,
+            MarkInvalid,
+            RecordAbsent,
+            RecordBroken,
+            RecordCommitRace,
+            RecordDigestMismatch,
+            RecordFork,
+            RecordHeadMoved,
+            RecordIdCollision,
+            RecordNoncanonical,
+            RecordRollback,
+            RecordSignatureInvalid,
+            RecordTransitionInvalid,
+            RecordVersionUnknown,
+            ToolFailed,
+            ToolMissing,
+        ] {
+            assert!(list.contains(&format!("`{}`", code.as_str())), "{code:?}");
+            let words: String = format!("{code:?}")
+                .chars()
+                .flat_map(|c| [c.is_uppercase().then_some('_'), Some(c)])
+                .flatten()
+                .collect();
+            assert_eq!(code.as_str(), words.trim_start_matches('_').to_uppercase());
+        }
+    }
+}

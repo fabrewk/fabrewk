@@ -291,3 +291,135 @@ pub(crate) fn is_hex(s: &str, len: usize) -> bool {
         && s.bytes()
             .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn req_reg_1_stream_names() {
+        for (name, kind) in [
+            ("project", Project),
+            ("alambique", Alambique),
+            ("rules", Rules),
+            ("fermento-xel", Fermento),
+            ("fermento-a1-b2", Fermento),
+            ("stage-s-0123abcd", Stage),
+            ("task-t-0123abcd", Task),
+            ("ext-lint", Ext),
+        ] {
+            assert_eq!(stream_kind(name), Some(kind), "{name}");
+        }
+        for name in [
+            "Project",
+            "fermento-",
+            "fermento-Xel",
+            "fermento-x--y",
+            "stage-t-0123abcd",
+            "stage-s-0123ABCD",
+            "stage-s-0123abc",
+            "task-s-0123abcd",
+            "task-t-0123abcdd",
+            "task-t_0123abcd",
+            "ext-",
+            "ext-a-",
+            "other",
+        ] {
+            assert_eq!(stream_kind(name), None, "{name}");
+        }
+        let payload = json!({"nonce": "0".repeat(32)});
+        let stage = subject_stream("stage-proposed", &payload).unwrap();
+        let task = subject_stream("task-proposed", &payload).unwrap();
+        assert_eq!((&stage[..8], &task[..7]), ("stage-s-", "task-t-"));
+        assert_eq!(stage[8..], task[7..]);
+        assert_eq!(subject_stream("task-authorized", &payload), None);
+    }
+
+    #[test]
+    fn req_dom_3_alias_pattern() {
+        for good in ["x", "xel", "a1", "a-b", "a1-b2-c3", &"a".repeat(32)] {
+            assert!(is_name(good), "{good}");
+        }
+        for bad in [
+            "",
+            "1a",
+            "-a",
+            "a-",
+            "a--b",
+            "A",
+            "aB",
+            "a_b",
+            "a.b",
+            "é",
+            &"a".repeat(33),
+        ] {
+            assert!(!is_name(bad), "{bad}");
+        }
+        assert!(is_id("t-0123abcd", 't'));
+        for bad in [
+            "s-0123abcd",
+            "t0123abcde",
+            "t-0123abc",
+            "t-0123abcg",
+            "t_0123abcd",
+            "-t0123abcd",
+        ] {
+            assert!(!is_id(bad, 't'), "{bad}");
+        }
+    }
+
+    #[test]
+    fn req_reg_2_actor_shapes() {
+        let ok = [
+            (
+                json!({"kind": "person", "alias": "xel", "role": "maestro"}),
+                Person,
+            ),
+            (
+                json!({"kind": "person", "alias": "xel", "role": "supervisor"}),
+                Person,
+            ),
+            (
+                json!({"kind": "person", "alias": "xel", "role": "contributor"}),
+                Person,
+            ),
+            (
+                json!({"kind": "agent", "tool": "t", "provider": "p", "modelRequested": "m", "modelObserved": null}),
+                Agent,
+            ),
+            (
+                json!({"kind": "agent", "tool": "t", "provider": "p", "modelRequested": "m", "modelObserved": "o"}),
+                Agent,
+            ),
+            (
+                json!({"kind": "extension", "name": "lint", "digest": "a".repeat(64)}),
+                Extension,
+            ),
+            (json!({"kind": "fabrewk"}), Fabrewk),
+        ];
+        for (actor, class) in ok {
+            assert_eq!(actor_class(&actor), Some(class), "{actor}");
+        }
+        let bad = [
+            json!({"kind": "person", "alias": "Xel", "role": "maestro"}),
+            json!({"kind": "person", "alias": "xel", "role": "owner"}),
+            json!({"kind": "person", "alias": "xel"}),
+            json!({"kind": "person", "alias": "xel", "role": "maestro", "x": 1}),
+            json!({"kind": "agent", "tool": "", "provider": "p", "modelRequested": "m", "modelObserved": null}),
+            json!({"kind": "agent", "tool": "t", "provider": "", "modelRequested": "m", "modelObserved": null}),
+            json!({"kind": "agent", "tool": "t", "provider": "p", "modelRequested": "", "modelObserved": null}),
+            json!({"kind": "agent", "tool": "t", "provider": "p", "modelRequested": "m", "modelObserved": ""}),
+            json!({"kind": "agent", "tool": "t", "provider": "p", "modelRequested": "m"}),
+            json!({"kind": "extension", "name": "Lint", "digest": "a".repeat(64)}),
+            json!({"kind": "extension", "name": "lint", "digest": "a".repeat(63)}),
+            json!({"kind": "extension", "name": "lint"}),
+            json!({"kind": "fabrewk", "x": 1}),
+            json!({"kind": "robot"}),
+            json!({"alias": "xel"}),
+            json!("fabrewk"),
+        ];
+        for actor in bad {
+            assert_eq!(actor_class(&actor), None, "{actor}");
+        }
+    }
+}

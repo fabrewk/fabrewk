@@ -1445,3 +1445,83 @@ fn req_reg_6_random_damage_is_always_refused_by_a_code() {
         prop_assert!(errors.iter().all(|e| e.code().is_some_and(|c| allowed.contains(&c))));
     });
 }
+
+// ---- Failures that are not absence ---------------------------------------------------------------------------------
+
+#[test]
+fn an_unreadable_place_is_an_error_never_an_absence() {
+    let f = Fixture::new("unreadable", false);
+    // `data/events` that is a file: neither an absent record nor an empty one.
+    std::fs::create_dir_all(f.domain.join("data")).unwrap();
+    std::fs::write(f.domain.join("data/events"), b"").unwrap();
+    let errors = replay(&f.domain, &f.verifier()).unwrap_err();
+    assert!(errors.iter().all(|e| e.code().is_none()), "{errors:?}");
+    std::fs::remove_file(f.domain.join("data/events")).unwrap();
+    // A stream that is a file, read by a writer's head.
+    let s = begin(&f, None);
+    std::fs::create_dir_all(f.domain.join("data/events")).unwrap();
+    std::fs::write(f.stream_dir("project"), b"").unwrap();
+    assert_eq!(s.head("project").unwrap_err().code(), None);
+    drop(s);
+    std::fs::remove_file(f.stream_dir("project")).unwrap();
+    // A mark that is a directory.
+    let mut s = begin(&f, None);
+    s.append("project", None, &fabrewk("installed", json!({})), None)
+        .unwrap();
+    s.finish(&f.verifier(), &[]).unwrap();
+    let mark = f.domain.join("local/cache/heads.json");
+    std::fs::remove_file(&mark).unwrap();
+    std::fs::create_dir(&mark).unwrap();
+    assert_eq!(
+        check_mark(&f.domain, &ok_replay(&f)).unwrap_err().code(),
+        None
+    );
+}
+
+#[test]
+fn refusal_record_broken_names() {
+    let f = Fixture::new("names-broken", false);
+    let bytes = encode(&fabrewk("installed", json!({})).build("project", 1, None)).unwrap();
+    let digest = &sha256_hex(&bytes)[..16];
+    for name in [
+        format!("+00001-{digest}.json"),
+        format!("000000-{digest}.json"),
+        format!("00001-{digest}.json"),
+        format!("000001-{}.json", &digest[..15]),
+    ] {
+        std::fs::create_dir_all(f.stream_dir("project")).unwrap();
+        std::fs::write(f.stream_dir("project").join(&name), &bytes).unwrap();
+        assert_eq!(
+            codes(replay(&f.domain, &f.verifier())),
+            [Code::RecordBroken],
+            "{name}"
+        );
+        std::fs::remove_dir_all(f.stream_dir("project")).unwrap();
+    }
+}
+
+#[test]
+fn pd_02_a_mark_at_position_zero_is_invalid() {
+    let f = Fixture::new("mark-zero", false);
+    let mut s = begin(&f, None);
+    let h = s
+        .append("project", None, &fabrewk("installed", json!({})), None)
+        .unwrap();
+    s.finish(&f.verifier(), &[]).unwrap();
+    let mark = f.domain.join("local/cache/heads.json");
+    let zero = encode(&json!({"schema": 1, "heads": {"project": {"seq": 0, "digest": h.digest}}}))
+        .unwrap();
+    std::fs::write(&mark, zero).unwrap();
+    assert_eq!(
+        code(&check_mark(&f.domain, &ok_replay(&f)).unwrap_err()),
+        Some(Code::MarkInvalid)
+    );
+    let bad_stream =
+        encode(&json!({"schema": 1, "heads": {"Project": {"seq": 1, "digest": h.digest}}}))
+            .unwrap();
+    std::fs::write(&mark, bad_stream).unwrap();
+    assert_eq!(
+        code(&check_mark(&f.domain, &ok_replay(&f)).unwrap_err()),
+        Some(Code::MarkInvalid)
+    );
+}

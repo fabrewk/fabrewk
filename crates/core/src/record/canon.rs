@@ -107,11 +107,11 @@ mod tests {
 
     #[test]
     fn req_reg_3_form() {
-        let v = json!({"b": [1, -2, true, null], "a": "x\u{2028}\u{85}\r\u{1}\"\\/é", "é": {}, "Z": 18446744073709551615u64});
+        let v = json!({"b": [1, -2, true, null], "a": "x \u{2028}\u{85}\r\u{1}\u{1f}\u{7f}\"\\/é", "é": {}, "Z": 18446744073709551615u64});
         let bytes = encode(&v).unwrap();
         assert_eq!(
             String::from_utf8(bytes.clone()).unwrap(),
-            "{\"Z\":18446744073709551615,\"a\":\"x\u{2028}\u{85}\\r\\u0001\\\"\\\\/é\",\"b\":[1,-2,true,null],\"é\":{}}\n"
+            "{\"Z\":18446744073709551615,\"a\":\"x \u{2028}\u{85}\\r\\u0001\\u001f\u{7f}\\\"\\\\/é\",\"b\":[1,-2,true,null],\"é\":{}}\n"
         );
         assert_eq!(decode(&bytes), Some(v));
     }
