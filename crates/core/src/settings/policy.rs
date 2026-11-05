@@ -40,7 +40,8 @@ pub enum Effect {
     Neutral,
 }
 
-/// One difference between two project files: a key, or a whole named table (`maintainers.ana`).
+/// One difference between two project files: a key, or a whole named table (`maintainers.ana`); `line` is its line in
+/// the new file, `was` its line in the old one, so a removal is located too.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Change {
     pub key: String,
@@ -48,6 +49,18 @@ pub struct Change {
     pub old: Option<Val>,
     pub new: Option<Val>,
     pub line: Option<usize>,
+    pub was: Option<usize>,
+}
+
+impl Change {
+    /// Where the change is: its line in the file, or, for a removal, its line in the adopted policy.
+    pub fn place(&self) -> String {
+        match (self.line, self.was) {
+            (Some(l), _) => format!("{} (line {l})", self.key),
+            (None, Some(w)) => format!("{} (removed; line {w} of the policy in force)", self.key),
+            (None, None) => self.key.clone(),
+        }
+    }
 }
 
 /// The effect of changing `path` from `old` to `new`, which differ (both callers skip equal values). Any change to a maintainer widens (REQ-SET-5); a key with no
@@ -135,7 +148,14 @@ pub fn changes(old: &Settings, new: &Settings) -> Vec<Change> {
         .map(|t| {
             let added = b.contains(*t);
             let effect = if added || t.starts_with("maintainers.") { Effect::Widening } else { Effect::Narrowing };
-            Change { key: (*t).clone(), effect, old: None, new: None, line: new.tables.get(*t).copied() }
+            Change {
+                key: (*t).clone(),
+                effect,
+                old: None,
+                new: None,
+                line: new.tables.get(*t).copied(),
+                was: old.tables.get(*t).copied(),
+            }
         })
         .collect();
     let values = |s: &Settings| {
@@ -153,8 +173,15 @@ pub fn changes(old: &Settings, new: &Settings) -> Vec<Change> {
         if x == y || follows || moved.iter().any(|t| path.starts_with(&format!("{t}."))) {
             continue;
         }
-        let line = new.values.get(path).map(|e| e.line);
-        out.push(Change { key: path.clone(), effect: effect(key, path, x, y), old: x.cloned(), new: y.cloned(), line });
+        let (line, was) = (new.values.get(path).map(|e| e.line), old.values.get(path).map(|e| e.line));
+        out.push(Change {
+            key: path.clone(),
+            effect: effect(key, path, x, y),
+            old: x.cloned(),
+            new: y.cloned(),
+            line,
+            was,
+        });
     }
     out
 }
@@ -211,7 +238,7 @@ pub fn adopt(
     }
     let changes = in_force.map(|p| changes(&p.settings, &settings)).unwrap_or_default();
     let widenings: Vec<&Change> = changes.iter().filter(|c| c.effect == Effect::Widening).collect();
-    let unnamed: Vec<&str> = widenings.iter().filter(|c| !widen.contains(&c.key)).map(|c| c.key.as_str()).collect();
+    let unnamed: Vec<String> = widenings.iter().filter(|c| !widen.contains(&c.key)).map(|c| c.place()).collect();
     if !unnamed.is_empty() {
         let why = format!("widenings not named with --widen: {}", unnamed.join(", "));
         errors.push(refuse(Code::WideningUnnamed, Some(&path), why));

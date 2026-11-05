@@ -164,11 +164,32 @@ pub fn parse(path: &Path, text: &str, level: Level) -> Result<Settings, Vec<Erro
         Ok(doc) => cx.walk(doc.get_ref(), &mut Vec::new()),
         Err(e) => {
             let line = cx.line(e.span().map_or(0, |s| s.start));
-            return Err(vec![refuse(Code::SettingsInvalid, Some(path), format!("line {line}: {}", e.message()))]);
+            let why = format!("{} (line {line}): {}", locate(text, line), e.message());
+            return Err(vec![refuse(Code::SettingsInvalid, Some(path), why)]);
         }
     }
     cx.finish();
     if cx.errors.is_empty() { Ok(cx.out) } else { Err(cx.errors) }
+}
+
+/// The key path a line of text that is not valid TOML names, as far as the line and the table header above it show:
+/// a header names its table, `key = …` its key inside the last header; `(document)` when the line names none.
+fn locate(text: &str, line: usize) -> String {
+    let lines: Vec<&str> = text.lines().collect();
+    let header =
+        |l: &str| l.trim().strip_prefix('[').map(|h| h.trim_matches(|c| c == '[' || c == ']' || c == ' ').to_owned());
+    let at = lines.get(line.wrapping_sub(1)).copied().unwrap_or_default();
+    if let Some(h) = header(at) {
+        return h;
+    }
+    let Some((key, _)) = at.split_once('=').filter(|(k, _)| !k.trim().is_empty()) else {
+        return "(document)".into();
+    };
+    let key = key.trim().trim_matches(|c| c == '"' || c == '\'');
+    match lines[..line.saturating_sub(1).min(lines.len())].iter().rev().find_map(|l| header(l)) {
+        Some(table) => format!("{table}.{key}"),
+        None => key.to_owned(),
+    }
 }
 
 struct Cx<'a> {
@@ -308,7 +329,10 @@ pub const KEY_TYPES: [&str; 6] = [
 /// A public key as an allowed-signers line holds it after the principal: `<type> <base64> [comment]`, the base64
 /// being a key blob made only of SSH strings, the first one the same type (REQ-ID-1).
 fn is_signer_key(s: &str) -> bool {
-    let mut parts = s.split_ascii_whitespace();
+    if s.chars().any(char::is_control) {
+        return false;
+    }
+    let mut parts = s.split(' ').filter(|p| !p.is_empty());
     let (Some(ty), Some(blob)) = (parts.next(), parts.next()) else {
         return false;
     };
@@ -488,10 +512,27 @@ mod tests {
             Level::Project,
             "[project]\nname = \"a\"\n\n[project]\nname = \"b\"\n",
             Code::SettingsInvalid,
-            "line 4",
+            "project (line 4)",
         );
-        refused(Level::Project, "[project]\nname = \"a\"\nname = \"b\"\n", Code::SettingsInvalid, "line 3");
-        refused(Level::Project, "[project\n", Code::SettingsInvalid, "line 1");
+        refused(
+            Level::Project,
+            "[project]\nname = \"a\"\nname = \"b\"\n",
+            Code::SettingsInvalid,
+            "project.name (line 3)",
+        );
+        refused(Level::Project, "[project\n", Code::SettingsInvalid, "project (line 1)");
+        refused(Level::Project, "a = 1\na = 2\n", Code::SettingsInvalid, "a (line 2)");
+        refused(Level::Project, "[t]\n\"a\" = 1\n\"a\" = 2\n", Code::SettingsInvalid, "t.a (line 3)");
+        refused(Level::Project, "'b' = 1\n'b' = 2\n", Code::SettingsInvalid, "b (line 2)");
+        refused(Level::Project, "\n\n= 1\n", Code::SettingsInvalid, "(document) (line 3)");
+    }
+
+    #[test]
+    fn req_set_1_toml_1_1_is_read() {
+        // A newline inside an inline table and a trailing comma are TOML 1.1, not 1.0 (D-048).
+        let s = ok(Level::Project, "limits = {\n  rounds = 4,\n  minutes = 9,\n}\n[project]\nname = \"x\"\n");
+        assert_eq!(s.values["limits.rounds"].value, Val::Int(4));
+        assert_eq!(s.values["limits.minutes"].line, 3);
     }
 
     #[test]
@@ -615,6 +656,10 @@ mod tests {
             "ssh-ed25519",
             "",
             "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIByTOVQl/Cf6KVagH6iburcFw5dfZyrrEe+CbRpOAb6YAAAA",
+            // One line only: a line break or a tab could carry a second signer.
+            "ssh-ed25519\\nAAAAC3NzaC1lZDI1NTE5AAAAIByTOVQl/Cf6KVagH6iburcFw5dfZyrrEe+CbRpOAb6Y",
+            "ssh-ed25519\\tAAAAC3NzaC1lZDI1NTE5AAAAIByTOVQl/Cf6KVagH6iburcFw5dfZyrrEe+CbRpOAb6Y",
+            "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIByTOVQl/Cf6KVagH6iburcFw5dfZyrrEe+CbRpOAb6Y ana\\nbea ssh-ed25519 AAAA",
         ] {
             refused(
                 Level::Project,
@@ -651,6 +696,9 @@ mod tests {
         ] {
             assert_eq!(is_tag(good), good != "x", "{good}");
         }
+        for good in ["x-private", "X-a-b", "i-klingon", "I-KLINGON", "en-GB-oed", "art-lojban", "zh-min-nan", "EN-us"] {
+            assert!(is_tag(good), "{good}");
+        }
         for bad in [
             "",
             "e",
@@ -665,6 +713,11 @@ mod tests {
             "1en",
             "zh-aaa-bbb-ccc-ddd",
             "abcde-yue",
+            "de-1901-1901",
+            "en-a-foo-a-bar",
+            "en-a-foo-A-bar",
+            "x-",
+            "i-nosuch",
         ] {
             assert!(!is_tag(bad), "{bad}");
         }
@@ -831,6 +884,19 @@ mod tests {
     #[test]
     fn req_set_6_layers_may_not_set_personal_keys_or_open_tables() {
         let p = policy("");
+        // REQ-SET-2: every key refused at each layer it may not be set at.
+        for key in KEYS {
+            let path = key.path.replace("maintainers.*", "maintainers.ana").replace('*', "p");
+            for (source, level) in
+                [(Source::Stage("s-1".into()), Level::Stage), (Source::Task("t-1".into()), Level::Task)]
+            {
+                let l = layer(source, &[(&path, Val::Int(1))]);
+                let r = effective(&p, None, &[l], std::slice::from_ref(&path));
+                if !key.levels.contains(&level) {
+                    assert_eq!(r.unwrap_err().code(), Some(Code::SettingsInvalid), "{path} at {level:?}");
+                }
+            }
+        }
         for (key, value) in [
             ("languages.agentInteraction", Val::Str("en".into())),
             ("profiles.q.model", Val::Str("m".into())),

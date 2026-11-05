@@ -4,7 +4,7 @@
 mod common;
 
 use common::*;
-use fabrewk_core::record::{Code, Replay, replay};
+use fabrewk_core::record::{Code, Publication, Replay, Repo, replay};
 use fabrewk_core::settings::{self, Effect, Source, Val};
 use serde_json::json;
 use std::fs;
@@ -21,9 +21,16 @@ fn write_settings(f: &Fixture, text: &str) {
 
 /// Adopts the file on disk as `xel` and gives the record replayed.
 fn adopt_on_record(f: &Fixture, widen: &[String]) -> Result<Replay, Vec<fabrewk_core::Error>> {
-    let mut s = begin(f, f.repo());
+    adopt_in(f, f.repo(), widen)
+}
+
+/// As [`adopt_on_record`], in the mode `repo` stands for; the settings file is byte-identical after (REQ-SET-1).
+fn adopt_in(f: &Fixture, repo: Option<Repo>, widen: &[String]) -> Result<Replay, Vec<fabrewk_core::Error>> {
+    let before = fs::read(f.domain.join("settings.toml")).unwrap();
+    let mut s = begin(f, repo.clone());
     let in_force = s.record().map(|r| settings::in_force(r).unwrap()).unwrap_or(None);
-    let adoption = settings::adopt(&f.domain, in_force.as_ref(), widen, f.repo().as_ref())?;
+    let adoption = settings::adopt(&f.domain, in_force.as_ref(), widen, repo.as_ref())?;
+    assert_eq!(fs::read(f.domain.join("settings.toml")).unwrap(), before);
     let head = s.head("project").unwrap();
     s.append("project", head.as_ref(), &person("policy-adopted", "Adopto.", adoption.payload()), Some(&f.signer()))
         .unwrap();
@@ -83,6 +90,18 @@ fn req_set_4_the_policy_is_the_last_adopted_content_whatever_the_file_says() {
         assert_eq!(eff.values["limits.rounds"], (Val::Int(5), Source::Project(policy.digest.clone())));
         let last = record.streams["project"].last().unwrap();
         assert_eq!(last.value["payload"]["widened"], json!(["limits.rounds"]));
+
+        let raised = format!("{first}\n[limits]\nrounds = 5\n");
+        // A removal is located at its line in the policy in force.
+        write_settings(&f, &raised.replace("[maintainers.xel]", "[maintainers.xel]\nhostAccount = \"x\""));
+        commit_settings(&f);
+        adopt_on_record(&f, &["maintainers.xel.hostAccount".into()]).unwrap();
+        let record = replay(&f.domain, &f.verifier()).unwrap();
+        let with_account = settings::in_force(&record).unwrap().unwrap();
+        write_settings(&f, &raised);
+        let gone = settings::pending(&with_account, &f.domain).unwrap().unwrap();
+        assert_eq!((gone[0].line, gone[0].was), (None, Some(5)));
+        assert_eq!(gone[0].place(), "maintainers.xel.hostAccount (removed; line 5 of the policy in force)");
     });
 }
 
@@ -136,7 +155,9 @@ fn refusal_widening_unnamed() {
         };
         write_settings(&f, &format!("{first}[limits]\nrounds = 4\n"));
         commit_settings(&f);
-        assert_eq!(codes(adopt(&[]).map(|_| ())), [Code::WideningUnnamed]);
+        let refusal = adopt(&[]).unwrap_err();
+        assert_eq!(refusal[0].code(), Some(Code::WideningUnnamed));
+        assert!(format!("{:?}", refusal[0]).contains("limits.rounds (line 8)"), "{refusal:?}");
         assert_eq!(adopt(&["limits.rounds"]).unwrap().widened, ["limits.rounds"]);
         let ana = fs::read_to_string(f.keys.join("stranger.pub")).unwrap();
         write_settings(&f, &format!("{first}[maintainers.ana]\nrole = \"contributor\"\nkey = \"{}\"\n", ana.trim()));
@@ -183,4 +204,43 @@ fn refusal_settings_invalid_at_adoption_and_in_an_adopted_policy() {
     assert_eq!(errors[0].code(), Some(Code::SettingsInvalid));
     let name = format!("000001-{}.json", &event.digest[..16]);
     assert!(matches!(&errors[0], fabrewk_core::Error::Refused { path: Some(p), .. } if p.ends_with(&name)));
+}
+
+#[test]
+fn req_set_4_in_each_mode() {
+    isolated("req_set_4_in_each_mode", || {
+        for mode in [Publication::OwnRepository, Publication::Unpublished] {
+            let f = Fixture::new(&format!("set-4-{mode:?}"), false);
+            if mode == Publication::OwnRepository {
+                for args in [
+                    &["init", "-q", "-b", "main"][..],
+                    &["config", "user.name", "Fixture"],
+                    &["config", "user.email", "f@example.invalid"],
+                    &["config", "commit.gpgsign", "false"],
+                    &["add", "."],
+                    &["commit", "-q", "-m", "domain"],
+                ] {
+                    git(&f.domain, args);
+                }
+            }
+            let repo = Repo::for_domain(&f.domain, mode);
+            let first = project_file(&f, "");
+            write_settings(&f, &first);
+            if let Some(r) = &repo {
+                let refused = settings::adopt(&f.domain, None, &[], Some(r)).map(|_| ());
+                assert_eq!(codes(refused), [Code::PolicyUncommitted], "{mode:?}");
+                git(&r.root, &["add", "settings.toml"]);
+                git(&r.root, &["commit", "-q", "-m", "settings"]);
+            }
+            adopt_in(&f, repo, &[]).unwrap();
+            write_settings(&f, &format!("{first}[limits]\nrounds = 5\n"));
+            let record = replay(&f.domain, &f.verifier()).unwrap();
+            let policy = settings::in_force(&record).unwrap().unwrap();
+            assert_eq!(policy.text, first, "{mode:?}");
+            let eff = settings::effective(&policy, None, &[], &[]).unwrap();
+            assert_eq!(eff.values["limits.rounds"].0, Val::Int(3), "{mode:?}");
+            let pending = settings::pending(&policy, &f.domain).unwrap().unwrap();
+            assert_eq!((pending[0].key.as_str(), pending[0].effect), ("limits.rounds", Effect::Widening));
+        }
+    });
 }
