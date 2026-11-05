@@ -133,6 +133,32 @@ pub(crate) fn head_of(repo: &Repo, name: &str) -> Result<Option<String>, Error> 
     Ok(out.status.success().then(|| line(out.stdout)))
 }
 
+/// Refuses `NOT_A_REPOSITORY` unless `repo.root` is the repository's main working tree, at its top: the record, its
+/// lock and its index live there, and a linked working tree or a subdirectory would hold another copy (P7B-3).
+pub(crate) fn check_main_worktree(repo: &Repo) -> Result<(), Error> {
+    let not = || {
+        refuse(
+            Code::NotARepository,
+            Some(&repo.root),
+            "not the main working tree's root",
+        )
+    };
+    let out = run(
+        command(repo, &os(&["worktree", "list", "--porcelain", "-z"])),
+        b"",
+    )?;
+    if !out.status.success() {
+        return Err(not());
+    }
+    let first = out.stdout.split(|&b| b == 0).next().unwrap_or_default();
+    let main = std::str::from_utf8(first)
+        .ok()
+        .and_then(|l| l.strip_prefix("worktree "))
+        .map(PathBuf::from);
+    let same = main.and_then(|m| m.canonicalize().ok()) == repo.root.canonicalize().ok();
+    if same { Ok(()) } else { Err(not()) }
+}
+
 /// The record branch (REQ-REG-11): the branch checked out in the main working tree; `HEAD_DETACHED` otherwise.
 pub fn record_branch(repo: &Repo) -> Result<String, Error> {
     let common = line(git(

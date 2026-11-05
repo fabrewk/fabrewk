@@ -257,7 +257,7 @@ fn actor_class(a: &Value) -> Option<Class> {
             ]) && text("tool")
                 && text("provider")
                 && text("modelRequested")
-                && (o["modelObserved"].is_null() || text("modelObserved"))
+                && (o["modelObserved"].is_null() || o["modelObserved"].is_string())
         }
         Extension => {
             has(&["kind", "name", "digest"])
@@ -408,7 +408,7 @@ mod tests {
             json!({"kind": "agent", "tool": "", "provider": "p", "modelRequested": "m", "modelObserved": null}),
             json!({"kind": "agent", "tool": "t", "provider": "", "modelRequested": "m", "modelObserved": null}),
             json!({"kind": "agent", "tool": "t", "provider": "p", "modelRequested": "", "modelObserved": null}),
-            json!({"kind": "agent", "tool": "t", "provider": "p", "modelRequested": "m", "modelObserved": ""}),
+            json!({"kind": "agent", "tool": "t", "provider": "p", "modelRequested": "m", "modelObserved": 1}),
             json!({"kind": "agent", "tool": "t", "provider": "p", "modelRequested": "m"}),
             json!({"kind": "extension", "name": "Lint", "digest": "a".repeat(64)}),
             json!({"kind": "extension", "name": "lint", "digest": "a".repeat(63)}),

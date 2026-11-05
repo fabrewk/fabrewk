@@ -5,10 +5,11 @@
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
-/// The canonical file of a value, final newline included; `None` if the value holds a number that is not an integer.
+/// The canonical file of a value, final newline included; `None` if the value holds a number that is not an integer
+/// or nests deeper than [`MAX_DEPTH`].
 pub fn encode(value: &Value) -> Option<Vec<u8>> {
     let mut out = String::new();
-    write(value, &mut out).then(|| {
+    write(value, &mut out, 1).then(|| {
         out.push('\n');
         out.into_bytes()
     })
@@ -38,7 +39,14 @@ pub(crate) fn hex(bytes: &[u8]) -> String {
         .collect()
 }
 
-fn write(value: &Value, out: &mut String) -> bool {
+/// The deepest nesting of arrays and objects a canonical file holds, the whole event being 1: well within the
+/// parser's own limit, so that the writer never writes what the reader refuses (P7B-2).
+pub const MAX_DEPTH: usize = 64;
+
+fn write(value: &Value, out: &mut String, depth: usize) -> bool {
+    if depth > MAX_DEPTH && (value.is_array() || value.is_object()) {
+        return false;
+    }
     match value {
         Value::Null => out.push_str("null"),
         Value::Bool(b) => out.push_str(if *b { "true" } else { "false" }),
@@ -54,7 +62,7 @@ fn write(value: &Value, out: &mut String) -> bool {
                 if i > 0 {
                     out.push(',');
                 }
-                if !write(item, out) {
+                if !write(item, out, depth + 1) {
                     return false;
                 }
             }
@@ -71,7 +79,7 @@ fn write(value: &Value, out: &mut String) -> bool {
                 }
                 string(key, out);
                 out.push(':');
-                if !write(item, out) {
+                if !write(item, out, depth + 1) {
                     return false;
                 }
             }
@@ -138,6 +146,31 @@ mod tests {
             assert_eq!(decode(bad), None, "{}", String::from_utf8_lossy(bad));
         }
         assert_eq!(encode(&json!({"a": 0.5})), None);
+    }
+
+    #[test]
+    fn req_reg_3_depth_is_bounded_the_same_way_both_ways() {
+        let nest = |n: usize| (1..n).fold(json!("leaf"), |v, _| json!({"n": v}));
+        // `nest(n)` holds n - 1 objects around a string.
+        let deepest = nest(MAX_DEPTH + 1);
+        let bytes = encode(&deepest).unwrap();
+        assert_eq!(decode(&bytes), Some(deepest));
+        let too_deep = json!([nest(MAX_DEPTH + 1)]);
+        assert_eq!(encode(&too_deep), None);
+        let text = format!(
+            "{}{}\"leaf\"{}\n",
+            "[".repeat(MAX_DEPTH + 1),
+            "",
+            "]".repeat(MAX_DEPTH + 1)
+        );
+        assert_eq!(decode(text.as_bytes()), None);
+        let text = format!(
+            "{}{}\"leaf\"{}\n",
+            "[".repeat(MAX_DEPTH),
+            "",
+            "]".repeat(MAX_DEPTH)
+        );
+        assert!(decode(text.as_bytes()).is_some());
     }
 
     fn any_value() -> impl Strategy<Value = Value> {

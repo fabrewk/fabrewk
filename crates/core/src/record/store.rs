@@ -27,7 +27,8 @@ pub struct Session {
 
 impl Session {
     /// Opens a write command (REQ-REG-5, REQ-REG-8, REQ-REG-11). First, reading only: with `repo` (the modes
-    /// that commit), the record branch and its head, refusing `HEAD_DETACHED`; the replay, refused by its first
+    /// that commit), that the repository's root is its main working tree's (`NOT_A_REPOSITORY` otherwise: a linked
+    /// working tree holds another domain), the record branch and its head, refusing `HEAD_DETACHED`; the replay, refused by its first
     /// code (an absent record is no refusal here: `apply` writes the first event); with `repo`, the whole history;
     /// the mark. Then the lock, at once or `LOCK_HELD`, never waiting. Then it removes what an interrupted writer
     /// left: temporary files, signatures whose event never reached its place, the record commit's temporary index.
@@ -38,6 +39,7 @@ impl Session {
     ) -> Result<Session, Error> {
         let git = match repo {
             Some(repo) => {
+                git::check_main_worktree(&repo)?;
                 let branch = git::record_branch(&repo)?;
                 let head = git::head_of(&repo, &branch)?;
                 Some((repo, branch, head))
@@ -69,8 +71,12 @@ impl Session {
             }
             Err(fs::TryLockError::Error(e)) => return Err(io_at(&path)(e)),
         }
-        let mut leftovers = vec![local.join("tmp/record-index")];
-        leftovers.retain(|p| p.exists());
+        // The record commit's temporary index and the lock Git keeps beside it while writing it (P7B-1).
+        let mut leftovers = vec![
+            local.join("tmp/record-index"),
+            local.join("tmp/record-index.lock"),
+        ];
+        leftovers.retain(|p| p.is_file());
         let events = domain.join("data/events");
         for dir in fs::read_dir(&events)
             .into_iter()

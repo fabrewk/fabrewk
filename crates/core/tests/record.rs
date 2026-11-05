@@ -773,6 +773,13 @@ fn refusal_record_transition_invalid() {
     let mut silent = person("assessed", "Hola.", json!({}));
     silent.say = None;
     assert_eq!(check("project", &silent, true), invalid);
+    // A second creation later in its own stream (P7B-4).
+    let (stream, draft) = creation("task-proposed", json!({"goal": "x"}));
+    let first = f.forge(&stream, 1, None, &draft, None);
+    let d1 = sha256_hex(&std::fs::read(&first).unwrap());
+    f.forge(&stream, 2, Some(&d1), &draft, None);
+    assert_eq!(codes(replay(&f.domain, &f.verifier())), invalid);
+    std::fs::remove_dir_all(f.stream_dir(&stream)).unwrap();
     // A task stream that does not begin with its creation.
     assert_eq!(
         check(
@@ -1431,6 +1438,25 @@ fn req_reg_11_the_record_branch_is_the_checked_out_one() {
                 fabrewk_core::record::record_branch(&repo).unwrap(),
                 "refs/heads/trunk"
             );
+            // But a write command there is refused: the linked tree holds another domain, lock and index (P7B-3).
+            let main = begin(&f, f.repo());
+            let domain = repo.root.join(".brewstillery");
+            let e = Session::begin(&domain, Some(repo.clone()), &f.verifier())
+                .err()
+                .unwrap();
+            assert_eq!(e.code(), Some(Code::NotARepository));
+            assert!(!domain.join("local").exists());
+            drop(main);
+            // So is one whose root is a subdirectory of the main working tree.
+            std::fs::create_dir_all(f.root.join("sub/.brewstillery")).unwrap();
+            let sub = Repo {
+                root: f.root.join("sub"),
+                prefix: ".brewstillery".into(),
+            };
+            let e = Session::begin(&f.root.join("sub/.brewstillery"), Some(sub), &f.verifier())
+                .err()
+                .unwrap();
+            assert_eq!(e.code(), Some(Code::NotARepository));
         },
     );
 }
@@ -1670,5 +1696,64 @@ fn refusal_tool_missing() {
             .unwrap_err()
             .code(),
         Some(Code::ToolMissing)
+    );
+}
+
+#[test]
+fn req_reg_3_the_writer_never_writes_what_the_reader_refuses() {
+    // P7B-2: nesting is bounded, the same way when writing and when reading.
+    let f = Fixture::new("depth", false);
+    let nest = |n: usize| (0..n).fold(json!("leaf"), |v, _| json!({"n": v}));
+    // The event is depth 1 and its payload depth 2: a payload of 63 objects reaches the limit, 64 pass it.
+    let mut s = begin(&f, None);
+    let h = s
+        .append(
+            "project",
+            None,
+            &fabrewk("installed", nest(fabrewk_core::record::MAX_DEPTH - 1)),
+            None,
+        )
+        .unwrap();
+    let before = snapshot(&f.domain);
+    let e = s
+        .append(
+            "project",
+            Some(&h),
+            &fabrewk("installed", nest(fabrewk_core::record::MAX_DEPTH)),
+            None,
+        )
+        .unwrap_err();
+    assert_eq!(code(&e), Some(Code::RecordNoncanonical));
+    assert_eq!(snapshot(&f.domain), before);
+    s.finish(&f.verifier(), &[]).unwrap();
+    begin(&f, None);
+}
+
+#[test]
+fn req_reg_10_a_git_stopped_inside_the_record_commit_leaves_nothing_that_blocks() {
+    isolated(
+        "req_reg_10_a_git_stopped_inside_the_record_commit_leaves_nothing_that_blocks",
+        || {
+            // P7B-1: what a Git killed while writing the temporary index leaves.
+            let f = Fixture::new("git-killed", true);
+            let mut s = begin(&f, f.repo());
+            project(&f, &mut s);
+            s.finish(&f.verifier(), &[]).unwrap();
+            let tmp = f.domain.join("local/tmp");
+            std::fs::write(tmp.join("record-index.lock"), b"partial").unwrap();
+            std::fs::write(tmp.join("record-index"), b"partial").unwrap();
+            let mut s = begin(&f, f.repo());
+            assert!(!tmp.join("record-index.lock").exists() && !tmp.join("record-index").exists());
+            let h = s.head("project").unwrap();
+            s.append(
+                "project",
+                h.as_ref(),
+                &fabrewk("installed", json!({})),
+                None,
+            )
+            .unwrap();
+            s.finish(&f.verifier(), &[]).unwrap().unwrap();
+            assert!(uncommitted(&f.repo().unwrap()).unwrap().is_empty());
+        },
     );
 }

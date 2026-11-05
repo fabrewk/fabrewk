@@ -16,7 +16,7 @@ mod time;
 
 use std::path::{Path, PathBuf};
 
-pub use canon::{decode, encode, sha256_hex};
+pub use canon::{MAX_DEPTH, decode, encode, sha256_hex};
 pub use event::{
     Class, Draft, FIELDS, KINDS, Say, StreamKind, class_of, nonce, stream_kind, subject_stream,
 };
@@ -34,6 +34,7 @@ pub enum Code {
     HeadDetached,
     LockHeld,
     MarkInvalid,
+    NotARepository,
     RecordAbsent,
     RecordBroken,
     RecordCommitRace,
@@ -58,6 +59,7 @@ impl Code {
             Code::HeadDetached => "HEAD_DETACHED",
             Code::LockHeld => "LOCK_HELD",
             Code::MarkInvalid => "MARK_INVALID",
+            Code::NotARepository => "NOT_A_REPOSITORY",
             Code::RecordAbsent => "RECORD_ABSENT",
             Code::RecordBroken => "RECORD_BROKEN",
             Code::RecordCommitRace => "RECORD_COMMIT_RACE",
@@ -133,6 +135,7 @@ mod tests {
             HeadDetached,
             LockHeld,
             MarkInvalid,
+            NotARepository,
             RecordAbsent,
             RecordBroken,
             RecordCommitRace,

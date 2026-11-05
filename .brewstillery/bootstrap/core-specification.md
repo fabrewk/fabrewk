@@ -665,6 +665,12 @@ creating nonce are fixed by the part that first builds each kind.
   history is walked, it is `RECORD_ROLLBACK`, and the walk runs before the mark.
 - The record commit's message is `fabrewk: record`, a blank line, and one `Fabrewk-Event: <digest>` line per event, the
   full 64-digit digest.
+- Canonical JSON nests arrays and objects at most 64 deep, the event itself being 1; a deeper value is not written
+  (`RECORD_NONCANONICAL`, nothing written) and a deeper file is not canonical. REQ-REG-3's property holds for every
+  value within that depth.
+- In the modes that commit, a write command runs at the root of the repository's main working tree; from a linked
+  working tree or a subdirectory it refuses `NOT_A_REPOSITORY`, since there the domain, its lock and the index are
+  another copy.
 
 ## 4. States and transitions
 
