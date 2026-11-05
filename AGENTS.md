@@ -15,7 +15,8 @@ summarizes the rules already fixed; the decisions and their origin are in `.brew
 - **Fermentos.** `.brewstillery/<alias>/fermento.md` is each maintainer's channel for additions, removals and open
   items. Above the separator is the maintainer's input: never edit it. Agents write only below it. If the separator
   is not found exactly once, stop without writing. Each sweep replaces the whole answer, which holds only current
-  recommendations for editing the maintainer's input: the point, what to clarify and how, and its destination.
+  recommendations for editing the maintainer's input (the point, what to clarify and how, and its destination) and,
+  for each proposal with consensus, the drafted alambique text, ready for a maestro to approve.
   Nothing accumulates there; history lives in Git and the bootstrap record. Questions not about the input go to
   chat. Write plain prose in the maintainer's language, with no internal keys, hashes or log dates; cite a point by
   its number with a short description.

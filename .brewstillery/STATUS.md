@@ -59,11 +59,14 @@ repository, is imported into the single registry at production and then stays re
   (`.brewstillery/bootstrap/alambique-audit.md`) holds the full proposed alambique (Part 2) and fermento (Part 3). The
   integrator's half of the migration is committed: the domain renamed, the old alambique moved to `ALAMBIQUE.md`,
   entry files and this file updated.
-- **Next, first check of the next session.** The maintainer's half of the migration (audit, Part 5, step 2): Part 2
-  pasted over `.brewstillery/ALAMBIQUE.md`, `.brewstillery/xel/fermento.md` created from Part 3, and in
-  `.brewstillery/settings.toml` `domain = ".brewstillery"` with the path comments updated, in the maintainer's own
-  commit. Then check (step 3): the separator found exactly once in the fermento and not at all in the alambique; no
-  section 8; the alambique equal to Part 2. If any of this is missing, ask the maintainer before anything else.
+- **Session 10 (D-034, R-017).** Migration check passed. The fermento's answer now also carries, for each proposal
+  with consensus, the drafted alambique text. The alambique was rewritten concise for the maestro and the integrator
+  (−18 % in words; section 7 moved to the source catalogue, which gained C-62 to C-66 and the maintainer's notes); the
+  original is archived as `.brewstillery/bootstrap/alambique-original.md`. Codex accepted the rewrite at its second
+  pass. The preview is in XEL's fermento answer, between the markers.
+- **Next, first check of the next session.** If the maintainer validated the preview in chat and pasted it over
+  `.brewstillery/ALAMBIQUE.md` in their own commit: check the alambique equals the preview (sha256 in R-017), then
+  sweep the fermento (remove the preview; point 2 is the maintainer's to remove). If not, ask the maintainer first.
 - **Then phase 5 resumes (plan row 5).** Rewrite AD-4 for the Rust core, AD-5 for the extension contract and AD-7 for
   a binary installation with both routes (a `curl` script with guided onboarding, a preset prompt for any agent) and
   how the script checks what it downloads; add the decisions D-032 points 1 to 10 and 17 need where

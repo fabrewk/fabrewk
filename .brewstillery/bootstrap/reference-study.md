@@ -375,3 +375,63 @@ now `tickbrew-legacy` (R-004). They are TickBrew's own files, not external sourc
 | C-59 | OpenAlgo, `marketcalls/openalgo` | Case study lead | Checked | `e2797fd` | AGPL-3.0 | Imported chat only | 6.48 |
 | C-60 | Superpowers, `obra/superpowers` | Skill set | Checked | `22f0b46` | MIT | TickBrew declined it in OP-1 (earlier research); no new audit | 6.38 |
 | C-61 | sharp-edges skill, `~/.agents/skills/sharp-edges/SKILL.md` | Review method, local | Checked (present; not read) | — | — | Admitted in TickBrew, used by the earlier research | 6.38 |
+
+### Added after phase 4 (D-034)
+
+Sources added to alambique section 7a in session 9 for point 6.52, before section 7 moved to this catalogue. What was
+read is R-016's; no revision was pinned in that session.
+
+| # | Source | Kind | Status | Revision | Licence | What was read, where | Points |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| C-62 | LanceDB, `lancedb/lancedb` | Library (embedded vector database; Rust, Python, TypeScript) | Checked | Not pinned; repository page read 2026-11-04 | Apache-2.0 | R-016; candidate for 6.52 | 6.52 |
+| C-63 | Qdrant | Vector database (separate server) | Pending | — | — | Named by Kilo Code's indexing page; not read | 6.52 |
+| C-64 | DuckDB vector extension (`vss`), `https://duckdb.org/docs/stable/core_extensions/vss` | Library extension | Studied, one page (stated) | Page read 2026-11-04 | — | R-016: persisting its index to disk is still experimental | 6.52 |
+| C-65 | SQLite vector extension | Library extension | Pending | — | — | Which extension is meant is not fixed; nothing read | 6.52 |
+| C-66 | Kilo Code, `https://kilo.ai` | Editor extension, not a meta-harness | Studied, one page (stated) | Codebase-indexing page read 2026-11-04 | — | R-016: optional code indexing with LanceDB or Qdrant | 6.52 |
+
+### Why each source is here, carried from alambique section 7 (D-034)
+
+When section 7 left the alambique, the maintainer's note on each source moved here, so nothing of it is lost; the
+full section stays in `.brewstillery/bootstrap/alambique-original.md`. Section 7's opening said the list complements
+the rest, is no decision of adoption and does not imply equal maturity or depth of analysis; that rule is now in
+point 6.30.
+
+| # | Note |
+| --- | --- |
+| C-06 | Conceptual reference for composing tools, modularity and bounded responsibilities. |
+| C-07 | Centralizes service configuration in OpenWrt; successor of NVRAM-based configuration and the main interface for the system's key settings. Its schema and usability aim at TickBrew, not Fabrewk: out of this project's scope. |
+| C-11 | Reference for distribution, update and dependencies of components. Its schema and usability aim at TickBrew, not Fabrewk: out of this project's scope. |
+| C-12 | Alternative for structured persistence of Fabrewk's state. |
+| C-13, C-14 | Reference for tasks, requirements, verification and coordination; keep the results and limits of the existing evaluations. Its optional central relay and web view are the precedent of 6.50. |
+| C-15 | Candidate already studied; reference for memory, skills and development instructions. Its onboarding (`npx @ericrisco/rsc@latest onboard`, or a prompt to the agent) interviews the maintainer, shows the exact plan and writes nothing until it is accepted: reference for installation (section 1). |
+| C-16 | Candidate already studied; reference for supervision and coordination of sessions. |
+| C-17 | Reference studied for execution controls and agent policies. |
+| C-18 | Reference studied for continuity and session management. |
+| C-19 | Reference for sessions and worktrees. |
+| C-20 | Reference for task assignment and tracking of reviews and checks. |
+| C-21 | Reference for proposals, specifications and change tasks. |
+| C-22 | Reference for specification-driven development. |
+| C-23, C-24, C-25 | References for phases, context and verification; keep the relation with the historical names get-shit-done and GSD-2 found in earlier evaluations. |
+| C-26 | Mentioned reference for generating harnesses; keep its real evaluation status. |
+| C-27 | Secondary reference for dividing responsibilities among agents. |
+| C-28 | Secondary reference for automation and integrations. |
+| C-29 | Commercial reference to compare development experience and automation. |
+| C-30 | The official plugin to use Codex from Claude Code. |
+| C-31 | A single MCP server that asks Codex, Kimi or Claude for a second opinion; reference to tell the agent that is enabled from the one actually installed and signed in. |
+| C-32 to C-36 | Case studies (OpenAI Harness Engineering, Stripe Minions, StrongDM, Domi of Gailleur Labs, CodePrism). |
+| C-37 | Collection for discovering references, which must then be checked at their original sources. |
+| C-38, C-39 | References for organizing useful, understandable documentation. |
+| C-40 | Reference for diagrams kept as text. |
+| C-41 to C-43 | Tools proposed for format, links and editorial consistency; adopting them requires evaluation. |
+| C-44 | Reference for accessibility of documentation and visual content. |
+| C-45 to C-50 | Work tools (Git, GitHub, VS Code, Claude Code, OpenAI Codex, OpenCode) whose role, configuration and limits must be documented without confusing them with the project's authority; this expectation is now in point 6.45. |
+| C-51 | Isolation that `tickbrew-harness` used to enclose each agent in a copy of the work; to be evaluated for Fabrewk (the note as section 7c had it). Point 6.38 now names it as the first confinement backend on Linux ARM64 (D-032, item 14). |
+| C-52 | Git-based package manager of skills, instructions and MCP configuration for Codex, which shows changes before installing and installs only from sources you trusted; reference for installing such tools with a preview (6.38, section 1). |
+| C-53 | Name coincidence; an application of another field, not a meta-harness candidate. Recorded so it is not confused with the `.brewstillery/` directory. |
+| C-54 to C-57 | Niche neighbours found in the name research (2026-11-02), to study and distinguish from Fabrewk. `fabric-ai` is the name Fabric installs under in Homebrew, Arch and Scoop; it does not exist as a Python package. |
+| C-58 | How it documents its rules for agents is a useful reference. |
+| C-59 | How it writes business rules that agents must not break may be a useful reference. |
+| C-60 | Declined by TickBrew in its first legacy because of the methodology hook it installs. |
+| C-62 | Vector database that runs inside the same program, with libraries for Rust, Python and TypeScript (Apache-2.0); candidate for 6.52. |
+| C-63 to C-65 | Alternatives for 6.52: Qdrant requires a separate server; in DuckDB, saving the vector index to disk is still experimental; SQLite's is to be checked. |
+| C-66 | An editor extension, not a meta-harness; its optional code indexing with LanceDB or Qdrant is a reference for 6.52. |

@@ -1168,3 +1168,82 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   → `.brewstillery/ALAMBIQUE.md` (moved, so the text keeps its history; the maintainer then replaces its content with
   Part 2); `.brewstillery/xel/fermento.md` is new, created by the maintainer from Part 3. Every other file keeps its
   name under the new domain. Older entries of this record keep their paths as history.
+
+## D-034 — The fermento's answer carries the drafted alambique text; the alambique is rewritten concise
+
+- Status: decided
+- Decided: 2026-11-04
+- Origin: maintainer XEL in session 10's chat. Point 2 of the fermento proposes treating the whole alambique as
+  fermento text, rewriting it clear and concise as the integrator, with a second review by Codex (GPT-6.1 Sol, high),
+  the preview shown in the fermento's answer and validated there. Answering the integrator's five precisions: "La idea
+  del nuevo ALAMBIQUE.md es que sea claro para el mantenedor maestro (yo) Y PARA EL AGENTE integrador, que eres tú. Tú
+  y solo tú diseñas la arquitectura y yo solo la autorizo, expando o contraigo ideas o features, tu escribiras el
+  código., el nuevo ALAMBIQUE.md debe ser claro y consiso para no gastar tokens en lectura de prosa demasiado extensa
+  […] fermento.md sería para hacer el input de mis palabras en la primera sección y en la segunda tú contestas y si hay
+  consenso, redactas la prosa recomendada que va al ALAMBIQUE.md. Ahora es excepcional porque el alambique ya está
+  crecido […] considero que el ejercicio del workflow no cambia. Proponme que recomiendas hacer al respecto." To the
+  integrator's recommendation (rule change, rewrite criteria, order, section 7 options): "De acuerdo con tu
+  recomendación sobre (b). Nota: Propongo que el alambique original le hagas una copia previa y la dejes archivada
+  como evidencia, si algo no cuadra tenemos la fuente completa de lo que se tomó como 'fermento' para el nuevo
+  alambique optimizado." No objection was raised to the rest of the recommendation.
+- Decision:
+  1. A fermento's answer holds the current recommendations for the maintainer's input and, for each proposal with
+     consensus, the drafted alambique text, ready to paste. It is still replaced whole at every sweep; nothing
+     accumulates.
+  2. The alambique is written for the maestro and the integrator: the same expectations in fewer words, so reading it
+     costs few tokens. Kept: point numbers 6.1–6.52, the status keys, the title, the opening analogy and the usage
+     list (D-033). Project voice ("el maestro") instead of the first person. Detail already in the record stays out.
+  3. Roles as the maintainer states them: the integrator designs the architecture and writes the code; the maestro
+     authorizes, widens or narrows ideas and features. Independent review stays with another provider (6.42).
+  4. Section 7 (sources) leaves the alambique for the source catalogue of 6.30, today section 11 of
+     `.brewstillery/bootstrap/reference-study.md`; the alambique keeps one line pointing there. The five sources
+     added in session 9 and missing from the catalogue are added to it first.
+  5. The alambique as it stood before the rewrite is archived, byte for byte, as
+     `.brewstillery/bootstrap/alambique-original.md` (sha256 `143d4292…dba70`, equal to `ALAMBIQUE.md` at `84e95e8`).
+  6. Order: the integrator drafts; Codex checks point by point against the archived text that no meaning is lost or
+     changed, and the prose; the integrator corrects; the preview goes in XEL's fermento answer with a short list of
+     changes by section; XEL validates in chat and pastes it in their own commit, which is the proof of their approval.
+     The next sweep removes the preview and point 2.
+  7. This rewrite comes before phase 5 resumes, since the architecture decisions cite alambique points.
+- Consequences: `AGENTS.md` (fermentos) updated; `plan.md` and `STATUS.md` record the step; the catalogue gains
+  C-62 to C-66.
+- Sources: chat of session 10; `.brewstillery/xel/fermento.md`, point 2.
+- Supersedes: D-017 only where it sends agent work that is not a recommendation to a bootstrap file: a drafted
+  alambique edit now goes in the fermento's answer.
+
+## R-017 — Session 10, sweep of point 2 and the concise alambique
+
+- Status: recorded
+- Date: 2026-11-04
+- Who: integrator Claude Code, `claude-opus-5-5`, effort high as the maintainer states it. Reviewer: Codex
+  `codex-cli 0.166.0`, `gpt-6.1-sol`, effort high, read-only sandbox, launched in this repository with
+  `codex exec --json`. No subagent, no network.
+- Start checks: HEAD `84e95e8`. The migration's step 3 passed: `ALAMBIQUE.md` equals the audit's Part 2 except the
+  final newline; no section 8; the separator is not in the alambique and is found once in the fermento, whose
+  committed text equalled Part 3. Two path comments of `.brewstillery/settings.toml` were stale; the integrator gave
+  the exact lines in chat and the maintainer changed them (TOML parsed). The maintainer had added point 2 and edited
+  the fermento's heading; after the first sweep they removed a `#` line that looked like the separator's border.
+  Final input lines 1–19 (through the separator) sha256 `dd4c4b9f…262b`; the separator's marker line found once.
+- Read: `STATUS.md`, the alambique, the fermento, both settings files, `plan.md`, this file (header, D-017, D-032,
+  D-033, R-015, R-016), `alambique-audit.md` (header, Parts 2, 3, 5), `reference-study.md` section 11.
+- Written: the fermento's answer (two sweeps); D-034 and this entry; `AGENTS.md` (fermentos); `plan.md`;
+  `STATUS.md`; `bootstrap/alambique-original.md` (byte copy of `ALAMBIQUE.md` at `84e95e8`, sha256 `143d4292…dba70`);
+  `reference-study.md`: catalogue rows C-62 to C-66 and the notes carried from alambique section 7.
+- Correction: in chat the integrator first said the catalogue held every source of section 7; the five added in
+  session 9 (LanceDB, Qdrant, DuckDB's and SQLite's vector extensions, Kilo Code) were missing. Added as C-62 to C-66.
+- Rewrite: 8,767 words to 7,216 (−17.7 %), 61,662 bytes to 48,955 (−20.6 %). Point numbers, status keys (20
+  [decidido], 3 [proyectado]) and D-033's title, analogy and usage list kept. The preview is in the fermento's answer
+  between `<!-- INICIO ALAMBIQUE.md -->` and `<!-- FIN ALAMBIQUE.md -->`, sha256 `4f6a1e6b…a3bf2`.
+- Codex, pass 1, on the working tree: 3 min 40 s; 16 commands, none failed; input 360,134 tokens (308,480 cached),
+  output 9,276 (6,219 reasoning). Verdict reject: ten blocking, one minor, all confirmed by the integrator: AR-01
+  (opening, "por sí solo" lost), AR-02 (section 5, "sin asumir" became a ban), AR-03 (6.7, "que interfieran con su
+  lectura" lost), AR-04 (6.8, each recommendation's evaluation lost), AR-05 (6.14, "puede admitir" became a general
+  claim), AR-06 (6.14 and 6.15 narrowed to meta-harnesses), AR-07 (6.30, an added rule that new sources go through a
+  fermento), AR-08 (catalogue C-51 changed "to be evaluated" to "decided"), AR-09 (change list said 21 %; 18 % in
+  words), AR-10 (change list claimed every 7a/7b reference was redirected; section 1 and 6.50 were not), AR-11 (6.5,
+  prose). A first launch waited about 19 minutes on standard input and reviewed nothing; it was stopped and relaunched
+  with standard input closed.
+- Codex, pass 2, scoped to the corrections: 53 s; 7 commands, none failed; input 159,961 (130,944 cached), output
+  1,644. AR-01 to AR-11 closed, no new finding. **Verdict accept.**
+- Progress measure (D-003): confirmed blocking findings 10, then 0. Prompts, streams and last messages stay in the
+  session's scratch directory, not committed.
