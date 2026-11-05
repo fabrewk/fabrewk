@@ -197,7 +197,7 @@ fn target_problems(p: &Package, counted: &BTreeSet<&PathBuf>) -> Vec<String> {
 }
 
 /// What may change how the rings compile, as sentences: a `.cargo` directory anywhere in the repository, a directory
-/// the scan cannot read, and among `env` a `CARGO_HOME` inside the repository, `RUSTFLAGS` with a `cfg`, or a
+/// the scan cannot read, and among `env` a `CARGO_HOME` inside the repository, any `RUSTFLAGS`, or a
 /// replaced or wrapped compiler. Fabrewk keeps none of them.
 pub fn config_problems(
     root: &Path,
@@ -247,8 +247,9 @@ pub fn config_problems(
     ];
     let root = canonical(root);
     for (name, value) in env {
-        if name.ends_with("RUSTFLAGS") && value.contains("cfg") {
-            problems.push(format!("{name} sets a cfg for the build: {value}"));
+        if name.ends_with("RUSTFLAGS") && !value.is_empty() {
+            // Any flag, not only `--cfg`: an `@file` argument hides what it holds (Codex's P7A-21).
+            problems.push(format!("{name} passes flags to the compiler: {value}"));
         } else if COMPILER.contains(&name.as_str()) && !value.is_empty() {
             problems.push(format!("{name} replaces or wraps the compiler: {value}"));
         } else if name == "CARGO_HOME" && canonical(Path::new(&value)).starts_with(&root) {

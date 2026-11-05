@@ -577,7 +577,11 @@ fn req_bud_1_cargo_configuration_and_rustflags_are_reported() {
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect::<Vec<_>>()
     };
-    let clean = env(&[("RUSTFLAGS", "-C opt-level=3"), ("PATH", "cfg")]);
+    let clean = env(&[
+        ("RUSTFLAGS", ""),
+        ("PATH", "cfg"),
+        ("RUSTDOCFLAGS", "--cfg x"),
+    ]);
     assert_eq!(config_problems(&root, clean.clone()), Vec::<String>::new());
     let flags = env(&[
         ("RUSTFLAGS", "--cfg test"),
@@ -585,8 +589,15 @@ fn req_bud_1_cargo_configuration_and_rustflags_are_reported() {
             "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUSTFLAGS",
             "--cfg=test",
         ),
+        ("CARGO_ENCODED_RUSTFLAGS", "@/tmp/response.args"),
+        ("CARGO_BUILD_RUSTFLAGS", "-C opt-level=3"),
     ]);
-    assert_eq!(config_problems(&root, flags).len(), 2);
+    let found = config_problems(&root, flags);
+    assert_eq!(found.len(), 4, "{found:?}");
+    assert_eq!(
+        found[2],
+        "CARGO_ENCODED_RUSTFLAGS passes flags to the compiler: @/tmp/response.args"
+    );
     for dir in [".cargo", "crates/core/.cargo", "a/b/c/.cargo"] {
         fs::create_dir_all(root.join(dir)).unwrap();
     }
