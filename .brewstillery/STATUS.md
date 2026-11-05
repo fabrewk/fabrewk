@@ -7,12 +7,11 @@ view generated from that registry. Technical files are in English by default (D-
 
 **Phases 0 to 6 are closed (D-037, D-040). Phase 7 (the first code) is split into parts 7a, 7b, 7c1, 7c2a, 7c2b
 and 7d (D-041, D-047, D-048, D-050); parts 7a (R-023), 7b, the record (R-024), and 7c1, settings and policy (R-025),
-are closed; 7c2a, signatures and identity, is delivered and in Codex's review (R-026); 7c2b, the machine and the
-domain, is next.** The repository now holds the first code at its root: a Cargo workspace with one crate per ring
+and 7c2a, signatures and identity (R-026), are closed; 7c2b, the machine and the domain, is next.** The repository now holds the first code at its root: a Cargo workspace with one crate per ring
 (`crates/core`, `crates/fabrewk`, a binary that only answers `--version`) and the size counter `tools/budget`, the
 licence files, `deny.toml` and a root `.gitignore` with `/target`. The size budget is frozen (D-042). The record is
 built as a library in `crates/core/src/record/`, the settings in `crates/core/src/settings/`, identity in
-`crates/core/src/identity.rs` and the private folder in `machine.rs` (the core counts 2,388 of 4,000 lines, formatted
+`crates/core/src/identity.rs` and the private folder in `machine.rs` (the core counts 2,390 of 4,000 lines, formatted
 at width 120, D-049); no command uses them yet and no `data/` exists in this repository. The domain is `.brewstillery/`, hidden (D-032).
 
 ## Read first
@@ -142,15 +141,25 @@ repository, is imported into the single registry at production and then stays re
   passes were on how a TOML syntax error names its key path, now resolved by the parser itself). Mutation: caught but
   four declared equivalents. Clean clone: 144 tests and the crash suite green, musl build, `budget check`, clippy,
   fmt, `cargo deny` clean.
-- **Next: part 7c2 (plan, "Phase 7").** Identity and the machine: the signers derived from the policy each event cites
-  and the role checked against the kind (REQ-REG-4's second half, D-048's route: the key the `.sig` carries, exactly
-  the policy's key for that alias, then `ssh-keygen -Y check-novalidate -n fabrewk`; base64 and SSH strings already
-  exist in `settings`), REQ-ID-2 to REQ-ID-5, REQ-REG-12 (the machine key in the private folder, `instance`), REQ-SEC-4,
-  the machine file, detection (REQ-SET-8), profiles (REQ-SET-9), and REQ-DOM-2, REQ-DOM-4, REQ-DOM-5 and REQ-DOM-7 on
-  fixture records. Open for 7c2: which policy an event cites at `apply` before the first `policy-adopted` exists (the
-  first adoption's own digest is the natural reading), and whether a person's event must cite the policy in force
-  when written (cross-stream order is not recorded).
-- **Start prompt:** `Eres el integrador de Fabrewk; fase 7, parte 7c2: identidad, firmas, clave de máquina, detección y
+- **Part 7c2a closed (session 18, D-050, R-026).** Before any code the maestro split 7c2 into 7c2a and 7c2b, fixed
+  the policy the events before the first adoption cite (the first adoption's own digest), and chose a seal: every
+  `policy-adopted` records each other stream's head, and a person's event must hold its key and role both in the policy
+  it cites and in the one in force at its place, so removing or re-keying a maintainer takes effect even against a
+  hand-forged event. 7c2a delivers the policy verifier (`identity.rs`), `ROLE_FORBIDDEN`, the derived
+  `allowed_signers`, the key report, the private folder (`0700`, `PRIVATE_FOLDER_PERMISSIONS`) and the machine key
+  with its fingerprint (`machine.rs`). Codex accepted at its second pass (confirmed blocking 1, 0). Mutation: caught
+  but one declared equivalent. Clean clone: 159 tests and the crash suite green, musl build, `budget check`, clippy,
+  fmt, `cargo deny` clean.
+- **Next: part 7c2b (plan, "Phase 7").** The machine and the domain: `machine.toml` read at its level, its values
+  shown as `declared` (REQ-SET-1, REQ-SET-7); detection of `git`, `ssh-keygen`, `bwrap` and every catalogued tool with
+  versions, kept by write commands in `local/cache/detected.json`, each value observed, verified by use or declared,
+  and the effective set permitted and present (REQ-SET-8); the validation of profiles (REQ-SET-9, refused before any
+  dispatch); and on fixture records REQ-DOM-2 (`DOMAIN_UNKNOWN_ENTRY`, `ALIAS_INVALID` for a directory), REQ-DOM-4
+  (`GITIGNORE_CHANGED`), REQ-DOM-5 (the local area; the cache rebuilt by write commands, absent after reading ones)
+  and REQ-DOM-7 (`publication-decided`'s payload, `DOMAIN_NOT_IGNORED` with `git check-ignore`). `machine.rs` already
+  gives the private folder. Open for 7c2b: which code refuses an invalid profile other than `TOOL_MISSING` (11.4 has
+  no row for it), and how the core, which names no tool, learns a catalogued tool's executable and version flag.
+- **Start prompt:** `Eres el integrador de Fabrewk; fase 7, parte 7c2b: archivo de máquina, detección, perfiles y
   dominio; empieza por .brewstillery/STATUS.md`. Model and effort: Claude Code on Opus 5.5, effort high; Codex GPT-6.1
   Sol, effort high, reviews each part that delivers code (plan row 7).
 

@@ -2020,3 +2020,56 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Sources: chat of session 18; `STATUS.md`'s two open items for 7c2; D-047, D-048; AD-14 ("Changing the list");
   `core-specification.md` REQ-REG-4, REQ-ID-3, REQ-ID-4, REQ-ID-6, sections 3 and 4.
 - Supersedes: none (D-048's point 1 stands; this entry splits 7c2's destination).
+
+## R-026 — Session 18, part 7c2a: signatures and identity
+
+- Status: recorded
+- Date: 2026-11-05
+- Who: integrator Claude Code, `claude-opus-5-5`. Reviewer: Codex `codex-cli 0.166.0`, `gpt-6.1-sol`, effort high,
+  launched with `codex exec --json`, standard input closed, sandbox `workspace-write`, no network, in a user systemd
+  scope capped at 3 GB, in a disposable clone under `target/` with a copy of the Cargo registry (35 MB). No subagent.
+- Start: HEAD `3fa8e27`, tree clean. The fermento was not swept: its answer has no current recommendation and the
+  maestro added no input. The maintainer's five-hour window stood at 79 % at the start.
+- Read: `STATUS.md`, `AGENTS.md`, `plan.md`, this file (D-047 to D-049, R-024, R-025), `core-specification.md`
+  (sections 2 DOM, REG, SET, ID and SEC, 3 to 8, 11.2, 11.4's and 11.5's rows for 7c2, 12 DOM, REG, SET, ID and SEC),
+  `architecture-decisions.md` AD-8, AD-14 and AD-15, the record's and the settings' code and their test fixtures.
+- Decided before any code (D-050): 7c2 split into 7c2a and 7c2b; the policy the events before the first adoption
+  cite; the seal of every head at adoption. No network was needed.
+- Written: `crates/core/src/identity.rs` (the policy verifier, `ROLE_FORBIDDEN` before signing, the derived
+  `allowed_signers`, the key report), `crates/core/src/machine.rs` (the private folder, `PRIVATE_FOLDER_PERMISSIONS`,
+  the machine key and its fingerprint); in the record, `sign.rs` (the key a signature carries and `check-novalidate`,
+  D-048; `SshVerifier` and its allowed-signers file removed), replay verifying signatures after the record is read
+  field by field, `append` checking its signature against the signer's own key before the event exists, `seal`;
+  `policy-adopted`'s payload with `heads`; `settings::key_blob`; two codes; tests in `crates/core/tests/identity.rs`
+  and a fixture verifier with fixed keys for the record's own tests. `core-specification.md` (REQ-REG-4, section 3's
+  table and envelope, 11.4's `RECORD_SIGNATURE_INVALID`, 12's REQ-REG-4), `plan.md`, `STATUS.md`, this entry.
+- Interpretations, given to the review and not re-opened by it: every failure of a person's event against its policies
+  is `RECORD_SIGNATURE_INVALID` at replay, a contributor's move included (REQ-REG-4 groups them), while a write refuses
+  the same move as `ROLE_FORBIDDEN`; a seal its stream does not hold is `RECORD_ROLLBACK` (the seal is a signed mark);
+  an event outside `project` that every seal holds was written before any adoption and is refused; the seal lists
+  only streams that hold an event; `allowed_signers` lines are `<alias> namespaces="fabrewk,git" <type> <base64>`, in
+  alias order; touch enforcement is always reported `unknown`, since `check-novalidate` reads no options; the machine
+  key is `instance` in the private folder, its identity the private key (the public half derived with `ssh-keygen
+  -y`), made under the folder's `lock`; the folder and any parent it makes are `0700`; a private key that does not
+  read is none, and a write command makes another; the `policy` field of an event no person records is not checked
+  here (7d's `check`).
+- Codex, two passes: pass 1 (`7738425`): reject, 1 blocking and 2 minor (P7C2A-1 two commands in two repositories
+  making the machine key at once returned different fingerprints; P7C2A-2 an interrupted recovery could leave a
+  public key that is not the private key's; P7C2A-3 no test of a maestro made contributor nor of an event every seal
+  holds, and the specification's rows without D-050's cases). Pass 2 (`7985b05`): **accept**, the three closed, no
+  new finding (it re-ran 40 threads and 72 processes). Confirmed blocking findings by pass: 1, 0. At pass 2 Codex
+  reported reading by mistake one `SKILL.md` outside its clone; it read nothing of the private folder.
+- Mutation (`cargo mutants`, rustup 1.99.1, `-j 2`, in its own scope as R-022 says, `TMPDIR` under `target/`):
+  identity, machine and sign, 101 mutants, and the changed functions of the record and the settings, 40: four
+  missed, killed by a test (`carried_key`'s namespace) or by simpler code (redundant checks after `ssh-keygen`, the
+  folder made recursively); every later change re-run by file (29 and 81 mutants). One declared equivalent: `|` → `^`
+  in `fingerprint` (the bits joined never overlap).
+- Clean clone of `7985b05`, rustup 1.99.1: 159 tests green, and the crash suite (3 tests) with `--features
+  fault-injection`; the musl release build; `budget check --binary` exits 0: core 2,390 of 4,000 counted lines in 19
+  files, 3 direct runtime crates, 30 crates in the release build, the binary 397,600 bytes (the binary does not use
+  the core yet); `clippy --workspace --all-targets -D warnings` with and without the feature, `fmt --check`, `cargo
+  deny --offline check licenses advisories` clean.
+- Residuals, not blocking: a maintainer removed by an adoption that is itself cut from the record (in `unpublished`, on
+  a machine with no mark) is caught only by the rollback checks, cooperative on one machine (C4); the machine key's
+  identity changes if its private file is damaged by hand.
+- Not done: parts 7c2b and 7d.
