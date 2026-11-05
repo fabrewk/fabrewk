@@ -204,7 +204,7 @@ pub(crate) fn check(v: &Value, stream: &str, seq: u64) -> Result<Class, (Code, &
     if say {
         let w = o["say"].as_object().filter(|w| w.len() == 2);
         let (Some(words), Some(lang)) = (
-            w.and_then(|w| w["text"].as_str()),
+            w.and_then(|w| w.get("text")?.as_str()),
             w.and_then(|w| w.get("lang")?.as_str()),
         ) else {
             return Err((Unknown, "say"));

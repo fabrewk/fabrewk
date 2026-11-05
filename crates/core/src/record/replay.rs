@@ -81,7 +81,16 @@ pub(crate) fn list_stream(dir: &Path) -> Result<Listing, Error> {
             .file_name()
             .is_some_and(|n| n.as_encoded_bytes().starts_with(b"."))
         {
-            l.temporary.push(path);
+            // Skipped by readers; removed by a writer only if it is one of the record's own temporary files.
+            let own = name.strip_prefix('.').and_then(|n| n.strip_suffix(".tmp"));
+            if own.is_some_and(|n| {
+                seq_of(n)
+                    .or_else(|| n.strip_suffix(".sig").and_then(seq_of))
+                    .is_some()
+            }) && path.is_file()
+            {
+                l.temporary.push(path);
+            }
         } else if let Some(seq) = seq_of(&name).filter(|_| path.is_file()) {
             l.events.entry(seq).or_default().push(path);
         } else if name.strip_suffix(".sig").and_then(seq_of).is_some() && path.is_file() {

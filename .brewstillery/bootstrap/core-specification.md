@@ -638,6 +638,34 @@ named are fixed in phase 7 with the code and recorded in this file.
 | `task-<id>` | `task-rejected` | person, signed | reasons in their words, where the branch is |
 | `ext-<name>` | `extension-note` | extension | text (records nothing else) |
 
+**Schema 1's envelope, as part 7b fixed it (D-047).** Recorded here as this section asks; the payloads beyond the
+creating nonce are fixed by the part that first builds each kind.
+
+- Fields: exactly `actor`, `at`, `fabrewk`, `instance`, `kind`, `payload`, `policy`, `prev`, `schema`, `seq`, `stream`,
+  and `say` on a person's move only. `schema` is the integer 1; `seq` a positive integer; `prev` 64 lowercase
+  hexadecimal digits or `null`; `at` `YYYY-MM-DDTHH:MM:SS`, an optional fraction of up to nine digits, `Z`; `instance`
+  and `fabrewk` non-empty strings; `policy` 64 lowercase hexadecimal digits; `payload` an object.
+- `actor`: `{"kind":"person","alias","role"}` (alias as REQ-DOM-3's pattern, role `maestro`, `supervisor` or
+  `contributor`); `{"kind":"agent","tool","provider","modelRequested","modelObserved"}` (`modelObserved` a string or
+  `null`); `{"kind":"extension","name","digest"}`; `{"kind":"fabrewk"}`. A kind whose actor is "any" takes an agent or
+  Fabrewk, never a person (PD-30). `say`: `{"text","lang"}`, both strings, `lang` not empty.
+- `stage-proposed` and `task-proposed` carry `payload.nonce`, 32 lowercase hexadecimal digits (16 random bytes); the
+  identifier is the first 8 hexadecimal digits of the SHA-256 of the canonical payload, without the final newline.
+- Codes: an unknown or missing field, a field of the wrong type, an unknown kind or a malformed actor or `say` is
+  `RECORD_VERSION_UNKNOWN` (the file is not schema 1 as this binary knows it); `stream` or `seq` unlike the file's
+  place, `prev` set at `seq` 1 or missing after it, a stream name that is not valid, or a stage or task stream whose
+  identifier is not its creating payload's, is `RECORD_BROKEN`; a kind recorded in a stream that does not record it,
+  an actor the kind does not allow, words on a move no person records or a person's move without words, words empty
+  after trimming, a stage or task stream that does not begin with its creation or holds a second one, is
+  `RECORD_TRANSITION_INVALID`; a signature beside an event no person records is `RECORD_SIGNATURE_INVALID`.
+- The mark `local/cache/heads.json` is canonical JSON `{"heads":{"<stream>":{"digest","seq"}},"schema":1}`. A marked
+  stream that is gone or shorter than its mark is `RECORD_ROLLBACK`; a mark that is empty, not canonical, of another
+  shape, or naming at a position a digest its stream does not hold there, is `MARK_INVALID` (PD-02). In `unpublished`
+  a cut is made by deleting files (PD-01), so a rewrite of the same length is told as `MARK_INVALID`; where the
+  history is walked, it is `RECORD_ROLLBACK`, and the walk runs before the mark.
+- The record commit's message is `fabrewk: record`, a blank line, and one `Fabrewk-Event: <digest>` line per event, the
+  full 64-digit digest.
+
 ## 4. States and transitions
 
 **Tasks.** States: `proposed`, `authorized`, `running`, `halted`, `verified`, `accepted`, `integrated` (final),

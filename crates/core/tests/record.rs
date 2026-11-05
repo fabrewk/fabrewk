@@ -283,6 +283,24 @@ fn refusal_record_version_unknown() {
         forged_with(&f, |v| v["say"] = json!("x")),
         [Code::RecordTransitionInvalid]
     );
+    let f2 = Fixture::new("version-say", false);
+    for say in [
+        json!({"a": 1, "b": 2}),
+        json!({"text": 1, "lang": "es"}),
+        json!({"text": "x", "lang": ""}),
+        json!("x"),
+    ] {
+        let mut v = person("assessed", "x", json!({})).build("project", 1, None);
+        v["say"] = say.clone();
+        let path = f2.place("project", 1, &encode(&v).unwrap());
+        std::fs::write(
+            sig(&path),
+            sign_with(&f2.signer(), &std::fs::read(&path).unwrap(), "fabrewk"),
+        )
+        .unwrap();
+        assert_eq!(codes(replay(&f2.domain, &f2.verifier())), unknown, "{say}");
+        std::fs::remove_dir_all(f2.stream_dir("project")).unwrap();
+    }
     // A record holding every version this binary knows (schema 1) replays.
     let mut s = begin(&f, None);
     project(&f, &mut s);
@@ -571,10 +589,14 @@ fn req_reg_5_readers_skip_temporary_names_and_writers_remove_them() {
     std::fs::write(dir.join(".000002-0123456789abcdef.json.tmp"), b"{").unwrap();
     std::fs::write(dir.join("000002-0123456789abcdef.json.sig"), b"x").unwrap();
     std::fs::write(f.domain.join("data/events/.hidden"), b"").unwrap();
+    // Other names starting with `.` are skipped and left alone, a directory included.
+    std::fs::write(dir.join(".notes"), b"").unwrap();
+    std::fs::create_dir(dir.join(".keep")).unwrap();
     assert_eq!(ok_replay(&f).streams["project"].len(), 1);
     let mut s = begin(&f, None);
     assert!(!dir.join(".000002-0123456789abcdef.json.tmp").exists());
     assert!(!dir.join("000002-0123456789abcdef.json.sig").exists());
+    assert!(dir.join(".notes").exists() && dir.join(".keep").is_dir());
     assert_eq!(s.head("project").unwrap(), Some(h.clone()));
     s.append("project", Some(&h), &fabrewk("installed", json!({})), None)
         .unwrap();
