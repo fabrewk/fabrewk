@@ -19,7 +19,7 @@ Fabrewk es nuestro meta-harness: una fábrica de software asistida por IA, **sie
 
 Decidido: el nombre es Fabrewk y su comando es `fabrewk` (punto 6.5).
 
-Intención, sin decidir: que el repositorio, el directorio y el paquete se llamen `fabrewk`, con un paquete de Python como la propuesta más lógica y viable; la organización de GitHub `fabrewk` y el dominio `fabrewk.ai` a futuro. El "ai" puede ir como exponente gráfico en el logo (Fabrewk^ai); eso lo decido con el agente que tenga la delegación de diseño y documentación humana. Antes de un uso comercial, la marca se verifica con un profesional.
+Intención, sin decidir: que el repositorio, el directorio y el paquete se llamen `fabrewk`, con un esquema de distribución y/o instalación prácticos tanto manual o por prompt a agentes; la organización de GitHub `fabrewk` y el dominio `fabrewk.ai` a futuro. El diseño de marca/logotipos se harán con el agente descrito en la sección 4. Antes de un uso comercial, la marca se verifica con un profesional.
 
 Por decidir: el mejor esquema de licenciamiento para un meta-harness que puede integrarse a código con otra licencia.
 
@@ -207,6 +207,26 @@ Fabrewk tiene la tarea como unidad de trabajo (6.28). Cómo se agrupan las tarea
 
 **6.47. Supervisión y colaboración externa:** Mostrar tareas activas, responsables, bloqueos, decisiones pendientes y resultados listos para revisar mediante vistas del mismo registro. Permitir que colaboradores humanos y sus agentes participen desde sus propios equipos sin depender de mis cuentas personales ni heredar permisos sobre secretos, integración o recursos privilegiados. El espacio individual de un mantenedor no debe impedir revisar los cambios que proponga al proyecto.
 
+    * 6.47.a. Dashboard Web (propuesta futura):  Podriamos añadir como parte del diseño propuesto; que Fabrewk funcione también bajo un paradigma cliente/servidor, pero en este caso al estilo X-Windows, me explico:  Cada equipo en su repo local con Fabrewk integrado, fungirían como "clientes" exportando o publicando su propio trabajo local o dominio explícito (las apps en X-Windows), cada instancia física de Fabrewk declararía en sus settings (siempre preservando el objetivo de seguridad descrito) a un server central (el servidor en X) que se diseñaría después (decidir si sería otro repo o integrarlo al mismo) instalado en el mismo equipo u otro en red como una imagen docker de servicio, y exponga un web-dashboard (como Pullboard) de monitoreo, supervición y administración remota limitada, me explico: Proyectos punteros en la orquestación de agentes como Pullboard (un tablero de trabajo de prioridad local-first que organiza flujos autónomos de desarrollo y revisión por pares) resuelven la descentralización de repositorios y la compatibilidad multi-arquitectura delegando el control en Git y en abstracciones de ejecución virtualizadas.  Cuando una base de código "vive" en diferentes máquinas de un equipo humano con arquitecturas heterogéneas (por ejemplo, un desarrollador en un Mac M1 con ARM64, otro en Windows x86_64, etc...), el motor orquestador no intenta sincronizar la memoria volátil de los agentes por la red. En su lugar, utiliza una combinación de cuatro pilares de diseño:
+
+        * Git como la "Única Fuente de Verdad" (Single Source of Truth): En lugar de crear un servidor centralizado complejo que mueva archivos entre equipos, herramientas como Pullboard utilizan el propio repositorio Git como el bus de datos y sincronización asíncrona.
+            * Aislamiento en Carriles (Git Worktrees / Branches): Cuando un agente reclama una tarea (revisar como lo hace pullboard next), el motor local crea un Git Worktree aislado. Esto significa que el agente trabaja en una rama de características independiente, evitando colisiones con humanos u otros agentes en paralelo.
+            * Sincronización mediante el Repositorio Central: Si el Agente Programador está corriendo en el equipo de Juan (Windows) y el Agente Revisor corre en el equipo de Xel (Mac), la comunicación "física" ocurre cuando el primer agente hace un git push de su commit a una rama remota. El orquestador en el otro equipo detecta el cambio, levanta al Agente Revisor y este valida el commit exacto.
+        
+        * Contenedores y WASM para la Multi-Arquitectura Pasiva: Para garantizar que las tareas de los agentes (compilar, ejecutar pruebas de integración, linters) funcionen exactamente igual en cualquier máquina del equipo sin importar su sistema operativo, el motor core utiliza abstracciones de infraestructura:
+            * Imágenes Multi-Plataforma (Multi-arch Docker): El motor core invoca contenedores configurados bajo emulación o compilación nativa (ej. Buildx), asegurando que las herramientas del agente corran en un entorno Linux aislado e idéntico sin importar el host.
+            * WebAssembly (WASM) Runtimes: Para tareas ultraligeras, los motores modernos compilan herramientas de análisis de código (como los Parsers de AST) a WASM. WASM corre de forma nativa a velocidad binaria idéntica en Windows, Mac o Linux sin necesidad de modificar una sola línea de código.
+
+        * El Patrón "Blackboard" (Pizarra Colectiva Local): La gran innovación de herramientas modernas es cómo gestionan el contexto de los agentes sin saturar la red.
+            * Cada máquina del equipo mantiene su propia base de datos vectorial local (embebida en el repositorio, usualmente ignorada en el .gitignore o sincronizada eficientemente en directorios .pullboard o .kilo o nuestro ya definido brewstillery).
+            * Cuando un desarrollador hace un git pull de los cambios generados por un agente en otro equipo, el File Watcher del motor local detecta los archivos nuevos o modificados y re-indexa vectorialmente el código de inmediato en local. De este modo, la "memoria semántica" del agente se reconstruye bajo demanda en cada máquina usando los recursos de hardware del host, en lugar de mover bases de datos vectoriales gigantescas por la red.
+
+        * Inyección de Contexto Estructurado (brewstillery/alambique.md): Para alinear la arquitectura y las reglas de diseño entre múltiples repositorios o máquinas, se implementa una jerarquía de especificaciones en texto plano (Markdown) que viaja dentro del propio Git:
+            * alambique.md a nivel de proyecto: Define los estándares de código, las reglas del equipo, la arquitectura esperada y la definición de "Listo/Done". Cualquier agente en cualquier máquina leerá este archivo como su instrucción base.
+            * Configuraciones locales (brewstillery/settings.toml): Almacenan las credenciales de API (ej. claves de OpenAI/Anthropic), las rutas a los binarios locales y las configuraciones específicas del hardware de esa máquina en particular.
+
+        En resumen: Proyectos como Pullboard demuestran que para coordinar multi-agentes en equipos distribuidos y multi-arquitectura, no necesitamos reinventar la infraestructura de red; solo debemos usar Git como la base de datos de estado, contenedores ligeros para la ejecución y nuestro sistema de Alambiques como el sistema de configuración compartida.
+
 ### Piloto (6.48)
 
 **6.48. Evaluación mediante un piloto acotado:** Antes de que un proyecto dependa de Fabrewk, demostrar un ciclo completo de especificación, implementación, revisión entre proveedores, verificación y aceptación humana. Compararlo con el flujo actual sobre una tarea fija, mediante calidad, intervenciones humanas, retrabajo, tiempo y consumo observable. Acordar previamente presupuesto y criterios. Incluir interrupciones, conflictos y evidencia inválida para comprobar que el sistema también rechaza avances incorrectos. Si se incorporan roles de mantenedores, probar que editar preferencias personales o presentar un PR no permite elevar permisos.
@@ -275,13 +295,94 @@ Estas referencias complementan lo anterior. Su inclusión no constituye una deci
 8.1.a PENDIENTE: Auditar `~/Dev/tmp` (1.8 GB). Esta carpeta no debe existir. La regla que de aquí sale para Fabrewk está en el punto 6.4.
 8.1.b Respaldo de configuración previo a la consolidación: `~/.local/state/config-backups/20261102-192449/`.
 
-8.2 PROPUESTA (modificación/adición):   Creo que deberiamos trabajar con el mismo esquema híbrido propuesto en TickBrew:  Escribir nuestro Core o Nucleo en Rust (Encargado de la orquestación pesada. control de los Sandboxes (Docker/WASM API, no se que mas hayas planteado en el diseño), la indexación rápida de archivos que tanto estabamos proponiendo, la base de datos vectorial local (ej. embebiendo LanceDB o DuckDB o SQLite que habia sido el único propuesto), bus de eventos de comunicación o cualquier otro elemento que tengas planeado en el diseño, ver 8.3), y dejar una capa Modular para allí si diseñar extensiones de función en Python / TypeScript u algún otro lenguaje que nos beneficie: El Nucleo así expone una API local (vía gRPC o JSON-RPC sobre WebSockets o lo que mejor propongas para nuestro diseño) o un SDK ligero. Así podemos añadir la modularidad deseada para escribir cualquier extención o herramientas en Python, integrar muchas ya existentes e interactuar con el arnés robusto mediante comandos sencillos como en TickBrew.
+8.2 PROPUESTA Arquitectura Híbrida (modificación/adición):   Nuestro esquema de diseño debe ser hibrido para aprovechar lo mejor de diferntes mundos, algunos puntos necesitan nuevo analisis y evaluar si conviene o no integrarlos al alambique de Fabrewk:
 
-8.3 PROPUESTA (adición):  Podriamos añadir como parte del diseño propuesto; que Fabrewk funcione también bajo un paradigma cliente/servidor, pero en este caso al estilo X-Windows, me explico:  Cada equipo con su repo local y Fabrewk integrado a este fungirían como "clientes" exportando o publicando su propio trabajo local o dominio (las apps en X-Windows), cada instancia física de Fabrewk declararía en sus settings (siempre preservando el objetivo de seguridad descrito) a un server central (el servidor en X) que podriamos diseñar después (decidir si sería otro repo o integrarlo al mismo) que se instale como una imagen docker de servicio y exponga un web-dashboard de monitoreo y/o administración centralizado (como lo hace Pullboard), con la capacidad de ver a uno o cualquier "cliente" firmados a dicha central administrativa.  Creo que esto es lo único que nos faltaría para hacer de Fabrewk una propuesta mucho mas robusta y competitiva con los proyectos a los que nos comparamos, seguiría preservando la capacidad siempre modular (seguimos con el paradigma UNIX) de poder funcionar independiente a un solo equipo repo local o integrarse y ser  coordinado su flujo de trabajo entre muchas otras instancias "Fabrewk" (esto ayudaría mucho a proyectos que requieran portabildiad entre plataformas, como pedimos en TickBrew).
+    8.2.a. Nucleo en Rust: Lo mas pequeño posible encargado de la orquestación pesada, usando la ventaja de un solo programa por plataforma, sin intérprete, lo que facilita nuestro objetivo de instalación sencilla y la portabilidad a macOS y Windows (punto 6.46). Debe seguir siendo lo mas pequeño y sencillo posible, evaluar que conviene que integre internamente fuera de las extenciones que se pudieran escribir o llamar en otros lenguajes. Algunos elementos que pueden verse embedidos en el núcleo:
 
-8.4 Derivado de los puntos 8.2 y 8.3 en este alambique, contestame cual es tu opinión, aporte, críticas, si mis puntos anteriores fueron suficientemente claros o deja abiertas amiguedades para el diseño y si estas de acuerdo en la mayoría de estas modificaciones/adiciones, me presentes tus propuestas de mejoras para clarificar este alambique antes de continuar.
+        a. Control del sandboxing (me parece has escogido bubblewrap en linux, pero no hemos probado que usar o hacer con windows, macos, etc., y embeber esta función quizas nos ayude a esto..)
 
+        b. Base de datos vectorial:  Para entender por qué el Nucleo necesita su propia base de datos vectorial local (Embedded Vector DB), debemos analizar cómo procesa la información un sistema multi-agente guiado por IA.  Cuando un humano programa, usa su memoria de corto plazo y su capacidad de navegación visual. Un agente de IA no tiene ojos; tiene una ventana de contexto (Context Window) medida en tokens. Si le envías todo el código fuente de un proyecto mediano en cada prompt, agotarás su memoria, romperás su capacidad de razonamiento y tu factura de API de LLM será astronómica.  Aquí es donde entra la base de datos vectorial a mi juicio y no se porque no la analizaste o la propusiste, de forma local en cada host como el componente clave del núcleo:   La razón principal es el concepto de RAG (Retrieval-Augmented Generation) en tiempo real para código. La base de datos vectorial actúa como la Memoria de Largo Plazo de Alta Velocidad del arnés.
 
+            b1. Búsqueda Semántica sobre Sintáctica (El enfoque Vectorial): Si un agente necesita arreglar un fallo en el sistema de autenticación, la búsqueda tradicional de texto (grep o Ctrl+F) solo encontrará archivos que contengan explícitamente la palabra "auth".
+            * Una base de datos vectorial convierte el código en embeddings (vectores matemáticos).
+            * Si el agente busca "¿Dónde se validan los permisos de usuario?", la base de datos vectorial entenderá la intención semántica y le devolverá funciones llamadas checkToken(), verifyRole(), o middleware/guard.go, aunque ninguna contenga la palabra "permiso".
+
+            b2. Latencia de Microsegundos (El enfoque Local / Embebido): Los agentes multi-agente operan en bucles rápidos (Loops de Pensamiento-Acción). Si la base de datos vectorial estuviera en la nube (como Pinecone o Milvus Cloud):
+            * Cada vez que un agente modifica una línea de código, el arnés tendría que enviar el archivo por la red, esperar el embedding, actualizar la nube y esperar la confirmación. Esto destruye el rendimiento.
+            * Herramientas locales como LanceDB o DuckDB (con extensiones vectoriales) corren in-process (dentro del mismo binario de Rust). Leen y escriben directamente en el disco duro o en la memoria RAM del desarrollador a velocidades nativas de hardware.  Tienes que evaluar que nos puede ser últil para el diseño.
+
+            b3. Privacidad Absoluta (Crítico para FOSS y Empresas): Al ser un proyecto de Software Libre (FOSS), muchos desarrolladores y empresas querrán usar Fabrewk en código propietario o proyectos confidenciales. Obligarlos a enviar los vectores de su código a un servicio externo es un freno total para la adopción. Al mantener la base de datos vectorial local y embebida, el código nunca sale de la máquina del usuario.
+
+        El Rol de la Base de Datos en la Arquitectura del Motor Rust no solo almacena los vectores, sino que implementa un ciclo continuo de sincronización. Para este nucleo, no necesitamos instalar un servidor de base de datos complejo (como PostgreSQL o Redis) en la máquina host. Buscariamos librerías embebidas (que se compilan dentro del propio binario):
+        * LanceDB: Escrita en Rust. Es actualmente el estándar de oro para RAG local de código. Es increíblemente rápida, almacena los datos en formato de archivos nativos muy eficientes y se integra perfectamente con Rust y Python.
+        * DuckDB (con extensión vectorial): Excelente si el core va a ser en Rust y quieremos, además de vectores, hacer consultas relacionales (SQL) complejas sobre los metadatos de Fabrewk.
+        Al integrar esto de forma nativa en el Nucleo, le daríamos a los agentes la capacidad de "recordar" e indexar bases de código de millones de líneas en cuestión de milisegundos y sin coste operativo.
+
+    8.2.b. Intercomunicación:  Una capa sencilla entre el nucleo y la extensibildad, puede ser una API local (vía gRPC, JSON-RPC sobrew WebSockets, etc).  Tu propuesta es lógica de empezar por lo más simple y más UNIX: el comando `fabrewk`, con una salida estructurada y estable, es el contrato, y cada extensión es un programa aparte que habla con él por la entrada y la salida estándar, como Git con sus subcomandos. Así sirve cualquier lenguaje, sin un servicio siempre encendido ni puertos abiertos. Un servicio con gRPC o WebSockets solo haría falta cuando se implemente 8.3.
+
+    8.2.c. Extensibilidad:  Módulos de función sobre el nucleo a través de lo dispuesto por 8.2.b para extender capacidades mediante Python, TypeScript, etc.
+
+    8.2.d. Sobre elementos no mencionados en el alambique ni propuestos en el diseño original:
+        - Base de datos vectorial:  De lo poco que investigué por mi cuenta,  
+
+8.4 PROPUESTA Gobernanza / multi-mantenedores (modificación/mejora):  La gestión de la gobernanza, los roles y la coordinación entre múltiples mantenedores humanos en plataformas modernas de desarrollo agéntico como Pullboard y Kilo Code cambia radicalmente en comparación con el desarrollo tradicional. En estos entornos, los mantenedores humanos ya no son únicamente programadores individuales; operan como "Directores de Orquesta" y "Auditores de Calidad" (maestros). Su trabajo consiste en definir las reglas de juego (aportar "fermento" para destilar en "alambique"), aprobar especificaciones y revisar las verificaciones automatizadas que hacen los agentes.  La coordinación entre múltiples mantenedores y la asignación de sus roles en un mismo repositorio se podrian manejar a través de los siguientes mecanismos clave:
+
+    8.4.1. Gobernanza Asíncrona basada en Archivos de Doctrina (Doctrine files): Muchos proyectos como Pullboard guardan las reglas de los roles y el comportamiento del proyecto en texto plano dentro de la raíz del repositorio (DOCTRINE.md o archivos de especificación .pullboard/).  Nosotros debemos pulir nuestro esquema de analogía dentro de "brewstillery", propongo lo siguiente:
+        * Definir a los mantenedores:  Dejar de usar directorios por mantenedor y solo definirlos en settings.toml por su firma GIT, agregarles su flag de rol o permisos por definir.
+        * Definir a los agentes y sus roles:  Esto puede ser definido también en settings.toml o en ALAMBIQUE.md en su sección primaria o de doctrina del proyecto.  Modelos y esfuerzo a veces tienen que ser "calibrados" por los mismos agentes para poder recomendarlo según roles especificos a cada proyecto, por eso mi postura sería que ALAMBIQUE.md los defina.
+        * Definición del "Bar" (El Estándar): Nuestro archivo ALAMBIQUE.md debe ser autorizado solo por los "maestros", esté debe contener en su primera sección la doctina del proyecto.
+        * Control por Git: Cualquier cambio en las reglas de coordinación o en los roles de los agentes requiere un Pull Request firmado por un mantenedor humano y aprobado por sus pares. El historial de Git actúa como la auditoría inmutable de quién configuró a los agentes. Esto ya lo hacemos.
+
+    8.4.2. El Flujo de Trabajo Basado en Especificaciones Aprobadas (Spec-driven Coordination):  Para evitar el caos cuando múltiples mantenedores solicitan tareas en paralelo, el arnés implementa una cola de coordinación local llamada Spec Rows, este podria ser un nuevo tipo de archivo llamado "fermento.md", que podría recibir la función de recibir ideas, propuestas de modificación, adición, remoción, etc, sin tocar ALAMBIQUE.md dejandolo solo como autoridad única al proyecto. (El "alambique" recibe el "fermento" a destilar...)
+
+        * Un mantenedor junior o un "maestro" puede proponer un requerimiento redactando una fila en fermento.md
+
+        * Sin embargo, un agente programador tiene prohibido tocar esa tarea hasta que un mantenedor "maestro" marque esa especificación como [Approved]. Esto evita conflictos de interés y asegura que los agentes solo gasten tokens en prioridades validadas por los líderes del proyecto o maestros.  Hay que idear como lo hacen los meta-harness que hemos analizado.
+
+    8.4.3. Separación de Responsabilidades por Carriles (Path Ownership & Worktrees):  Cuando múltiples mantenedores lanzan flotas de agentes a trabajar en el mismo repositorio, la posibilidad de generar conflictos de fusión (merge conflicts) destructivos es altísima. El meta-arnés lo resuelve de manera matemática:
+
+        * Git Worktrees Independientes: El arnés aísla la ejecución de cada agente en un Worktree separado (una carpeta física distinta vinculada al mismo repositorio git).
+
+        * Propiedad de Rutas (Path Ownership): La doctrina del proyecto puede mapear qué agentes o qué submódulos pertenecen a qué mantenedor humano. Si un agente intenta modificar un archivo controlado por el "Mantenedor A", el arnés bloqueará la acción o requerirá la firma digital de ese mantenedor específico.
+
+    8.4.4. Verificación Cruzada Independiente (Independent Verification):   Pullboard hace algo así, no digo que lo implementemos pero puede ser considerado en el diseño donde el flujo nativo de Pullboard dicta que un cambio propuesto por un agente asignado a un mantenedor no puede integrarse directamente:
+
+        *a. El Agente Programador hace un commit en su carril aislado.
+
+        *b. El arnés despierta automáticamente a un Agente Verificador (un modelo o rol totalmente diferente).
+
+        *c. El verificador audita el commit de forma destructiva en su propio sandbox (ejecuta pruebas de estrés, busca vulnerabilidades).
+
+        *d. Si la verificación arroja luz verde, el commit sube a la cola para la revisión final del Mantenedor Humano.
+
+    8.4.5. Matriz de Roles Humanos en el Meta-Arnés Agéntico: Propuestos para Fabrewk:
+        * Maestro:  Sus alcances en el repositorio serían las de definir la arquitectura base, dependencias clave y la dirección del software y sus permisos en Fabrewk serían cuasi totales como modificar el ALAMBIQUE.md y el contenido en settings.toml.
+
+        * Supervisor: Sus alcances en el repo serían las de supervisar módulos específicos del código, revisar Pull Requests y sus permisos en el Fabrewk serían autorizar tareas/ideas formadas en fermento.md para ser integradas a ALAMBIQUE.md.  En proyectos como Pullboard usualmente decide también que rama de agentes se fusiona y valida el reporte del agente verificador (esto me parece no lo tenemos o no está en nuestro diseño).
+
+        * Contibutor: Describe bugs, propone refactorizaciones o lógica de negocio y sus permisos en Fabrewk serían añadir líneas a la cola de fermento.md que se marcarían como en estado Pendiente para aprobación y/o integración al ALAMBIQUE.md, pero no puede activar los agentes autónomos de forma directa.  (Practicamente solo propone issues o feature requests).
+
+    En otros meta-harness, los roles de usuarios o mantenedores usualmente están declarados en lugares del tipo (.harness/policy.yaml). Nosotros podemos usar settings.toml o declararlos en un archivo independiente dentro de "brewstillery" llamado por ejemplo mantainers.md.  Este archivo debe permitir mapear los nombres de usuario de GitHub/GitLab con sus niveles de acceso dentro del Fabrewk, dictando reglas como:
+
+        * "Los contribuidores solo pueden disparar agentes en modo lectura (--dry-run)."
+
+        * "El Agente de Integración solo acepta tareas firmadas criptográficamente por un Mantenedor con rol de Supervisor o Maestro."
+
+8.4 PROPUESTA (modificación/mejora):  Creo que nuestro esquema de usar `brewstillery/<alias>/alambique.md` es muy compleja para un sistema de arnés para desarrollo basada en repositorios replicables por GIT (como autoridad central).  Para que reinventar la rueda, proyectos como Pullboard usan el directorio oculto pero replicable por GIT y nosotros podriamos hacerlo similar:
+
+    8.4.a. Dominio replicable (GIT) dentro del repo: `.brewstillery/` conteniendo los archivos:
+
+        * settings.toml: El archivo de ajustes para Fabrewk que defina el comportamiento del meta-harness para con el proyecto, ver propuestas arriba.
+
+        * mantainers.md: Ver propuestas arriba.
+
+        * STATUS.md: El ancla de Fabrewk, el archivo que todo agente debería leer para entender que fue lo último que organizo el meta-arnés.
+
+        * ALAMBIQUE.md:  Archivo puro markdown, no debería contener nada mas (sin secciones) que el texto descriptivo puro y duro del proyecto.  Lo modifican los "maestros" con ayuda de los agentes para mantener coherencia y claridad para el desarrollo.
+
+        * fermento.md:  Este archivo tomaría la atribución de lectura/escritura por mantenedores y agentes que le estamos dando a ALAMBIQUE.md, cada numeral/bullet/punto prpuesto debe ir firmado por su mantenedor para poder mapear los permisos diseñados.
+
+NOTA:  Toma todos los puntos de la sección 8 como propuestas para discución y mejora del diseño actual, no son cánon aprobado del Alambique, justo por eso algunas de ellas plantean modificar el diseño hasta de como estamos usando este canal de comunicación y evidencia de Verdad para proyectos.
 
 
 ################################################################################
