@@ -6,13 +6,15 @@ view generated from that registry. Technical files are in English by default (D-
 ## Current state
 
 **Phases 0 to 6 are closed (D-037, D-040). Phase 7 (the first code) is split into parts 7a, 7b, 7c1, 7c2a, 7c2b
-and 7d (D-041, D-047, D-048, D-050); parts 7a (R-023), 7b, the record (R-024), and 7c1, settings and policy (R-025),
-and 7c2a, signatures and identity (R-026), are closed; 7c2b, the machine and the domain, is next.** The repository now holds the first code at its root: a Cargo workspace with one crate per ring
+and 7d (D-041, D-047, D-048, D-050); parts 7a (R-023), 7b, the record (R-024), 7c1, settings and policy (R-025),
+7c2a, signatures and identity (R-026), and 7c2b, the machine and the domain (R-027), are closed; 7d, the transition
+table, the commands and `check`, is next.** The repository now holds the first code at its root: a Cargo workspace with one crate per ring
 (`crates/core`, `crates/fabrewk`, a binary that only answers `--version`) and the size counter `tools/budget`, the
 licence files, `deny.toml` and a root `.gitignore` with `/target`. The size budget is frozen (D-042). The record is
 built as a library in `crates/core/src/record/`, the settings in `crates/core/src/settings/`, identity in
-`crates/core/src/identity.rs` and the private folder in `machine.rs` (the core counts 2,390 of 4,000 lines, formatted
-at width 120, D-049); no command uses them yet and no `data/` exists in this repository. The domain is `.brewstillery/`, hidden (D-032).
+`crates/core/src/identity.rs`, the private folder and the machine file in `machine.rs`, detection and profiles in
+`detect.rs` and the domain's layout in `domain.rs` (the core counts 2,751 of 4,000 lines, formatted at width 120,
+D-049); no command uses them yet and no `data/` exists in this repository. The domain is `.brewstillery/`, hidden (D-032).
 
 ## Read first
 
@@ -150,18 +152,29 @@ repository, is imported into the single registry at production and then stays re
   with its fingerprint (`machine.rs`). Codex accepted at its second pass (confirmed blocking 1, 0). Mutation: caught
   but one declared equivalent. Clean clone: 159 tests and the crash suite green, musl build, `budget check`, clippy,
   fmt, `cargo deny` clean.
-- **Next: part 7c2b (plan, "Phase 7").** The machine and the domain: `machine.toml` read at its level, its values
-  shown as `declared` (REQ-SET-1, REQ-SET-7); detection of `git`, `ssh-keygen`, `bwrap` and every catalogued tool with
-  versions, kept by write commands in `local/cache/detected.json`, each value observed, verified by use or declared,
-  and the effective set permitted and present (REQ-SET-8); the validation of profiles (REQ-SET-9, refused before any
-  dispatch); and on fixture records REQ-DOM-2 (`DOMAIN_UNKNOWN_ENTRY`, `ALIAS_INVALID` for a directory), REQ-DOM-4
-  (`GITIGNORE_CHANGED`), REQ-DOM-5 (the local area; the cache rebuilt by write commands, absent after reading ones)
-  and REQ-DOM-7 (`publication-decided`'s payload, `DOMAIN_NOT_IGNORED` with `git check-ignore`). `machine.rs` already
-  gives the private folder. Open for 7c2b: which code refuses an invalid profile other than `TOOL_MISSING` (11.4 has
-  no row for it), and how the core, which names no tool, learns a catalogued tool's executable and version flag.
-- **Start prompt:** `Eres el integrador de Fabrewk; fase 7, parte 7c2b: archivo de máquina, detección, perfiles y
-  dominio; empieza por .brewstillery/STATUS.md`. Model and effort: Claude Code on Opus 5.5, effort high; Codex GPT-6.1
-  Sol, effort high, reviews each part that delivers code (plan row 7).
+- **Part 7c2b closed (session 19, D-051, D-052, R-027).** Before any code the maestro decided that an invalid
+  profile is `SETTINGS_INVALID` (an absent tool `TOOL_MISSING`), that the core learns a program's executable and
+  version arguments through a contract each built-in module fulfils (fake modules until phase 9), and the scope.
+  7c2b delivers `machine.toml` read from the private folder and shown as declared; detection in memory at every start,
+  in three spaces apart (programs, catalogued tools, required tools); `local/cache/detected.json`, written only by
+  write commands, carrying only "verified by use"; the effective tools; `check_profile`; the domain's layout
+  (`DOMAIN_UNKNOWN_ENTRY`, `ALIAS_INVALID`; `bootstrap/` is an unknown entry, a warning); the exact `.gitignore`
+  (`GITIGNORE_CHANGED`); `publication-decided`'s payload (`mode`, `warningShown`); `DOMAIN_NOT_IGNORED` with `git
+  check-ignore` at the product's root. After Codex's first pass the maestro chose `sh`'s `test -x` to tell whether a
+  file is executable (D-052). Codex accepted at its second pass (confirmed blocking 4, 0). Mutation: caught but two
+  declared equivalents. Clean clone: 172 tests and the crash suite green, musl build, `budget check`, clippy, fmt,
+  `cargo deny` clean.
+- **Next: part 7d (plan, "Phase 7").** The transition table, the command surface, the message catalogue and `check`:
+  TASK (but TASK-5 and TASK-6), CLI, VIEW-4, SEC-3 at `check`, SEC-5; `RECORD_TRANSITION_INVALID`, the stage and task
+  payloads and the record's refusal tests through the command line (D-047); PD-15, PD-17, PD-24, PD-30 to PD-32, PD-34
+  to PD-38. The libraries of 7b to 7c2b are ready to be wired: every write command's guards (`DOMAIN_NOT_IGNORED` in
+  `own-repository` and `unpublished`, the machine key, the cache: the mark, `allowed_signers`, `detected.json`),
+  `config`'s sources (`declared`, detection with how and when; a value that follows another key should say which,
+  R-025) and `check`'s C1 to C12. It is the largest part left, and the core has 1,249 lines left of its 4,000 for 7d,
+  phase 8 and the core's part of phase 9: the cut of 7d and the size are the first things to show the maestro.
+- **Start prompt:** `Eres el integrador de Fabrewk; fase 7, parte 7d: tabla de transiciones, comandos, catálogo de
+  mensajes y check; empieza por .brewstillery/STATUS.md`. Model and effort: Claude Code on Opus 5.5, effort high;
+  Codex GPT-6.1 Sol, effort high, reviews each part that delivers code (plan row 7).
 
 Carried without blocking, with destinations, in D-013. A phase that does not pass is corrected and retried; it
 never ends the project (D-003).

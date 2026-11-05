@@ -2123,3 +2123,62 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Sources: chat of session 19; Codex's first pass of 7c2b (P7C2B-3); AD-4 ("External tools the core calls"); D-036;
   the workspace's `unsafe_code = "forbid"`; D-051.
 - Supersedes: none.
+
+## R-027 — Session 19, part 7c2b: the machine and the domain
+
+- Status: recorded
+- Date: 2026-11-05
+- Who: integrator Claude Code, `claude-opus-5-5`. Reviewer: Codex `codex-cli 0.166.0`, `gpt-6.1-sol`, effort high,
+  launched with `codex exec --json`, standard input closed, sandbox `workspace-write`, no network, in a user systemd
+  scope capped at 3 GB, in a disposable clone under `target/` with a copy of the Cargo registry (35 MB). No subagent.
+- Start: HEAD `390ae12`, tree clean. The fermento was not swept: its answer has no current recommendation and the
+  maestro added no input.
+- Read: `STATUS.md`, `AGENTS.md`, `plan.md`, this file (D-047 to D-050, R-024 to R-026), `core-specification.md`
+  (sections 2 DOM, SET, ID, RUN-1 and RUN-2, INS, SEC and EXT, 3, 6 to 9, 11.4's rows for 7c2b, 12 DOM, REG and SET,
+  13), `architecture-decisions.md` AD-2 ("Present, apart from permitted", the catalogue), AD-4 (external tools), AD-5
+  (the rings) and AD-15, the code of the record, the settings, identity and the machine, and their test fixtures.
+- Decided before any code (D-051): an invalid profile is `SETTINGS_INVALID`; the contract the modules fulfil for
+  detection; the scope and what is deferred. After the first review (D-052): `sh`'s `test -x`. No network was needed.
+- Written: `crates/core/src/detect.rs` (the contract `Program`, the core's programs, detection in three spaces, the
+  cache `local/cache/detected.json` and "verified by use", the effective tools, `check_profile`),
+  `crates/core/src/domain.rs` (the layout, `.gitignore`, the publication mode, `check_ignored`, `exclude_domain`),
+  `machine_file` in `machine.rs`, `publication-decided`'s payload in `event.rs`, `ignores` and `exclude_file` in
+  `git.rs`, `Type::Path`, `Source::Declared` and `effective`'s machine file in the settings, three codes; tests in
+  `crates/core/tests/machine.rs` and `crates/core/tests/domain.rs`, fixtures adjusted for the payload.
+  `core-specification.md` (REQ-SET-9's code; the paragraphs "The domain, as part 7c2b fixed it" in section 2 and
+  "Detection, as part 7c2b fixed it" in section 8; `publication-decided`'s payload in section 3; 11.4's
+  `ALIAS_INVALID`), `plan.md`, `STATUS.md`, this entry.
+- Interpretations, given to the review and not re-opened by it: the core's `git` and `ssh-keygen` are found in `PATH`
+  only, and `ssh-keygen` has no version; a required tool is looked for by its own name; a declared path is absolute
+  and replaces the search; a version is the first line of standard output when its arguments exit 0; the cache
+  carries only "verified by use", kept while path and version are equal, and a cache that does not read is none; the
+  effective set is the catalogued tools present; a listed name of the wrong kind, and any link, at the domain's top is
+  an unknown entry; `check_ignored` first requires the domain's parent to be the root of the product's main working
+  tree; `warningShown` is not tied to the mode here (`apply`'s, phase 10).
+- Found by the integrator: the fixtures under `target/` lie inside this repository, which ignores them, so a domain
+  outside any repository read as ignored; corrected before the review by requiring the product's root. During the
+  first review, the shared space of programs and tools (Codex found it too, P7C2B-1).
+- Codex, two passes: pass 1 (`21f068b`): reject, 4 blocking (P7C2B-1 a core program found as a catalogued tool of
+  its name; P7C2B-2 a catalogued tool hiding a required tool of its name; P7C2B-3 any execute bit taken as
+  executable, a file of mode `0601` present; P7C2B-4 two paths that are not UTF-8 read the same and shared a
+  verification). Pass 2 (`82f6980`): **accept**, the four closed, no new finding. Confirmed blocking findings by
+  pass: 4, 0. Codex ran no command outside its clone.
+- Mutation (`cargo mutants`, rustup 1.99.1, `-j 2`, in its own scope as R-022 says, `TMPDIR` under `target/`): the
+  new code and the changed functions, 122 mutants: 8 missed, each killed by a test or by simpler code (a version
+  that fails printing something, a name that is not UTF-8, the mode `published`, a missing or unreadable exclude
+  file) and re-run (44 mutants, all caught or unviable); `detect.rs` after the first review, 54 mutants: caught but
+  two declared equivalents, `&` → `|` and `&` → `^` in `is_executable` (the bits' pre-check only spares a process:
+  `test -x` refuses a file with no execute bit either way).
+- Clean clone of `82f6980`, rustup 1.99.1: 172 tests green, and the crash suite (3 tests) with `--features
+  fault-injection`; the musl release build; `budget check --binary` exits 0: core 2,751 of 4,000 counted lines in 21
+  files, 3 direct runtime crates, 30 crates in the release build, the binary 397,600 bytes (the binary does not use
+  the core yet); `clippy --workspace --all-targets -D warnings` with and without the feature, `fmt --check`, `cargo
+  deny --offline check licenses advisories` clean.
+- Residuals, not blocking: a program whose version arguments never end blocks detection (no time limit yet; the
+  adapters of phase 9 should bound it); "verified by use" in the cache is cooperative, since the same user can edit
+  it; a test writes a fake program and runs it at once, which a fork in another test thread could make fail with
+  `ETXTBSY` (not seen).
+- Size: the core grew from 2,390 to 2,751 counted lines. 7d (the transition table, the command surface, the
+  catalogue, `check`), phase 8 (the fermentos and views) and the core's part of phase 9 (RUN, GATE) remain inside the
+  same 4,000.
+- Not done: part 7d.
