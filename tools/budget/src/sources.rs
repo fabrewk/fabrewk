@@ -14,10 +14,7 @@ use std::path::PathBuf;
 /// holds a space therefore cannot be checked: a false positive D-044 accepts.
 pub fn parse_dep_info(text: &str) -> Result<Vec<PathBuf>, String> {
     if text.contains('\\') {
-        return Err(
-            "dep-info with a backslash; a path with a space or a backslash cannot be read safely"
-                .to_string(),
-        );
+        return Err("dep-info with a backslash; a path with a space or a backslash cannot be read safely".to_string());
     }
     let mut lines = text.lines().filter(|l| !l.trim().is_empty());
     let line = lines.next().ok_or("empty dep-info")?;
@@ -54,12 +51,6 @@ pub fn parse_dep_info(text: &str) -> Result<Vec<PathBuf>, String> {
 
 /// The compiled files neither counted nor named as data, canonical.
 pub fn unaccounted(deps: &[PathBuf], counts: &[RingCount]) -> Vec<PathBuf> {
-    let known: BTreeSet<&PathBuf> = counts
-        .iter()
-        .flat_map(|c| c.sources.iter().chain(&c.data))
-        .collect();
-    deps.iter()
-        .map(|d| canonical(d))
-        .filter(|d| !known.contains(d))
-        .collect()
+    let known: BTreeSet<&PathBuf> = counts.iter().flat_map(|c| c.sources.iter().chain(&c.data)).collect();
+    deps.iter().map(|d| canonical(d)).filter(|d| !known.contains(d)).collect()
 }

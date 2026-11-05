@@ -10,8 +10,7 @@ mod policy;
 pub use keys::KEYS;
 pub use lang::{fallbacks, is_tag};
 pub use policy::{
-    Adoption, Change, Effect, Effective, Policy, Source, adopt, changes, effective, in_force,
-    lookup, pending, require,
+    Adoption, Change, Effect, Effective, Policy, Source, adopt, changes, effective, in_force, lookup, pending, require,
 };
 
 use crate::code::{Code, Error, io_at, refuse};
@@ -99,17 +98,8 @@ pub struct Settings {
 }
 
 /// Names an alias may not take (REQ-DOM-3); the list lives in the code, never in a settings file.
-pub const RESERVED: [&str; 9] = [
-    "ALAMBIQUE.md",
-    "STATUS.md",
-    "RULES.md",
-    "settings.toml",
-    ".gitignore",
-    "data",
-    "local",
-    "review",
-    "bootstrap",
-];
+pub const RESERVED: [&str; 9] =
+    ["ALAMBIQUE.md", "STATUS.md", "RULES.md", "settings.toml", ".gitignore", "data", "local", "review", "bootstrap"];
 
 /// Whether `s` may be an alias: REQ-DOM-3's pattern, at most 32 characters, not reserved.
 pub fn is_alias(s: &str) -> bool {
@@ -145,11 +135,7 @@ pub(crate) fn instances(key: &Key, tables: &BTreeMap<String, usize>) -> Vec<Stri
         return vec![key.path.to_owned()];
     };
     let named = |t: &&String| matches(table, &t.split('.').collect::<Vec<_>>());
-    tables
-        .keys()
-        .filter(named)
-        .map(|t| format!("{t}.{last}"))
-        .collect()
+    tables.keys().filter(named).map(|t| format!("{t}.{last}")).collect()
 }
 
 /// Reads and validates one file at `level`.
@@ -160,13 +146,8 @@ pub fn read(path: &Path, level: Level) -> Result<Settings, Vec<Error>> {
 /// Reads one file at `level`, giving its text with its settings.
 pub(crate) fn read_text(path: &Path, level: Level) -> Result<(String, Settings), Vec<Error>> {
     let bytes = std::fs::read(path).map_err(|e| vec![io_at(path)(e)])?;
-    let text = String::from_utf8(bytes).map_err(|_| {
-        vec![refuse(
-            Code::SettingsInvalid,
-            Some(path),
-            "line 1: not UTF-8",
-        )]
-    })?;
+    let text =
+        String::from_utf8(bytes).map_err(|_| vec![refuse(Code::SettingsInvalid, Some(path), "line 1: not UTF-8")])?;
     parse(path, &text, level).map(|s| (text, s))
 }
 
@@ -175,12 +156,7 @@ pub fn parse(path: &Path, text: &str, level: Level) -> Result<Settings, Vec<Erro
     let mut cx = Cx {
         path,
         text,
-        out: Settings {
-            path: path.to_path_buf(),
-            level,
-            values: BTreeMap::new(),
-            tables: BTreeMap::new(),
-        },
+        out: Settings { path: path.to_path_buf(), level, values: BTreeMap::new(), tables: BTreeMap::new() },
         errors: Vec::new(),
         seen: Default::default(),
     };
@@ -188,19 +164,11 @@ pub fn parse(path: &Path, text: &str, level: Level) -> Result<Settings, Vec<Erro
         Ok(doc) => cx.walk(doc.get_ref(), &mut Vec::new()),
         Err(e) => {
             let line = cx.line(e.span().map_or(0, |s| s.start));
-            return Err(vec![refuse(
-                Code::SettingsInvalid,
-                Some(path),
-                format!("line {line}: {}", e.message()),
-            )]);
+            return Err(vec![refuse(Code::SettingsInvalid, Some(path), format!("line {line}: {}", e.message()))]);
         }
     }
     cx.finish();
-    if cx.errors.is_empty() {
-        Ok(cx.out)
-    } else {
-        Err(cx.errors)
-    }
+    if cx.errors.is_empty() { Ok(cx.out) } else { Err(cx.errors) }
 }
 
 struct Cx<'a> {
@@ -213,19 +181,11 @@ struct Cx<'a> {
 
 impl Cx<'_> {
     fn line(&self, offset: usize) -> usize {
-        self.text.as_bytes()[..offset.min(self.text.len())]
-            .iter()
-            .filter(|b| **b == b'\n')
-            .count()
-            + 1
+        self.text.as_bytes()[..offset.min(self.text.len())].iter().filter(|b| **b == b'\n').count() + 1
     }
 
     fn err(&mut self, code: Code, key: &str, line: usize, why: &str) {
-        self.errors.push(refuse(
-            code,
-            Some(self.path),
-            format!("{key} (line {line}): {why}"),
-        ));
+        self.errors.push(refuse(code, Some(self.path), format!("{key} (line {line}): {why}")));
     }
 
     fn walk(&mut self, table: &DeTable, at: &mut Vec<String>) {
@@ -240,12 +200,7 @@ impl Cx<'_> {
                 let name = segs[segs.len() - 1];
                 if let DeValue::Table(inner) = v.get_ref() {
                     if named && segs[0] == "maintainers" && !is_alias(name) {
-                        self.err(
-                            Code::AliasInvalid,
-                            &path,
-                            line,
-                            "not a valid alias, or a reserved name",
-                        );
+                        self.err(Code::AliasInvalid, &path, line, "not a valid alias, or a reserved name");
                     } else if named && !crate::record::is_name(name) {
                         self.err(Code::SettingsInvalid, &path, line, "not a valid name");
                     } else {
@@ -273,9 +228,7 @@ impl Cx<'_> {
         }
         match convert(v).and_then(|value| admit(key.ty, &value).map(|()| value)) {
             Ok(value) => {
-                self.out
-                    .values
-                    .insert(path.to_owned(), Entry { value, line });
+                self.out.values.insert(path.to_owned(), Entry { value, line });
             }
             Err((code, why)) => self.err(code, path, line, why),
         }
@@ -283,10 +236,7 @@ impl Cx<'_> {
 
     fn finish(&mut self) {
         let level = self.out.level;
-        for key in KEYS
-            .iter()
-            .filter(|k| k.default == Def::Required && k.levels.contains(&level))
-        {
+        for key in KEYS.iter().filter(|k| k.default == Def::Required && k.levels.contains(&level)) {
             for path in instances(key, &self.out.tables) {
                 if !self.seen.contains(&path) {
                     let table = path.rsplit_once('.').map_or("", |t| t.0);
@@ -295,45 +245,19 @@ impl Cx<'_> {
                 }
             }
         }
-        let areas: Vec<(String, usize)> = self
-            .out
-            .values
-            .iter()
-            .filter(|(p, _)| p.ends_with(".area"))
-            .map(|(p, e)| (p.clone(), e.line))
-            .collect();
+        let areas: Vec<(String, usize)> =
+            self.out.values.iter().filter(|(p, _)| p.ends_with(".area")).map(|(p, e)| (p.clone(), e.line)).collect();
         for (path, line) in areas {
             let role = format!("{}.role", &path[..path.len() - 5]);
-            if self.out.values.get(&role).map(|e| &e.value) != Some(&Val::Str("supervisor".into()))
-            {
-                self.err(
-                    Code::SettingsInvalid,
-                    &path,
-                    line,
-                    "only a supervisor has an area",
-                );
+            if self.out.values.get(&role).map(|e| &e.value) != Some(&Val::Str("supervisor".into())) {
+                self.err(Code::SettingsInvalid, &path, line, "only a supervisor has an area");
             }
         }
         if level == Level::Personal {
-            let dir = self
-                .path
-                .parent()
-                .and_then(Path::file_name)
-                .and_then(|n| n.to_str())
-                .unwrap_or("");
-            if let Some(e) = self
-                .out
-                .values
-                .get("maintainer.alias")
-                .filter(|e| e.value != Val::Str(dir.into()))
-            {
+            let dir = self.path.parent().and_then(Path::file_name).and_then(|n| n.to_str()).unwrap_or("");
+            if let Some(e) = self.out.values.get("maintainer.alias").filter(|e| e.value != Val::Str(dir.into())) {
                 let line = e.line;
-                self.err(
-                    Code::AliasMismatch,
-                    "maintainer.alias",
-                    line,
-                    "differs from the directory's name",
-                );
+                self.err(Code::AliasMismatch, "maintainer.alias", line, "differs from the directory's name");
             }
         }
     }
@@ -344,15 +268,11 @@ pub(crate) fn convert(v: &DeValue) -> Result<Val, (Code, &'static str)> {
     let bad = (Code::SettingsInvalid, "wrong type");
     Ok(match v {
         DeValue::Boolean(b) => Val::Bool(*b),
-        DeValue::Integer(i) => {
-            Val::Int(i64::from_str_radix(i.as_str(), i.radix()).map_err(|_| bad)?)
-        }
+        DeValue::Integer(i) => Val::Int(i64::from_str_radix(i.as_str(), i.radix()).map_err(|_| bad)?),
         DeValue::String(s) => Val::Str(s.to_string()),
-        DeValue::Array(a) => Val::List(
-            a.iter()
-                .map(|v| v.get_ref().as_str().map(str::to_owned).ok_or(bad))
-                .collect::<Result<_, _>>()?,
-        ),
+        DeValue::Array(a) => {
+            Val::List(a.iter().map(|v| v.get_ref().as_str().map(str::to_owned).ok_or(bad)).collect::<Result<_, _>>()?)
+        }
         _ => return Err(bad),
     })
 }
@@ -363,11 +283,7 @@ pub(crate) fn admit(ty: Type, value: &Val) -> Result<(), (Code, &'static str)> {
         (Type::Str, Val::Str(_)) | (Type::Bool, Val::Bool(_)) | (Type::Strs, Val::List(_)) => true,
         (Type::Int, Val::Int(n)) => *n >= 0,
         (Type::Alias, Val::Str(s)) => {
-            return if is_alias(s) {
-                Ok(())
-            } else {
-                Err((Code::AliasInvalid, "not a valid alias"))
-            };
+            return if is_alias(s) { Ok(()) } else { Err((Code::AliasInvalid, "not a valid alias")) };
         }
         (Type::Command, Val::List(l)) => l.first().is_some_and(|c| !c.is_empty()),
         (Type::Tag, Val::Str(s)) => is_tag(s),
@@ -376,11 +292,7 @@ pub(crate) fn admit(ty: Type, value: &Val) -> Result<(), (Code, &'static str)> {
         (Type::Enum(set) | Type::Ordered(set), Val::Str(s)) => set.contains(&s.as_str()),
         _ => return Err((Code::SettingsInvalid, "wrong type")),
     };
-    if ok {
-        Ok(())
-    } else {
-        Err((Code::SettingsInvalid, "value outside the allowed set"))
-    }
+    if ok { Ok(()) } else { Err((Code::SettingsInvalid, "value outside the allowed set")) }
 }
 
 /// The SSH key types `ssh-keygen -Y` signs with (REQ-ID-5 reports which one a maintainer holds).
@@ -401,8 +313,7 @@ fn is_signer_key(s: &str) -> bool {
         return false;
     };
     let bytes = base64(blob).unwrap_or_default();
-    KEY_TYPES.contains(&ty)
-        && ssh_strings(&bytes).is_some_and(|s| s.first() == Some(&ty.as_bytes()))
+    KEY_TYPES.contains(&ty) && ssh_strings(&bytes).is_some_and(|s| s.first() == Some(&ty.as_bytes()))
 }
 
 /// The SSH strings (a 32-bit length, then the bytes) that make up `b` exactly; `None` if they do not.
@@ -453,8 +364,7 @@ mod tests {
     use super::*;
     use std::collections::BTreeMap;
 
-    const KEY: &str =
-        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIByTOVQl/Cf6KVagH6iburcFw5dfZyrrEe+CbRpOAb6Y ana";
+    const KEY: &str = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIByTOVQl/Cf6KVagH6iburcFw5dfZyrrEe+CbRpOAb6Y ana";
 
     fn at(level: Level) -> PathBuf {
         match level {
@@ -474,11 +384,7 @@ mod tests {
             .into_iter()
             .map(|e| match e {
                 Error::Refused { code, path, detail } => {
-                    assert_eq!(
-                        path.as_deref(),
-                        Some(at(level).as_path()),
-                        "every refusal names the file"
-                    );
+                    assert_eq!(path.as_deref(), Some(at(level).as_path()), "every refusal names the file");
                     (code, detail)
                 }
                 Error::Io { .. } => panic!("{text}"),
@@ -506,16 +412,11 @@ mod tests {
             "/../../.brewstillery/bootstrap/core-specification.md"
         ))
         .unwrap();
-        let section = &spec
-            [spec.find("## 8. Settings keys").unwrap()..spec.find("## 9. What phase 5").unwrap()];
+        let section = &spec[spec.find("## 8. Settings keys").unwrap()..spec.find("## 9. What phase 5").unwrap()];
         let mut seen = std::collections::BTreeSet::new();
         for key in KEYS {
             assert!(seen.insert(key.path), "{} declared twice", key.path);
-            assert!(
-                !key.levels.is_empty() && !key.about.is_empty(),
-                "{}",
-                key.path
-            );
+            assert!(!key.levels.is_empty() && !key.about.is_empty(), "{}", key.path);
             let last = key.path.rsplit('.').next().unwrap();
             assert!(
                 section.contains(&format!("`{}`", key.path.replace("*", "<")).replace("<.", "<"))
@@ -530,11 +431,7 @@ mod tests {
                     admit(key.ty, &v).unwrap();
                 }
                 Def::From(other) => {
-                    assert!(
-                        declared(other).is_some_and(|o| !o.path.contains('*')),
-                        "{}",
-                        key.path
-                    )
+                    assert!(declared(other).is_some_and(|o| !o.path.contains('*')), "{}", key.path)
                 }
                 Def::Required | Def::Absent => {}
             }
@@ -563,31 +460,14 @@ mod tests {
                 Type::Str | Type::Bool | Type::Strs => None,
             };
             if let Some(v) = outside {
-                let code = if key.ty == Type::Alias {
-                    Code::AliasInvalid
-                } else {
-                    Code::SettingsInvalid
-                };
-                refused(
-                    level,
-                    &format!("\n{path} = {v}\n"),
-                    code,
-                    &format!("{path} (line 2)"),
-                );
+                let code = if key.ty == Type::Alias { Code::AliasInvalid } else { Code::SettingsInvalid };
+                refused(level, &format!("\n{path} = {v}\n"), code, &format!("{path} (line 2)"));
             }
             for other in [Level::Project, Level::Personal, Level::Machine] {
                 if !key.levels.contains(&other) {
-                    let code = if other == Level::Personal {
-                        Code::SettingsKeyNotPersonal
-                    } else {
-                        Code::SettingsInvalid
-                    };
-                    refused(
-                        other,
-                        &format!("{path} = 1.5\n"),
-                        code,
-                        &format!("{path} (line 1): not allowed"),
-                    );
+                    let code =
+                        if other == Level::Personal { Code::SettingsKeyNotPersonal } else { Code::SettingsInvalid };
+                    refused(other, &format!("{path} = 1.5\n"), code, &format!("{path} (line 1): not allowed"));
                 }
             }
         }
@@ -597,24 +477,9 @@ mod tests {
             Code::SettingsInvalid,
             "project.nosuch (line 3)",
         );
-        refused(
-            Level::Project,
-            "[nosuch]\n",
-            Code::SettingsInvalid,
-            "nosuch (line 1)",
-        );
-        refused(
-            Level::Project,
-            "project = 1\n",
-            Code::SettingsInvalid,
-            "project (line 1)",
-        );
-        refused(
-            Level::Project,
-            "[tools.\"a.b\"]\n",
-            Code::SettingsInvalid,
-            "tools.a.b (line 1)",
-        );
+        refused(Level::Project, "[nosuch]\n", Code::SettingsInvalid, "nosuch (line 1)");
+        refused(Level::Project, "project = 1\n", Code::SettingsInvalid, "project (line 1)");
+        refused(Level::Project, "[tools.\"a.b\"]\n", Code::SettingsInvalid, "tools.a.b (line 1)");
     }
 
     #[test]
@@ -625,34 +490,14 @@ mod tests {
             Code::SettingsInvalid,
             "line 4",
         );
-        refused(
-            Level::Project,
-            "[project]\nname = \"a\"\nname = \"b\"\n",
-            Code::SettingsInvalid,
-            "line 3",
-        );
-        refused(
-            Level::Project,
-            "[project\n",
-            Code::SettingsInvalid,
-            "line 1",
-        );
+        refused(Level::Project, "[project]\nname = \"a\"\nname = \"b\"\n", Code::SettingsInvalid, "line 3");
+        refused(Level::Project, "[project\n", Code::SettingsInvalid, "line 1");
     }
 
     #[test]
     fn req_set_2_required_keys_are_named_at_their_tables_line() {
-        refused(
-            Level::Project,
-            "\n[project]\n",
-            Code::SettingsInvalid,
-            "project.name (line 2): required",
-        );
-        refused(
-            Level::Project,
-            "",
-            Code::SettingsInvalid,
-            "project.name (line 1): required",
-        );
+        refused(Level::Project, "\n[project]\n", Code::SettingsInvalid, "project.name (line 2): required");
+        refused(Level::Project, "", Code::SettingsInvalid, "project.name (line 1): required");
         let profile = "[project]\nname = \"x\"\n[profiles.p]\nkind = \"build\"\n";
         for missing in ["tool", "model", "effort"] {
             refused(
@@ -672,18 +517,10 @@ mod tests {
 
     #[test]
     fn req_dom_3_this_repositorys_bootstrap_keys_are_refused_in_the_first_core() {
-        let text = std::fs::read_to_string(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../../.brewstillery/settings.toml"
-        ))
-        .unwrap();
+        let text =
+            std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../.brewstillery/settings.toml")).unwrap();
         let all = refusals(Level::Project, &text);
-        for key in [
-            "project.command",
-            "project.domain",
-            "maintainers.aliases",
-            "layout",
-        ] {
+        for key in ["project.command", "project.domain", "maintainers.aliases", "layout"] {
             assert!(
                 all.iter().any(|(c, d)| *c == Code::SettingsInvalid && d.starts_with(&format!("{key} ("))),
                 "{key}"
@@ -694,11 +531,9 @@ mod tests {
 
     #[test]
     fn req_set_3_personal_keys_are_accepted_and_this_repositorys_personal_file_reads() {
-        let text = std::fs::read_to_string(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../../.brewstillery/xel/settings.toml"
-        ))
-        .unwrap();
+        let text =
+            std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../.brewstillery/xel/settings.toml"))
+                .unwrap();
         let path = PathBuf::from("/d/.brewstillery/xel/settings.toml");
         let s = parse(&path, &text, Level::Personal).unwrap();
         assert_eq!(s.values["environment.shell"].value, Val::Str("fish".into()));
@@ -719,12 +554,7 @@ mod tests {
 
     #[test]
     fn refusal_alias_mismatch() {
-        refused(
-            Level::Personal,
-            "[maintainer]\nalias = \"xel\"\n",
-            Code::AliasMismatch,
-            "maintainer.alias (line 2)",
-        );
+        refused(Level::Personal, "[maintainer]\nalias = \"xel\"\n", Code::AliasMismatch, "maintainer.alias (line 2)");
     }
 
     #[test]
@@ -733,15 +563,9 @@ mod tests {
         let mut bad = vec!["Xel", "9a", "a--b", "a-", long.as_str()];
         bad.extend(RESERVED);
         for alias in bad {
-            let text = format!(
-                "[project]\nname = \"x\"\n[maintainers.\"{alias}\"]\nrole = \"maestro\"\nkey = \"{KEY}\"\n"
-            );
-            refused(
-                Level::Project,
-                &text,
-                Code::AliasInvalid,
-                &format!("maintainers.{alias} (line 3)"),
-            );
+            let text =
+                format!("[project]\nname = \"x\"\n[maintainers.\"{alias}\"]\nrole = \"maestro\"\nkey = \"{KEY}\"\n");
+            refused(Level::Project, &text, Code::AliasInvalid, &format!("maintainers.{alias} (line 3)"));
             refused(
                 Level::Personal,
                 &format!("[maintainer]\nalias = \"{alias}\"\n"),
@@ -752,9 +576,7 @@ mod tests {
         for alias in ["xel", "ana-maria", "a1"] {
             ok(
                 Level::Project,
-                &format!(
-                    "[project]\nname = \"x\"\n[maintainers.{alias}]\nrole = \"maestro\"\nkey = \"{KEY}\"\n"
-                ),
+                &format!("[project]\nname = \"x\"\n[maintainers.{alias}]\nrole = \"maestro\"\nkey = \"{KEY}\"\n"),
             );
         }
     }
@@ -764,14 +586,9 @@ mod tests {
         let head = "[project]\nname = \"x\"\n[maintainers.ana]\n";
         let s = ok(
             Level::Project,
-            &format!(
-                "{head}role = \"supervisor\"\nkey = \"{KEY}\"\nhostAccount = \"ana\"\narea = [\"docs/\"]\n"
-            ),
+            &format!("{head}role = \"supervisor\"\nkey = \"{KEY}\"\nhostAccount = \"ana\"\narea = [\"docs/\"]\n"),
         );
-        assert_eq!(
-            s.values["maintainers.ana.area"].value,
-            Val::List(vec!["docs/".into()])
-        );
+        assert_eq!(s.values["maintainers.ana.area"].value, Val::List(vec!["docs/".into()]));
         assert_eq!(s.tables["maintainers.ana"], 3);
         refused(
             Level::Project,
@@ -821,38 +638,16 @@ mod tests {
 
     #[test]
     fn req_set_10_language_tags_and_their_fallbacks() {
-        for good in [
-            "en",
-            "es-MX",
-            "es-419",
-            "zh-Hant-TW",
-            "sl-rozaj-biske",
-            "de-CH-1901",
-            "en-a-bbb-x-a-ccc",
-            "x",
-        ] {
+        for good in ["en", "es-MX", "es-419", "zh-Hant-TW", "sl-rozaj-biske", "de-CH-1901", "en-a-bbb-x-a-ccc", "x"] {
             assert_eq!(is_tag(good), good != "x", "{good}");
         }
-        for bad in [
-            "",
-            "e",
-            "english-",
-            "es_MX",
-            "es-MX-",
-            "-es",
-            "en-a",
-            "en-x",
-            "en-x-a-123456789",
-            "toolongtag",
-            "1en",
-        ] {
+        for bad in
+            ["", "e", "english-", "es_MX", "es-MX-", "-es", "en-a", "en-x", "en-x-a-123456789", "toolongtag", "1en"]
+        {
             assert!(!is_tag(bad), "{bad}");
         }
         assert_eq!(fallbacks("es-MX"), ["es-MX", "es", "en"]);
-        assert_eq!(
-            fallbacks("zh-Hant-TW"),
-            ["zh-Hant-TW", "zh-Hant", "zh", "en"]
-        );
+        assert_eq!(fallbacks("zh-Hant-TW"), ["zh-Hant-TW", "zh-Hant", "zh", "en"]);
         assert_eq!(fallbacks("en-GB"), ["en-GB", "en"]);
     }
 
@@ -871,30 +666,20 @@ mod tests {
         };
         let (head, rest) = BASE.split_at(at + header.len());
         let end = rest.find("\n[").map_or(rest.len(), |i| i + 1);
-        let body: String = rest[..end]
-            .lines()
-            .filter(|l| !l.starts_with(&format!("{last} =")))
-            .map(|l| format!("{l}\n"))
-            .collect();
+        let body: String =
+            rest[..end].lines().filter(|l| !l.starts_with(&format!("{last} ="))).map(|l| format!("{l}\n")).collect();
         format!("{head}{last} = {value}\n{body}{}", &rest[end..])
     }
 
     fn change(old: &str, new: &str) -> Vec<(String, Effect)> {
-        let (a, b) = (
-            ok(Level::Project, &format!("{BASE}{old}")),
-            ok(Level::Project, &format!("{BASE}{new}")),
-        );
-        changes(&a, &b)
-            .into_iter()
-            .map(|c| (c.key, c.effect))
-            .collect()
+        let (a, b) = (ok(Level::Project, &format!("{BASE}{old}")), ok(Level::Project, &format!("{BASE}{new}")));
+        changes(&a, &b).into_iter().map(|c| (c.key, c.effect)).collect()
     }
 
     #[test]
     fn req_set_5_every_key_is_classed_each_way_by_its_direction() {
         use Effect::*;
-        let other =
-            "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJtneqO20aGvL2mzi8YOPtPl8igyd+t7J6aVlFIR85vw bea";
+        let other = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJtneqO20aGvL2mzi8YOPtPl8igyd+t7J6aVlFIR85vw bea";
         for key in KEYS.iter().filter(|k| k.levels.contains(&Level::Project)) {
             let name = match key.path.split('.').next() {
                 Some("maintainers") => "ana",
@@ -919,20 +704,11 @@ mod tests {
             };
             let role = path.ends_with(".role");
             let fix = |t: String| {
-                if path.ends_with(".area") {
-                    t.replace("\"maestro\"", "\"supervisor\"")
-                } else {
-                    t
-                }
+                if path.ends_with(".area") { t.replace("\"maestro\"", "\"supervisor\"") } else { t }
             };
-            let (a, b) = (
-                ok(Level::Project, &fix(with(&path, &small))),
-                ok(Level::Project, &fix(with(&path, &large))),
-            );
-            let comparable = matches!(
-                key.ty,
-                Type::Int | Type::Bool | Type::Ordered(_) | Type::Strs | Type::Command | Type::Tags
-            );
+            let (a, b) = (ok(Level::Project, &fix(with(&path, &small))), ok(Level::Project, &fix(with(&path, &large))));
+            let comparable =
+                matches!(key.ty, Type::Int | Type::Bool | Type::Ordered(_) | Type::Strs | Type::Command | Type::Tags);
             let (up, down) = match key.dir {
                 _ if path.starts_with("maintainers.") => (Widening, Widening),
                 Dir::Neutral => (Neutral, Neutral),
@@ -940,12 +716,8 @@ mod tests {
                 Dir::Widens => (Widening, Narrowing),
                 Dir::Narrows => (Narrowing, Widening),
             };
-            let effects = |x: &Settings, y: &Settings| {
-                changes(x, y)
-                    .into_iter()
-                    .map(|c| (c.key, c.effect))
-                    .collect::<Vec<_>>()
-            };
+            let effects =
+                |x: &Settings, y: &Settings| changes(x, y).into_iter().map(|c| (c.key, c.effect)).collect::<Vec<_>>();
             let mut want_up = vec![(path.clone(), up)];
             let mut want_down = vec![(path.clone(), down)];
             if role {
@@ -963,128 +735,56 @@ mod tests {
         use Effect::*;
         let bea = format!("[maintainers.bea]\nrole = \"contributor\"\nkey = \"{KEY}\"\n");
         assert_eq!(change("", &bea), [("maintainers.bea".into(), Widening)]);
-        assert_eq!(
-            change(&bea, ""),
-            [("maintainers.bea".into(), Widening)],
-            "removing a maintainer widens"
-        );
+        assert_eq!(change(&bea, ""), [("maintainers.bea".into(), Widening)], "removing a maintainer widens");
         let tool = "[tools.u]\nadapter = \"codex\"\nproviders = []\n";
         assert_eq!(change("", tool), [("tools.u".into(), Widening)]);
         assert_eq!(change(tool, ""), [("tools.u".into(), Narrowing)]);
-        assert!(
-            change("", "[limits]\nrounds = 3\n").is_empty(),
-            "a default written out is no change"
-        );
-        assert_eq!(
-            change("[limits]\nrounds = 4\n", ""),
-            [("limits.rounds".into(), Narrowing)]
-        );
-        let absent = ok(
-            Level::Project,
-            &with("maintainers.ana.role", "\"supervisor\""),
-        );
-        let present = ok(
-            Level::Project,
-            &with("maintainers.ana.area", "[\"docs/\"]").replace("\"maestro\"", "\"supervisor\""),
-        );
-        assert_eq!(
-            changes(&present, &absent)[0].effect,
-            Widening,
-            "an area removed is the whole project"
-        );
+        assert!(change("", "[limits]\nrounds = 3\n").is_empty(), "a default written out is no change");
+        assert_eq!(change("[limits]\nrounds = 4\n", ""), [("limits.rounds".into(), Narrowing)]);
+        let absent = ok(Level::Project, &with("maintainers.ana.role", "\"supervisor\""));
+        let present =
+            ok(Level::Project, &with("maintainers.ana.area", "[\"docs/\"]").replace("\"maestro\"", "\"supervisor\""));
+        assert_eq!(changes(&present, &absent)[0].effect, Widening, "an area removed is the whole project");
         let tokens = |v: &str| ok(Level::Project, &with("profiles.p.tokens", v));
         let base = ok(Level::Project, BASE);
-        assert_eq!(
-            changes(&tokens("5"), &base)[0].effect,
-            Widening,
-            "tokens removed are unlimited"
-        );
+        assert_eq!(changes(&tokens("5"), &base)[0].effect, Widening, "tokens removed are unlimited");
         assert_eq!(changes(&base, &tokens("5"))[0].effect, Narrowing);
     }
 
     fn policy(extra: &str) -> Policy {
         let text = format!("{BASE}{extra}");
-        Policy {
-            digest: crate::record::sha256_hex(text.as_bytes()),
-            settings: ok(Level::Project, &text),
-            text,
-        }
+        Policy { digest: crate::record::sha256_hex(text.as_bytes()), settings: ok(Level::Project, &text), text }
     }
 
     fn layer(source: Source, values: &[(&str, Val)]) -> (Source, BTreeMap<String, Val>) {
-        (
-            source,
-            values
-                .iter()
-                .map(|(k, v)| ((*k).to_owned(), v.clone()))
-                .collect(),
-        )
+        (source, values.iter().map(|(k, v)| ((*k).to_owned(), v.clone())).collect())
     }
 
     #[test]
     fn req_set_7_every_value_has_one_source() {
         let p = policy("[limits]\nrounds = 4\n");
-        let personal = ok(
-            Level::Personal,
-            "[maintainer]\nalias = \"ana\"\n[languages]\nagentInteraction = \"es-MX\"\n",
-        );
-        let stage = layer(
-            Source::Stage("s-00000001".into()),
-            &[("limits.dispatches", Val::Int(2))],
-        );
-        let task = layer(
-            Source::Task("t-00000002".into()),
-            &[("limits.minutes", Val::Int(60))],
-        );
+        let personal =
+            ok(Level::Personal, "[maintainer]\nalias = \"ana\"\n[languages]\nagentInteraction = \"es-MX\"\n");
+        let stage = layer(Source::Stage("s-00000001".into()), &[("limits.dispatches", Val::Int(2))]);
+        let task = layer(Source::Task("t-00000002".into()), &[("limits.minutes", Val::Int(60))]);
         let eff = effective(&p, Some(&personal), &[stage, task], &[]).unwrap();
         let source = |k: &str| lookup(&eff, k).unwrap().unwrap().1.clone();
         assert_eq!(source("limits.rounds"), Source::Project(p.digest.clone()));
-        assert_eq!(
-            source("limits.dispatches"),
-            Source::Stage("s-00000001".into())
-        );
+        assert_eq!(source("limits.dispatches"), Source::Stage("s-00000001".into()));
         assert_eq!(source("limits.minutes"), Source::Task("t-00000002".into()));
-        assert_eq!(
-            source("languages.agentInteraction"),
-            Source::Personal("ana".into())
-        );
-        assert_eq!(
-            source("languages.canonicalDocumentationLanguage"),
-            Source::Default
-        );
-        assert_eq!(
-            lookup(&eff, "languages.interfaceLanguage")
-                .unwrap()
-                .unwrap()
-                .0,
-            Val::Str("es-MX".into())
-        );
-        assert_eq!(
-            lookup(&eff, "languages.documentationLanguages")
-                .unwrap()
-                .unwrap()
-                .0,
-            Val::List(vec!["en".into()])
-        );
+        assert_eq!(source("languages.agentInteraction"), Source::Personal("ana".into()));
+        assert_eq!(source("languages.canonicalDocumentationLanguage"), Source::Default);
+        assert_eq!(lookup(&eff, "languages.interfaceLanguage").unwrap().unwrap().0, Val::Str("es-MX".into()));
+        assert_eq!(lookup(&eff, "languages.documentationLanguages").unwrap().unwrap().0, Val::List(vec!["en".into()]));
         assert_eq!(
             lookup(&eff, "profiles.p.rounds").unwrap().unwrap(),
             &(Val::Int(4), Source::Default),
             "follows limits"
         );
-        assert_eq!(
-            lookup(&eff, "profiles.p.minutes").unwrap().unwrap().0,
-            Val::Int(60),
-            "follows the task's limit"
-        );
+        assert_eq!(lookup(&eff, "profiles.p.minutes").unwrap().unwrap().0, Val::Int(60), "follows the task's limit");
         assert_eq!(lookup(&eff, "maintainers.ana.hostAccount").unwrap(), None);
-        assert_eq!(
-            lookup(&eff, "nosuch.key").unwrap_err().code(),
-            Some(Code::KeyUnknown)
-        );
-        assert_eq!(
-            lookup(&eff, "maintainers.ana").unwrap_err().code(),
-            Some(Code::KeyUnknown)
-        );
+        assert_eq!(lookup(&eff, "nosuch.key").unwrap_err().code(), Some(Code::KeyUnknown));
+        assert_eq!(lookup(&eff, "maintainers.ana").unwrap_err().code(), Some(Code::KeyUnknown));
     }
 
     #[test]

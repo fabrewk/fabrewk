@@ -34,11 +34,7 @@ pub struct Ring {
 }
 
 /// Every ring of the program. Every Rust file outside `tools/` must be in one of them.
-pub const RINGS: &[Ring] = &[Ring {
-    name: "core",
-    kind: RingKind::Core,
-    dirs: &["crates/core", "crates/fabrewk"],
-}];
+pub const RINGS: &[Ring] = &[Ring { name: "core", kind: RingKind::Core, dirs: &["crates/core", "crates/fabrewk"] }];
 
 /// Direct runtime crates: those a ring crate depends on directly.
 pub const MAX_DIRECT_RUNTIME_CRATES: usize = 8;
@@ -60,10 +56,5 @@ pub const MSRV: &str = "1.99.1";
 
 /// Runtime crates a maestro approved, with the decision that holds each one's reason (AD-4's table; section 9 of the
 /// core specification for `lexopt`).
-pub const APPROVED_RUNTIME_CRATES: &[(&str, &str)] = &[
-    ("serde", "D-036"),
-    ("serde_json", "D-036"),
-    ("toml", "D-036"),
-    ("sha2", "D-036"),
-    ("lexopt", "D-040"),
-];
+pub const APPROVED_RUNTIME_CRATES: &[(&str, &str)] =
+    &[("serde", "D-036"), ("serde_json", "D-036"), ("toml", "D-036"), ("sha2", "D-036"), ("lexopt", "D-040")];

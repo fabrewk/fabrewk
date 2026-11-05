@@ -52,9 +52,7 @@ fn seq_of(name: &str) -> Option<u64> {
 }
 
 pub(crate) fn name_matches(path: &Path, digest: &str) -> bool {
-    path.file_name()
-        .and_then(|n| n.to_str())
-        .is_some_and(|n| n.get(7..23) == Some(&digest[..16]))
+    path.file_name().and_then(|n| n.to_str()).is_some_and(|n| n.get(7..23) == Some(&digest[..16]))
 }
 
 pub(crate) fn list_stream(dir: &Path) -> Result<Listing, Error> {
@@ -72,22 +70,12 @@ pub(crate) fn list_stream(dir: &Path) -> Result<Listing, Error> {
     let mut sigs = Vec::new();
     for entry in entries {
         let path = entry.map_err(io_at(dir))?.path();
-        let name = path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("")
-            .to_owned();
-        if path
-            .file_name()
-            .is_some_and(|n| n.as_encoded_bytes().starts_with(b"."))
-        {
+        let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("").to_owned();
+        if path.file_name().is_some_and(|n| n.as_encoded_bytes().starts_with(b".")) {
             // Skipped by readers; removed by a writer only if it is one of the record's own temporary files.
             let own = name.strip_prefix('.').and_then(|n| n.strip_suffix(".tmp"));
-            if own.is_some_and(|n| {
-                seq_of(n)
-                    .or_else(|| n.strip_suffix(".sig").and_then(seq_of))
-                    .is_some()
-            }) && path.is_file()
+            if own.is_some_and(|n| seq_of(n).or_else(|| n.strip_suffix(".sig").and_then(seq_of)).is_some())
+                && path.is_file()
             {
                 l.temporary.push(path);
             }
@@ -169,48 +157,28 @@ fn stream(dir: &Path, name: &str, verifier: &dyn Verify) -> Result<Vec<Event>, E
     let mut events = Vec::new();
     for (i, (seq, mut at_seq)) in read.into_iter().enumerate() {
         if seq != i as u64 + 1 {
-            return Err(refuse(
-                Code::RecordBroken,
-                Some(dir),
-                format!("no event at {}", i + 1),
-            ));
+            return Err(refuse(Code::RecordBroken, Some(dir), format!("no event at {}", i + 1)));
         }
         if at_seq.len() > 1 {
             let kind = event::stream_kind(name);
-            let creating = at_seq.iter().filter(|e| {
-                event::subject_stream(&e.kind, &e.value["payload"]).as_deref() == Some(name)
-            });
-            let code = if seq == 1
-                && matches!(kind, Some(StreamKind::Stage | StreamKind::Task))
-                && creating.count() > 1
+            let creating =
+                at_seq.iter().filter(|e| event::subject_stream(&e.kind, &e.value["payload"]).as_deref() == Some(name));
+            let code = if seq == 1 && matches!(kind, Some(StreamKind::Stage | StreamKind::Task)) && creating.count() > 1
             {
                 Code::RecordIdCollision
             } else {
                 Code::RecordFork
             };
-            return Err(refuse(
-                code,
-                Some(dir),
-                format!("{} events at {seq}", at_seq.len()),
-            ));
+            return Err(refuse(code, Some(dir), format!("{} events at {seq}", at_seq.len())));
         }
         let e = at_seq.remove(0);
-        let prev = events
-            .last()
-            .map(|p: &Event| Value::String(p.digest.clone()))
-            .unwrap_or(Value::Null);
+        let prev = events.last().map(|p: &Event| Value::String(p.digest.clone())).unwrap_or(Value::Null);
         if e.value["prev"] != prev {
-            return Err(refuse(
-                Code::RecordBroken,
-                Some(&e.path),
-                "prev names no event",
-            ));
+            return Err(refuse(Code::RecordBroken, Some(&e.path), "prev names no event"));
         }
         events.push(e);
     }
-    if let (Some(first), Some(StreamKind::Stage | StreamKind::Task)) =
-        (events.first(), event::stream_kind(name))
-    {
+    if let (Some(first), Some(StreamKind::Stage | StreamKind::Task)) = (events.first(), event::stream_kind(name)) {
         if !event::is_creation(&first.kind) {
             return Err(refuse(
                 Code::RecordTransitionInvalid,
@@ -219,71 +187,34 @@ fn stream(dir: &Path, name: &str, verifier: &dyn Verify) -> Result<Vec<Event>, E
             ));
         }
         if event::subject_stream(&first.kind, &first.value["payload"]).as_deref() != Some(name) {
-            return Err(refuse(
-                Code::RecordBroken,
-                Some(&first.path),
-                "the identifier is not the payload's",
-            ));
+            return Err(refuse(Code::RecordBroken, Some(&first.path), "the identifier is not the payload's"));
         }
     }
     if let Some(e) = events.iter().skip(1).find(|e| event::is_creation(&e.kind)) {
-        return Err(refuse(
-            Code::RecordTransitionInvalid,
-            Some(&e.path),
-            "a second creation",
-        ));
+        return Err(refuse(Code::RecordTransitionInvalid, Some(&e.path), "a second creation"));
     }
     Ok(events)
 }
 
-fn file(
-    path: &Path,
-    stream: &str,
-    seq: u64,
-    listing: &Listing,
-    verifier: &dyn Verify,
-) -> Result<Event, Error> {
+fn file(path: &Path, stream: &str, seq: u64, listing: &Listing, verifier: &dyn Verify) -> Result<Event, Error> {
     let bytes = fs::read(path).map_err(io_at(path))?;
     let digest = canon::sha256_hex(&bytes);
     if !name_matches(path, &digest) {
-        return Err(refuse(
-            Code::RecordDigestMismatch,
-            Some(path),
-            "name and content differ",
-        ));
+        return Err(refuse(Code::RecordDigestMismatch, Some(path), "name and content differ"));
     }
-    let value = canon::decode(&bytes)
-        .ok_or_else(|| refuse(Code::RecordNoncanonical, Some(path), "not canonical"))?;
-    let class =
-        event::check(&value, stream, seq).map_err(|(code, why)| refuse(code, Some(path), why))?;
+    let value = canon::decode(&bytes).ok_or_else(|| refuse(Code::RecordNoncanonical, Some(path), "not canonical"))?;
+    let class = event::check(&value, stream, seq).map_err(|(code, why)| refuse(code, Some(path), why))?;
     let sig = signature_of(path);
     match (class, listing.signatures.contains(&sig)) {
-        (Class::Person, true) => {
-            verifier.verify(value["actor"]["alias"].as_str().unwrap_or(""), &bytes, &sig)?
-        }
+        (Class::Person, true) => verifier.verify(value["actor"]["alias"].as_str().unwrap_or(""), &bytes, &sig)?,
         (Class::Person, false) => {
-            return Err(refuse(
-                Code::RecordSignatureInvalid,
-                Some(path),
-                "no signature",
-            ));
+            return Err(refuse(Code::RecordSignatureInvalid, Some(path), "no signature"));
         }
         (_, true) => {
-            return Err(refuse(
-                Code::RecordSignatureInvalid,
-                Some(&sig),
-                "a signature on an event no person records",
-            ));
+            return Err(refuse(Code::RecordSignatureInvalid, Some(&sig), "a signature on an event no person records"));
         }
         (_, false) => {}
     }
     let kind = value["kind"].as_str().unwrap_or("").to_owned();
-    Ok(Event {
-        stream: stream.to_owned(),
-        seq,
-        digest,
-        kind,
-        value,
-        path: path.to_path_buf(),
-    })
+    Ok(Event { stream: stream.to_owned(), seq, digest, kind, value, path: path.to_path_buf() })
 }

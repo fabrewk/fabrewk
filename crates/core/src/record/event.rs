@@ -67,10 +67,8 @@ pub const KINDS: &[(&str, StreamKind, Class)] = &[
 ];
 
 /// The fields of every event of schema 1; a person's event has `say` besides.
-pub const FIELDS: [&str; 11] = [
-    "actor", "at", "fabrewk", "instance", "kind", "payload", "policy", "prev", "schema", "seq",
-    "stream",
-];
+pub const FIELDS: [&str; 11] =
+    ["actor", "at", "fabrewk", "instance", "kind", "payload", "policy", "prev", "schema", "seq", "stream"];
 
 /// The actor class of a kind of schema 1.
 pub fn class_of(kind: &str) -> Option<Class> {
@@ -151,17 +149,12 @@ impl Draft {
 
 /// Checks an event's fields against schema 1 and its place (`stream`, `seq` from the file's name); gives its class.
 pub(crate) fn check(v: &Value, stream: &str, seq: u64) -> Result<Class, (Code, &'static str)> {
-    use Code::{
-        RecordBroken as Broken, RecordTransitionInvalid as Invalid, RecordVersionUnknown as Unknown,
-    };
+    use Code::{RecordBroken as Broken, RecordTransitionInvalid as Invalid, RecordVersionUnknown as Unknown};
     let o = v.as_object().ok_or((Unknown, "not an object"))?;
     if o.get("schema") != Some(&json!(1)) {
         return Err((Unknown, "schema"));
     }
-    let kind = o
-        .get("kind")
-        .and_then(Value::as_str)
-        .ok_or((Unknown, "kind"))?;
+    let kind = o.get("kind").and_then(Value::as_str).ok_or((Unknown, "kind"))?;
     let class = class_of(kind).ok_or((Unknown, "kind"))?;
     let say = o.contains_key("say");
     if o.len() != FIELDS.len() + usize::from(say) || !FIELDS.iter().all(|f| o.contains_key(*f)) {
@@ -196,17 +189,13 @@ pub(crate) fn check(v: &Value, stream: &str, seq: u64) -> Result<Class, (Code, &
         return Err((Invalid, "actor"));
     }
     if say != (class == Person) {
-        return Err((
-            Invalid,
-            "words on a move that is not a person's, or a person's move without words",
-        ));
+        return Err((Invalid, "words on a move that is not a person's, or a person's move without words"));
     }
     if say {
         let w = o["say"].as_object().filter(|w| w.len() == 2);
-        let (Some(words), Some(lang)) = (
-            w.and_then(|w| w.get("text")?.as_str()),
-            w.and_then(|w| w.get("lang")?.as_str()),
-        ) else {
+        let (Some(words), Some(lang)) =
+            (w.and_then(|w| w.get("text")?.as_str()), w.and_then(|w| w.get("lang")?.as_str()))
+        else {
             return Err((Unknown, "say"));
         };
         if lang.is_empty() {
@@ -238,17 +227,11 @@ fn policy_payload(p: &Value) -> Result<(), (Code, &'static str)> {
     ) else {
         return Err((Code::RecordVersionUnknown, "payload"));
     };
-    if !widened
-        .iter()
-        .all(|w| w.as_str().is_some_and(|w| !w.is_empty()))
-    {
+    if !widened.iter().all(|w| w.as_str().is_some_and(|w| !w.is_empty())) {
         return Err((Code::RecordVersionUnknown, "payload"));
     }
     if sha256_hex(content.as_bytes()) != digest {
-        return Err((
-            Code::RecordBroken,
-            "the policy's digest is not its content's",
-        ));
+        return Err((Code::RecordBroken, "the policy's digest is not its content's"));
     }
     Ok(())
 }
@@ -256,11 +239,7 @@ fn policy_payload(p: &Value) -> Result<(), (Code, &'static str)> {
 fn actor_class(a: &Value) -> Option<Class> {
     let o = a.as_object()?;
     let has = |keys: &[&str]| o.len() == keys.len() && keys.iter().all(|k| o.contains_key(*k));
-    let text = |f: &str| {
-        o.get(f)
-            .and_then(Value::as_str)
-            .is_some_and(|s| !s.is_empty())
-    };
+    let text = |f: &str| o.get(f).and_then(Value::as_str).is_some_and(|s| !s.is_empty());
     let class = match o.get("kind")?.as_str()? {
         "person" => Person,
         "agent" => Agent,
@@ -272,19 +251,11 @@ fn actor_class(a: &Value) -> Option<Class> {
         Person => {
             has(&["kind", "alias", "role"])
                 && o["alias"].as_str().is_some_and(is_name)
-                && matches!(
-                    o["role"].as_str(),
-                    Some("maestro" | "supervisor" | "contributor")
-                )
+                && matches!(o["role"].as_str(), Some("maestro" | "supervisor" | "contributor"))
         }
         Agent => {
-            has(&[
-                "kind",
-                "tool",
-                "provider",
-                "modelRequested",
-                "modelObserved",
-            ]) && text("tool")
+            has(&["kind", "tool", "provider", "modelRequested", "modelObserved"])
+                && text("tool")
                 && text("provider")
                 && text("modelRequested")
                 && (o["modelObserved"].is_null() || o["modelObserved"].is_string())
@@ -307,8 +278,7 @@ pub(crate) fn is_name(s: &str) -> bool {
         && b[0].is_ascii_lowercase()
         && b[b.len() - 1] != b'-'
         && !s.contains("--")
-        && b.iter()
-            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == b'-')
+        && b.iter().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == b'-')
 }
 
 fn is_id(s: &str, letter: char) -> bool {
@@ -317,9 +287,7 @@ fn is_id(s: &str, letter: char) -> bool {
 }
 
 pub(crate) fn is_hex(s: &str, len: usize) -> bool {
-    s.len() == len
-        && s.bytes()
-            .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
+    s.len() == len && s.bytes().all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
 }
 
 #[cfg(test)]
@@ -370,30 +338,11 @@ mod tests {
         for good in ["x", "xel", "a1", "a-b", "a1-b2-c3", &"a".repeat(32)] {
             assert!(is_name(good), "{good}");
         }
-        for bad in [
-            "",
-            "1a",
-            "-a",
-            "a-",
-            "a--b",
-            "A",
-            "aB",
-            "a_b",
-            "a.b",
-            "é",
-            &"a".repeat(33),
-        ] {
+        for bad in ["", "1a", "-a", "a-", "a--b", "A", "aB", "a_b", "a.b", "é", &"a".repeat(33)] {
             assert!(!is_name(bad), "{bad}");
         }
         assert!(is_id("t-0123abcd", 't'));
-        for bad in [
-            "s-0123abcd",
-            "t0123abcde",
-            "t-0123abc",
-            "t-0123abcg",
-            "t_0123abcd",
-            "-t0123abcd",
-        ] {
+        for bad in ["s-0123abcd", "t0123abcde", "t-0123abc", "t-0123abcg", "t_0123abcd", "-t0123abcd"] {
             assert!(!is_id(bad, 't'), "{bad}");
         }
     }
@@ -404,10 +353,7 @@ mod tests {
         let digest = sha256_hex(content.as_bytes());
         let event = |payload: Value| {
             let actor = json!({"kind": "person", "alias": "xel", "role": "maestro"});
-            let say = Some(Say {
-                text: "Adopto.".into(),
-                lang: "es".into(),
-            });
+            let say = Some(Say { text: "Adopto.".into(), lang: "es".into() });
             let d = Draft {
                 kind: "policy-adopted".into(),
                 actor,
@@ -416,14 +362,9 @@ mod tests {
                 say,
                 payload,
             };
-            check(&d.build("project", 1, None), "project", 1)
-                .map(|_| ())
-                .map_err(|e| e.0)
+            check(&d.build("project", 1, None), "project", 1).map(|_| ()).map_err(|e| e.0)
         };
-        assert_eq!(
-            event(json!({"content": content, "digest": digest, "widened": ["limits.rounds"]})),
-            Ok(())
-        );
+        assert_eq!(event(json!({"content": content, "digest": digest, "widened": ["limits.rounds"]})), Ok(()));
         for bad in [
             json!({}),
             json!({"content": content, "digest": digest}),
@@ -441,18 +382,9 @@ mod tests {
     #[test]
     fn req_reg_2_actor_shapes() {
         let ok = [
-            (
-                json!({"kind": "person", "alias": "xel", "role": "maestro"}),
-                Person,
-            ),
-            (
-                json!({"kind": "person", "alias": "xel", "role": "supervisor"}),
-                Person,
-            ),
-            (
-                json!({"kind": "person", "alias": "xel", "role": "contributor"}),
-                Person,
-            ),
+            (json!({"kind": "person", "alias": "xel", "role": "maestro"}), Person),
+            (json!({"kind": "person", "alias": "xel", "role": "supervisor"}), Person),
+            (json!({"kind": "person", "alias": "xel", "role": "contributor"}), Person),
             (
                 json!({"kind": "agent", "tool": "t", "provider": "p", "modelRequested": "m", "modelObserved": null}),
                 Agent,
@@ -461,10 +393,7 @@ mod tests {
                 json!({"kind": "agent", "tool": "t", "provider": "p", "modelRequested": "m", "modelObserved": "o"}),
                 Agent,
             ),
-            (
-                json!({"kind": "extension", "name": "lint", "digest": "a".repeat(64)}),
-                Extension,
-            ),
+            (json!({"kind": "extension", "name": "lint", "digest": "a".repeat(64)}), Extension),
             (json!({"kind": "fabrewk"}), Fabrewk),
         ];
         for (actor, class) in ok {

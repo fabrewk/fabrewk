@@ -30,11 +30,7 @@ impl fmt::Display for Error {
             Error::NotUtf8(p) => write!(f, "{}: not UTF-8", p.display()),
             Error::Count(p, e) => write!(f, "{}: {e}", p.display()),
             Error::Symlink(p) => {
-                write!(
-                    f,
-                    "{}: symbolic link inside the program's code",
-                    p.display()
-                )
+                write!(f, "{}: symbolic link inside the program's code", p.display())
             }
             Error::MissingDir(p) => {
                 write!(f, "{}: a ring's directory that does not exist", p.display())
@@ -90,14 +86,8 @@ pub fn count_rings(root: &Path, rings: &[Ring]) -> Result<Vec<RingCount>, Error>
 }
 
 fn count_ring(root: &Path, ring: &Ring) -> Result<RingCount, Error> {
-    let mut measure = RingCount {
-        name: ring.name,
-        kind: ring.kind,
-        files: 0,
-        lines: 0,
-        sources: Vec::new(),
-        data: Vec::new(),
-    };
+    let mut measure =
+        RingCount { name: ring.name, kind: ring.kind, files: 0, lines: 0, sources: Vec::new(), data: Vec::new() };
     for dir in ring.dirs {
         walk(&root.join(dir), &mut |file| {
             let bytes = fs::read(file).map_err(|e| Error::Io(file.to_path_buf(), e))?;
@@ -107,9 +97,7 @@ fn count_ring(root: &Path, ring: &Ring) -> Result<RingCount, Error> {
             measure.lines += scan.lines;
             measure.files += 1;
             measure.sources.push(canonical(file));
-            measure
-                .data
-                .extend(scan.data.iter().map(|d| canonical(&dir.join(d))));
+            measure.data.extend(scan.data.iter().map(|d| canonical(&dir.join(d))));
             Ok(())
         })?;
     }
@@ -129,30 +117,17 @@ fn check_assigned(root: &Path, dirs: &[&str]) -> Result<(), Error> {
         }
     }
     for entry in sorted_entries(root)? {
-        let name = entry
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or_default();
+        let name = entry.file_name().and_then(|n| n.to_str()).unwrap_or_default();
         if OUTSIDE_PROGRAM.contains(&name) {
             continue;
         }
-        let file_type = fs::symlink_metadata(&entry)
-            .map_err(|e| Error::Io(entry.clone(), e))?
-            .file_type();
+        let file_type = fs::symlink_metadata(&entry).map_err(|e| Error::Io(entry.clone(), e))?.file_type();
         if file_type.is_dir() {
             walk(&entry, &mut |file| {
-                if assigned(file) {
-                    Ok(())
-                } else {
-                    Err(Error::Unassigned(file.to_path_buf()))
-                }
+                if assigned(file) { Ok(()) } else { Err(Error::Unassigned(file.to_path_buf())) }
             })?;
         } else if is_rust(&entry) || file_type.is_symlink() {
-            return Err(if file_type.is_symlink() {
-                Error::Symlink(entry)
-            } else {
-                Error::Unassigned(entry)
-            });
+            return Err(if file_type.is_symlink() { Error::Symlink(entry) } else { Error::Unassigned(entry) });
         }
     }
     Ok(())
@@ -164,16 +139,12 @@ fn is_rust(path: &Path) -> bool {
 
 /// A package is a directory whose `Cargo.toml` has a `[package]` table.
 fn is_package(dir: &Path) -> bool {
-    fs::read_to_string(dir.join("Cargo.toml"))
-        .is_ok_and(|t| t.lines().any(|l| l.trim() == "[package]"))
+    fs::read_to_string(dir.join("Cargo.toml")).is_ok_and(|t| t.lines().any(|l| l.trim() == "[package]"))
 }
 
 fn sorted_entries(dir: &Path) -> Result<Vec<PathBuf>, Error> {
     let mut entries = fs::read_dir(dir)
-        .and_then(|it| {
-            it.map(|e| e.map(|e| e.path()))
-                .collect::<Result<Vec<_>, _>>()
-        })
+        .and_then(|it| it.map(|e| e.map(|e| e.path())).collect::<Result<Vec<_>, _>>())
         .map_err(|e| Error::Io(dir.to_path_buf(), e))?;
     entries.sort();
     Ok(entries)
@@ -183,13 +154,8 @@ fn sorted_entries(dir: &Path) -> Result<Vec<PathBuf>, Error> {
 fn walk(dir: &Path, visit: &mut dyn FnMut(&Path) -> Result<(), Error>) -> Result<(), Error> {
     let package = is_package(dir);
     for entry in sorted_entries(dir)? {
-        let file_type = fs::symlink_metadata(&entry)
-            .map_err(|e| Error::Io(entry.clone(), e))?
-            .file_type();
-        let name = entry
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or_default();
+        let file_type = fs::symlink_metadata(&entry).map_err(|e| Error::Io(entry.clone(), e))?.file_type();
+        let name = entry.file_name().and_then(|n| n.to_str()).unwrap_or_default();
         if file_type.is_symlink() {
             return Err(Error::Symlink(entry));
         } else if file_type.is_dir() {

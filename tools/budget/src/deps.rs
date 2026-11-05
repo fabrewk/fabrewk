@@ -17,21 +17,11 @@ use std::process::Command;
 pub fn cargo_metadata(cargo: &Path, root: &Path) -> Result<String, String> {
     let out = Command::new(cargo)
         .current_dir(root)
-        .args([
-            "metadata",
-            "--locked",
-            "--offline",
-            "--format-version",
-            "1",
-            "--all-features",
-        ])
+        .args(["metadata", "--locked", "--offline", "--format-version", "1", "--all-features"])
         .output()
         .map_err(|e| format!("cannot run {}: {e}", cargo.display()))?;
     if !out.status.success() {
-        return Err(format!(
-            "cargo metadata failed: {}",
-            String::from_utf8_lossy(&out.stderr).trim()
-        ));
+        return Err(format!("cargo metadata failed: {}", String::from_utf8_lossy(&out.stderr).trim()));
     }
     String::from_utf8(out.stdout).map_err(|_| "cargo metadata printed non-UTF-8".to_string())
 }
@@ -59,38 +49,22 @@ struct Package<'a> {
 }
 
 fn text<'a>(v: &'a Value, key: &str) -> Result<&'a str, String> {
-    v.get(key)
-        .and_then(Value::as_str)
-        .ok_or_else(|| format!("cargo metadata: no {key}"))
+    v.get(key).and_then(Value::as_str).ok_or_else(|| format!("cargo metadata: no {key}"))
 }
 
 /// Reads `cargo metadata`'s output from the package named `binary`: what it reaches through normal and build
 /// dependencies, against the ring directories `own` and the counted files of `counts`.
-pub fn analyse(
-    metadata: &str,
-    binary: &str,
-    own: &[PathBuf],
-    counts: &[RingCount],
-) -> Result<Report, String> {
+pub fn analyse(metadata: &str, binary: &str, own: &[PathBuf], counts: &[RingCount]) -> Result<Report, String> {
     let doc = json::parse(metadata)?;
     let own: Vec<PathBuf> = own.iter().map(|d| canonical(d)).collect();
     let counted: BTreeSet<&PathBuf> = counts.iter().flat_map(|c| &c.sources).collect();
-    let members: BTreeSet<&str> = doc
-        .get("workspace_members")
-        .map_or(&[][..], Value::as_array)
-        .iter()
-        .filter_map(Value::as_str)
-        .collect();
+    let members: BTreeSet<&str> =
+        doc.get("workspace_members").map_or(&[][..], Value::as_array).iter().filter_map(Value::as_str).collect();
     let mut packages = BTreeMap::new();
     for p in doc.get("packages").map_or(&[][..], Value::as_array) {
         let mut targets = Vec::new();
         for t in p.get("targets").map_or(&[][..], Value::as_array) {
-            let kinds = t
-                .get("kind")
-                .map_or(&[][..], Value::as_array)
-                .iter()
-                .filter_map(Value::as_str)
-                .collect();
+            let kinds = t.get("kind").map_or(&[][..], Value::as_array).iter().filter_map(Value::as_str).collect();
             targets.push((kinds, canonical(Path::new(text(t, "src_path")?))));
         }
         let manifest = Path::new(text(p, "manifest_path")?);
@@ -104,34 +78,21 @@ pub fn analyse(
         packages.insert(text(p, "id")?, package);
     }
     let mut edges: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
-    let nodes = doc
-        .get("resolve")
-        .and_then(|r| r.get("nodes"))
-        .ok_or("cargo metadata: no resolve")?;
+    let nodes = doc.get("resolve").and_then(|r| r.get("nodes")).ok_or("cargo metadata: no resolve")?;
     for node in nodes.as_array() {
-        let runtime = node
-            .get("deps")
-            .map_or(&[][..], Value::as_array)
-            .iter()
-            .filter(|d| {
-                d.get("dep_kinds")
-                    .map_or(&[][..], Value::as_array)
-                    .iter()
-                    .any(|k| k.get("kind").and_then(Value::as_str) != Some("dev"))
-            });
-        edges.insert(
-            text(node, "id")?,
-            runtime.map(|d| text(d, "pkg")).collect::<Result<_, _>>()?,
-        );
+        let runtime = node.get("deps").map_or(&[][..], Value::as_array).iter().filter(|d| {
+            d.get("dep_kinds")
+                .map_or(&[][..], Value::as_array)
+                .iter()
+                .any(|k| k.get("kind").and_then(Value::as_str) != Some("dev"))
+        });
+        edges.insert(text(node, "id")?, runtime.map(|d| text(d, "pkg")).collect::<Result<_, _>>()?);
     }
 
     let mut report = Report::default();
     for (id, p) in &packages {
         if p.local && !members.contains(id) {
-            report.problems.push(format!(
-                "{} is a local package outside the workspace",
-                p.dir.display()
-            ));
+            report.problems.push(format!("{} is a local package outside the workspace", p.dir.display()));
         }
     }
     let root = packages
@@ -147,19 +108,14 @@ pub fn analyse(
             report.local.insert(p.dir.clone());
             report.problems.extend(target_problems(p, &counted));
         } else if p.local {
-            report.problems.push(format!(
-                "{} is a local package the binary reaches outside the rings",
-                p.dir.display()
-            ));
-        } else {
             report
-                .all
-                .insert(id.to_string(), format!("{} {}", p.name, p.version));
+                .problems
+                .push(format!("{} is a local package the binary reaches outside the rings", p.dir.display()));
+        } else {
+            report.all.insert(id.to_string(), format!("{} {}", p.name, p.version));
         }
         for dep in edges.get(id).map_or(&[][..], Vec::as_slice) {
-            let d = packages
-                .get(dep)
-                .ok_or_else(|| format!("cargo metadata: unknown package {dep}"))?;
+            let d = packages.get(dep).ok_or_else(|| format!("cargo metadata: unknown package {dep}"))?;
             if ring && !d.local {
                 report.direct.insert(dep.to_string(), d.name.to_string());
             }
@@ -177,18 +133,12 @@ fn target_problems(p: &Package, counted: &BTreeSet<&PathBuf>) -> Vec<String> {
     for (kinds, root) in &p.targets {
         for kind in kinds {
             match *kind {
-                "custom-build" => {
-                    problems.push(format!("{} is a build script in a ring", root.display()))
-                }
-                "proc-macro" => problems.push(format!(
-                    "{} is a procedural macro in a ring",
-                    root.display()
-                )),
+                "custom-build" => problems.push(format!("{} is a build script in a ring", root.display())),
+                "proc-macro" => problems.push(format!("{} is a procedural macro in a ring", root.display())),
                 "test" | "bench" | "example" => {}
-                _ if !counted.contains(root) => problems.push(format!(
-                    "{} is the root of a {kind} target but not counted",
-                    root.display()
-                )),
+                _ if !counted.contains(root) => {
+                    problems.push(format!("{} is the root of a {kind} target but not counted", root.display()))
+                }
                 _ => {}
             }
         }
@@ -199,39 +149,22 @@ fn target_problems(p: &Package, counted: &BTreeSet<&PathBuf>) -> Vec<String> {
 /// What may change how the rings compile, as sentences: a `.cargo` directory anywhere in the repository, a directory
 /// the scan cannot read, and among `env` a `CARGO_HOME` inside the repository, any `RUSTFLAGS`, or a
 /// replaced or wrapped compiler. Fabrewk keeps none of them.
-pub fn config_problems(
-    root: &Path,
-    env: impl IntoIterator<Item = (String, String)>,
-) -> Vec<String> {
+pub fn config_problems(root: &Path, env: impl IntoIterator<Item = (String, String)>) -> Vec<String> {
     let mut problems = Vec::new();
     let mut dirs = vec![root.to_path_buf()];
     while let Some(dir) = dirs.pop() {
-        let entries = std::fs::read_dir(&dir).and_then(|it| {
-            it.map(|e| e.map(|e| e.path()))
-                .collect::<Result<Vec<_>, _>>()
-        });
+        let entries =
+            std::fs::read_dir(&dir).and_then(|it| it.map(|e| e.map(|e| e.path())).collect::<Result<Vec<_>, _>>());
         let Ok(mut entries) = entries else {
-            problems.push(format!(
-                "{} cannot be read, so the check cannot see what it holds",
-                dir.display()
-            ));
+            problems.push(format!("{} cannot be read, so the check cannot see what it holds", dir.display()));
             continue;
         };
         entries.sort();
         for path in entries {
-            let name = path
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or_default();
+            let name = path.file_name().and_then(|n| n.to_str()).unwrap_or_default();
             if name == ".cargo" {
-                problems.push(format!(
-                    "{} may change how the rings compile; Fabrewk keeps none",
-                    path.display()
-                ));
-            } else if path.is_dir()
-                && !path.is_symlink()
-                && !(dir == root && [".git", "target"].contains(&name))
-            {
+                problems.push(format!("{} may change how the rings compile; Fabrewk keeps none", path.display()));
+            } else if path.is_dir() && !path.is_symlink() && !(dir == root && [".git", "target"].contains(&name)) {
                 dirs.push(path);
             }
         }
@@ -253,9 +186,7 @@ pub fn config_problems(
         } else if COMPILER.contains(&name.as_str()) && !value.is_empty() {
             problems.push(format!("{name} replaces or wraps the compiler: {value}"));
         } else if name == "CARGO_HOME" && canonical(Path::new(&value)).starts_with(&root) {
-            problems.push(format!(
-                "CARGO_HOME is inside the repository, so its configuration applies: {value}"
-            ));
+            problems.push(format!("CARGO_HOME is inside the repository, so its configuration applies: {value}"));
         }
     }
     problems

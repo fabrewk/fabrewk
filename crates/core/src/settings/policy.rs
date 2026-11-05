@@ -2,9 +2,7 @@
 //! policy is the project file's content carried by the last `policy-adopted` event; the file on disk is a proposal
 //! until a maestro adopts it, and every widening it holds must be named.
 
-use super::{
-    Def, Dir, KEYS, Key, Level, Settings, Type, Val, admit, convert, declared, instances, table_of,
-};
+use super::{Def, Dir, KEYS, Key, Level, Settings, Type, Val, admit, convert, declared, instances, table_of};
 use crate::code::{Code, Error, refuse};
 use crate::record::{Replay, Repo, sha256_hex};
 use serde_json::{Value, json};
@@ -21,22 +19,12 @@ pub struct Policy {
 
 /// The policy carried by the last `policy-adopted` of the `project` stream; `None` while none is adopted.
 pub fn in_force(record: &Replay) -> Result<Option<Policy>, Vec<Error>> {
-    let last = record
-        .streams
-        .get("project")
-        .and_then(|s| s.iter().rev().find(|e| e.kind == "policy-adopted"));
+    let last = record.streams.get("project").and_then(|s| s.iter().rev().find(|e| e.kind == "policy-adopted"));
     let Some(event) = last else { return Ok(None) };
     // The event's check (schema 1) already holds the content to its digest.
-    let text = event.value["payload"]["content"]
-        .as_str()
-        .unwrap_or_default()
-        .to_owned();
+    let text = event.value["payload"]["content"].as_str().unwrap_or_default().to_owned();
     let settings = super::parse(&event.path, &text, Level::Project)?;
-    Ok(Some(Policy {
-        digest: sha256_hex(text.as_bytes()),
-        text,
-        settings,
-    }))
+    Ok(Some(Policy { digest: sha256_hex(text.as_bytes()), text, settings }))
 }
 
 /// The policy, or `POLICY_ABSENT` for a command that needs one.
@@ -75,16 +63,11 @@ fn effect(key: &Key, path: &str, old: Option<&Val>, new: Option<&Val>) -> Effect
         (Some(Val::Bool(a)), Some(Val::Bool(b))) => Some(b > a),
         (Some(Val::Int(a)), Some(Val::Int(b))) => Some(b > a),
         (Some(Val::Str(a)), Some(Val::Str(b))) => match key.ty {
-            Type::Ordered(set) => {
-                Some(set.iter().position(|s| s == b) > set.iter().position(|s| s == a))
-            }
+            Type::Ordered(set) => Some(set.iter().position(|s| s == b) > set.iter().position(|s| s == a)),
             _ => None,
         },
         (Some(Val::List(a)), Some(Val::List(b))) => {
-            let (added, removed) = (
-                b.iter().any(|x| !a.contains(x)),
-                a.iter().any(|x| !b.contains(x)),
-            );
+            let (added, removed) = (b.iter().any(|x| !a.contains(x)), a.iter().any(|x| !b.contains(x)));
             (added != removed).then_some(added)
         }
         _ => None,
@@ -112,19 +95,14 @@ type Values = BTreeMap<String, (Val, Source)>;
 /// Adds each default that no level set: literals first, then the keys that take another key's value, in order.
 fn fill(map: &mut Values, tables: &BTreeMap<String, usize>, levels: &[Level]) {
     for derived in [false, true] {
-        for key in KEYS
-            .iter()
-            .filter(|k| k.levels.iter().any(|l| levels.contains(l)))
-        {
+        for key in KEYS.iter().filter(|k| k.levels.iter().any(|l| levels.contains(l))) {
             for path in instances(key, tables) {
                 if map.get(&path).is_some_and(|(_, s)| *s != Source::Default) {
                     continue;
                 }
                 let value = match (key.default, derived) {
                     (Def::Lit(lit), false) => {
-                        let v = toml::de::DeValue::parse(lit)
-                            .ok()
-                            .and_then(|v| convert(v.get_ref()).ok());
+                        let v = toml::de::DeValue::parse(lit).ok().and_then(|v| convert(v.get_ref()).ok());
                         v.expect("every literal default converts (tested)")
                     }
                     (Def::From(other), true) => match (map.get(other), key.ty) {
@@ -148,61 +126,34 @@ fn is_named(table: &str) -> bool {
 /// Adding a named table widens and removing one narrows, but a maintainer's removal widens; a value that only
 /// follows another key (a profile's limit from `limits`) is not a change of its own.
 pub fn changes(old: &Settings, new: &Settings) -> Vec<Change> {
-    let named = |s: &Settings| {
-        s.tables
-            .keys()
-            .filter(|t| is_named(t))
-            .cloned()
-            .collect::<BTreeSet<_>>()
-    };
+    let named = |s: &Settings| s.tables.keys().filter(|t| is_named(t)).cloned().collect::<BTreeSet<_>>();
     let (a, b) = (named(old), named(new));
     let moved: Vec<&String> = a.symmetric_difference(&b).collect();
     let mut out: Vec<Change> = moved
         .iter()
         .map(|t| {
             let added = b.contains(*t);
-            let effect = if added || t.starts_with("maintainers.") {
-                Effect::Widening
-            } else {
-                Effect::Narrowing
-            };
-            Change {
-                key: (*t).clone(),
-                effect,
-                old: None,
-                new: None,
-                line: new.tables.get(*t).copied(),
-            }
+            let effect = if added || t.starts_with("maintainers.") { Effect::Widening } else { Effect::Narrowing };
+            Change { key: (*t).clone(), effect, old: None, new: None, line: new.tables.get(*t).copied() }
         })
         .collect();
     let values = |s: &Settings| {
-        let set = |(p, e): (&String, &super::Entry)| {
-            (p.clone(), (e.value.clone(), Source::Project(String::new())))
-        };
+        let set = |(p, e): (&String, &super::Entry)| (p.clone(), (e.value.clone(), Source::Project(String::new())));
         let mut map: Values = s.values.iter().map(set).collect();
         fill(&mut map, &s.tables, &[s.level]);
-        map.into_iter()
-            .map(|(p, (v, _))| (p, v))
-            .collect::<BTreeMap<_, _>>()
+        map.into_iter().map(|(p, (v, _))| (p, v)).collect::<BTreeMap<_, _>>()
     };
     let (va, vb) = (values(old), values(new));
     for path in va.keys().chain(vb.keys()).collect::<BTreeSet<_>>() {
         let key = declared(path).expect("a value's path is declared");
-        let follows = matches!(key.default, Def::From(_))
-            && !old.values.contains_key(path)
-            && !new.values.contains_key(path);
+        let follows =
+            matches!(key.default, Def::From(_)) && !old.values.contains_key(path) && !new.values.contains_key(path);
         let (x, y) = (va.get(path), vb.get(path));
         if x == y || follows || moved.iter().any(|t| path.starts_with(&format!("{t}."))) {
             continue;
         }
         let line = new.values.get(path).map(|e| e.line);
-        out.push(Change {
-            key: path.clone(),
-            effect: effect(key, path, x, y),
-            old: x.cloned(),
-            new: y.cloned(),
-            line,
-        });
+        out.push(Change { key: path.clone(), effect: effect(key, path, x, y), old: x.cloned(), new: y.cloned(), line });
     }
     out
 }
@@ -245,40 +196,19 @@ pub fn adopt(
     let path = domain.join("settings.toml");
     let (content, settings) = super::read_text(&path, Level::Project)?;
     let mut errors = Vec::new();
-    for (key, e) in settings
-        .values
-        .iter()
-        .filter(|(_, e)| e.value == Val::Str("supervisor".into()))
-    {
-        let why = format!(
-            "{key} (line {}): the supervisor's role is not enforced yet",
-            e.line
-        );
+    for (key, e) in settings.values.iter().filter(|(_, e)| e.value == Val::Str("supervisor".into())) {
+        let why = format!("{key} (line {}): the supervisor's role is not enforced yet", e.line);
         errors.push(refuse(Code::RoleNotEnforced, Some(&path), why));
     }
     if let Some(repo) = repo {
-        let committed =
-            crate::record::committed(repo, Path::new("settings.toml")).map_err(|e| vec![e])?;
+        let committed = crate::record::committed(repo, Path::new("settings.toml")).map_err(|e| vec![e])?;
         if committed.as_deref() != Some(content.as_bytes()) {
-            errors.push(refuse(
-                Code::PolicyUncommitted,
-                Some(&path),
-                "not as committed at the record branch's head",
-            ));
+            errors.push(refuse(Code::PolicyUncommitted, Some(&path), "not as committed at the record branch's head"));
         }
     }
-    let changes = in_force
-        .map(|p| changes(&p.settings, &settings))
-        .unwrap_or_default();
-    let widenings: Vec<&Change> = changes
-        .iter()
-        .filter(|c| c.effect == Effect::Widening)
-        .collect();
-    let unnamed: Vec<&str> = widenings
-        .iter()
-        .filter(|c| !widen.contains(&c.key))
-        .map(|c| c.key.as_str())
-        .collect();
+    let changes = in_force.map(|p| changes(&p.settings, &settings)).unwrap_or_default();
+    let widenings: Vec<&Change> = changes.iter().filter(|c| c.effect == Effect::Widening).collect();
+    let unnamed: Vec<&str> = widenings.iter().filter(|c| !widen.contains(&c.key)).map(|c| c.key.as_str()).collect();
     if !unnamed.is_empty() {
         let why = format!("widenings not named with --widen: {}", unnamed.join(", "));
         errors.push(refuse(Code::WideningUnnamed, Some(&path), why));
@@ -287,13 +217,7 @@ pub fn adopt(
         return Err(errors);
     }
     let widened = widenings.iter().map(|c| c.key.clone()).collect();
-    Ok(Adoption {
-        digest: sha256_hex(content.as_bytes()),
-        content,
-        settings,
-        changes,
-        widened,
-    })
+    Ok(Adoption { digest: sha256_hex(content.as_bytes()), content, settings, changes, widened })
 }
 
 /// The effective configuration: every value with its source, and the widenings the stage and task layers made.
@@ -315,10 +239,7 @@ pub fn effective(
     let tables = &policy.settings.tables;
     let mut map: Values = BTreeMap::new();
     for (path, e) in &policy.settings.values {
-        map.insert(
-            path.clone(),
-            (e.value.clone(), Source::Project(policy.digest.clone())),
-        );
+        map.insert(path.clone(), (e.value.clone(), Source::Project(policy.digest.clone())));
     }
     if let Some(p) = personal {
         let alias = match p.values.get("maintainer.alias").map(|e| &e.value) {
@@ -326,10 +247,7 @@ pub fn effective(
             _ => String::new(),
         };
         for (path, e) in &p.values {
-            map.insert(
-                path.clone(),
-                (e.value.clone(), Source::Personal(alias.clone())),
-            );
+            map.insert(path.clone(), (e.value.clone(), Source::Personal(alias.clone())));
         }
     }
     let levels = [Level::Project, Level::Personal, Level::Stage, Level::Task];
@@ -340,19 +258,12 @@ pub fn effective(
             Source::Stage(id) => (Level::Stage, id),
             Source::Task(id) => (Level::Task, id),
             _ => {
-                return Err(refuse(
-                    Code::SettingsInvalid,
-                    None,
-                    "a layer is a stage's or a task's",
-                ));
+                return Err(refuse(Code::SettingsInvalid, None, "a layer is a stage's or a task's"));
             }
         };
         for (path, value) in values {
-            let bad =
-                |why: &str| refuse(Code::SettingsInvalid, None, format!("{path} ({id}): {why}"));
-            let key = declared(path)
-                .filter(|k| k.levels.contains(&level))
-                .ok_or_else(|| bad("not allowed here"))?;
+            let bad = |why: &str| refuse(Code::SettingsInvalid, None, format!("{path} ({id}): {why}"));
+            let key = declared(path).filter(|k| k.levels.contains(&level)).ok_or_else(|| bad("not allowed here"))?;
             if !instances(key, tables).contains(path) {
                 return Err(bad("no such table in the policy"));
             }
@@ -369,10 +280,7 @@ pub fn effective(
         }
         fill(&mut map, tables, &levels);
     }
-    Ok(Effective {
-        values: map,
-        widened,
-    })
+    Ok(Effective { values: map, widened })
 }
 
 /// One effective value, for `config <key>`: `KEY_UNKNOWN` if no key is declared at that path; `None` if it is

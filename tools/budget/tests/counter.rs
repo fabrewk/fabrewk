@@ -44,10 +44,7 @@ fn req_bud_1_comment_markers_inside_strings_are_code() {
     assert_eq!(count("let s = \"/* not a comment\";\nlet t = 1;\n"), 2);
     assert_eq!(count("let s = \"a\n// inside the string\nb\";\n"), 3);
     assert_eq!(count("let s = \"esc \\\" // still string\";\n"), 1);
-    assert_eq!(
-        count("let s = \"\\\\\"; // comment after a string ending in a backslash\n"),
-        1
-    );
+    assert_eq!(count("let s = \"\\\\\"; // comment after a string ending in a backslash\n"), 1);
 }
 
 #[test]
@@ -55,10 +52,7 @@ fn req_bud_1_raw_byte_and_c_strings() {
     assert_eq!(count("let s = r\"// x\";\n"), 1);
     assert_eq!(count("let s = r#\"a \" // b\n/* c\"#;\n"), 2);
     assert_eq!(count("let s = r##\"a \"# b\"##; // c\n"), 1);
-    assert_eq!(
-        count("let s = b\"/*\";\nlet t = br\"/*\";\nlet u = c\"/*\";\nlet v = cr#\"/*\"#;\n"),
-        4
-    );
+    assert_eq!(count("let s = b\"/*\";\nlet t = br\"/*\";\nlet u = c\"/*\";\nlet v = cr#\"/*\"#;\n"), 4);
     assert_eq!(count("let r#type = 1; // raw identifier\n"), 1);
 }
 
@@ -82,11 +76,7 @@ fn req_bud_1_characters_and_lifetimes() {
 fn req_bud_1_multibyte_characters_in_literals() {
     // Read wrongly, each `'x'` would leave `','` as a character and open a string at `"` running to the next line.
     for c in ['é', '€', '😀'] {
-        assert_eq!(
-            count(&format!("let a = ['{c}','\"'];\n// comment \"\n")),
-            1,
-            "{c}"
-        );
+        assert_eq!(count(&format!("let a = ['{c}','\"'];\n// comment \"\n")), 1, "{c}");
     }
 }
 
@@ -117,41 +107,17 @@ fn req_bud_1_other_cfg_items_are_counted() {
 
 #[test]
 fn req_bud_1_out_of_line_test_module_is_an_error() {
-    assert_eq!(
-        count_source("#[cfg(test)]\nmod tests;\n"),
-        Err(CountError::OutOfLineTestModule { line: 1 })
-    );
+    assert_eq!(count_source("#[cfg(test)]\nmod tests;\n"), Err(CountError::OutOfLineTestModule { line: 1 }));
 }
 
 #[test]
 fn req_bud_1_malformed_sources_are_errors() {
-    assert_eq!(
-        count_source("fn a() {}\n/* open"),
-        Err(CountError::Unterminated {
-            what: "block comment",
-            line: 2
-        })
-    );
-    assert_eq!(
-        count_source("let s = \"open"),
-        Err(CountError::Unterminated {
-            what: "string",
-            line: 1
-        })
-    );
-    assert_eq!(
-        count_source("let s = r#\"open\"\n"),
-        Err(CountError::Unterminated {
-            what: "raw string",
-            line: 1
-        })
-    );
+    assert_eq!(count_source("fn a() {}\n/* open"), Err(CountError::Unterminated { what: "block comment", line: 2 }));
+    assert_eq!(count_source("let s = \"open"), Err(CountError::Unterminated { what: "string", line: 1 }));
+    assert_eq!(count_source("let s = r#\"open\"\n"), Err(CountError::Unterminated { what: "raw string", line: 1 }));
     assert!(count_source("let c = '\\").is_err());
     let messages = [
-        CountError::Unterminated {
-            what: "string",
-            line: 4,
-        },
+        CountError::Unterminated { what: "string", line: 4 },
         CountError::Unbalanced { line: 5 },
         CountError::OutOfLineTestModule { line: 6 },
     ]
@@ -159,14 +125,8 @@ fn req_bud_1_malformed_sources_are_errors() {
     assert_eq!(messages[0], "line 4: string does not end");
     assert_eq!(messages[1], "line 5: bracket without its match");
     assert!(messages[2].starts_with("line 6: #[cfg(test)] module declared out of line"));
-    assert_eq!(
-        count_source("#[cfg(test)]\nmod t {\n"),
-        Err(CountError::Unbalanced { line: 2 })
-    );
-    assert_eq!(
-        count_source("#[cfg(test\n"),
-        Err(CountError::Unbalanced { line: 1 })
-    );
+    assert_eq!(count_source("#[cfg(test)]\nmod t {\n"), Err(CountError::Unbalanced { line: 2 }));
+    assert_eq!(count_source("#[cfg(test\n"), Err(CountError::Unbalanced { line: 1 }));
 }
 
 /// A fixture workspace under Cargo's temporary directory.
@@ -174,9 +134,7 @@ struct Fixture(PathBuf);
 
 impl Fixture {
     fn new(name: &str) -> Self {
-        let dir = Path::new(env!("CARGO_TARGET_TMPDIR"))
-            .join("counter")
-            .join(name);
+        let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("counter").join(name);
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         Fixture(dir)
@@ -194,11 +152,7 @@ impl Fixture {
     }
 }
 
-const CORE: Ring = Ring {
-    name: "core",
-    kind: RingKind::Core,
-    dirs: &["crates/core"],
-};
+const CORE: Ring = Ring { name: "core", kind: RingKind::Core, dirs: &["crates/core"] };
 const TWO_LINES: &str = "fn a() {}\nfn b() {}\n";
 
 #[test]
@@ -214,10 +168,7 @@ fn req_bud_1_tests_benches_and_examples_are_not_counted() {
         .file("crates/core/README.md", "fn not_rust() {}\n");
     let counts = count_rings(&f.0, &[CORE]).unwrap();
     assert_eq!(counts.len(), 1);
-    assert_eq!(
-        (counts[0].name, counts[0].files, counts[0].lines),
-        ("core", 3, 5)
-    );
+    assert_eq!((counts[0].name, counts[0].files, counts[0].lines), ("core", 3, 5));
 }
 
 #[test]
@@ -231,83 +182,43 @@ fn req_bud_1_counts_per_ring() {
         .file("crates/adapter/src/lib.rs", TWO_LINES)
         .file("tools/budget/src/main.rs", TWO_LINES);
     let rings = [
-        Ring {
-            name: "core",
-            kind: RingKind::Core,
-            dirs: &["crates/core", "crates/bin"],
-        },
-        Ring {
-            name: "adapter",
-            kind: RingKind::ToolAdapter,
-            dirs: &["crates/adapter"],
-        },
+        Ring { name: "core", kind: RingKind::Core, dirs: &["crates/core", "crates/bin"] },
+        Ring { name: "adapter", kind: RingKind::ToolAdapter, dirs: &["crates/adapter"] },
     ];
     let counts = count_rings(&f.0, &rings).unwrap();
-    let measures: Vec<_> = counts
-        .iter()
-        .map(|c| (c.name, c.lines, c.files, c.limit()))
-        .collect();
+    let measures: Vec<_> = counts.iter().map(|c| (c.name, c.lines, c.files, c.limit())).collect();
     assert_eq!(measures, [("core", 3, 2, 4_000), ("adapter", 2, 1, 600)]);
 }
 
 #[test]
 fn req_bud_1_code_in_no_ring_is_an_error() {
     let f = Fixture::new("unassigned-crate");
-    f.package("crates/core")
-        .file("crates/core/src/lib.rs", TWO_LINES)
-        .package("crates/stray");
-    assert!(
-        matches!(count_rings(&f.0, &[CORE]), Err(Error::Unassigned(p)) if p.ends_with("crates/stray"))
-    );
+    f.package("crates/core").file("crates/core/src/lib.rs", TWO_LINES).package("crates/stray");
+    assert!(matches!(count_rings(&f.0, &[CORE]), Err(Error::Unassigned(p)) if p.ends_with("crates/stray")));
 
     let f = Fixture::new("unassigned-file");
-    f.package("crates/core")
-        .file("crates/core/src/lib.rs", TWO_LINES)
-        .file("src/main.rs", TWO_LINES);
-    assert!(
-        matches!(count_rings(&f.0, &[CORE]), Err(Error::Unassigned(p)) if p.ends_with("src/main.rs"))
-    );
+    f.package("crates/core").file("crates/core/src/lib.rs", TWO_LINES).file("src/main.rs", TWO_LINES);
+    assert!(matches!(count_rings(&f.0, &[CORE]), Err(Error::Unassigned(p)) if p.ends_with("src/main.rs")));
 
     let f = Fixture::new("unassigned-root-file");
-    f.package("crates/core")
-        .file("crates/core/src/lib.rs", TWO_LINES)
-        .file("build.rs", TWO_LINES);
-    assert!(
-        matches!(count_rings(&f.0, &[CORE]), Err(Error::Unassigned(p)) if p.ends_with("build.rs"))
-    );
+    f.package("crates/core").file("crates/core/src/lib.rs", TWO_LINES).file("build.rs", TWO_LINES);
+    assert!(matches!(count_rings(&f.0, &[CORE]), Err(Error::Unassigned(p)) if p.ends_with("build.rs")));
 }
 
 #[test]
 fn req_bud_1_overlapping_or_missing_rings_are_errors() {
     let f = Fixture::new("overlap");
-    f.package("crates/core")
-        .file("crates/core/src/lib.rs", TWO_LINES);
-    let rings = [
-        CORE,
-        Ring {
-            name: "inner",
-            kind: RingKind::Installer,
-            dirs: &["crates/core/src"],
-        },
-    ];
+    f.package("crates/core").file("crates/core/src/lib.rs", TWO_LINES);
+    let rings = [CORE, Ring { name: "inner", kind: RingKind::Installer, dirs: &["crates/core/src"] }];
     assert!(matches!(count_rings(&f.0, &rings), Err(Error::Overlap(..))));
-    let rings = [Ring {
-        name: "gone",
-        kind: RingKind::Installer,
-        dirs: &["crates/gone"],
-    }];
-    assert!(matches!(
-        count_rings(&f.0, &rings),
-        Err(Error::MissingDir(_))
-    ));
+    let rings = [Ring { name: "gone", kind: RingKind::Installer, dirs: &["crates/gone"] }];
+    assert!(matches!(count_rings(&f.0, &rings), Err(Error::MissingDir(_))));
 }
 
 #[test]
 fn req_bud_1_symbolic_links_are_errors() {
     let f = Fixture::new("symlink");
-    f.package("crates/core")
-        .file("crates/core/src/lib.rs", TWO_LINES)
-        .file("elsewhere/x.rs", TWO_LINES);
+    f.package("crates/core").file("crates/core/src/lib.rs", TWO_LINES).file("elsewhere/x.rs", TWO_LINES);
     std::os::unix::fs::symlink(f.0.join("elsewhere"), f.0.join("crates/core/src/linked")).unwrap();
     assert!(matches!(count_rings(&f.0, &[CORE]), Err(Error::Symlink(_))));
 }
@@ -321,17 +232,13 @@ fn req_bud_1_unreadable_sources_are_errors() {
     assert!(matches!(count_rings(&f.0, &[CORE]), Err(Error::NotUtf8(_))));
 
     let f = Fixture::new("malformed");
-    f.package("crates/core")
-        .file("crates/core/src/lib.rs", "/* open\n");
+    f.package("crates/core").file("crates/core/src/lib.rs", "/* open\n");
     assert!(matches!(count_rings(&f.0, &[CORE]), Err(Error::Count(..))));
 }
 
 #[test]
 fn req_bud_1_slashes_and_stars_that_open_no_comment() {
-    assert_eq!(
-        count("let x = a / b * c;\nlet y = (*p);\nlet z = &*q / 2;\n"),
-        3
-    );
+    assert_eq!(count("let x = a / b * c;\nlet y = (*p);\nlet z = &*q / 2;\n"), 3);
 }
 
 #[test]
@@ -419,14 +326,8 @@ fn req_bud_1_cfg_test_inside_a_macro_is_counted() {
     assert_eq!(count("m![#[cfg(test)] mod t { fn x() {} }];\n"), 1);
     assert_eq!(count("m!(\n#[cfg(test)]\nmod t {\n}\n);\n"), 5);
     // Outside any macro the module is still excluded, and `!` as negation opens no macro.
-    assert_eq!(
-        count("if !ready {\n    go();\n}\n#[cfg(test)]\nmod t {\n    fn x() {}\n}\n"),
-        3
-    );
-    assert_eq!(
-        count("m! { x }\n#[cfg(test)]\nmod t {\n    fn x() {}\n}\n"),
-        1
-    );
+    assert_eq!(count("if !ready {\n    go();\n}\n#[cfg(test)]\nmod t {\n    fn x() {}\n}\n"), 3);
+    assert_eq!(count("m! { x }\n#[cfg(test)]\nmod t {\n    fn x() {}\n}\n"), 1);
 }
 
 #[test]
@@ -435,55 +336,25 @@ fn req_bud_1_include_and_path_attributes_are_errors() {
         Err(CountError::HiddenSource { what, line }) => (what, line),
         other => panic!("{src:?}: {other:?}"),
     };
-    assert_eq!(
-        hidden("fn a() {}\ninclude!(\"live.inc\");\n"),
-        ("include", 2)
-    );
+    assert_eq!(hidden("fn a() {}\ninclude!(\"live.inc\");\n"), ("include", 2));
     assert_eq!(hidden("m! { include ! (\"x.rs\") }\n"), ("include", 1));
     // An alias or a raw name of `include` is the same macro: Codex's case in its second review of part 7a.
-    assert_eq!(
-        hidden("use std::include as load;\nload!(\"hidden.inc\");\n"),
-        ("include", 1)
-    );
+    assert_eq!(hidden("use std::include as load;\nload!(\"hidden.inc\");\n"), ("include", 1));
     assert_eq!(hidden("r#include!(\"x.inc\");\n"), ("include", 1));
-    assert_eq!(
-        hidden("#[path = \"../../tools/live.rs\"]\nmod live;\n"),
-        ("a path attribute", 1)
-    );
-    assert_eq!(
-        hidden("#[cfg_attr(unix, path = \"x.rs\")]\nmod x;\n"),
-        ("a path attribute", 1)
-    );
-    assert_eq!(
-        hidden("fn a() {}\n#![path = \"x\"]\n"),
-        ("a path attribute", 2)
-    );
-    assert_eq!(
-        hidden("#[r#path = \"x\"]\nmod x;\n"),
-        ("a path attribute", 1)
-    );
+    assert_eq!(hidden("#[path = \"../../tools/live.rs\"]\nmod live;\n"), ("a path attribute", 1));
+    assert_eq!(hidden("#[cfg_attr(unix, path = \"x.rs\")]\nmod x;\n"), ("a path attribute", 1));
+    assert_eq!(hidden("fn a() {}\n#![path = \"x\"]\n"), ("a path attribute", 2));
+    assert_eq!(hidden("#[r#path = \"x\"]\nmod x;\n"), ("a path attribute", 1));
     // An attribute a macro builds could be a path attribute.
     let generated = "macro_rules! load {\n    ($attr:ident) => {\n        #[$attr = \"hidden.inc\"]\n        mod hidden;\n    };\n}\nload!(path);\n";
     assert_eq!(hidden(generated), ("an attribute built by a macro", 3));
+    assert_eq!(hidden("m! { $(#[$meta])* }\n"), ("an attribute built by a macro", 1));
     assert_eq!(
-        hidden("m! { $(#[$meta])* }\n"),
-        ("an attribute built by a macro", 1)
-    );
-    assert_eq!(
-        CountError::HiddenSource {
-            what: "include",
-            line: 2
-        }
-        .to_string(),
+        CountError::HiddenSource { what: "include", line: 2 }.to_string(),
         "line 2: include brings in code the counter does not see; not allowed in a ring"
     );
     // Data, not code, may still be included; a path that is a string or a variable is no attribute.
-    assert_eq!(
-        count(
-            "const T: &str = include_str!(\"t.txt\");\nlet path = 1;\n#[doc = \"path = x\"]\nfn a() {}\n"
-        ),
-        4
-    );
+    assert_eq!(count("const T: &str = include_str!(\"t.txt\");\nlet path = 1;\n#[doc = \"path = x\"]\nfn a() {}\n"), 4);
 }
 
 #[test]
@@ -510,11 +381,7 @@ fn req_bud_1_raw_identifiers_are_one_token() {
 fn req_bud_1_what_opens_a_macro_and_what_does_not() {
     // A test module inside these is counted: each is a macro's input.
     for name in ["_m", "ñ", "m"] {
-        assert_eq!(
-            count(&format!("{name}! {{\n#[cfg(test)]\nmod t {{\n}}\n}}\n")),
-            5,
-            "{name}"
-        );
+        assert_eq!(count(&format!("{name}! {{\n#[cfg(test)]\nmod t {{\n}}\n}}\n")), 5, "{name}");
     }
     let rules = "macro_rules! m {\n    () => {\n        #[cfg(test)]\n        mod t {\n        }\n    };\n}\n";
     assert_eq!(count(rules), 7);
@@ -522,10 +389,7 @@ fn req_bud_1_what_opens_a_macro_and_what_does_not() {
     // Not macros: negation before a block or a condition, and a plain module; their test modules are excluded.
     let not_block = "let x = (!{\n    #[cfg(test)]\n    mod t {\n    }\n    true\n});\n";
     assert_eq!(count(not_block), 3);
-    assert_eq!(
-        count("if !ready {\n    #[cfg(test)]\n    mod t {\n    }\n}\n"),
-        2
-    );
+    assert_eq!(count("if !ready {\n    #[cfg(test)]\n    mod t {\n    }\n}\n"), 2);
     let outer = "mod outer {\n    #[cfg(test)]\n    mod t {\n        fn x() {}\n    }\n}\n";
     assert_eq!(count(outer), 2);
 }
@@ -549,10 +413,7 @@ fn req_bud_1_data_files_with_any_delimiter_and_no_function() {
 #[test]
 fn req_bud_1_a_lone_r_is_an_ordinary_identifier() {
     assert_eq!(count("m!{r}x\n"), 1);
-    assert_eq!(
-        count("#[cfg(test)]\nmod t {\n    fn f() -> u8 { let r = 1; r}\n}\nfn g() {}\n"),
-        1
-    );
+    assert_eq!(count("#[cfg(test)]\nmod t {\n    fn f() -> u8 { let r = 1; r}\n}\nfn g() {}\n"), 1);
 }
 
 #[test]

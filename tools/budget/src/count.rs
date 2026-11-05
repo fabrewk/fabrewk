@@ -35,10 +35,7 @@ impl fmt::Display for CountError {
             }
             CountError::Unbalanced { line } => write!(f, "line {line}: bracket without its match"),
             CountError::HiddenSource { what, line } => {
-                write!(
-                    f,
-                    "line {line}: {what} brings in code the counter does not see; not allowed in a ring"
-                )
+                write!(f, "line {line}: {what} brings in code the counter does not see; not allowed in a ring")
             }
             CountError::OutOfLineTestModule { line } => write!(
                 f,
@@ -78,10 +75,7 @@ pub struct Scan {
 /// Counts `src` and collects the data files it includes.
 pub fn scan_source(src: &str) -> Result<Scan, CountError> {
     let lines = LineIndex::new(src);
-    let code: Vec<Token> = lex(src, &lines)?
-        .into_iter()
-        .filter(|t| t.kind == Kind::Code)
-        .collect();
+    let code: Vec<Token> = lex(src, &lines)?.into_iter().filter(|t| t.kind == Kind::Code).collect();
     hidden_sources(src, &code, &lines)?;
     let excluded = test_module_spans(src, &code, &lines)?;
     let mut touched = vec![false; lines.len()];
@@ -96,15 +90,8 @@ pub fn scan_source(src: &str) -> Result<Scan, CountError> {
             *line = true;
         }
     }
-    let counted = touched
-        .iter()
-        .enumerate()
-        .filter(|&(n, &t)| t && !lines.text(src, n).trim().is_empty())
-        .count();
-    Ok(Scan {
-        lines: counted,
-        data: data_paths(src, &code),
-    })
+    let counted = touched.iter().enumerate().filter(|&(n, &t)| t && !lines.text(src, n).trim().is_empty()).count();
+    Ok(Scan { lines: counted, data: data_paths(src, &code) })
 }
 
 /// An identifier's name without the raw prefix `r#`.
@@ -141,12 +128,7 @@ struct LineIndex {
 impl LineIndex {
     fn new(src: &str) -> Self {
         let mut starts = vec![0];
-        starts.extend(
-            src.bytes()
-                .enumerate()
-                .filter(|&(_, b)| b == b'\n')
-                .map(|(i, _)| i + 1),
-        );
+        starts.extend(src.bytes().enumerate().filter(|&(_, b)| b == b'\n').map(|(i, _)| i + 1));
         LineIndex { starts }
     }
 
@@ -193,16 +175,11 @@ fn lex(src: &str, lines: &LineIndex) -> Result<Vec<Token>, CountError> {
             continue;
         }
         let kind = if c == b'/' && at(i + 1) == Some(b'/') {
-            i = b[i..]
-                .iter()
-                .position(|&x| x == b'\n')
-                .map_or(b.len(), |p| i + p);
+            i = b[i..].iter().position(|&x| x == b'\n').map_or(b.len(), |p| i + p);
             Kind::Comment
         } else if c == b'/' && at(i + 1) == Some(b'*') {
-            i = block_comment_end(b, i).ok_or(CountError::Unterminated {
-                what: "block comment",
-                line: lines.line_of(start) + 1,
-            })?;
+            i = block_comment_end(b, i)
+                .ok_or(CountError::Unterminated { what: "block comment", line: lines.line_of(start) + 1 })?;
             Kind::Comment
         } else if let Some(end) = literal_end(b, i, lines)? {
             i = end;
@@ -219,11 +196,7 @@ fn lex(src: &str, lines: &LineIndex) -> Result<Vec<Token>, CountError> {
             i += 1;
             Kind::Code
         };
-        tokens.push(Token {
-            kind,
-            start,
-            end: i,
-        });
+        tokens.push(Token { kind, start, end: i });
     }
     Ok(tokens)
 }
@@ -253,10 +226,7 @@ fn block_comment_end(b: &[u8], mut i: usize) -> Option<usize> {
 /// If a string, byte string, C string, raw string, character, byte or lifetime starts at `i`, where it ends.
 fn literal_end(b: &[u8], i: usize, lines: &LineIndex) -> Result<Option<usize>, CountError> {
     let at = |j: usize| b.get(j).copied();
-    let unterminated = |what| CountError::Unterminated {
-        what,
-        line: lines.line_of(i) + 1,
-    };
+    let unterminated = |what| CountError::Unterminated { what, line: lines.line_of(i) + 1 };
     let mut j = i;
     if matches!(at(j), Some(b'b' | b'c')) {
         j += 1;
@@ -267,9 +237,7 @@ fn literal_end(b: &[u8], i: usize, lines: &LineIndex) -> Result<Option<usize>, C
             return Ok(None); // a raw identifier such as `r#type`
         }
         let body = j + 2 + hashes;
-        let closing: Vec<u8> = std::iter::once(b'"')
-            .chain(std::iter::repeat_n(b'#', hashes))
-            .collect();
+        let closing: Vec<u8> = std::iter::once(b'"').chain(std::iter::repeat_n(b'#', hashes)).collect();
         return b[body..]
             .windows(closing.len())
             .position(|w| w == closing.as_slice())
@@ -288,9 +256,7 @@ fn literal_end(b: &[u8], i: usize, lines: &LineIndex) -> Result<Option<usize>, C
             }
             Err(unterminated("string"))
         }
-        Some(b'\'') => quote_end(b, j)
-            .map(Some)
-            .ok_or(unterminated("character literal")),
+        Some(b'\'') => quote_end(b, j).map(Some).ok_or(unterminated("character literal")),
         _ => Ok(None),
     }
 }
@@ -300,10 +266,7 @@ fn quote_end(b: &[u8], j: usize) -> Option<usize> {
     let at = |k: usize| b.get(k).copied();
     match at(j + 1)? {
         b'\\' => {
-            let close = b
-                .get(j + 3..)?
-                .iter()
-                .position(|&x| x == b'\'' || x == b'\n')?;
+            let close = b.get(j + 3..)?.iter().position(|&x| x == b'\'' || x == b'\n')?;
             (b[j + 3 + close] == b'\'').then_some(j + 4 + close)
         }
         lead => {
@@ -322,11 +285,7 @@ fn quote_end(b: &[u8], j: usize) -> Option<usize> {
 }
 
 /// Inclusive ranges of code-token indices covered by `#[cfg(test)]` modules, in order and not overlapping.
-fn test_module_spans(
-    src: &str,
-    code: &[Token],
-    lines: &LineIndex,
-) -> Result<Vec<(usize, usize)>, CountError> {
+fn test_module_spans(src: &str, code: &[Token], lines: &LineIndex) -> Result<Vec<(usize, usize)>, CountError> {
     let text = |k: usize| code.get(k).map_or("", |t| &src[t.start..t.end]);
     let line = |k: usize| lines.line_of(code[k].start) + 1;
     let mut spans = Vec::new();
@@ -334,8 +293,7 @@ fn test_module_spans(
     while i < code.len() {
         if let Some(group) = macro_group(&text, i) {
             // Resume at the group's closing token, which the next pass steps over.
-            i = group_close(code, src, group)
-                .ok_or(CountError::Unbalanced { line: line(group) })?;
+            i = group_close(code, src, group).ok_or(CountError::Unbalanced { line: line(group) })?;
             continue;
         }
         if !(text(i) == "#" && text(i + 1) == "[") {
@@ -345,8 +303,7 @@ fn test_module_spans(
         let first = i;
         let mut cfg_test = false;
         while text(i) == "#" && text(i + 1) == "[" {
-            let close = matching(code, src, i + 1, "[", "]")
-                .ok_or(CountError::Unbalanced { line: line(i) })?;
+            let close = matching(code, src, i + 1, "[", "]").ok_or(CountError::Unbalanced { line: line(i) })?;
             cfg_test |= (i + 2..close).map(text).eq(["cfg", "(", "test", ")"]);
             i = close + 1;
         }
@@ -357,16 +314,14 @@ fn test_module_spans(
         if text(k) == "pub" {
             k += 1;
             if text(k) == "(" {
-                k = matching(code, src, k, "(", ")")
-                    .ok_or(CountError::Unbalanced { line: line(k) })?
-                    + 1;
+                k = matching(code, src, k, "(", ")").ok_or(CountError::Unbalanced { line: line(k) })? + 1;
             }
         }
         if text(k) == "mod" {
             match text(k + 2) {
                 "{" => {
-                    let close = matching(code, src, k + 2, "{", "}")
-                        .ok_or(CountError::Unbalanced { line: line(k + 2) })?;
+                    let close =
+                        matching(code, src, k + 2, "{", "}").ok_or(CountError::Unbalanced { line: line(k + 2) })?;
                     spans.push((first, close));
                     i = close; // the next pass steps over the closing brace
                 }
@@ -381,20 +336,11 @@ fn test_module_spans(
 /// Where the delimited group of a macro invocation (`name!(…)`, `name![…]`, `name!{…}`) or of a `macro_rules!`
 /// definition starting at `i` opens.
 fn macro_group<'a>(text: &impl Fn(usize) -> &'a str, i: usize) -> Option<usize> {
-    let ident = |k: usize| {
-        text(k)
-            .bytes()
-            .next()
-            .is_some_and(|b| b.is_ascii_alphabetic() || b == b'_' || b >= 0x80)
-    };
+    let ident = |k: usize| text(k).bytes().next().is_some_and(|b| b.is_ascii_alphabetic() || b == b'_' || b >= 0x80);
     if !(ident(i) && text(i + 1) == "!") {
         return None;
     }
-    let group = if name(text(i)) == "macro_rules" && ident(i + 2) {
-        i + 3
-    } else {
-        i + 2
-    };
+    let group = if name(text(i)) == "macro_rules" && ident(i + 2) { i + 3 } else { i + 2 };
     matches!(text(group), "(" | "[" | "{").then_some(group)
 }
 
@@ -417,10 +363,7 @@ fn hidden_sources(src: &str, code: &[Token], lines: &LineIndex) -> Result<(), Co
     let line = |k: usize| lines.line_of(code[k].start) + 1;
     for k in 0..code.len() {
         if name(text(k)) == "include" {
-            return Err(CountError::HiddenSource {
-                what: "include",
-                line: line(k),
-            });
+            return Err(CountError::HiddenSource { what: "include", line: line(k) });
         }
         if text(k) != "#" {
             continue;
@@ -429,19 +372,12 @@ fn hidden_sources(src: &str, code: &[Token], lines: &LineIndex) -> Result<(), Co
         if text(open) != "[" {
             continue;
         }
-        let close =
-            matching(code, src, open, "[", "]").ok_or(CountError::Unbalanced { line: line(k) })?;
+        let close = matching(code, src, open, "[", "]").ok_or(CountError::Unbalanced { line: line(k) })?;
         if (open..close).any(|m| name(text(m)) == "path" && text(m + 1) == "=") {
-            return Err(CountError::HiddenSource {
-                what: "a path attribute",
-                line: line(k),
-            });
+            return Err(CountError::HiddenSource { what: "a path attribute", line: line(k) });
         }
         if (open..close).any(|m| text(m) == "$") {
-            return Err(CountError::HiddenSource {
-                what: "an attribute built by a macro",
-                line: line(k),
-            });
+            return Err(CountError::HiddenSource { what: "an attribute built by a macro", line: line(k) });
         }
     }
     Ok(())

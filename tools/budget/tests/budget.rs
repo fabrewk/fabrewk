@@ -2,15 +2,14 @@
 //! workspace: a ring, a crate count or the binary over its limit fails them.
 
 use budget::budget::{
-    APPROVED_RUNTIME_CRATES, BINARY_PACKAGE, MAX_BINARY_BYTES, MAX_DIRECT_RUNTIME_CRATES,
-    MAX_RELEASE_CRATES, MSRV, RELEASE_TARGET, RINGS, RingKind,
+    APPROVED_RUNTIME_CRATES, BINARY_PACKAGE, MAX_BINARY_BYTES, MAX_DIRECT_RUNTIME_CRATES, MAX_RELEASE_CRATES, MSRV,
+    RELEASE_TARGET, RINGS, RingKind,
 };
 use budget::deps::{Report, analyse, cargo_metadata, config_problems};
 use budget::rings::{RingCount, count_rings};
 use budget::sources::{parse_dep_info, unaccounted};
 use budget::{
-    binary_problem, cargo, dependency_problems, own_packages, ring_problems, source_problems,
-    workspace_root,
+    binary_problem, cargo, dependency_problems, own_packages, ring_problems, source_problems, workspace_root,
 };
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -23,28 +22,15 @@ fn read(path: &str) -> String {
 /// The members' manifests, from the root manifest's `members` line.
 fn member_manifests() -> Vec<String> {
     let root = read("Cargo.toml");
-    let line = root
-        .lines()
-        .find(|l| l.starts_with("members = ["))
-        .expect("a single-line members list");
-    line.split('"')
-        .skip(1)
-        .step_by(2)
-        .map(|m| format!("{m}/Cargo.toml"))
-        .collect()
+    let line = root.lines().find(|l| l.starts_with("members = [")).expect("a single-line members list");
+    line.split('"').skip(1).step_by(2).map(|m| format!("{m}/Cargo.toml")).collect()
 }
 
 #[test]
 fn req_bud_1_counter_reports_every_ring() {
     let counts = count_rings(&workspace_root(), RINGS).unwrap();
-    assert_eq!(
-        counts.iter().map(|c| c.name).collect::<Vec<_>>(),
-        RINGS.iter().map(|r| r.name).collect::<Vec<_>>()
-    );
-    assert!(
-        counts.iter().all(|c| c.files > 0 && c.lines > 0),
-        "{counts:?}"
-    );
+    assert_eq!(counts.iter().map(|c| c.name).collect::<Vec<_>>(), RINGS.iter().map(|r| r.name).collect::<Vec<_>>());
+    assert!(counts.iter().all(|c| c.files > 0 && c.lines > 0), "{counts:?}");
 }
 
 #[test]
@@ -63,20 +49,11 @@ fn req_bud_2_a_ring_over_its_limit_is_reported() {
         sources: Vec::new(),
         data: Vec::new(),
     };
-    let over = RingCount {
-        lines: at.lines + 1,
-        ..at.clone()
-    };
+    let over = RingCount { lines: at.lines + 1, ..at.clone() };
     assert!(ring_problems(std::slice::from_ref(&at)).is_empty());
     assert_eq!(ring_problems(&[at, over]).len(), 1);
     assert_eq!(
-        [
-            RingKind::Core,
-            RingKind::ToolAdapter,
-            RingKind::Confinement,
-            RingKind::Installer
-        ]
-        .map(RingKind::limit),
+        [RingKind::Core, RingKind::ToolAdapter, RingKind::Confinement, RingKind::Installer].map(RingKind::limit),
         [4_000, 600, 400, 1_200]
     );
 }
@@ -92,12 +69,7 @@ fn real_report() -> Report {
 fn req_bud_2_crate_counts_within_budget() {
     let report = real_report();
     let root = workspace_root();
-    assert_eq!(
-        report.local,
-        [root.join("crates/core"), root.join("crates/fabrewk")]
-            .into_iter()
-            .collect()
-    );
+    assert_eq!(report.local, [root.join("crates/core"), root.join("crates/fabrewk")].into_iter().collect());
     assert_eq!(dependency_problems(&report), Vec::<String>::new());
 }
 
@@ -137,17 +109,10 @@ fn ring_count(sources: &[&str]) -> RingCount {
 
 #[test]
 fn req_bud_2_metadata_is_classified() {
-    let own = [
-        PathBuf::from("/w/crates/fabrewk"),
-        PathBuf::from("/w/crates/core"),
-    ];
+    let own = [PathBuf::from("/w/crates/fabrewk"), PathBuf::from("/w/crates/core")];
     let count = ring_count(&["/w/crates/fabrewk/src/main.rs"]);
     let report = analyse(METADATA, "fabrewk", &own, std::slice::from_ref(&count)).unwrap();
-    let direct: Vec<_> = report
-        .direct
-        .iter()
-        .map(|(id, name)| format!("{id}={name}"))
-        .collect();
+    let direct: Vec<_> = report.direct.iter().map(|(id, name)| format!("{id}={name}")).collect();
     assert_eq!(direct, ["cc=cc", "serde=serde"]);
     let all: Vec<_> = report.all.values().map(String::as_str).collect();
     assert_eq!(all, ["cc 1.1.0", "serde_derive 1.0.0", "serde 1.0.0"]);
@@ -166,40 +131,15 @@ fn req_bud_2_metadata_is_classified() {
     // The problems of the closed world are budget problems too, beside `cc`, which has no approved reason.
     let problems = dependency_problems(&report);
     assert_eq!(problems.len(), 7);
-    assert_eq!(
-        problems[0],
-        "direct runtime crate cc has no approved reason"
-    );
+    assert_eq!(problems[0], "direct runtime crate cc has no approved reason");
     let counted = ring_count(&["/w/crates/fabrewk/src/main.rs", "/w/crates/core/src/lib.rs"]);
     let report = analyse(METADATA, "fabrewk", &own, &[counted]).unwrap();
     assert_eq!(report.problems.len(), 5);
     assert!(analyse(METADATA, "budget-missing", &own, &[]).is_err());
+    assert!(analyse(&METADATA.replace("\"resolve\"", "\"other\""), "fabrewk", &own, &[]).is_err());
+    assert!(analyse(&METADATA.replace("{\"pkg\":\"cc\"", "{\"pkg\":\"gone\""), "fabrewk", &own, &[]).is_err());
     assert!(
-        analyse(
-            &METADATA.replace("\"resolve\"", "\"other\""),
-            "fabrewk",
-            &own,
-            &[]
-        )
-        .is_err()
-    );
-    assert!(
-        analyse(
-            &METADATA.replace("{\"pkg\":\"cc\"", "{\"pkg\":\"gone\""),
-            "fabrewk",
-            &own,
-            &[]
-        )
-        .is_err()
-    );
-    assert!(
-        analyse(
-            &METADATA.replace("\"manifest_path\":\"/w/stray/Cargo.toml\",", ""),
-            "fabrewk",
-            &own,
-            &[]
-        )
-        .is_err()
+        analyse(&METADATA.replace("\"manifest_path\":\"/w/stray/Cargo.toml\",", ""), "fabrewk", &own, &[]).is_err()
     );
 }
 
@@ -209,31 +149,13 @@ fn req_bud_1_json_is_read() {
         r#"{"esc":"a\"\\\/\b\f\n\r\t\ud83d\ude00\u00e9","n":-1.5e3,"t":true,"f":false,"z":null,"o":{}}"#,
     )
     .unwrap();
-    assert_eq!(
-        doc.get("esc").and_then(|v| v.as_str()),
-        Some("a\"\\/\u{8}\u{c}\n\r\t😀é")
-    );
-    assert_eq!(
-        doc.get("n"),
-        Some(&budget::json::Value::Number("-1.5e3".into()))
-    );
+    assert_eq!(doc.get("esc").and_then(|v| v.as_str()), Some("a\"\\/\u{8}\u{c}\n\r\t😀é"));
+    assert_eq!(doc.get("n"), Some(&budget::json::Value::Number("-1.5e3".into())));
     assert_eq!(doc.get("t"), Some(&budget::json::Value::Bool(true)));
     assert_eq!(doc.get("z"), Some(&budget::json::Value::Null));
     let literal = budget::json::parse("[\"é€😀a\\u00e9\"]").unwrap();
     assert_eq!(literal.as_array()[0].as_str(), Some("é€😀aé"));
-    for bad in [
-        "",
-        "{",
-        "[1,]",
-        "{\"a\" 1}",
-        "\"\\x\"",
-        "\"\\u12\"",
-        "tru",
-        "{} x",
-        "[1 2]",
-        "\"open",
-        "{1:2}",
-    ] {
+    for bad in ["", "{", "[1,]", "{\"a\" 1}", "\"\\x\"", "\"\\u12\"", "tru", "{} x", "[1 2]", "\"open", "{1:2}"] {
         assert!(budget::json::parse(bad).is_err(), "{bad:?}");
     }
 }
@@ -255,30 +177,19 @@ fn req_bud_2_crate_counts_over_limits_are_reported() {
     assert_eq!(dependency_problems(&more).len(), 1);
 
     let mut unapproved = report.clone();
-    unapproved
-        .direct
-        .insert("id-unapproved".into(), "unapproved".into());
+    unapproved.direct.insert("id-unapproved".into(), "unapproved".into());
     assert_eq!(dependency_problems(&unapproved).len(), 1);
     // Two packages with one name count twice and are reported once.
-    unapproved
-        .direct
-        .insert("id-unapproved-2".into(), "unapproved".into());
+    unapproved.direct.insert("id-unapproved-2".into(), "unapproved".into());
     assert_eq!(dependency_problems(&unapproved).len(), 1);
 
     let mut at_limit = report.clone();
-    at_limit.direct = (0..MAX_DIRECT_RUNTIME_CRATES)
-        .map(|n| (format!("i{n}"), format!("d{n}")))
-        .collect();
+    at_limit.direct = (0..MAX_DIRECT_RUNTIME_CRATES).map(|n| (format!("i{n}"), format!("d{n}"))).collect();
     assert_eq!(dependency_problems(&at_limit).len(), at_limit.direct.len());
 
     let mut too_many = report.clone();
-    too_many.direct = (0..=MAX_DIRECT_RUNTIME_CRATES)
-        .map(|n| (format!("i{n}"), format!("d{n}")))
-        .collect();
-    assert_eq!(
-        dependency_problems(&too_many).len(),
-        1 + too_many.direct.len()
-    );
+    too_many.direct = (0..=MAX_DIRECT_RUNTIME_CRATES).map(|n| (format!("i{n}"), format!("d{n}"))).collect();
+    assert_eq!(dependency_problems(&too_many).len(), 1 + too_many.direct.len());
 }
 
 #[test]
@@ -307,21 +218,12 @@ fn req_bud_2_binary_within_budget() {
         "{} cannot build for {RELEASE_TARGET}: run the suite with the rustup toolchain that has it",
         cargo().display()
     );
-    let binary = target_dir
-        .join(RELEASE_TARGET)
-        .join("release")
-        .join(BINARY_PACKAGE);
+    let binary = target_dir.join(RELEASE_TARGET).join("release").join(BINARY_PACKAGE);
     let dep_info = fs::read_to_string(binary.with_extension("d")).unwrap();
     let counts = count_rings(&workspace_root(), RINGS).unwrap();
-    assert_eq!(
-        source_problems(&dep_info, &counts).unwrap(),
-        Vec::<String>::new()
-    );
+    assert_eq!(source_problems(&dep_info, &counts).unwrap(), Vec::<String>::new());
     assert_eq!(real_report().problems, Vec::<String>::new());
-    assert_eq!(
-        config_problems(&workspace_root(), std::env::vars()),
-        Vec::<String>::new()
-    );
+    assert_eq!(config_problems(&workspace_root(), std::env::vars()), Vec::<String>::new());
     let bytes = fs::metadata(&binary).unwrap().len();
     assert_eq!(binary_problem(bytes), None, "{bytes} bytes");
     assert_eq!(binary_problem(MAX_BINARY_BYTES), None);
@@ -331,19 +233,12 @@ fn req_bud_2_binary_within_budget() {
 #[test]
 fn req_bud_3_msrv_and_edition() {
     let root = read("Cargo.toml");
-    assert!(
-        root.lines()
-            .any(|l| l == format!("rust-version = \"{MSRV}\"")),
-        "rust-version is not {MSRV}"
-    );
+    assert!(root.lines().any(|l| l == format!("rust-version = \"{MSRV}\"")), "rust-version is not {MSRV}");
     assert!(root.lines().any(|l| l == "edition = \"2024\""));
     for manifest in member_manifests() {
         let text = read(&manifest);
         for key in ["rust-version", "edition"] {
-            assert!(
-                text.lines().any(|l| l == format!("{key}.workspace = true")),
-                "{manifest}: {key}"
-            );
+            assert!(text.lines().any(|l| l == format!("{key}.workspace = true")), "{manifest}: {key}");
         }
     }
 }
@@ -351,10 +246,7 @@ fn req_bud_3_msrv_and_edition() {
 #[test]
 fn req_bud_4_direct_crates_are_approved() {
     for name in real_report().direct.values() {
-        assert!(
-            APPROVED_RUNTIME_CRATES.iter().any(|(a, _)| a == name),
-            "{name} has no approved reason"
-        );
+        assert!(APPROVED_RUNTIME_CRATES.iter().any(|(a, _)| a == name), "{name} has no approved reason");
     }
     assert!(read("Cargo.lock").starts_with("# This file is automatically @generated by Cargo."));
 }
@@ -364,12 +256,7 @@ fn req_bud_5_licence_declared_and_files_present() {
     let root = read("Cargo.toml");
     assert!(root.lines().any(|l| l == "license = \"MIT OR Apache-2.0\""));
     for manifest in member_manifests() {
-        assert!(
-            read(&manifest)
-                .lines()
-                .any(|l| l == "license.workspace = true"),
-            "{manifest}"
-        );
+        assert!(read(&manifest).lines().any(|l| l == "license.workspace = true"), "{manifest}");
     }
     assert!(
         read("LICENSE-APACHE")
@@ -383,33 +270,15 @@ fn req_bud_5_licence_declared_and_files_present() {
 #[test]
 fn req_bud_1_dep_info_is_parsed() {
     let deps = parse_dep_info("/t/fabrewk: /w/a.rs /w/b.rs  /w/c.txt\n\n").unwrap();
-    assert_eq!(
-        deps,
-        [
-            PathBuf::from("/w/a.rs"),
-            PathBuf::from("/w/b.rs"),
-            PathBuf::from("/w/c.txt")
-        ]
-    );
+    assert_eq!(deps, [PathBuf::from("/w/a.rs"), PathBuf::from("/w/b.rs"), PathBuf::from("/w/c.txt")]);
     // Any backslash refuses: an escaped space, a continued line, a name ending in a backslash (Codex's P7A-23).
-    for text in [
-        "/t/x: /w/my\\ dir/b.rs\n",
-        "/t/x: /w/a.rs \\\n /w/b.rs\n",
-        "/t/x: /w/ab.inc\\ /w/c.rs\n",
-    ] {
+    for text in ["/t/x: /w/my\\ dir/b.rs\n", "/t/x: /w/a.rs \\\n /w/b.rs\n", "/t/x: /w/ab.inc\\ /w/c.rs\n"] {
         assert!(parse_dep_info(text).is_err(), "{text:?}");
     }
     assert_eq!(parse_dep_info("/t/x:\n").unwrap(), Vec::<PathBuf>::new());
     // A colon after the target belongs to a path.
     let deps = parse_dep_info("/t/x: /w/a:b.rs /w/c: /w/d.rs\n").unwrap();
-    assert_eq!(
-        deps,
-        [
-            PathBuf::from("/w/a:b.rs"),
-            PathBuf::from("/w/c:"),
-            PathBuf::from("/w/d.rs")
-        ]
-    );
+    assert_eq!(deps, [PathBuf::from("/w/a:b.rs"), PathBuf::from("/w/c:"), PathBuf::from("/w/d.rs")]);
     assert!(parse_dep_info("").is_err());
     // A path holding a newline would split the rule; the reader refuses instead of dropping the rest.
     assert!(parse_dep_info("/t/x: /w/a\nb.rs /w/c.rs\n").is_err());
@@ -429,26 +298,15 @@ fn req_bud_1_unaccounted_sources_are_named() {
         sources: vec![PathBuf::from("/w/crates/core/src/lib.rs")],
         data: vec![PathBuf::from("/w/crates/core/src/en.toml")],
     };
-    let deps = [
-        "/w/crates/core/src/lib.rs",
-        "/w/crates/core/src/en.toml",
-        "/w/tools/x.rs",
-        "/w/crates/core/src/hidden.inc",
-    ]
-    .map(PathBuf::from);
+    let deps =
+        ["/w/crates/core/src/lib.rs", "/w/crates/core/src/en.toml", "/w/tools/x.rs", "/w/crates/core/src/hidden.inc"]
+            .map(PathBuf::from);
     assert_eq!(
         unaccounted(&deps, std::slice::from_ref(&count)),
-        [
-            PathBuf::from("/w/tools/x.rs"),
-            PathBuf::from("/w/crates/core/src/hidden.inc")
-        ]
+        [PathBuf::from("/w/tools/x.rs"), PathBuf::from("/w/crates/core/src/hidden.inc")]
     );
-    let problems =
-        source_problems("/t/f: /w/crates/core/src/lib.rs /w/tools/x.rs\n", &[count]).unwrap();
-    assert_eq!(
-        problems,
-        ["/w/tools/x.rs is compiled into the binary but not counted"]
-    );
+    let problems = source_problems("/t/f: /w/crates/core/src/lib.rs /w/tools/x.rs\n", &[count]).unwrap();
+    assert_eq!(problems, ["/w/tools/x.rs is compiled into the binary but not counted"]);
 }
 
 /// Builds a small workspace with the escapes Codex found in its second to fourth reviews of part 7a: a quoted
@@ -498,83 +356,37 @@ fn req_bud_1_compiled_sources_outside_the_count_are_reported() {
     }
     let status = Command::new(cargo())
         .current_dir(&root)
-        .args([
-            "build",
-            "--release",
-            "--offline",
-            "--quiet",
-            "--package",
-            "bin",
-        ])
+        .args(["build", "--release", "--offline", "--quiet", "--package", "bin"])
         .status()
         .unwrap();
     assert!(status.success());
     let rings = [budget::budget::Ring {
         name: "core",
         kind: RingKind::Core,
-        dirs: &[
-            "crates/lib",
-            "crates/data",
-            "crates/bin",
-            "crates/nonmember",
-        ],
+        dirs: &["crates/lib", "crates/data", "crates/bin", "crates/nonmember"],
     }];
     let counts = count_rings(&root, &rings).unwrap();
-    assert_eq!(
-        counts[0].files, 5,
-        "lib.rs, both build.rs, main.rs and nonmember's lib.rs"
-    );
+    assert_eq!(counts[0].files, 5, "lib.rs, both build.rs, main.rs and nonmember's lib.rs");
     let dep_info = fs::read_to_string(root.join("target/release/bin.d")).unwrap();
     let mut problems = source_problems(&dep_info, &counts).unwrap();
     let metadata = cargo_metadata(&cargo(), &root).unwrap();
-    problems.extend(
-        analyse(&metadata, "bin", &own_packages(&root, &rings), &counts)
-            .unwrap()
-            .problems,
-    );
+    problems.extend(analyse(&metadata, "bin", &own_packages(&root, &rings), &counts).unwrap().problems);
     problems.extend(config_problems(&root, Vec::new()));
     problems.sort();
     let real = root.canonicalize().unwrap();
     let at = |p: &str| real.join(p).display().to_string();
     let mut expected = [
-        format!(
-            "{} is compiled into the binary but not counted",
-            at("tools/b.rs")
-        ),
-        format!(
-            "{} is compiled into the binary but not counted",
-            at("tools/lib.inc")
-        ),
+        format!("{} is compiled into the binary but not counted", at("tools/b.rs")),
+        format!("{} is compiled into the binary but not counted", at("tools/lib.inc")),
         format!("{} is a build script in a ring", at("tools/b.rs")),
-        format!(
-            "{} is the root of a lib target but not counted",
-            at("tools/lib.inc")
-        ),
-        format!(
-            "{} is the root of a lib target but not counted",
-            at("crates/data/src/payload.inc")
-        ),
+        format!("{} is the root of a lib target but not counted", at("tools/lib.inc")),
+        format!("{} is the root of a lib target but not counted", at("crates/data/src/payload.inc")),
         format!("{} is a build script in a ring", at("crates/bin/build.rs")),
-        format!(
-            "{} is a build script in a ring",
-            at("crates/nonmember/build.rs")
-        ),
-        format!(
-            "{} is a local package outside the workspace",
-            at("crates/nonmember")
-        ),
-        format!(
-            "{} is a local package outside the workspace",
-            at("tools/serde (x)")
-        ),
-        format!(
-            "{} is a local package the binary reaches outside the rings",
-            at("tools/serde (x)")
-        ),
-        format!(
-            "{} may change how the rings compile; Fabrewk keeps none",
-            root.join("crates/bin/.cargo").display()
-        ),
+        format!("{} is a build script in a ring", at("crates/nonmember/build.rs")),
+        format!("{} is a local package outside the workspace", at("crates/nonmember")),
+        format!("{} is a local package outside the workspace", at("tools/serde (x)")),
+        format!("{} is a local package the binary reaches outside the rings", at("tools/serde (x)")),
+        format!("{} may change how the rings compile; Fabrewk keeps none", root.join("crates/bin/.cargo").display()),
     ];
     expected.sort();
     assert_eq!(problems, expected);
@@ -587,33 +399,18 @@ fn req_bud_1_cargo_configuration_and_rustflags_are_reported() {
     for dir in [".git/.cargo", "target/.cargo", "src"] {
         fs::create_dir_all(root.join(dir)).unwrap();
     }
-    let env = |pairs: &[(&str, &str)]| {
-        pairs
-            .iter()
-            .map(|(k, v)| (k.to_string(), v.to_string()))
-            .collect::<Vec<_>>()
-    };
-    let clean = env(&[
-        ("RUSTFLAGS", ""),
-        ("PATH", "cfg"),
-        ("RUSTDOCFLAGS", "--cfg x"),
-    ]);
+    let env = |pairs: &[(&str, &str)]| pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect::<Vec<_>>();
+    let clean = env(&[("RUSTFLAGS", ""), ("PATH", "cfg"), ("RUSTDOCFLAGS", "--cfg x")]);
     assert_eq!(config_problems(&root, clean.clone()), Vec::<String>::new());
     let flags = env(&[
         ("RUSTFLAGS", "--cfg test"),
-        (
-            "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUSTFLAGS",
-            "--cfg=test",
-        ),
+        ("CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUSTFLAGS", "--cfg=test"),
         ("CARGO_ENCODED_RUSTFLAGS", "@/tmp/response.args"),
         ("CARGO_BUILD_RUSTFLAGS", "-C opt-level=3"),
     ]);
     let found = config_problems(&root, flags);
     assert_eq!(found.len(), 4, "{found:?}");
-    assert_eq!(
-        found[2],
-        "CARGO_ENCODED_RUSTFLAGS passes flags to the compiler: @/tmp/response.args"
-    );
+    assert_eq!(found[2], "CARGO_ENCODED_RUSTFLAGS passes flags to the compiler: @/tmp/response.args");
     for dir in [".cargo", "crates/core/.cargo", "a/b/c/.cargo"] {
         fs::create_dir_all(root.join(dir)).unwrap();
     }
@@ -687,9 +484,6 @@ fn req_bud_1_an_unreadable_directory_is_reported() {
     fs::set_permissions(root.join("opaque"), fs::Permissions::from_mode(0o755)).unwrap();
     assert_eq!(
         problems,
-        [format!(
-            "{} cannot be read, so the check cannot see what it holds",
-            root.join("opaque").display()
-        )]
+        [format!("{} cannot be read, so the check cannot see what it holds", root.join("opaque").display())]
     );
 }

@@ -15,9 +15,7 @@ mod store;
 mod time;
 
 pub use canon::{MAX_DEPTH, decode, encode, sha256_hex};
-pub use event::{
-    Class, Draft, FIELDS, KINDS, Say, StreamKind, class_of, nonce, stream_kind, subject_stream,
-};
+pub use event::{Class, Draft, FIELDS, KINDS, Say, StreamKind, class_of, nonce, stream_kind, subject_stream};
 pub use git::{Publication, Repo, record_branch, uncommitted, walk_history};
 pub use mark::check_mark;
 pub use replay::{Event, Replay, replay};

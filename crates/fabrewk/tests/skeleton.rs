@@ -3,20 +3,14 @@
 use std::process::Command;
 
 fn fabrewk(args: &[&str]) -> std::process::Output {
-    Command::new(env!("CARGO_BIN_EXE_fabrewk"))
-        .args(args)
-        .output()
-        .expect("the built fabrewk binary runs")
+    Command::new(env!("CARGO_BIN_EXE_fabrewk")).args(args).output().expect("the built fabrewk binary runs")
 }
 
 #[test]
 fn skeleton_prints_its_version() {
     let out = fabrewk(&["--version"]);
     assert_eq!(out.status.code(), Some(0));
-    assert_eq!(
-        String::from_utf8(out.stdout).unwrap(),
-        format!("fabrewk {}\n", env!("CARGO_PKG_VERSION"))
-    );
+    assert_eq!(String::from_utf8(out.stdout).unwrap(), format!("fabrewk {}\n", env!("CARGO_PKG_VERSION")));
     assert!(out.stderr.is_empty());
 }
 

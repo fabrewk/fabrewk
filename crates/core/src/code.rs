@@ -77,15 +77,8 @@ impl Code {
 /// A failure: a refusal with its code, or an operating-system error the caller words.
 #[derive(Debug)]
 pub enum Error {
-    Refused {
-        code: Code,
-        path: Option<PathBuf>,
-        detail: String,
-    },
-    Io {
-        path: PathBuf,
-        error: std::io::Error,
-    },
+    Refused { code: Code, path: Option<PathBuf>, detail: String },
+    Io { path: PathBuf, error: std::io::Error },
 }
 
 impl Error {
@@ -99,18 +92,11 @@ impl Error {
 }
 
 pub(crate) fn refuse(code: Code, path: Option<&Path>, detail: impl Into<String>) -> Error {
-    Error::Refused {
-        code,
-        path: path.map(Path::to_path_buf),
-        detail: detail.into(),
-    }
+    Error::Refused { code, path: path.map(Path::to_path_buf), detail: detail.into() }
 }
 
 pub(crate) fn io_at(path: &Path) -> impl FnOnce(std::io::Error) -> Error + '_ {
-    move |error| Error::Io {
-        path: path.to_path_buf(),
-        error,
-    }
+    move |error| Error::Io { path: path.to_path_buf(), error }
 }
 
 #[cfg(test)]
@@ -119,10 +105,7 @@ mod tests {
 
     #[test]
     fn codes_are_named_as_the_specification_lists_them() {
-        let path = concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../../.brewstillery/bootstrap/core-specification.md"
-        );
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../.brewstillery/bootstrap/core-specification.md");
         let spec = std::fs::read_to_string(path).unwrap();
         let list = &spec[spec.find("All codes, in one list:").unwrap()..];
         let list = &list[..list.find("\n\n").unwrap()];

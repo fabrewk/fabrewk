@@ -4,11 +4,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Now, as `YYYY-MM-DDTHH:MM:SSZ`.
 pub fn now_utc() -> String {
-    format_utc(
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_or(0, |d| d.as_secs()),
-    )
+    format_utc(SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs()))
 }
 
 fn format_utc(secs: u64) -> String {
@@ -22,12 +18,7 @@ fn format_utc(secs: u64) -> String {
     let day = doy - (153 * mp + 2) / 5 + 1;
     let month = if mp < 10 { mp + 3 } else { mp - 9 };
     let year = yoe + era * 400 + u64::from(month <= 2);
-    format!(
-        "{year:04}-{month:02}-{day:02}T{:02}:{:02}:{:02}Z",
-        rem / 3_600,
-        rem % 3_600 / 60,
-        rem % 60
-    )
+    format!("{year:04}-{month:02}-{day:02}T{:02}:{:02}:{:02}Z", rem / 3_600, rem % 3_600 / 60, rem % 60)
 }
 
 /// Whether `s` is a UTC timestamp in RFC 3339: `YYYY-MM-DDTHH:MM:SS`, an optional fraction, then `Z`.
@@ -35,45 +26,21 @@ pub fn is_utc_timestamp(s: &str) -> bool {
     let b = s.as_bytes();
     let num = |from: usize, to: usize| -> Option<u32> {
         let part = b.get(from..to)?;
-        part.iter()
-            .all(u8::is_ascii_digit)
-            .then(|| part.iter().fold(0, |n, d| n * 10 + u32::from(d - b'0')))
+        part.iter().all(u8::is_ascii_digit).then(|| part.iter().fold(0, |n, d| n * 10 + u32::from(d - b'0')))
     };
-    let fixed = [(4, b'-'), (7, b'-'), (10, b'T'), (13, b':'), (16, b':')]
-        .iter()
-        .all(|&(i, c)| b.get(i) == Some(&c));
-    let (Some(year), Some(month), Some(day), Some(hour), Some(min), Some(sec)) = (
-        num(0, 4),
-        num(5, 7),
-        num(8, 10),
-        num(11, 13),
-        num(14, 16),
-        num(17, 19),
-    ) else {
+    let fixed = [(4, b'-'), (7, b'-'), (10, b'T'), (13, b':'), (16, b':')].iter().all(|&(i, c)| b.get(i) == Some(&c));
+    let (Some(year), Some(month), Some(day), Some(hour), Some(min), Some(sec)) =
+        (num(0, 4), num(5, 7), num(8, 10), num(11, 13), num(14, 16), num(17, 19))
+    else {
         return false;
     };
     let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
-    let days = [
-        31,
-        if leap { 29 } else { 28 },
-        31,
-        30,
-        31,
-        30,
-        31,
-        31,
-        30,
-        31,
-        30,
-        31,
-    ];
+    let days = [31, if leap { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
     let date_ok = (1..=12).contains(&month) && day >= 1 && day <= days[month as usize - 1];
     let tail = &b[19..];
     let tail_ok = match tail {
         [b'Z'] => true,
-        [b'.', frac @ .., b'Z'] => {
-            (1..=9).contains(&frac.len()) && frac.iter().all(u8::is_ascii_digit)
-        }
+        [b'.', frac @ .., b'Z'] => (1..=9).contains(&frac.len()) && frac.iter().all(u8::is_ascii_digit),
         _ => false,
     };
     fixed && date_ok && hour < 24 && min < 60 && sec <= 60 && tail_ok
@@ -86,11 +53,7 @@ mod tests {
     #[test]
     fn req_reg_2_at_is_rfc3339_utc() {
         assert!(is_utc_timestamp(&now_utc()));
-        for good in [
-            "2026-11-05T10:00:00Z",
-            "2024-02-29T23:59:60Z",
-            "2026-01-01T00:00:00.123456789Z",
-        ] {
+        for good in ["2026-11-05T10:00:00Z", "2024-02-29T23:59:60Z", "2026-01-01T00:00:00.123456789Z"] {
             assert!(is_utc_timestamp(good), "{good}");
         }
         for bad in [
@@ -118,25 +81,9 @@ mod tests {
     fn req_reg_2_at_every_day_from_1970_to_2400() {
         let (mut y, mut m, mut d) = (1970u64, 1u64, 1u64);
         for day in 0..157_000u64 {
-            assert_eq!(
-                format_utc(day * 86_400 + 3_661)[..19],
-                format!("{y:04}-{m:02}-{d:02}T01:01:01")
-            );
+            assert_eq!(format_utc(day * 86_400 + 3_661)[..19], format!("{y:04}-{m:02}-{d:02}T01:01:01"));
             let leap = y % 4 == 0 && (y % 100 != 0 || y % 400 == 0);
-            let len = [
-                31,
-                28 + u64::from(leap),
-                31,
-                30,
-                31,
-                30,
-                31,
-                31,
-                30,
-                31,
-                30,
-                31,
-            ][m as usize - 1];
+            let len = [31, 28 + u64::from(leap), 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][m as usize - 1];
             d += 1;
             if d > len {
                 (d, m) = (1, m + 1);
@@ -149,20 +96,10 @@ mod tests {
 
     #[test]
     fn req_reg_2_at_leap_years() {
-        for good in [
-            "2000-02-29T00:00:00Z",
-            "2400-02-29T00:00:00Z",
-            "2024-02-29T00:00:00Z",
-            "1999-02-28T00:00:00Z",
-        ] {
+        for good in ["2000-02-29T00:00:00Z", "2400-02-29T00:00:00Z", "2024-02-29T00:00:00Z", "1999-02-28T00:00:00Z"] {
             assert!(is_utc_timestamp(good), "{good}");
         }
-        for bad in [
-            "1900-02-29T00:00:00Z",
-            "2100-02-29T00:00:00Z",
-            "2023-02-29T00:00:00Z",
-            "2001-02-29T00:00:00Z",
-        ] {
+        for bad in ["1900-02-29T00:00:00Z", "2100-02-29T00:00:00Z", "2023-02-29T00:00:00Z", "2001-02-29T00:00:00Z"] {
             assert!(!is_utc_timestamp(bad), "{bad}");
         }
     }

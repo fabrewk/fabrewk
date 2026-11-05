@@ -21,20 +21,12 @@ pub fn check_mark(domain: &Path, replay: &Replay) -> Result<(), Error> {
     };
     let invalid = |why: &str| refuse(Code::MarkInvalid, Some(&path), why);
     let value = canon::decode(&bytes).ok_or_else(|| invalid("not canonical JSON"))?;
-    let heads = value
-        .as_object()
-        .filter(|o| o.len() == 2 && o.get("schema") == Some(&json!(1)));
-    let heads = heads
-        .and_then(|o| o.get("heads")?.as_object())
-        .ok_or_else(|| invalid("shape"))?;
+    let heads = value.as_object().filter(|o| o.len() == 2 && o.get("schema") == Some(&json!(1)));
+    let heads = heads.and_then(|o| o.get("heads")?.as_object()).ok_or_else(|| invalid("shape"))?;
     for (stream, head) in heads {
         let seq = head.get("seq").and_then(Value::as_u64).filter(|&s| s > 0);
-        let digest = head
-            .get("digest")
-            .and_then(Value::as_str)
-            .filter(|d| event::is_hex(d, 64));
-        let (Some(seq), Some(digest), Some(2)) = (seq, digest, head.as_object().map(Map::len))
-        else {
+        let digest = head.get("digest").and_then(Value::as_str).filter(|d| event::is_hex(d, 64));
+        let (Some(seq), Some(digest), Some(2)) = (seq, digest, head.as_object().map(Map::len)) else {
             return Err(invalid("shape"));
         };
         if event::stream_kind(stream).is_none() {
@@ -43,11 +35,7 @@ pub fn check_mark(domain: &Path, replay: &Replay) -> Result<(), Error> {
         let events = replay.streams.get(stream).map_or(&[][..], Vec::as_slice);
         match events.get(seq as usize - 1) {
             None => {
-                return Err(refuse(
-                    Code::RecordRollback,
-                    Some(&path),
-                    format!("{stream} no longer reaches {seq}"),
-                ));
+                return Err(refuse(Code::RecordRollback, Some(&path), format!("{stream} no longer reaches {seq}")));
             }
             Some(e) if e.digest != digest => {
                 return Err(invalid("a digest its stream does not hold there"));
@@ -63,10 +51,7 @@ pub(crate) fn write(domain: &Path, replay: &Replay) -> Result<(), Error> {
     let mut heads = Map::new();
     for (stream, events) in &replay.streams {
         if let Some(last) = events.last() {
-            heads.insert(
-                stream.clone(),
-                json!({"seq": last.seq, "digest": last.digest}),
-            );
+            heads.insert(stream.clone(), json!({"seq": last.seq, "digest": last.digest}));
         }
     }
     let bytes = canon::encode(&json!({"schema": 1, "heads": heads})).unwrap_or_default();

@@ -3,8 +3,7 @@
 #![allow(dead_code)]
 
 use fabrewk_core::record::{
-    Code, Draft, Error, KeySigner, Publication, Repo, Say, Session, SshVerifier, encode, nonce,
-    sha256_hex,
+    Code, Draft, Error, KeySigner, Publication, Repo, Say, Session, SshVerifier, encode, nonce, sha256_hex,
 };
 use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
@@ -47,27 +46,15 @@ pub fn isolated(name: &str, body: impl FnOnce()) {
         .env_remove("GIT_INDEX_FILE")
         .output()
         .unwrap();
-    let text =
-        String::from_utf8_lossy(&out.stdout).into_owned() + &String::from_utf8_lossy(&out.stderr);
+    let text = String::from_utf8_lossy(&out.stdout).into_owned() + &String::from_utf8_lossy(&out.stderr);
     assert!(out.status.success(), "isolated {name} failed:\n{text}");
-    assert!(
-        text.contains(&format!("test {name} ... ok")),
-        "isolated {name} did not run:\n{text}"
-    );
+    assert!(text.contains(&format!("test {name} ... ok")), "isolated {name} did not run:\n{text}");
 }
 
 /// Runs a command in `dir` and gives its standard output; panics, with its output, if it fails.
 pub fn run(dir: &Path, program: &str, args: &[&str]) -> String {
-    let out = Command::new(program)
-        .current_dir(dir)
-        .args(args)
-        .output()
-        .unwrap();
-    assert!(
-        out.status.success(),
-        "{program} {args:?}: {}",
-        String::from_utf8_lossy(&out.stderr)
-    );
+    let out = Command::new(program).current_dir(dir).args(args).output().unwrap();
+    assert!(out.status.success(), "{program} {args:?}: {}", String::from_utf8_lossy(&out.stderr));
     String::from_utf8(out.stdout).unwrap()
 }
 
@@ -80,10 +67,7 @@ pub fn code(e: &Error) -> Option<Code> {
 }
 
 pub fn codes<T: std::fmt::Debug>(r: Result<T, Vec<Error>>) -> Vec<Code> {
-    r.expect_err("expected a refusal")
-        .iter()
-        .map(|e| e.code().expect("a code, not an I/O error"))
-        .collect()
+    r.expect_err("expected a refusal").iter().map(|e| e.code().expect("a code, not an I/O error")).collect()
 }
 
 /// A fixture: a Git repository (or a plain directory) holding the domain `.brewstillery/`, with the SSH keys of the
@@ -98,11 +82,7 @@ impl Fixture {
     /// The fixture made by [`Fixture::new`] under `base`, or a copy of one.
     pub fn at(base: &Path) -> Fixture {
         let root = base.join("repo");
-        Fixture {
-            domain: root.join(".brewstillery"),
-            root,
-            keys: base.join("keys"),
-        }
+        Fixture { domain: root.join(".brewstillery"), root, keys: base.join("keys") }
     }
 
     pub fn new(name: &str, with_git: bool) -> Fixture {
@@ -116,28 +96,10 @@ impl Fixture {
         std::fs::write(root.join("README.md"), "fixture\n").unwrap();
         for alias in ["xel", "stranger"] {
             let key = keys.join(alias);
-            run(
-                &keys,
-                "ssh-keygen",
-                &[
-                    "-q",
-                    "-t",
-                    "ed25519",
-                    "-N",
-                    "",
-                    "-C",
-                    alias,
-                    "-f",
-                    key.to_str().unwrap(),
-                ],
-            );
+            run(&keys, "ssh-keygen", &["-q", "-t", "ed25519", "-N", "", "-C", alias, "-f", key.to_str().unwrap()]);
         }
         let public = std::fs::read_to_string(keys.join("xel.pub")).unwrap();
-        std::fs::write(
-            keys.join("allowed"),
-            format!("xel namespaces=\"fabrewk\" {public}"),
-        )
-        .unwrap();
+        std::fs::write(keys.join("allowed"), format!("xel namespaces=\"fabrewk\" {public}")).unwrap();
         if with_git {
             git(&root, &["init", "-q", "-b", "main"]);
             git(&root, &["config", "user.name", "Fixture"]);
@@ -227,9 +189,7 @@ pub fn copy_tree(from: &Path, to: &Path) {
 pub fn try_begin(f: &Fixture, repo: Option<Repo>) -> Result<Session, Error> {
     for _ in 0..300 {
         match Session::begin(&f.domain, repo.clone(), &f.verifier()) {
-            Err(e) if e.code() == Some(Code::LockHeld) => {
-                std::thread::sleep(std::time::Duration::from_millis(10))
-            }
+            Err(e) if e.code() == Some(Code::LockHeld) => std::thread::sleep(std::time::Duration::from_millis(10)),
             other => return other,
         }
     }
@@ -247,14 +207,7 @@ pub fn sig(event: &Path) -> PathBuf {
 pub fn sign_with(signer: &KeySigner, bytes: &[u8], namespace: &str) -> Vec<u8> {
     use std::io::Write;
     let mut child = Command::new("ssh-keygen")
-        .args([
-            "-Y",
-            "sign",
-            "-n",
-            namespace,
-            "-f",
-            signer.0.to_str().unwrap(),
-        ])
+        .args(["-Y", "sign", "-n", namespace, "-f", signer.0.to_str().unwrap()])
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::null())
@@ -269,14 +222,7 @@ pub fn sign_with(signer: &KeySigner, bytes: &[u8], namespace: &str) -> Vec<u8> {
 pub const POLICY: &str = "4c2a0d5c1f8a3b6e9d7c5b3a1f0e2d4c6b8a9f7e5d3c1b0a2f4e6d8c0b1a3f5e";
 
 fn draft(kind: &str, actor: Value, say: Option<Say>, payload: Value) -> Draft {
-    Draft {
-        kind: kind.into(),
-        actor,
-        policy: POLICY.into(),
-        instance: "SHA256:fixture".into(),
-        say,
-        payload,
-    }
+    Draft { kind: kind.into(), actor, policy: POLICY.into(), instance: "SHA256:fixture".into(), say, payload }
 }
 
 /// The project file the fixtures adopt.
@@ -295,15 +241,7 @@ pub fn project_payload(kind: &str) -> Value {
 /// A move of the maestro `xel`, with words.
 pub fn person(kind: &str, words: &str, payload: Value) -> Draft {
     let actor = json!({"kind": "person", "alias": "xel", "role": "maestro"});
-    draft(
-        kind,
-        actor,
-        Some(Say {
-            text: words.into(),
-            lang: "es-MX".into(),
-        }),
-        payload,
-    )
+    draft(kind, actor, Some(Say { text: words.into(), lang: "es-MX".into() }), payload)
 }
 
 pub fn fabrewk(kind: &str, payload: Value) -> Draft {

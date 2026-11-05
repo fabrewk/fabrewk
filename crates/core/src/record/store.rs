@@ -32,11 +32,7 @@ impl Session {
     /// code (an absent record is no refusal here: `apply` writes the first event); with `repo`, the whole history;
     /// the mark. Then the lock, at once or `LOCK_HELD`, never waiting. Then it removes what an interrupted writer
     /// left: temporary files, signatures whose event never reached its place, the record commit's temporary index.
-    pub fn begin(
-        domain: &Path,
-        repo: Option<Repo>,
-        verifier: &dyn Verify,
-    ) -> Result<Session, Error> {
+    pub fn begin(domain: &Path, repo: Option<Repo>, verifier: &dyn Verify) -> Result<Session, Error> {
         let git = match repo {
             Some(repo) => {
                 git::check_main_worktree(&repo)?;
@@ -58,12 +54,7 @@ impl Session {
         let local = domain.join("local");
         fs::create_dir_all(&local).map_err(io_at(&local))?;
         let path = local.join("lock");
-        let lock = File::options()
-            .create(true)
-            .truncate(false)
-            .write(true)
-            .open(&path)
-            .map_err(io_at(&path))?;
+        let lock = File::options().create(true).truncate(false).write(true).open(&path).map_err(io_at(&path))?;
         match lock.try_lock() {
             Ok(()) => {}
             Err(fs::TryLockError::WouldBlock) => {
@@ -72,38 +63,18 @@ impl Session {
             Err(fs::TryLockError::Error(e)) => return Err(io_at(&path)(e)),
         }
         // The record commit's temporary index and the lock Git keeps beside it while writing it (P7B-1).
-        let mut leftovers = vec![
-            local.join("tmp/record-index"),
-            local.join("tmp/record-index.lock"),
-        ];
+        let mut leftovers = vec![local.join("tmp/record-index"), local.join("tmp/record-index.lock")];
         leftovers.retain(|p| p.is_file());
         let events = domain.join("data/events");
-        for dir in fs::read_dir(&events)
-            .into_iter()
-            .flatten()
-            .flatten()
-            .map(|e| e.path())
-            .filter(|p| p.is_dir())
-        {
+        for dir in fs::read_dir(&events).into_iter().flatten().flatten().map(|e| e.path()).filter(|p| p.is_dir()) {
             let listing = list_stream(&dir)?;
-            leftovers.extend(
-                listing
-                    .temporary
-                    .into_iter()
-                    .chain(listing.orphan_signatures),
-            );
+            leftovers.extend(listing.temporary.into_iter().chain(listing.orphan_signatures));
         }
         for leftover in &leftovers {
             fault::point();
             fs::remove_file(leftover).map_err(io_at(leftover))?;
         }
-        Ok(Session {
-            domain: domain.to_path_buf(),
-            _lock: lock,
-            appended: Vec::new(),
-            git,
-            record,
-        })
+        Ok(Session { domain: domain.to_path_buf(), _lock: lock, appended: Vec::new(), git, record })
     }
 
     /// The record as replayed when the command began; `None` if there was none yet.
@@ -119,20 +90,12 @@ impl Session {
             return Ok(None);
         };
         if files.len() > 1 {
-            return Err(refuse(
-                Code::RecordFork,
-                Some(&dir),
-                format!("two events at {seq}"),
-            ));
+            return Err(refuse(Code::RecordFork, Some(&dir), format!("two events at {seq}")));
         }
         let bytes = fs::read(&files[0]).map_err(io_at(&files[0]))?;
         let digest = canon::sha256_hex(&bytes);
         if !replay::name_matches(&files[0], &digest) {
-            return Err(refuse(
-                Code::RecordDigestMismatch,
-                Some(&files[0]),
-                "name and content differ",
-            ));
+            return Err(refuse(Code::RecordDigestMismatch, Some(&files[0]), "name and content differ"));
         }
         Ok(Some(Head { seq, digest }))
     }
@@ -159,30 +122,20 @@ impl Session {
             return Err(refuse(Code::RecordBroken, Some(&dir), "stream full"));
         }
         let value = draft.build(stream, seq, head.as_ref().map(|h| h.digest.as_str()));
-        let class = event::check(&value, stream, seq)
-            .map_err(|(code, why)| refuse(code, Some(&dir), why))?;
+        let class = event::check(&value, stream, seq).map_err(|(code, why)| refuse(code, Some(&dir), why))?;
         if seq == 1
             && event::is_creation(&draft.kind)
             && event::subject_stream(&draft.kind, &draft.payload).as_deref() != Some(stream)
         {
-            return Err(refuse(
-                Code::RecordBroken,
-                Some(&dir),
-                "the stream is not the subject's",
-            ));
+            return Err(refuse(Code::RecordBroken, Some(&dir), "the stream is not the subject's"));
         }
-        let bytes = canon::encode(&value)
-            .ok_or_else(|| refuse(Code::RecordNoncanonical, Some(&dir), "a number"))?;
+        let bytes = canon::encode(&value).ok_or_else(|| refuse(Code::RecordNoncanonical, Some(&dir), "a number"))?;
         let digest = canon::sha256_hex(&bytes);
         let path = dir.join(format!("{seq:06}-{}.json", &digest[..16]));
         let signature = match (class, signer) {
             (Class::Person, Some(s)) => Some(s.sign(&bytes)?),
             (Class::Person, None) => {
-                return Err(refuse(
-                    Code::RecordSignatureInvalid,
-                    Some(&path),
-                    "no signer",
-                ));
+                return Err(refuse(Code::RecordSignatureInvalid, Some(&path), "no signer"));
             }
             (_, _) => None,
         };
@@ -201,14 +154,9 @@ impl Session {
     /// replaces it with the new heads, then, in the modes that commit, makes the record commit of the files appended
     /// and of `views` (paths relative to the domain). Gives the commit, if one was made.
     pub fn finish(self, verifier: &dyn Verify, views: &[PathBuf]) -> Result<Option<String>, Error> {
-        let replay =
-            replay::replay(&self.domain, verifier).map_err(|mut errors| errors.remove(0))?;
+        let replay = replay::replay(&self.domain, verifier).map_err(|mut errors| errors.remove(0))?;
         if fault::fails("replay-before-commit") {
-            return Err(refuse(
-                Code::RecordBroken,
-                None,
-                "replay failed (fault injection)",
-            ));
+            return Err(refuse(Code::RecordBroken, None, "replay failed (fault injection)"));
         }
         mark::check_mark(&self.domain, &replay)?;
         mark::write(&self.domain, &replay)?;
@@ -221,21 +169,8 @@ impl Session {
             return Ok(None);
         }
         let json = |p: &PathBuf| p.extension().is_some_and(|e| e == "json");
-        let digests: Vec<String> = self
-            .appended
-            .iter()
-            .filter(|a| json(&a.1))
-            .map(|a| a.0.clone())
-            .collect();
-        git::commit_record(
-            repo,
-            &self.domain,
-            branch,
-            start.as_deref(),
-            &files,
-            &digests,
-        )
-        .map(Some)
+        let digests: Vec<String> = self.appended.iter().filter(|a| json(&a.1)).map(|a| a.0.clone()).collect();
+        git::commit_record(repo, &self.domain, branch, start.as_deref(), &files, &digests).map(Some)
     }
 
     /// Commits, in a record commit of their own, the event files a stopped or raced command left uncommitted
@@ -253,20 +188,10 @@ impl Session {
         }
         replay::replay(&self.domain, verifier).map_err(|mut errors| errors.remove(0))?;
         let mut digests = Vec::new();
-        for f in files
-            .iter()
-            .filter(|f| f.extension().is_some_and(|e| e == "json"))
-        {
+        for f in files.iter().filter(|f| f.extension().is_some_and(|e| e == "json")) {
             digests.push(canon::sha256_hex(&fs::read(f).map_err(io_at(f))?));
         }
-        let commit = git::commit_record(
-            repo,
-            &self.domain,
-            branch,
-            start.as_deref(),
-            &files,
-            &digests,
-        )?;
+        let commit = git::commit_record(repo, &self.domain, branch, start.as_deref(), &files, &digests)?;
         *start = Some(commit.clone());
         Ok(Some(commit))
     }
@@ -287,10 +212,7 @@ fn create_dir(dir: &Path) -> Result<(), Error> {
 /// renamed, and the directory synced (REQ-REG-5).
 pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), Error> {
     let dir = path.parent().unwrap_or(Path::new("."));
-    let name = path
-        .file_name()
-        .map(|n| n.to_string_lossy())
-        .unwrap_or_default();
+    let name = path.file_name().map(|n| n.to_string_lossy()).unwrap_or_default();
     let tmp = dir.join(format!(".{name}.tmp"));
     fault::point();
     let write = || -> std::io::Result<()> {
@@ -306,7 +228,5 @@ pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), Error> {
 }
 
 fn sync_dir(dir: &Path) -> Result<(), Error> {
-    File::open(dir)
-        .and_then(|d| d.sync_all())
-        .map_err(io_at(dir))
+    File::open(dir).and_then(|d| d.sync_all()).map_err(io_at(dir))
 }

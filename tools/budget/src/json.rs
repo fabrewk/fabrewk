@@ -37,11 +37,7 @@ impl Value {
 
 /// Parses one JSON document.
 pub fn parse(text: &str) -> Result<Value, String> {
-    let mut p = Parser {
-        s: text,
-        b: text.as_bytes(),
-        i: 0,
-    };
+    let mut p = Parser { s: text, b: text.as_bytes(), i: 0 };
     let value = p.value()?;
     p.space();
     if p.i != p.b.len() {
@@ -129,16 +125,10 @@ impl Parser<'_> {
             Some(b'n') => self.word("null", Value::Null),
             Some(c) if *c == b'-' || c.is_ascii_digit() => {
                 let start = self.i;
-                while self
-                    .b
-                    .get(self.i)
-                    .is_some_and(|c| b"+-.eE".contains(c) || c.is_ascii_digit())
-                {
+                while self.b.get(self.i).is_some_and(|c| b"+-.eE".contains(c) || c.is_ascii_digit()) {
                     self.i += 1;
                 }
-                Ok(Value::Number(
-                    String::from_utf8_lossy(&self.b[start..self.i]).into_owned(),
-                ))
+                Ok(Value::Number(String::from_utf8_lossy(&self.b[start..self.i]).into_owned()))
             }
             _ => self.fail("expected a value"),
         }
@@ -176,12 +166,8 @@ impl Parser<'_> {
                         Some(b'r') => '\r',
                         Some(b't') => '\t',
                         Some(b'u') => {
-                            let hex = self
-                                .b
-                                .get(self.i..self.i + 4)
-                                .and_then(|h| std::str::from_utf8(h).ok());
-                            let Some(unit) = hex.and_then(|h| u16::from_str_radix(h, 16).ok())
-                            else {
+                            let hex = self.b.get(self.i..self.i + 4).and_then(|h| std::str::from_utf8(h).ok());
+                            let Some(unit) = hex.and_then(|h| u16::from_str_radix(h, 16).ok()) else {
                                 return self.fail("bad \\u escape");
                             };
                             self.i += 4;
@@ -190,9 +176,7 @@ impl Parser<'_> {
                         }
                         _ => return self.fail("bad escape"),
                     };
-                    out.extend(
-                        char::decode_utf16(units.drain(..)).map(|r| r.unwrap_or('\u{FFFD}')),
-                    );
+                    out.extend(char::decode_utf16(units.drain(..)).map(|r| r.unwrap_or('\u{FFFD}')));
                     out.push(plain);
                 }
                 _ => {

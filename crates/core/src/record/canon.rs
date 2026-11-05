@@ -28,15 +28,7 @@ pub fn sha256_hex(bytes: &[u8]) -> String {
 
 pub(crate) fn hex(bytes: &[u8]) -> String {
     const DIGITS: &[u8; 16] = b"0123456789abcdef";
-    bytes
-        .iter()
-        .flat_map(|b| {
-            [
-                DIGITS[usize::from(b >> 4)] as char,
-                DIGITS[usize::from(b & 15)] as char,
-            ]
-        })
-        .collect()
+    bytes.iter().flat_map(|b| [DIGITS[usize::from(b >> 4)] as char, DIGITS[usize::from(b & 15)] as char]).collect()
 }
 
 /// The deepest nesting of arrays and objects a canonical file holds, the whole event being 1: well within the
@@ -157,19 +149,9 @@ mod tests {
         assert_eq!(decode(&bytes), Some(deepest));
         let too_deep = json!([nest(MAX_DEPTH + 1)]);
         assert_eq!(encode(&too_deep), None);
-        let text = format!(
-            "{}{}\"leaf\"{}\n",
-            "[".repeat(MAX_DEPTH + 1),
-            "",
-            "]".repeat(MAX_DEPTH + 1)
-        );
+        let text = format!("{}{}\"leaf\"{}\n", "[".repeat(MAX_DEPTH + 1), "", "]".repeat(MAX_DEPTH + 1));
         assert_eq!(decode(text.as_bytes()), None);
-        let text = format!(
-            "{}{}\"leaf\"{}\n",
-            "[".repeat(MAX_DEPTH),
-            "",
-            "]".repeat(MAX_DEPTH)
-        );
+        let text = format!("{}{}\"leaf\"{}\n", "[".repeat(MAX_DEPTH), "", "]".repeat(MAX_DEPTH));
         assert!(decode(text.as_bytes()).is_some());
     }
 

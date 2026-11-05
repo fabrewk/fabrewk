@@ -6,12 +6,8 @@
 pub fn is_tag(tag: &str) -> bool {
     let subs: Vec<&str> = tag.split('-').collect();
     let n = subs.len();
-    let alpha = |s: &str, lo, hi| {
-        (lo..=hi).contains(&s.len()) && s.bytes().all(|c| c.is_ascii_alphabetic())
-    };
-    let alnum = |s: &str, lo, hi| {
-        (lo..=hi).contains(&s.len()) && s.bytes().all(|c| c.is_ascii_alphanumeric())
-    };
+    let alpha = |s: &str, lo, hi| (lo..=hi).contains(&s.len()) && s.bytes().all(|c| c.is_ascii_alphabetic());
+    let alnum = |s: &str, lo, hi| (lo..=hi).contains(&s.len()) && s.bytes().all(|c| c.is_ascii_alphanumeric());
     let digits = |s: &str| s.len() == 3 && s.bytes().all(|c| c.is_ascii_digit());
     if !(alpha(subs[0], 2, 3) || alpha(subs[0], 5, 8)) {
         return false;
@@ -26,10 +22,7 @@ pub fn is_tag(tag: &str) -> bool {
     if i < n && (alpha(subs[i], 2, 2) || digits(subs[i])) {
         i += 1;
     }
-    while i < n
-        && (alnum(subs[i], 5, 8)
-            || (alnum(subs[i], 4, 4) && subs[i].as_bytes()[0].is_ascii_digit()))
-    {
+    while i < n && (alnum(subs[i], 5, 8) || (alnum(subs[i], 4, 4) && subs[i].as_bytes()[0].is_ascii_digit())) {
         i += 1;
     }
     while i < n && alnum(subs[i], 1, 1) {
