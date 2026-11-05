@@ -303,6 +303,32 @@ pub fn uncommitted(repo: &Repo) -> Result<Vec<PathBuf>, Error> {
     Ok(out)
 }
 
+/// Refuses `TOOL_FAILED`, naming the file, if a stopped Git left the index's lock or the record branch's: Fabrewk
+/// never removes a lock in the repository, since a Git the person runs may hold it, and its lock does not cover
+/// that Git (PD-11, P7B-6). Once the person removes it, the next write command commits what is left.
+pub(crate) fn check_git_locks(repo: &Repo, branch: &str) -> Result<(), Error> {
+    let common = line(git(
+        repo,
+        &os(&["rev-parse", "--path-format=absolute", "--git-common-dir"]),
+        b"",
+        None,
+    )?);
+    let common = PathBuf::from(common);
+    for lock in [
+        common.join("index.lock"),
+        common.join(format!("{branch}.lock")),
+    ] {
+        if lock.exists() {
+            return Err(refuse(
+                Code::ToolFailed,
+                Some(&lock),
+                "a lock a stopped Git left; remove it if no Git runs",
+            ));
+        }
+    }
+    Ok(())
+}
+
 /// Puts back in the person's index, from the tip, every event file a stopped record commit left out of it.
 pub(crate) fn sync_index(repo: &Repo) -> Result<(), Error> {
     if head_of(repo, "HEAD")?.is_none() {
@@ -354,6 +380,7 @@ pub(crate) fn commit_record(
     files: &[PathBuf],
     digests: &[String],
 ) -> Result<String, Error> {
+    check_git_locks(repo, branch)?;
     let mut rel = Vec::new();
     for f in files {
         let r = f

@@ -1757,3 +1757,55 @@ fn req_reg_10_a_git_stopped_inside_the_record_commit_leaves_nothing_that_blocks(
         },
     );
 }
+
+#[test]
+fn pd_11_a_lock_git_left_is_named_and_never_removed() {
+    isolated("pd_11_a_lock_git_left_is_named_and_never_removed", || {
+        // P7B-6: a Git stopped while moving the branch or writing the index leaves its lock in `.git`.
+        for lock in [".git/index.lock", ".git/refs/heads/main.lock"] {
+            let f = Fixture::new("git-lock", true);
+            let mut s = begin(&f, f.repo());
+            project(&f, &mut s);
+            let lock = f.root.join(lock);
+            std::fs::write(&lock, b"").unwrap();
+            let e = s.finish(&f.verifier(), &[]).unwrap_err();
+            assert_eq!(
+                (
+                    e.code(),
+                    matches!(&e, fabrewk_core::record::Error::Refused { path: Some(p), .. } if *p == lock)
+                ),
+                (Some(Code::ToolFailed), true)
+            );
+            // Reading still works; the next write command refuses the same way and removes nothing.
+            ok_replay(&f);
+            let mut s = begin(&f, f.repo());
+            assert_eq!(
+                s.commit_uncommitted(&f.verifier()).unwrap_err().code(),
+                Some(Code::ToolFailed)
+            );
+            assert!(lock.exists());
+            assert_eq!(uncommitted(&f.repo().unwrap()).unwrap().len(), 7);
+            drop(s);
+            // Once the person removes it, the next write command commits what was left.
+            std::fs::remove_file(&lock).unwrap();
+            let mut s = begin(&f, f.repo());
+            s.commit_uncommitted(&f.verifier()).unwrap().unwrap();
+            assert!(uncommitted(&f.repo().unwrap()).unwrap().is_empty());
+        }
+    });
+}
+
+#[test]
+fn req_reg_2_an_observed_model_may_be_any_string() {
+    // P7B-5: `modelObserved` is a string or null, the empty string included.
+    let f = Fixture::new("observed", false);
+    let mut s = begin(&f, None);
+    let mut draft = agent("sweep-recorded", json!({}));
+    draft.actor["modelObserved"] = json!("");
+    s.append("fermento-xel", None, &draft, None).unwrap();
+    s.finish(&f.verifier(), &[]).unwrap();
+    assert_eq!(
+        ok_replay(&f).streams["fermento-xel"][0].value["actor"]["modelObserved"],
+        json!("")
+    );
+}

@@ -245,6 +245,7 @@ impl Session {
         let Some((repo, branch, start)) = &mut self.git else {
             return Ok(None);
         };
+        git::check_git_locks(repo, branch)?;
         git::sync_index(repo)?;
         let files = git::uncommitted(repo)?;
         if files.is_empty() {
