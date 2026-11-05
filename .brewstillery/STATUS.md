@@ -5,11 +5,12 @@ view generated from that registry. Technical files are in English by default (D-
 
 ## Current state
 
-**Phases 0 to 6 are closed (D-037, D-040). Phase 7 (the first code) is split into parts 7a to 7d (D-041); part 7a
-is closed (R-023); 7b, the record, is next.** The repository now holds the first code at its root: a Cargo workspace with one crate per ring
-(`crates/core`, `crates/fabrewk`, a skeleton that only answers `--version`) and the size counter `tools/budget`, the
-licence files, `deny.toml` and a root `.gitignore` with `/target`. The size budget is frozen (D-042). No feature is
-built yet and no `data/` exists. The domain is `.brewstillery/`, hidden (D-032).
+**Phases 0 to 6 are closed (D-037, D-040). Phase 7 (the first code) is split into parts 7a to 7d (D-041, D-047);
+parts 7a (R-023) and 7b, the record (R-024), are closed; 7c, settings, identity, roles and signatures, is next.** The repository now holds the first code at its root: a Cargo workspace with one crate per ring
+(`crates/core`, `crates/fabrewk`, a binary that only answers `--version`) and the size counter `tools/budget`, the
+licence files, `deny.toml` and a root `.gitignore` with `/target`. The size budget is frozen (D-042). The record is
+built as a library in `crates/core/src/record/` (1,697 of the core's 4,000 counted lines); no command uses it yet and
+no `data/` exists in this repository. The domain is `.brewstillery/`, hidden (D-032).
 
 ## Read first
 
@@ -110,19 +111,30 @@ repository, is imported into the single registry at production and then stays re
 - **This machine's lesson on memory (R-022).** 7.3 GB of RAM, and `/tmp` lives in it. `cargo mutants` runs only in its
   own scope with a cap per process: the same prefix, then `systemd-run --user --scope -p MemoryMax=3G -p
   MemorySwapMax=0 -p OOMPolicy=continue bash -c 'ulimit -v 1000000; exec cargo mutants --workspace -j 2 --timeout 90'`,
-  with `TMPDIR` in the session's scratch directory. Run Codex in the same kind of scope, one heavy job at a time, and
+  with `TMPDIR` under `target/` (on disk): the session's scratch directory is memory with a per-user quota, which
+  stopped a mutation run in session 16 (R-024); Codex's disposable clone goes there too. Run Codex in the same kind of scope, one heavy job at a time, and
   remove reviewers' leftovers from `/tmp`. Without this, a mutant that loops on memory took VS Code down.
 - **Part 7a closed (session 15, R-023).** Codex accepted at its tenth pass (P7A-23 closed, no new finding in scope;
   one residual, a file named with a tab that Cargo's dep-info omits, reachable only as data). Full mutation run: 492
   mutants, only the two declared equivalents missed, 24 timeouts that are loops. Clean clone: 61 tests green, musl
   build, `budget check`, clippy, fmt and `cargo deny` clean; the measure of D-042 unchanged. Codex's prompts work best
   worded as a review of correctness and coverage, scoped to the change and to D-044 (R-022).
-- **Next: part 7b, the record (plan, "Phase 7").** Events, replay, compare-and-swap, fork detection, the history walk
-  and the crash suite on the record (REG; `core-specification.md` section 3, 11.3, 11.5). The plan says the exact cut
-  between 7b and 7d is reviewed when 7b starts: that is the first step, shown to the maestro before any code.
-- **Start prompt:** `Eres el integrador de Fabrewk; fase 7, parte 7b: el registro (eventos, replay, compare-and-swap,
-  detección de bifurcaciones, recorrido del historial); empieza por .brewstillery/STATUS.md`. Model and effort: Claude
-  Code on Opus 5.5, effort high; Codex GPT-6.1 Sol, effort high, reviews each part that delivers code (plan row 7).
+- **Part 7b closed (session 16, D-047, R-024).** The maestro approved the cut before any code (D-047): 7b is the
+  record as a library tested at its level; REQ-REG-12 and the signers derived from the policy go to 7c;
+  `RECORD_TRANSITION_INVALID` from the table, the stage and task payloads and the command-line refusal tests to 7d; a
+  new code `RECORD_HEAD_MOVED`. Codex accepted at its third pass (confirmed blocking findings 3, 1, 0; P7B-1 to P7B-8
+  corrected). Mutation: every mutant caught but two declared equivalents. Clean clone: 118 tests and the crash suite
+  green, musl build, `budget check`, clippy, fmt, `cargo deny` clean. Interpretations the maestro may want to read
+  are in `core-specification.md` section 3, "Schema 1's envelope". With `rustfmt`'s default width the record counts
+  212 lines more than at 120; nothing changed (a maestro's choice if wanted).
+- **Next: part 7c (plan, "Phase 7").** Settings with provenance, identity, roles and signatures (SET, ID, SEC-4,
+  SEC-5, DOM-2 to DOM-5 and DOM-7 on fixture records), REQ-REG-12 (the machine key, `instance`) and the signers derived
+  from the cited policy, the role checked against the kind (D-047). Open for 7c: where a reading command finds the
+  allowed-signers file `ssh-keygen -Y verify` needs without writing anything (R-024, residuals); `toml` is the approved
+  crate for the settings (D-036).
+- **Start prompt:** `Eres el integrador de Fabrewk; fase 7, parte 7c: ajustes con procedencia, identidad, roles y
+  firmas; empieza por .brewstillery/STATUS.md`. Model and effort: Claude Code on Opus 5.5, effort high; Codex GPT-6.1
+  Sol, effort high, reviews each part that delivers code (plan row 7).
 
 Carried without blocking, with destinations, in D-013. A phase that does not pass is corrected and retried; it
 never ends the project (D-003).
