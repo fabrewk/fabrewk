@@ -1762,7 +1762,11 @@ fn req_reg_10_a_git_stopped_inside_the_record_commit_leaves_nothing_that_blocks(
 fn pd_11_a_lock_git_left_is_named_and_never_removed() {
     isolated("pd_11_a_lock_git_left_is_named_and_never_removed", || {
         // P7B-6: a Git stopped while moving the branch or writing the index leaves its lock in `.git`.
-        for lock in [".git/index.lock", ".git/refs/heads/main.lock"] {
+        for lock in [
+            ".git/index.lock",
+            ".git/HEAD.lock",
+            ".git/refs/heads/main.lock",
+        ] {
             let f = Fixture::new("git-lock", true);
             let mut s = begin(&f, f.repo());
             project(&f, &mut s);
@@ -1779,10 +1783,9 @@ fn pd_11_a_lock_git_left_is_named_and_never_removed() {
             // Reading still works; the next write command refuses the same way and removes nothing.
             ok_replay(&f);
             let mut s = begin(&f, f.repo());
-            assert_eq!(
-                s.commit_uncommitted(&f.verifier()).unwrap_err().code(),
-                Some(Code::ToolFailed)
-            );
+            let e = s.commit_uncommitted(&f.verifier()).unwrap_err();
+            let named = matches!(&e, fabrewk_core::record::Error::Refused { path: Some(p), .. } if *p == lock);
+            assert_eq!((e.code(), named), (Some(Code::ToolFailed), true), "P7B-8");
             assert!(lock.exists());
             assert_eq!(uncommitted(&f.repo().unwrap()).unwrap().len(), 7);
             drop(s);

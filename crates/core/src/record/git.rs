@@ -303,9 +303,10 @@ pub fn uncommitted(repo: &Repo) -> Result<Vec<PathBuf>, Error> {
     Ok(out)
 }
 
-/// Refuses `TOOL_FAILED`, naming the file, if a stopped Git left the index's lock or the record branch's: Fabrewk
-/// never removes a lock in the repository, since a Git the person runs may hold it, and its lock does not cover
-/// that Git (PD-11, P7B-6). Once the person removes it, the next write command commits what is left.
+/// Refuses `TOOL_FAILED`, naming the file, if a stopped Git left the index's lock, `HEAD`'s (P7B-7) or the record
+/// branch's. Fabrewk never removes a lock in the repository, since a Git the person runs may hold it and Fabrewk's
+/// own lock does not cover that Git (PD-11, P7B-6). Once the person removes it, the next write command commits what
+/// is left.
 pub(crate) fn check_git_locks(repo: &Repo, branch: &str) -> Result<(), Error> {
     let common = line(git(
         repo,
@@ -316,6 +317,7 @@ pub(crate) fn check_git_locks(repo: &Repo, branch: &str) -> Result<(), Error> {
     let common = PathBuf::from(common);
     for lock in [
         common.join("index.lock"),
+        common.join("HEAD.lock"),
         common.join(format!("{branch}.lock")),
     ] {
         if lock.exists() {
