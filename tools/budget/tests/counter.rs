@@ -1,7 +1,7 @@
 //! The counter's fixture tests (REQ-BUD-1; core-specification 11.6).
 
 use budget::budget::{Ring, RingKind};
-use budget::count::{CountError, count_source};
+use budget::count::{CountError, count_source, scan_source};
 use budget::rings::{Error, count_rings};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -437,9 +437,15 @@ fn req_bud_1_include_and_path_attributes_are_errors() {
     };
     assert_eq!(
         hidden("fn a() {}\ninclude!(\"live.inc\");\n"),
-        ("include!", 2)
+        ("include", 2)
     );
-    assert_eq!(hidden("m! { include ! (\"x.rs\") }\n"), ("include!", 1));
+    assert_eq!(hidden("m! { include ! (\"x.rs\") }\n"), ("include", 1));
+    // An alias or a raw name of `include` is the same macro: Codex's case in its second review of part 7a.
+    assert_eq!(
+        hidden("use std::include as load;\nload!(\"hidden.inc\");\n"),
+        ("include", 1)
+    );
+    assert_eq!(hidden("r#include!(\"x.inc\");\n"), ("include", 1));
     assert_eq!(
         hidden("#[path = \"../../tools/live.rs\"]\nmod live;\n"),
         ("a path attribute", 1)
@@ -453,14 +459,25 @@ fn req_bud_1_include_and_path_attributes_are_errors() {
         ("a path attribute", 2)
     );
     assert_eq!(
+        hidden("#[r#path = \"x\"]\nmod x;\n"),
+        ("a path attribute", 1)
+    );
+    // An attribute a macro builds could be a path attribute.
+    let generated = "macro_rules! load {\n    ($attr:ident) => {\n        #[$attr = \"hidden.inc\"]\n        mod hidden;\n    };\n}\nload!(path);\n";
+    assert_eq!(hidden(generated), ("an attribute built by a macro", 3));
+    assert_eq!(
+        hidden("m! { $(#[$meta])* }\n"),
+        ("an attribute built by a macro", 1)
+    );
+    assert_eq!(
         CountError::HiddenSource {
-            what: "include!",
+            what: "include",
             line: 2
         }
         .to_string(),
-        "line 2: include! brings in code the counter does not see; not allowed in a ring"
+        "line 2: include brings in code the counter does not see; not allowed in a ring"
     );
-    // Data, not code, may still be included; a path that is a string or a dependency is no attribute.
+    // Data, not code, may still be included; a path that is a string or a variable is no attribute.
     assert_eq!(
         count(
             "const T: &str = include_str!(\"t.txt\");\nlet path = 1;\n#[doc = \"path = x\"]\nfn a() {}\n"
@@ -470,46 +487,23 @@ fn req_bud_1_include_and_path_attributes_are_errors() {
 }
 
 #[test]
-fn req_bud_1_target_paths_in_a_ring_manifest_are_errors() {
-    let manifest = |name: &str, toml: &str| {
-        let f = Fixture::new(name);
-        f.file("crates/core/Cargo.toml", toml)
-            .file("crates/core/src/lib.rs", TWO_LINES);
-        count_rings(&f.0, &[CORE])
-    };
-    for (name, toml, line) in [
-        (
-            "lib-path",
-            "[package]\nname = \"x\"\n[lib]\npath = \"../../tools/x.rs\"\n",
-            4,
-        ),
-        (
-            "bin-path",
-            "[package]\nname = \"x\"\n\n[[bin]]\nname = \"y\"\npath=\"y.txt\"\n",
-            6,
-        ),
-        (
-            "build",
-            "[package]\nname = \"x\"\nbuild = \"../../tools/b.rs\"\n",
-            3,
-        ),
-    ] {
-        match manifest(name, toml) {
-            Err(Error::ManifestPath(p, n)) => assert_eq!(
-                (p.ends_with("crates/core/Cargo.toml"), n),
-                (true, line),
-                "{name}"
-            ),
-            other => panic!("{name}: {other:?}"),
-        }
-    }
-    let deps = "[package]\nname = \"x\"\n[dependencies]\ny = { path = \"../y\" }\n[dependencies.z]\npath = \"../z\"\n\
-                [target.'cfg(unix)'.dependencies.w]\npath = \"../w\"\n";
-    assert!(manifest("dependency-paths", deps).is_ok());
-    assert_eq!(
-        Error::ManifestPath(PathBuf::from("/w/Cargo.toml"), 4).to_string(),
-        "/w/Cargo.toml:4: a target path or build script is not allowed in a ring's manifest"
-    );
+fn req_bud_1_data_files_are_collected() {
+    let scan = scan_source("const A: &str = include_str!(\"a.toml\");\nconst B: &[u8] = include_bytes!(\"img/b.png\");\n\
+                            const C: &str = r#include_str!(\"c.txt\");\nconst D: &str = include_str!(concat!(\"d\", \".txt\"));\n\
+                            const E: &str = include_str!(\"e\\\\.txt\");\n// include_str!(\"f.txt\")\n")
+        .unwrap();
+    assert_eq!(scan.lines, 5);
+    assert_eq!(scan.data, ["a.toml", "img/b.png", "c.txt"]);
+}
+
+#[test]
+fn req_bud_1_raw_identifiers_are_one_token() {
+    // Codex's case in its second review of part 7a: a raw macro name hid the pattern of `macro_rules!`.
+    let src = "macro_rules! r#production {\n    (\n        #[cfg(test)]\n        mod live {\n            fn answer() -> u32 { 42 }\n        }\n    ) => { fn answer() -> u32 { 42 } };\n}\n\
+               production! { #[cfg(test)] mod live { fn answer() -> u32 { 42 } } }\nfn main() { println!(\"{}\", answer()); }\n";
+    assert_eq!(count(src), 10);
+    assert_eq!(count("r#m! {\n#[cfg(test)]\nmod t {\n}\n}\n"), 5);
+    assert_eq!(count("#[cfg(test)]\nmod r#type {\n}\n"), 0);
 }
 
 #[test]
@@ -540,4 +534,23 @@ fn req_bud_1_what_opens_a_macro_and_what_does_not() {
 fn req_bud_1_an_attribute_run_ends_at_the_first_non_attribute() {
     assert_eq!(count("#[derive(Debug)] #name\n"), 1);
     assert_eq!(count("#[inline]\nv[cfg(test)]\nmod t {\n}\n"), 4);
+}
+
+#[test]
+fn req_bud_1_data_files_with_any_delimiter_and_no_function() {
+    let scan = scan_source(
+        "const A: &str = include_str![\"a.txt\"];\nconst B: &[u8] = include_bytes! {\"b.bin\"};\n\
+                            fn f() { include_str(\"c.txt\"); }\nlet include_str = [\"d.txt\"];\n",
+    )
+    .unwrap();
+    assert_eq!(scan.data, ["a.txt", "b.bin"]);
+}
+
+#[test]
+fn req_bud_1_a_lone_r_is_an_ordinary_identifier() {
+    assert_eq!(count("m!{r}x\n"), 1);
+    assert_eq!(
+        count("#[cfg(test)]\nmod t {\n    fn f() -> u8 { let r = 1; r}\n}\nfn g() {}\n"),
+        1
+    );
 }

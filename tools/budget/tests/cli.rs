@@ -16,10 +16,21 @@ fn stdout(out: &Output) -> String {
     String::from_utf8(out.stdout.clone()).unwrap()
 }
 
-/// A file of `bytes` bytes standing for the release binary.
-fn fake_binary(name: &str, bytes: u64) -> PathBuf {
+/// A file of `bytes` bytes standing for the release binary, with a dep-info beside it listing the rings' sources and
+/// `extra`.
+fn fake_binary(name: &str, bytes: u64, extra: &[&str]) -> PathBuf {
     let path = Path::new(env!("CARGO_TARGET_TMPDIR")).join(name);
     fs::File::create(&path).unwrap().set_len(bytes).unwrap();
+    let root = budget::workspace_root();
+    let mut deps: Vec<String> = ["crates/core/src/lib.rs", "crates/fabrewk/src/main.rs"]
+        .map(|p| root.join(p).display().to_string())
+        .to_vec();
+    deps.extend(extra.iter().map(|e| e.to_string()));
+    fs::write(
+        path.with_extension("d"),
+        format!("{}: {}\n", path.display(), deps.join(" ")),
+    )
+    .unwrap();
     path
 }
 
@@ -43,7 +54,7 @@ fn req_bud_1_count_prints_every_ring() {
 
 #[test]
 fn req_bud_2_check_within_and_over_the_binary_limit() {
-    let within = fake_binary("within", MAX_BINARY_BYTES);
+    let within = fake_binary("within", MAX_BINARY_BYTES, &[]);
     let out = budget(&["check", "--binary", within.to_str().unwrap()]);
     assert_eq!(out.status.code(), Some(0), "{}", stdout(&out));
     let text = stdout(&out);
@@ -52,7 +63,7 @@ fn req_bud_2_check_within_and_over_the_binary_limit() {
     assert!(text.contains(&format!(": {MAX_BINARY_BYTES} bytes\n")));
     assert!(!text.contains("over budget"));
 
-    let over = fake_binary("over", MAX_BINARY_BYTES + 1);
+    let over = fake_binary("over", MAX_BINARY_BYTES + 1, &[]);
     let out = budget(&[
         "check",
         "--binary",
@@ -66,6 +77,25 @@ fn req_bud_2_check_within_and_over_the_binary_limit() {
     assert!(
         text.contains("over budget: the release binary has"),
         "{text}"
+    );
+}
+
+#[test]
+fn req_bud_1_check_reports_compiled_sources_not_counted() {
+    let binary = fake_binary("uncounted", 1, &["/elsewhere/hidden.inc"]);
+    let out = budget(&["check", "--binary", binary.to_str().unwrap()]);
+    assert_eq!(out.status.code(), Some(1));
+    assert!(stdout(&out).contains(
+        "over budget: /elsewhere/hidden.inc is compiled into the binary but not counted\n"
+    ));
+
+    fs::remove_file(binary.with_extension("d")).unwrap();
+    let out = budget(&["check", "--binary", binary.to_str().unwrap()]);
+    assert_eq!(out.status.code(), Some(70));
+    assert!(
+        String::from_utf8(out.stderr)
+            .unwrap()
+            .contains("uncounted.d: ")
     );
 }
 

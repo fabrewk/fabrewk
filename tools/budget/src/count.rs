@@ -6,8 +6,11 @@
 //! closing brace, unless it lies inside a macro invocation or a `macro_rules!` body, whose input may become any code.
 //!
 //! What would bring code the counter does not see is an error: a test module declared out of line
-//! (`#[cfg(test)] mod tests;`; test modules are written inline, core-specification 11.2, rule 1), `include!`, and a
-//! `path` attribute (`#[path = …]`, also inside `cfg_attr`).
+//! (`#[cfg(test)] mod tests;`; test modules are written inline, core-specification 11.2, rule 1), the identifier
+//! `include` in any form (`include!`, `std::include`, an alias of it, `r#include`), a `path` attribute (`#[path = …]`,
+//! also inside `cfg_attr`) and an attribute built by a macro (`#[$name …]`). What the compiler really reads is checked
+//! against the count from Cargo's dep-info (`crate::sources`); the literal paths of `include_str!` and
+//! `include_bytes!` are returned as data, so that check can tell data from code.
 
 use std::fmt;
 
@@ -58,6 +61,20 @@ struct Token {
 
 /// The number of counted lines in `src`.
 pub fn count_source(src: &str) -> Result<usize, CountError> {
+    scan_source(src).map(|scan| scan.lines)
+}
+
+/// What one file holds for the budget.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Scan {
+    /// Counted lines.
+    pub lines: usize,
+    /// The literal paths given to `include_str!` and `include_bytes!`, relative to the file, as written.
+    pub data: Vec<String>,
+}
+
+/// Counts `src` and collects the data files it includes.
+pub fn scan_source(src: &str) -> Result<Scan, CountError> {
     let lines = LineIndex::new(src);
     let code: Vec<Token> = lex(src, &lines)?
         .into_iter()
@@ -77,11 +94,36 @@ pub fn count_source(src: &str) -> Result<usize, CountError> {
             *line = true;
         }
     }
-    Ok(touched
+    let counted = touched
         .iter()
         .enumerate()
         .filter(|&(n, &t)| t && !lines.text(src, n).trim().is_empty())
-        .count())
+        .count();
+    Ok(Scan {
+        lines: counted,
+        data: data_paths(src, &code),
+    })
+}
+
+/// An identifier's name without the raw prefix `r#`.
+fn name(token: &str) -> &str {
+    token.strip_prefix("r#").unwrap_or(token)
+}
+
+/// The literal, escape-free paths of `include_str!("…")` and `include_bytes!("…")`, with any of the three delimiters.
+fn data_paths(src: &str, code: &[Token]) -> Vec<String> {
+    let text = |k: usize| code.get(k).map_or("", |t| &src[t.start..t.end]);
+    (0..code.len())
+        .filter(|&k| matches!(name(text(k)), "include_str" | "include_bytes"))
+        .filter(|&k| text(k + 1) == "!" && matches!(text(k + 2), "(" | "[" | "{"))
+        .filter_map(|k| {
+            text(k + 3)
+                .strip_prefix('"')?
+                .strip_suffix('"')
+                .map(str::to_string)
+        })
+        .filter(|path| !path.contains('\\'))
+        .collect()
 }
 
 /// Byte offsets where each line starts.
@@ -159,6 +201,9 @@ fn lex(src: &str, lines: &LineIndex) -> Result<Vec<Token>, CountError> {
             i = end;
             Kind::Code
         } else if is_ident_byte(c) {
+            if c == b'r' && at(i + 1) == Some(b'#') && at(i + 2).is_some_and(is_ident_byte) {
+                i += 2; // a raw identifier, `r#name`, is one token
+            }
             while at(i).is_some_and(is_ident_byte) {
                 i += 1;
             }
@@ -338,7 +383,7 @@ fn macro_group<'a>(text: &impl Fn(usize) -> &'a str, i: usize) -> Option<usize> 
     if !(ident(i) && text(i + 1) == "!") {
         return None;
     }
-    let group = if text(i) == "macro_rules" && ident(i + 2) {
+    let group = if name(text(i)) == "macro_rules" && ident(i + 2) {
         i + 3
     } else {
         i + 2
@@ -358,14 +403,15 @@ fn group_close(code: &[Token], src: &str, start: usize) -> Option<usize> {
     matching(code, src, start, open, close)
 }
 
-/// Refuses `include!` and any attribute holding `path = …`, anywhere in the file.
+/// Refuses the identifier `include`, any attribute holding `path = …` and any attribute holding a metavariable,
+/// anywhere in the file.
 fn hidden_sources(src: &str, code: &[Token], lines: &LineIndex) -> Result<(), CountError> {
     let text = |k: usize| code.get(k).map_or("", |t| &src[t.start..t.end]);
     let line = |k: usize| lines.line_of(code[k].start) + 1;
     for k in 0..code.len() {
-        if text(k) == "include" && text(k + 1) == "!" {
+        if name(text(k)) == "include" {
             return Err(CountError::HiddenSource {
-                what: "include!",
+                what: "include",
                 line: line(k),
             });
         }
@@ -378,9 +424,15 @@ fn hidden_sources(src: &str, code: &[Token], lines: &LineIndex) -> Result<(), Co
         }
         let close =
             matching(code, src, open, "[", "]").ok_or(CountError::Unbalanced { line: line(k) })?;
-        if (open..close).any(|m| text(m) == "path" && text(m + 1) == "=") {
+        if (open..close).any(|m| name(text(m)) == "path" && text(m + 1) == "=") {
             return Err(CountError::HiddenSource {
                 what: "a path attribute",
+                line: line(k),
+            });
+        }
+        if (open..close).any(|m| text(m) == "$") {
+            return Err(CountError::HiddenSource {
+                what: "an attribute built by a macro",
                 line: line(k),
             });
         }

@@ -1,7 +1,7 @@
 //! Counting each ring's directories, and checking that every Rust file of the program belongs to exactly one ring.
 
 use crate::budget::{Ring, RingKind};
-use crate::count::{CountError, count_source};
+use crate::count::{CountError, scan_source};
 use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -21,8 +21,6 @@ pub enum Error {
     MissingDir(PathBuf),
     Unassigned(PathBuf),
     Overlap(&'static str, &'static str),
-    /// A ring manifest that sets a target's `path` or a `build` script, which could compile a file outside the count.
-    ManifestPath(PathBuf, usize),
 }
 
 impl fmt::Display for Error {
@@ -41,11 +39,6 @@ impl fmt::Display for Error {
             }
             Error::Unassigned(p) => write!(f, "{}: Rust code in no ring", p.display()),
             Error::Overlap(a, b) => write!(f, "ring directories {a} and {b} overlap"),
-            Error::ManifestPath(p, line) => write!(
-                f,
-                "{}:{line}: a target path or build script is not allowed in a ring's manifest",
-                p.display()
-            ),
         }
     }
 }
@@ -59,6 +52,10 @@ pub struct RingCount {
     pub kind: RingKind,
     pub files: usize,
     pub lines: usize,
+    /// The counted files, canonical.
+    pub sources: Vec<PathBuf>,
+    /// The data files the counted files include with `include_str!` or `include_bytes!`, canonical when they exist.
+    pub data: Vec<PathBuf>,
 }
 
 impl RingCount {
@@ -87,9 +84,6 @@ pub fn count_rings(root: &Path, rings: &[Ring]) -> Result<Vec<RingCount>, Error>
         }
     }
     check_assigned(root, &dirs)?;
-    for d in &dirs {
-        check_manifest(&root.join(d).join("Cargo.toml"))?;
-    }
     rings.iter().map(|ring| count_ring(root, ring)).collect()
 }
 
@@ -99,13 +93,21 @@ fn count_ring(root: &Path, ring: &Ring) -> Result<RingCount, Error> {
         kind: ring.kind,
         files: 0,
         lines: 0,
+        sources: Vec::new(),
+        data: Vec::new(),
     };
     for dir in ring.dirs {
         walk(&root.join(dir), &mut |file| {
             let bytes = fs::read(file).map_err(|e| Error::Io(file.to_path_buf(), e))?;
             let src = String::from_utf8(bytes).map_err(|_| Error::NotUtf8(file.to_path_buf()))?;
-            measure.lines += count_source(&src).map_err(|e| Error::Count(file.to_path_buf(), e))?;
+            let scan = scan_source(&src).map_err(|e| Error::Count(file.to_path_buf(), e))?;
+            let dir = file.parent().unwrap_or(Path::new(""));
+            measure.lines += scan.lines;
             measure.files += 1;
+            measure.sources.push(canonical(file));
+            measure
+                .data
+                .extend(scan.data.iter().map(|d| canonical(&dir.join(d))));
             Ok(())
         })?;
     }
@@ -199,23 +201,7 @@ fn walk(dir: &Path, visit: &mut dyn FnMut(&Path) -> Result<(), Error>) -> Result
     Ok(())
 }
 
-/// A ring's manifest may name paths only for its dependencies: a `path` key in any other table (`[lib]`, `[[bin]]`
-/// and the like) or a `build` key could make Cargo compile a file the counter does not walk.
-fn check_manifest(manifest: &Path) -> Result<(), Error> {
-    let Ok(text) = fs::read_to_string(manifest) else {
-        return Ok(()); // a directory without a manifest compiles nothing by itself
-    };
-    let mut dependency_table = false;
-    for (n, raw) in text.lines().enumerate() {
-        let line = raw.trim();
-        if line.starts_with('[') {
-            dependency_table = line.contains("dependencies");
-            continue;
-        }
-        let key = line.split('=').next().unwrap_or_default().trim();
-        if line.contains('=') && (key == "build" || (key == "path" && !dependency_table)) {
-            return Err(Error::ManifestPath(manifest.to_path_buf(), n + 1));
-        }
-    }
-    Ok(())
+/// The path with `.` and `..` resolved and links followed when it exists; as given otherwise.
+pub fn canonical(path: &Path) -> PathBuf {
+    path.canonicalize().unwrap_or_else(|_| path.to_path_buf())
 }

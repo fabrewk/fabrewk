@@ -7,8 +7,10 @@ use budget::budget::{
 };
 use budget::deps::{Report, TreeLine, analyse, cargo_tree, parse_tree};
 use budget::rings::{RingCount, count_rings};
+use budget::sources::{parse_dep_info, unaccounted};
 use budget::{
-    binary_problem, cargo, dependency_problems, own_packages, ring_problems, workspace_root,
+    binary_problem, cargo, dependency_problems, own_packages, ring_problems, source_problems,
+    workspace_root,
 };
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -58,6 +60,8 @@ fn req_bud_2_a_ring_over_its_limit_is_reported() {
         kind: RingKind::Core,
         files: 1,
         lines: RingKind::Core.limit(),
+        sources: Vec::new(),
+        data: Vec::new(),
     };
     let over = RingCount {
         lines: at.lines + 1,
@@ -95,6 +99,7 @@ fn line(depth: usize, name: &str, path: Option<&str>) -> TreeLine {
         name: name.into(),
         version: "1.0.0".into(),
         path: path.map(PathBuf::from),
+        proc_macro: false,
     }
 }
 
@@ -111,10 +116,11 @@ fn req_bud_2_tree_is_parsed_and_classified() {
             depth: 0,
             name: "fabrewk".into(),
             version: "0.0.0".into(),
-            path: Some("/w/crates/fabrewk".into())
+            path: Some("/w/crates/fabrewk".into()),
+            proc_macro: false,
         }
     );
-    assert_eq!(lines[3].path, None);
+    assert_eq!((lines[3].path.clone(), lines[3].proc_macro), (None, true));
     // Fabrewk's own packages are the ring directories exactly; a package elsewhere under the repository is a crate.
     let own = [
         PathBuf::from("/w/crates/fabrewk"),
@@ -124,7 +130,18 @@ fn req_bud_2_tree_is_parsed_and_classified() {
     let direct: Vec<_> = report.direct.iter().map(String::as_str).collect();
     assert_eq!(direct, ["cc", "other", "serde", "sha2", "vendored"]);
     assert_eq!(report.all.len(), 10);
-    assert_eq!(report.local, own.into_iter().collect());
+    assert_eq!(report.local, own.clone().into_iter().collect());
+    assert!(report.own_proc_macros.is_empty());
+    let with_macro = parse_tree(
+        "0fabrewk v0.0.0 (/w/crates/fabrewk)\n1fabrewk-core v0.0.0 (/w/crates/core) (proc-macro)\n",
+    )
+    .unwrap();
+    let report = analyse(&with_macro, &own).unwrap();
+    assert_eq!(
+        report.own_proc_macros,
+        [PathBuf::from("/w/crates/core")].into_iter().collect()
+    );
+    assert_eq!(dependency_problems(&report).len(), 1);
     assert!(parse_tree("fabrewk v0.0.0\n").is_err());
     assert!(parse_tree("0fabrewk\n").is_err());
     assert!(parse_tree("0fabrewk 0.0.0\n").is_err());
@@ -197,6 +214,12 @@ fn req_bud_2_binary_within_budget() {
         .join(RELEASE_TARGET)
         .join("release")
         .join(BINARY_PACKAGE);
+    let dep_info = fs::read_to_string(binary.with_extension("d")).unwrap();
+    let counts = count_rings(&workspace_root(), RINGS).unwrap();
+    assert_eq!(
+        source_problems(&dep_info, &counts).unwrap(),
+        Vec::<String>::new()
+    );
     let bytes = fs::metadata(&binary).unwrap().len();
     assert_eq!(binary_problem(bytes), None, "{bytes} bytes");
     assert_eq!(binary_problem(MAX_BINARY_BYTES), None);
@@ -259,4 +282,137 @@ fn req_bud_5_licence_declared_and_files_present() {
     );
     assert!(read("LICENSE-MIT").contains("Permission is hereby granted, free of charge"));
     assert!(read("NOTICE").starts_with("Fabrewk\n"));
+}
+
+#[test]
+fn req_bud_1_dep_info_is_parsed() {
+    let deps = parse_dep_info("/t/fabrewk: /w/a.rs /w/my\\ dir/b.rs \\\n /w/c.txt\n\n").unwrap();
+    assert_eq!(
+        deps,
+        [
+            PathBuf::from("/w/a.rs"),
+            PathBuf::from("/w/my dir/b.rs"),
+            PathBuf::from("/w/c.txt")
+        ]
+    );
+    assert_eq!(parse_dep_info("/t/x:\n").unwrap(), Vec::<PathBuf>::new());
+    // A colon after the target belongs to a path.
+    let deps = parse_dep_info("/t/x: /w/a:b.rs /w/c: /w/d.rs\n").unwrap();
+    assert_eq!(
+        deps,
+        [
+            PathBuf::from("/w/a:b.rs"),
+            PathBuf::from("/w/c:"),
+            PathBuf::from("/w/d.rs")
+        ]
+    );
+    assert!(parse_dep_info("").is_err());
+    assert!(parse_dep_info("/w/a.rs /w/b.rs\n").is_err());
+}
+
+#[test]
+fn req_bud_1_unaccounted_sources_are_named() {
+    let count = RingCount {
+        name: "core",
+        kind: RingKind::Core,
+        files: 1,
+        lines: 1,
+        sources: vec![PathBuf::from("/w/crates/core/src/lib.rs")],
+        data: vec![PathBuf::from("/w/crates/core/src/en.toml")],
+    };
+    let deps = [
+        "/w/crates/core/src/lib.rs",
+        "/w/crates/core/src/en.toml",
+        "/w/tools/x.rs",
+        "/w/crates/core/src/hidden.inc",
+    ]
+    .map(PathBuf::from);
+    assert_eq!(
+        unaccounted(&deps, std::slice::from_ref(&count)),
+        [
+            PathBuf::from("/w/tools/x.rs"),
+            PathBuf::from("/w/crates/core/src/hidden.inc")
+        ]
+    );
+    let problems =
+        source_problems("/t/f: /w/crates/core/src/lib.rs /w/tools/x.rs\n", &[count]).unwrap();
+    assert_eq!(
+        problems,
+        ["/w/tools/x.rs is compiled into the binary but not counted"]
+    );
+}
+
+/// Builds a small workspace whose manifests point Cargo at files outside the ring, as Codex did in its second review
+/// of part 7a, and checks that the dep-info names every one while the walk alone would not see them.
+#[test]
+fn req_bud_1_compiled_sources_outside_the_count_are_reported() {
+    let root = Path::new(env!("CARGO_TARGET_TMPDIR")).join("escapes");
+    let _ = fs::remove_dir_all(&root);
+    let files = [
+        (
+            "Cargo.toml",
+            "[workspace]\nresolver = \"3\"\nmembers = [\"crates/lib\", \"crates/bin\"]\n",
+        ),
+        // A quoted key and a dotted key, both of which a reading of the text missed.
+        (
+            "crates/lib/Cargo.toml",
+            "[package]\nname = \"lib\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\"build\" = \"../../tools/b.rs\"\n\n[lib]\n'path' = \"../../tools/lib.inc\"\n",
+        ),
+        ("crates/lib/src/lib.rs", "pub fn never_built() {}\n"),
+        (
+            "crates/bin/Cargo.toml",
+            "[package]\nname = \"bin\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\n[dependencies]\nlib = { path = \"../lib\" }\n",
+        ),
+        (
+            "crates/bin/src/main.rs",
+            "const T: &str = include_str!(\"data.txt\");\nfn main() { println!(\"{} {}\", lib::c(), T.len()); }\n",
+        ),
+        ("crates/bin/src/data.txt", "data\n"),
+        ("tools/lib.inc", "pub fn c() -> u32 { 3 }\n"),
+        ("tools/b.rs", "fn main() {}\n"),
+    ];
+    for (path, content) in files {
+        fs::create_dir_all(root.join(path).parent().unwrap()).unwrap();
+        fs::write(root.join(path), content).unwrap();
+    }
+    let status = Command::new(cargo())
+        .current_dir(&root)
+        .args([
+            "build",
+            "--release",
+            "--offline",
+            "--quiet",
+            "--package",
+            "bin",
+        ])
+        .status()
+        .unwrap();
+    assert!(status.success());
+    let rings = [budget::budget::Ring {
+        name: "core",
+        kind: RingKind::Core,
+        dirs: &["crates/lib", "crates/bin"],
+    }];
+    let counts = count_rings(&root, &rings).unwrap();
+    assert_eq!(
+        counts[0].files, 2,
+        "the walk sees only the two files of the rings"
+    );
+    let dep_info = fs::read_to_string(root.join("target/release/bin.d")).unwrap();
+    let mut problems = source_problems(&dep_info, &counts).unwrap();
+    problems.sort();
+    let tools = root.canonicalize().unwrap().join("tools");
+    assert_eq!(
+        problems,
+        [
+            format!(
+                "{} is compiled into the binary but not counted",
+                tools.join("b.rs").display()
+            ),
+            format!(
+                "{} is compiled into the binary but not counted",
+                tools.join("lib.inc").display()
+            ),
+        ]
+    );
 }

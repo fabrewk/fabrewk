@@ -4,6 +4,7 @@ pub mod budget;
 pub mod count;
 pub mod deps;
 pub mod rings;
+pub mod sources;
 
 use budget::{
     APPROVED_RUNTIME_CRATES, MAX_BINARY_BYTES, MAX_DIRECT_RUNTIME_CRATES, MAX_RELEASE_CRATES, Ring,
@@ -65,6 +66,12 @@ pub fn dependency_problems(report: &deps::Report) -> Vec<String> {
             ));
         }
     }
+    for path in &report.own_proc_macros {
+        problems.push(format!(
+            "{} is a procedural macro of Fabrewk's own, which may read files the count does not see",
+            path.display()
+        ));
+    }
     if report.all.len() > MAX_RELEASE_CRATES {
         problems.push(format!(
             "{} crates in the release build, over the limit of {MAX_RELEASE_CRATES}",
@@ -72,6 +79,21 @@ pub fn dependency_problems(report: &deps::Report) -> Vec<String> {
         ));
     }
     problems
+}
+
+/// Every file the compiler read for the binary (its dep-info, `<binary>.d`) that the count did not see, as a
+/// sentence; empty when every one is counted or is a data file a counted file names.
+pub fn source_problems(dep_info: &str, counts: &[rings::RingCount]) -> Result<Vec<String>, String> {
+    let deps = sources::parse_dep_info(dep_info)?;
+    Ok(sources::unaccounted(&deps, counts)
+        .iter()
+        .map(|p| {
+            format!(
+                "{} is compiled into the binary but not counted",
+                p.display()
+            )
+        })
+        .collect())
 }
 
 /// The binary's size against its ceiling, as a sentence when over.

@@ -68,10 +68,14 @@ fn check(binary: PathBuf, target: &str) -> Result<bool, String> {
     let bytes = std::fs::metadata(&binary)
         .map_err(|e| format!("{}: {e}", binary.display()))?
         .len();
+    let dep_info_path = binary.with_extension("d");
+    let dep_info = std::fs::read_to_string(&dep_info_path)
+        .map_err(|e| format!("{}: {e}", dep_info_path.display()))?;
     println!("release binary {}: {bytes} bytes", binary.display());
     let mut problems = budget::ring_problems(&counts);
     problems.extend(budget::dependency_problems(&report));
     problems.extend(budget::binary_problem(bytes));
+    problems.extend(budget::source_problems(&dep_info, &counts)?);
     for p in &problems {
         println!("over budget: {p}");
     }
