@@ -1635,3 +1635,104 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   not blocking, unless it breaks a criterion of section 12 another way.
 - Sources: chat of session 14; Codex's three reviews of part 7a; `core-specification.md` REQ-BUD-1, REQ-BUD-2, 11.6.
 - Supersedes: none.
+
+## D-045 — Part 7a: the metadata component replaced, then one more pass, then a pause
+
+- Status: decided
+- Decided: 2026-11-05
+- Origin: maintainer XEL in session 14's chat, choosing between the alternatives D-003 requires after two retries
+  without progress in Codex's review of part 7a: after confirmed blocking findings 4, 3, 3, 4, "Reemplazar el
+  componente (Recomendado)"; after 1, 1, 1, "Corregir y una pasada más (Recomendado)", whose terms were to close part
+  7a if the next pass accepted and to pause it otherwise.
+- Decision:
+  1. The counter's view of the build is one `cargo metadata` with every feature (first filtered to the release
+     platform, then, after Codex's sixth pass, unfiltered) in place of `cargo tree` and a members-only metadata, with
+     a closed world: every local package a workspace member; every local package the binary reaches a ring package.
+  2. The ninth pass found one more finding (P7A-23); part 7a pauses with it corrected and not yet reviewed. The next
+     chat resumes 7a with Codex's review of that correction, and closes it if Codex accepts.
+- Consequences: `plan.md` and `STATUS.md` record the pause and the next prompt. Part 7a is not accepted yet.
+- Sources: chat of session 14; D-003, D-044; Codex's reviews of part 7a (R-022).
+- Supersedes: none.
+
+## D-046 — Two alambique additions on a memory of lessons per machine, applied on the maestro's approval
+
+- Status: decided
+- Decided: 2026-11-05
+- Origin: maintainer XEL. In the fermento, point 1, they proposed a memory of lessons per machine after this session's
+  out-of-memory incident, then commented the integrator's five clarifications ("Estoy de acuerdo con todas tus
+  recomendaciones", with two nuances: the machine's profile kept from the start, within a quota set by the
+  configuration, and the active chat as the one channel to inform and ask) and wrote that they authorized the edit.
+  A fermento authorizes nothing by itself (`AGENTS.md`), so the integrator showed the exact text in the chat; the
+  maestro answered "Aprobar tal cual (Recomendado)".
+- Decision: the integrator applied two sentences to `.brewstillery/ALAMBIQUE.md` (sha256 `f2cac00b…` before,
+  `61be0e9f…` after), both with the key [proyectado]: at the end of 6.51, what the memory holds (what an agent could or
+  could not do on the machine, its cause, the limit that avoids it and the profile it was observed with, within a size
+  limit the configuration sets), who writes it (Fabrewk proposes, the person confirms in the active chat, no agent
+  alone), that a lesson only restricts, that it serves every project on that machine and cites its incident, and that
+  after the pilots it is evaluated for the core; in 6.38, after the example of Codex, that lessons are applied as limits
+  at each launch, which the agent knows without reading the private folder. The profile is kept as each lesson's
+  evidence; the machine's configuration is still detected at start (D-015).
+- Consequences: the maestro removed fermento point 1 before the session closed (committed alone, `e7f0c3d`); the
+  answer has no current recommendation. The core specification is unchanged; adding the
+  memory to it, at phase 9 or later, is a maestro's decision naming the work it affects.
+- Sources: chat of session 14; `.brewstillery/xel/fermento.md`, point 1; alambique 6.38, 6.51; AD-15; D-015.
+- Supersedes: none.
+
+## R-022 — Session 14, phase 7 started: part 7a, nine Codex passes, paused
+
+- Status: recorded
+- Date: 2026-11-05
+- Who: integrator Claude Code, `claude-opus-5-5`. Reviewer: Codex `codex-cli 0.166.0`, `gpt-6.1-sol`, effort high,
+  launched with `codex exec --json`, standard input closed, sandbox `workspace-write` in a disposable clone of each
+  commit under the session's scratch directory, inside a user systemd scope capped at 3 GB; no network. No subagent.
+- Start: HEAD `606082b`, tree clean. The maestro replaced fermento point 1 during the session (committed alone,
+  `68a05ec`) and later commented the integrator's answer (`af84a51`); both with no AI co-author (D-022). The
+  separator's banner line found once each time; the input above it unchanged by the integrator.
+- Read: `STATUS.md`, `plan.md`, both settings files, the fermento, this file (rules, D-019, D-038 to D-040),
+  `core-specification.md` (REQ-DOM-1 to REQ-DOM-7, REQ-CLI-1 to REQ-CLI-4, REQ-BUD-1 to REQ-BUD-5, sections 9, 10, 11.1,
+  11.2, 11.6, 12 BUD, 13), `architecture-decisions.md` AD-4, AD-5, AD-9, AD-15, alambique 6.38, 6.51 and its keys.
+- Machine (network as permitted): `cargo-deny` 0.20.2 and `cargo-mutants` 27.1.0 by `cargo install --locked`; with
+  Fedora's `rustup-init` (rustup 1.29.0), the toolchain 1.99.1 with the `aarch64-unknown-linux-musl` target, `clippy`
+  and `rustfmt` under `~/.rustup` (D-041, D-043); the RustSec advisory database fetched by `cargo deny`. `fish` 4.6.0,
+  `bubblewrap` 0.12.0, `dash`, `git` 2.56.0 present.
+- Incident: the first `cargo mutants` ran four jobs with no limit; a mutant whose lexer index stopped advancing grew
+  without bound and the kernel's out-of-memory killer ended VS Code's scope, which held it, with VS Code inside. From
+  then on every mutation run went into its own user scope (`systemd-run --user --scope -p MemoryMax=3G -p
+  MemorySwapMax=0 -p OOMPolicy=continue`) with `ulimit -v 1000000` and two jobs: with `OOMPolicy` left at `stop` the
+  scope ended the run, and with a 4 GB `ulimit` the scope's killer once took `cargo-mutants` itself; 1 GB per process
+  holds, the build and the suite fit in it. `/tmp` on this machine is memory (tmpfs): Codex's reproductions left 1.9 GB
+  there, removed by the integrator. The lesson is in `STATUS.md` and became the maestro's proposal (D-046).
+- Written: the workspace (`Cargo.toml`, `Cargo.lock`, `crates/core`, `crates/fabrewk`, `tools/budget` with the counter,
+  dep-info and metadata checks and a minimal JSON reader, all std-only), `LICENSE-MIT`, `LICENSE-APACHE`, `NOTICE`,
+  `deny.toml`, the root `.gitignore`; D-041 to D-046; `plan.md` (phase 7's parts), `AGENTS.md`, `STATUS.md`, the
+  fermento's answer, the alambique (D-046). Commits `9ebd135` (skeleton) and `2ff0431` (freeze), then one per round of
+  corrections up to `a40c769`.
+- Measure at the freeze (D-042): core 12 counted lines in 2 files, 0 direct crates, 0 release crates, the musl binary
+  397,600 bytes; unchanged since. Suite: 61 tests, green with the rustup toolchain 1.99.1, in a clean clone and on
+  musl; with Fedora's `cargo`, 60 and the musl size test failing as D-043 says. `cargo deny check licenses
+  advisories` clean. `clippy -D warnings` and `rustfmt --check` clean.
+- Codex, nine passes on the counter (prompt digests in the scratch directory; findings P7A-1 to P7A-23, all confirmed):
+  pass 1 (`9ebd135`/`2ff0431`, 241 s, 29 commands): reject, 4 blocking (a test module inside a macro; `#[path]` and
+  `include!`; a vendored package taken as own; the size test measuring the GNU binary). Pass 2 (`942bfb2`, 293 s):
+  2 closed, 3 blocking (a raw macro name; `include` by alias and a generated path attribute; manifest read as text).
+  Pass 3 (`56d711b`, 616 s): 4 closed, 3 blocking and a minor (a library root also named as data; `(proc-macro)` read
+  wrongly; a build script emitting `cfg(test)`; raw-string data paths). D-044 fixed the scope. Pass 4 (`e88374e`,
+  568 s): 4 blocking (a path holding ` (`; a ring package outside the workspace; a `.cargo` inside a package; an
+  optional dependency). Two retries without progress (4, 3, 3, 4): the maestro chose to replace the component
+  (D-045). Pass 5 (`caf9eef`, 529 s): 8 closed, 4 blocking (`CARGO_HOME` inside the repository; packages of one name
+  and version; host-only dependencies; an unreadable directory). Pass 6 (`b10e6e7`, 275 s): 3 closed, 1 blocking (a
+  path from target to host lost in both filtered graphs). Pass 7 (`78334b9`, 326 s): closed, 1 blocking (an `@file`
+  in `RUSTFLAGS`). Pass 8 (`dd1b51c`, 294 s): ended by the provider's safety filter, no verdict; repeated as a review
+  of coverage (`9e1b94e`, 583 s): closed, 1 blocking (a backslash read as an escape). Two retries without progress
+  (1, 1, 1): one more pass, then a pause (D-045). Pass 9 (`fee843c`, 378 s): closed, 1 blocking (a name ending in a
+  backslash), corrected in `a40c769` and not reviewed. Inputs per pass 0.9 to 1.6 million tokens, over 90 % cached;
+  outputs 8,500 to 20,600.
+- Mutation: full runs of the tree at three points (299, 351 and 381 mutants), and after every later round a re-run of
+  each function it changed; every viable mutant caught but the two declared equivalents, `token.end - 1` → `/` in
+  `scan_source` (no token ends in a newline) and `i < code.len()` → `<=` in `test_module_spans` (`text(code.len())` is
+  empty); timeouts are the lexer's infinite loops. A full run of the final tree (492 mutants) was stopped at the
+  session's budget after 127: 123 caught, 1 timeout, 2 unviable, 1 missed (the first equivalent). The full run is due
+  when part 7a closes.
+- Residuals (D-044): the machine's own Cargo configuration and environment beyond what `config_problems` checks, a
+  compiler defect, a hiding only the diff shows; a repository whose path holds a space cannot run `budget check`.
+- Not done: Codex's review of `a40c769`; the acceptance of part 7a; phase 7's parts 7b to 7d.

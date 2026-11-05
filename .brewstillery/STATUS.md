@@ -5,10 +5,11 @@ view generated from that registry. Technical files are in English by default (D-
 
 ## Current state
 
-**Phases 0 to 6 are closed (D-037, D-040); phase 7, the first code, is next. Nothing of Fabrewk is built yet.** No code, no licence files (the licence is
-decided, D-036), no `.gitignore`, no `data/` yet. The repository holds the project's alambique, the maintainer's
-fermento and settings, this file, the root entry files (`AGENTS.md`, `CLAUDE.md`) and the bootstrap record. The domain is `.brewstillery/`, hidden
-(D-032).
+**Phases 0 to 6 are closed (D-037, D-040). Phase 7 (the first code) is split into parts 7a to 7d (D-041); part 7a
+is paused (D-045).** The repository now holds the first code at its root: a Cargo workspace with one crate per ring
+(`crates/core`, `crates/fabrewk`, a skeleton that only answers `--version`) and the size counter `tools/budget`, the
+licence files, `deny.toml` and a root `.gitignore` with `/target`. The size budget is frozen (D-042). No feature is
+built yet and no `data/` exists. The domain is `.brewstillery/`, hidden (D-032).
 
 ## Read first
 
@@ -91,12 +92,31 @@ repository, is imported into the single registry at production and then stays re
   2, 1, 0. The maestro approved the text and its 13 choices; it is frozen. Start prompts now name their phase
   (`AGENTS.md`, handover). The previous closing commit had folded the maintainer's fermento edit into the integrator's
   commit; recorded in R-021.
-- **Next: phase 7, core part 1 (plan row 7; `core-specification.md` section 13).** At its start: decide whether it
-  splits into parts (D-019), and ask for the network permission to fetch crates and install `cargo-deny` and
-  `cargo-mutants`, and for `fish`, `dash` and `bwrap` on the machine (choice 11). Its first commit is the skeleton with
-  its line counter and the licence files; then the maestro freezes the size budget (D-038), before any feature.
-- **Start prompt:** `Eres el integrador de Fabrewk; fase 7, núcleo parte 1: esqueleto, contador de líneas y
-  presupuesto de tamaño; empieza por .brewstillery/STATUS.md`. Model and effort: Claude Code on Opus 5.5, effort high;
+- **Phase 7 started; part 7a paused (session 14; D-041 to D-046, R-022).** Four parts (plan, "Phase 7"). The skeleton
+  and its counter are committed; the maestro froze the budget at AD-5's ceilings after measuring it (core 12 of
+  4,000 lines, 0 crates, the musl binary 397,600 bytes of 8,000,000). The suites run with the rustup toolchain 1.99.1,
+  which builds musl (D-043). D-044 fixes what the counter guarantees: it fails closed on every route Cargo or the
+  compiler record (dep-info, one unfiltered `cargo metadata`, a closed world of local packages, no `.cargo` directory,
+  no `RUSTFLAGS`, no wrapped compiler); a hiding only the diff shows is the review's. Codex reviewed nine times,
+  confirmed blocking findings 4, 3, 3, 4, 4, 1, 1, 1, 1; all 23 corrected; the maestro chose the alternatives twice
+  (D-045). The last correction (`a40c769`, any backslash in the dep-info refuses) is not reviewed yet. The alambique
+  gained two [proyectado] sentences on a memory of lessons per machine (D-046); the maestro then removed the
+  fermento's point 1, and its answer has no current recommendation.
+- **How to run the suites (fish):**
+  `env RUSTUP_HOME=$HOME/.rustup CARGO_HOME=$HOME/.rustup/cargo-home PATH="$HOME/.rustup/cargo-home/bin:$PATH" cargo +1.99.1 test --locked`;
+  the musl release build is the same prefix with `cargo +1.99.1 build --release --locked --target
+  aarch64-unknown-linux-musl -p fabrewk`, then `cargo run --locked -p budget -- check --binary
+  target/aarch64-unknown-linux-musl/release/fabrewk`. With Fedora's `cargo` alone, one test fails by design (D-043).
+- **This machine's lesson on memory (R-022).** 7.3 GB of RAM, and `/tmp` lives in it. `cargo mutants` runs only in its
+  own scope with a cap per process: the same prefix, then `systemd-run --user --scope -p MemoryMax=3G -p
+  MemorySwapMax=0 -p OOMPolicy=continue bash -c 'ulimit -v 1000000; exec cargo mutants --workspace -j 2 --timeout 90'`,
+  with `TMPDIR` in the session's scratch directory. Run Codex in the same kind of scope, one heavy job at a time, and
+  remove reviewers' leftovers from `/tmp`. Without this, a mutant that loops on memory took VS Code down.
+- **Next: part 7a resumed (plan, "Phase 7").** Codex reviews `a40c769` (P7A-23's correction) in one scoped pass worded
+  as a review of the measurement's coverage, since adversarial wording tripped the provider's filter once (R-022). If it
+  accepts, part 7a closes with a full mutation run, a clean clone, `STATUS.md` and the record; then part 7b, the record.
+- **Start prompt:** `Eres el integrador de Fabrewk; fase 7, parte 7a: revisión final de Codex del contador de líneas y
+  cierre de la parte; empieza por .brewstillery/STATUS.md`. Model and effort: Claude Code on Opus 5.5, effort high;
   Codex GPT-6.1 Sol, effort high, reviews each part that delivers code (plan row 7).
 
 Carried without blocking, with destinations, in D-013. A phase that does not pass is corrected and retried; it
