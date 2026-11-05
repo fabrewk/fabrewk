@@ -18,4 +18,24 @@ Mi entrada es exclusivamente mía. Lo que cite desde aquí (capturas, PDF, otros
 
 ## Respuesta del integrador
 
-Sin recomendaciones vigentes.
+Sobre tu entrada: sin recomendaciones vigentes.
+
+**Edición propuesta del alambique: licencia y archivo de reglas.** Ya decidiste la licencia de Fabrewk y el nombre y la forma del archivo de reglas para los agentes, pero el alambique todavía los da por pendientes. Propongo dos cambios de una frase cada uno; si los apruebas, los haces tú en tu propio commit.
+
+1. Sección 1: la línea que empieza con "Por decidir: la licencia" se reemplaza completa por:
+
+```text
+Licencia: el código y la documentación de Fabrewk, bajo MIT o Apache-2.0, a elección de quien los recibe; lo que Fabrewk escribe en los repositorios que sirve va bajo MIT-0 y no obliga a nada [decidido].
+```
+
+2. Sección 2, primer punto: el fragmento
+
+```text
+viven dentro de `.brewstillery/`, no en esos archivos; su nombre y forma los decide el diseño.
+```
+
+se reemplaza por
+
+```text
+viven en `.brewstillery/RULES.md`, que Fabrewk genera y nadie edita a mano, no en esos archivos.
+```

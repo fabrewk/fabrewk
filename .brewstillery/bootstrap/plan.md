@@ -13,7 +13,8 @@ alambique's form); a second audit gave the full new alambique and fermento, and 
 `.brewstillery/` (R-016). Before phase 5 resumes, the alambique is rewritten concise for the maestro and the
 integrator, with Codex checking its fidelity against the archived original (D-034); adopted (D-035). Phase 5 resumed
 in session 11: AD-4, AD-5 and AD-7 rewritten and AD-12 to AD-15 added for what D-032 still needed; Codex accepted the
-file at its second pass (R-018). The maintainer decides AD-4 to AD-15.
+file at its second pass (R-018). The maintainer decided AD-4 to AD-15 as recommended (D-036), and Codex re-checked
+the decided file (R-019). Phase 5 closes on the maintainer's word.
 
 **Rule for every phase (alambique 6.48, D-003).** A phase that does not pass is corrected and retried; it never
 ends the project. Before each retry the progress measure is fixed (proposed: confirmed blocking findings, and

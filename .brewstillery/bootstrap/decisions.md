@@ -1301,3 +1301,77 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   (395,904 cached), output 2,902. P5-10 to P5-16 closed, no new finding. **Verdict accept.**
 - Progress measure (D-003): confirmed blocking findings 3, then 0. Prompts, streams and last messages stay in the
   session's scratch directory, not committed.
+
+## D-036 — Phase 5: AD-4 to AD-15 decided as recommended
+
+- Status: decided
+- Decided: 2026-11-04
+- Origin: maintainer XEL in session 11's chat, answering the integrator's twelve questions, one per decision, each
+  summarizing the recommendation of `architecture-decisions.md` as Codex accepted it (R-018). Answers: AD-4 "Adoptar
+  (Recomendado)"; AD-5 "Adoptar (Recomendado)"; AD-6 "Adoptar (Recomendado)"; AD-7 "Adoptar (Recomendado)"; AD-8
+  "Adoptar (Recomendado)"; AD-9 "Adoptar (Recomendado)"; AD-10 "Adoptar (Recomendado)"; AD-11 "Adoptar
+  (Recomendado)"; AD-12 "Adoptar (Recomendado)"; AD-13 "Adoptar (Recomendado)"; AD-14 "Adoptar (Recomendado)"; AD-15
+  "Adoptar (Recomendado)". No notes were added.
+- Decision: as written in `architecture-decisions.md` at `069c4d2`:
+  - AD-4: MSRV is the Rust version Fedora ships on the maintainer's machine when phase 7 starts (today 1.99.1),
+    raised only by a maestro's recorded decision; edition 2024; Linux ARM64 first with static musl release binaries,
+    then Linux x86-64 and macOS ARM64, Windows last, each supported only once tested; every runtime crate with a
+    recorded reason approved by a maestro, `Cargo.lock` committed, `--locked` builds, licence and advisory checks;
+    first crates `serde` (with derive), `serde_json`, `toml`, `sha2`, the parser left to phase 6; `git` and
+    `ssh-keygen` as external tools; `cargo test`, past defects as tests, property and mutation testing.
+  - AD-5: three rings (core; built-in modules for tool adapters, confinement backends and the installer; extensions
+    as separate programs `fabrewk-<name>`); the six-point extension contract (permission in project settings, read by
+    `--json`, change requests on standard output validated and applied by the outer core, never a person's signature,
+    confined where a backend exists, no service); budget in non-blank, non-comment Rust lines outside tests, with the
+    proposed limits as estimates that phase 6 freezes after measuring a skeleton.
+  - AD-6: flat English verbs, the rules, and the first set of fourteen commands as phase 6's starting list.
+  - AD-7: release binaries fetched by a POSIX script that verifies an SSH signature against keys written in it, with
+    no flag to skip the check, installing only `~/.local/bin/fabrewk` without `sudo`; onboarding in the binary,
+    reading from the terminal; the agent route ending at `assess`, with `apply` run by the maestro; `cargo install`
+    and a build from a clone as developer routes; the seven steps.
+  - AD-8: `.brewstillery/.gitignore` with the one rule `local/`; `local` reserved; the classification.
+  - AD-9: Fabrewk's code and documentation under MIT OR Apache-2.0 with a `NOTICE` file; MIT-0 for what Fabrewk
+    writes into served repositories; each release ships a third-party notices file generated from the lock file;
+    licence files created with the first code (phase 7).
+  - AD-10: the group of tasks is a `stage`; the first core runs its tasks serially.
+  - AD-11: the permanent form of D-022 as written; D-022 stays in force during the bootstrap.
+  - AD-12: `.brewstillery/RULES.md` as a generated view read by the integrator; the root entry block and
+    `CLAUDE.md` as `@AGENTS.md`; the reserved names and the alias rule; the separator's marker line found outside
+    fenced blocks.
+  - AD-13: proposals recorded by the sweep and bound to the numbered input point, approved or discarded by a signed
+    maestro act, applied by Fabrewk, direct edits caught by `fabrewk check`; it replaces the manual copy once the core
+    exists.
+  - AD-14: the maintainers' table in the project settings; signed events (namespace `fabrewk`); a new list adopted
+    only by a listed maestro's signature; trust on first use for the first maestro; maestro and contributor enforced
+    first; areas from the code-owners file; keys that ask for presence recommended.
+  - AD-15: the private folder's places (Windows' local application data); `machine.toml` and the instance key; the
+    machine key's fingerprint in every event, signing with it deferred to the central server's stage.
+- Consequences: every decision of the phase 5 packet is decided (AD-1 to AD-3 in D-031). The licence is decided, so
+  `AGENTS.md` no longer lists it as undecided; its files are still created only with the first code. The settings
+  key `layout.reservedNames` lacks `local`, `RULES.md` and `.gitignore` (AD-8, AD-12); agents do not edit settings, so
+  the integrator proposes the change to the maintainer. The alambique's section 1 still says the licence is to be
+  decided, and section 2 leaves the rules file's name to the design; the integrator drafts both edits in the
+  fermento's answer for a maestro to approve (D-033, D-034). Phase 5 closes on the maintainer's word; phase 6 (core
+  specification and criteria) follows.
+- Sources: chat of session 11; `architecture-decisions.md` at `069c4d2`; R-018.
+- Supersedes: none.
+
+## R-019 — Session 11, the decided packet re-checked by Codex
+
+- Status: recorded
+- Date: 2026-11-04
+- Who: integrator Claude Code, `claude-opus-5-5`; reviewer Codex `codex-cli 0.166.0`, `gpt-6.1-sol`, effort high,
+  read-only sandbox, standard input closed. No network.
+- Written after D-036: decision markers and a state paragraph in `architecture-decisions.md` (no decided text
+  changed); D-036; `AGENTS.md`'s list of what is not yet created (licence files, the licence itself decided); the
+  fermento's answer, now carrying two drafted alambique edits (section 1, the licence; section 2, the rules file
+  `RULES.md`) for a maestro to approve, since the alambique still called both undecided.
+- Codex, pass 3, on the diff against `069c4d2`: 1 min 14 s; 14 commands, none failed; input 319,762 (252,800 cached),
+  output 2,978. Verdict reject: P5-17 (blocking, D-036 said the third-party notices go inside the binary; AD-9 says a
+  notices file ships with each release) and P5-18 (minor, the alambique's section 1 still says the licence is to be
+  decided). Both confirmed: D-036 corrected; the alambique edit drafted in the fermento's answer. Codex noted it read
+  one local skill file outside the paths it was given; nothing was changed.
+- Codex, pass 4, scoped: 39 s; 9 commands, none failed; input 118,436 (88,704 cached), output 1,476. P5-17 closed,
+  P5-18 closed by the draft pending a maestro's approval; both replaced passages occur once in the alambique; the
+  fermento's input unchanged since `069c4d2`. **Verdict accept.**
+- Progress measure (D-003): confirmed blocking findings 1, then 0.

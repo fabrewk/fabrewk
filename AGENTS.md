@@ -43,5 +43,6 @@ summarizes the rules already fixed; the decisions and their origin are in `.brew
   commits everything so the tree is clean; the maintainer's edits go in their own commit with no AI co-author.
 - **Handover.** Closing a session, the integrator tells the maintainer the prompt, model and effort for the next
   chat, taken from `.brewstillery/bootstrap/plan.md`, and writes them in `STATUS.md`.
-- **Not yet decided; do not create:** licence, `.gitignore`, code, `.brewstillery/data/` (its path is decided, it is
+- **Not yet decided or not yet due; do not create:** licence files (the licence is decided, D-036; its files come
+  with the first code), `.gitignore`, code, `.brewstillery/data/` (its path is decided, it is
   created with the core) or any other structure the alambique and the bootstrap record have not fixed.

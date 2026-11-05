@@ -71,10 +71,19 @@ repository, is imported into the single registry at production and then stays re
   the binary, the agent route ending at `assess`, downloads checked by an SSH signature) and the new AD-12 (domain
   layout, `RULES.md`, separator marker), AD-13 (alambique edits and proposal state), AD-14 (identity, roles, signed
   events) and AD-15 (private folder, instance identity). Codex accepted it at its second pass.
-- **Next: the maintainer decides AD-4 to AD-15** (plan row 5), recorded with their words; then Codex checks the
-  decided file once more and phase 5 closes, and phase 6 (core specification) starts.
+- **Decided (D-036, R-019).** The maintainer adopted AD-4 to AD-15 as recommended; Codex re-checked the decided file
+  and accepted. Every decision of the phase 5 packet is decided. The licence is MIT OR Apache-2.0 (files come with the
+  first code).
+- **Waiting on the maintainer:** close phase 5 in chat; approve or not the two alambique edits drafted in the
+  fermento's answer (licence in section 1, `RULES.md` in section 2) and, if approved, make them in their own commit;
+  add `local`, `RULES.md` and `.gitignore` to `layout.reservedNames` in `.brewstillery/settings.toml` (agents do not
+  edit settings).
+- **Next: phase 6, core specification and criteria (plan row 6).** Frozen requirements, states, refusals, check
+  semantics, the test plan with the past-defect cases and the size budget frozen after measuring a skeleton (AD-5);
+  every alambique point classified indispensable maps to a requirement or an explicit deferral. Phase 6 decides at its
+  start whether it splits into parts (D-019).
 - **Start prompt:** `Eres el integrador de Fabrewk; empieza por .brewstillery/STATUS.md`. Model and effort: Claude
-  Code on Opus 5.5, effort high; Codex GPT-6.1 Sol, effort high, reviews, with its full budget (D-030).
+  Code on Opus 5.5, effort high; Codex GPT-6.1 Sol, effort high, reviews (plan row 6).
 
 Carried without blocking, with destinations, in D-013. A phase that does not pass is corrected and retried; it
 never ends the project (D-003).

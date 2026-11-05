@@ -25,6 +25,10 @@ identity and roles, the private folder and the instance identity. AD-6, AD-8 to 
 brought in line with D-032 and the fermento (the alambique no longer has an answers zone). AD-1 to AD-3 keep their
 decided text; a note under each says what D-032 changed. AD-4 to AD-15 wait for the maintainer.
 
+**State (session 11, after the review).** The maintainer adopted AD-4 to AD-15 as recommended (D-036). Every
+decision of the packet is now decided; the text is the one Codex accepted (R-018), with only these state lines and the
+decision markers added.
+
 How to read it. Each decision states what it settles and which alambique points and earlier decisions bind it, then
 the options, the recommendation and what the maintainer decides. Findings cited by key come from `harness-verdicts.md`
 (H3A, observations) and `reference-study.md` (PB, CA, PR, PP, IN, OT, UC, AP, SQ); the key is a pointer, the sentence
@@ -340,7 +344,7 @@ or a replay exists (an event written and read back, a replay that equals the sta
 **Names.** The crate and the binary are `fabrewk` (D-001). Whether the name is free on crates.io is unchecked and is
 checked before publication (phase 10).
 
-**The maintainer decides:** the MSRV rule and the edition; the first platforms and static linking on Linux; the
+**Decided (D-036), as recommended.** The maintainer decided: the MSRV rule and the edition; the first platforms and static linking on Linux; the
 dependency rules and the four first crates (the parser in phase 6); `git` and `ssh-keygen` as external tools.
 
 ---
@@ -414,7 +418,7 @@ installer and the assessment 1,200. Two more measures that Rust makes cheap to c
 and at most 50 crates in the release build's lock file; a stripped release binary of at most 8 MB. Tests, catalogue
 texts and extensions are not counted in the core's budget; each extension sets its own when it is proposed.
 
-**The maintainer decides:** the three rings and why adapters and confinement are built in; the six points of the
+**Decided (D-036), as recommended.** The maintainer decided: the three rings and why adapters and confinement are built in; the six points of the
 extension contract; the unit; the limits, or that phase 6 freezes them after the measurement.
 
 ---
@@ -473,7 +477,7 @@ not a core command runs a permitted extension (AD-5), never the reverse.
 | `fabrewk approve <proposal> --say` | A maestro approves a drafted alambique edit; Fabrewk applies it (AD-13) | Yes |
 | `fabrewk discard <proposal> --say` | A maestro discards a proposal | Yes |
 
-**The maintainer decides:** the rules, and the first set as the starting list for phase 6.
+**Decided (D-036), as recommended.** The maintainer decided: the rules, and the first set as the starting list for phase 6.
 
 ---
 
@@ -558,7 +562,7 @@ and sends no telemetry, unless the maintainer accepts that exact item in a plan 
 there is nothing to call home to). Removing the binary is deleting `~/.local/bin/fabrewk`; removing Fabrewk from a
 repository uses the receipt of step 5.
 
-**The maintainer decides:** release binaries fetched by the script, with `cargo install` and a build from a clone as
+**Decided (D-036), as recommended.** The maintainer decided: release binaries fetched by the script, with `cargo install` and a build from a clone as
 developer routes; the signature check with `ssh-keygen` and no flag to skip it; the onboarding in the binary, reading
 from the terminal; the agent route ending at `assess`, with `apply` run by the maestro; `~/.local/bin` as the place;
 the seven steps.
@@ -601,7 +605,7 @@ maintainer authorizes it). A check refuses files that look like credentials anyw
 fixed in phase 6). An agent's exported copy inside the repository is confined to that copy (phase 9); a directory
 boundary alone is not isolation (6.6).
 
-**The maintainer decides:** the ignore file's place; `local` as the area's name and a reserved name; the classification.
+**Decided (D-036), as recommended.** The maintainer decided: the ignore file's place; `local` as the area's name and a reserved name; the classification.
 
 ---
 
@@ -645,7 +649,7 @@ so a closed-source project owes nothing for them. Further consequences:
   and a port from Python to Rust is a rewrite in any case.
 - The licence files are created with the first code (phase 7), not before (`AGENTS.md`: no licence yet).
 
-**The maintainer decides:** the licence of the code and documentation; MIT-0 for what Fabrewk writes into served
+**Decided (D-036), as recommended.** The maintainer decided: the licence of the code and documentation; MIT-0 for what Fabrewk writes into served
 repositories.
 
 ---
@@ -671,7 +675,7 @@ each maintainer's fermento is the one file swept when it closes.
 the sweep of the fermentos. In the first core its tasks run one after another; parallel steps come only after serial
 execution and its recovery are shown to work (6.16).
 
-**The maintainer decides:** the name, and that the first core runs a stage's tasks serially.
+**Decided (D-036), as recommended.** The maintainer decided: the name, and that the first core runs a stage's tasks serially.
 
 ---
 
@@ -689,7 +693,7 @@ with no AI co-author line (6.44, preserving authorship); an approved alambique e
 approving maestro's word (AD-13). The project's own Git rules (6.44) decide whether those commits go to a branch or a
 pull request. During the bootstrap, D-022 stays in force.
 
-**The maintainer decides:** this rule as the permanent version of D-022.
+**Decided (D-036), as recommended.** The maintainer decided: this rule as the permanent version of D-022.
 
 ---
 
@@ -738,7 +742,7 @@ outside fences, with the banner around it as written, is the only accepted case;
 the sweep with nothing written (6.7, past-defect cases). This repository's fermento gains the marker line when it is
 migrated at production; until then the bootstrap's check (the banner line found once) stays.
 
-**The maintainer decides:** `RULES.md` as a generated view and who reads it; the entry block and `CLAUDE.md`'s form;
+**Decided (D-036), as recommended.** The maintainer decided: `RULES.md` as a generated view and who reads it; the entry block and `CLAUDE.md`'s form;
 the reserved names and the alias rule; the separator's marker line and how it is found.
 
 ---
@@ -776,7 +780,7 @@ fermento's answer and the maestro copies it in their own commit (D-034, D-035).
 5. **Status keys.** A key's change ([decidido] and the others) is part of an edit, approved with it (alambique opening).
    The check of point 4 also reports a key that disagrees with the registry, which prevails.
 
-**The maintainer decides:** the five points, which replace the manual copy once the core exists (phase 8).
+**Decided (D-036), as recommended.** The maintainer decided: the five points, which replace the manual copy once the core exists (phase 8).
 
 ---
 
@@ -834,7 +838,7 @@ agent's confirmation setting cannot be seen and is reported as unknown. Editing 
 personal file or the private folder changes no role, because roles are read only from the project settings in force;
 the pilot proves it (6.48).
 
-**The maintainer decides:** the table in the project settings; signed events and the namespace; adopting a new list
+**Decided (D-036), as recommended.** The maintainer decided: the table in the project settings; signed events and the namespace; adopting a new list
 only by a listed maestro's signature; trust on first use for the first maestro; the first core's roles; areas from the
 code-owners file; the recommendation of keys that ask for presence.
 
@@ -888,7 +892,7 @@ the event schema's version, and the warning that connecting a repository publish
 Nothing listens, nothing calls out (D-032 point 15). The server, when its stage comes, is a separate program in this
 repository, built in the same Cargo workspace until it needs its own release cycle (6.50).
 
-**The maintainer decides:** the three places, Windows' local folder included; what the folder holds; the instance key
+**Decided (D-036), as recommended.** The maintainer decided: the three places, Windows' local folder included; what the folder holds; the instance key
 and its fingerprint in every event; what is left ready for the central server.
 
 ---
