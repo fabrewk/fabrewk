@@ -177,7 +177,8 @@ pub fn parse(path: &Path, text: &str, level: Level) -> Result<Settings, Vec<Erro
 /// error is in a value, the text is replaced by `0` and the key holding it is the path; else the last key read before
 /// the error; `(document)` when none.
 fn locate(text: &str, span: std::ops::Range<usize>) -> String {
-    const MARK: &str = "fabrewk-locate-0b5e";
+    // A name the text does not hold, so no key of the file can be taken for it.
+    let mark = (0..).map(|n| format!("fabrewk-locate-{n}")).find(|m| !text.contains(m.as_str())).unwrap_or_default();
     let Some(at) = text.get(span.clone()) else { return "(document)".into() };
     let keys = |with: &str| {
         let changed = format!("{}{with}{}", &text[..span.start], &text[span.end..]);
@@ -199,8 +200,7 @@ fn locate(text: &str, span: std::ops::Range<usize>) -> String {
     let probe = format!("{at} = 0");
     let name =
         DeTable::parse(&probe).ok().and_then(|d| d.get_ref().iter().next().map(|(k, _)| k.get_ref().to_string()));
-    if let (Some(name), Some((mut path, ..))) =
-        (name, keys(MARK).into_iter().find(|(p, ..)| p.last().map(String::as_str) == Some(MARK)))
+    if let (Some(name), Some((mut path, ..))) = (name, keys(&mark).into_iter().find(|(p, ..)| p.last() == Some(&mark)))
     {
         path.pop();
         path.push(name);
@@ -218,7 +218,10 @@ fn locate(text: &str, span: std::ops::Range<usize>) -> String {
         path.extend(rest.unwrap_or_default());
         return path.join(".");
     }
-    let holding = keys("0").into_iter().filter(|(_, v, _)| v.start == span.start).max_by_key(|(p, ..)| p.len());
+    let holding = keys("0")
+        .into_iter()
+        .filter(|(_, v, k)| v.start == span.start && *k != span.start)
+        .max_by_key(|(p, ..)| p.len());
     // Else the last key read before the error (an unclosed header names its table).
     let before = || keys(at).into_iter().filter(|(.., k)| *k <= span.start).max_by_key(|(p, _, k)| (*k, p.len()));
     let path = holding.or_else(before).map(|(p, ..)| p.join(".")).unwrap_or_default();
@@ -575,6 +578,11 @@ mod tests {
         let multiline = "[t]\ns = \"\"\"\n[u]\nk = 0\n\"\"\"\nk = 1\nk = 2\n";
         refused(Level::Project, multiline, Code::SettingsInvalid, "t.k (line 7)");
         refused(Level::Project, "[t]\nk = 1\n[t.k]\n", Code::SettingsInvalid, "t.k (line 3)");
+        let mark = "[profiles.fabrewk-locate]\n[limits]\nrounds = 1\nrounds = 2\n";
+        refused(Level::Project, mark, Code::SettingsInvalid, "limits.rounds (line 4)");
+        refused(Level::Project, "[t]\nk = 1\nfabrewk-locate = 2\nk = 3\n", Code::SettingsInvalid, "t.k (line 4)");
+        refused(Level::Project, "limits..rounds = 1\n", Code::SettingsInvalid, "limits. (line 1)");
+        refused(Level::Project, "[t]\nlimits..rounds = 1\n", Code::SettingsInvalid, "t.limits. (line 2)");
         refused(Level::Project, "[t]\n\"a\" = 1\n\"a\" = 2\n", Code::SettingsInvalid, "t.a (line 3)");
         refused(Level::Project, "'b' = 1\n'b' = 2\n", Code::SettingsInvalid, "b (line 2)");
         refused(
