@@ -8,7 +8,7 @@ mod common;
 use common::*;
 use fabrewk_core::identity::{self, PolicyVerifier};
 use fabrewk_core::machine;
-use fabrewk_core::record::{Code, Draft, Head, KINDS, KeySigner, Replay, class_of, replay, sha256_hex};
+use fabrewk_core::record::{Code, Draft, Head, KINDS, KeySigner, Replay, carried_key, class_of, replay, sha256_hex};
 use fabrewk_core::settings::{self, Level};
 use serde_json::{Value, json};
 use std::fs;
@@ -504,5 +504,17 @@ impl fabrewk_core::record::Sign for Mixed<'_> {
     }
     fn public(&self) -> Result<String, fabrewk_core::Error> {
         self.0.stranger().public()
+    }
+}
+
+#[test]
+fn req_reg_4_the_key_a_signature_carries() {
+    let f = Fixture::new("carried-key", false);
+    let blob = fabrewk_core::settings::key_blob(&public(&f, "xel")).unwrap();
+    assert_eq!(carried_key(&sign_with(&f.signer(), b"x", "fabrewk")), Some(blob));
+    assert_eq!(carried_key(&sign_with(&f.signer(), b"x", "git")), None);
+    let good = sign_with(&f.signer(), b"x", "fabrewk");
+    for bad in [&good[1..], &good[..good.len() - 1], b"-----BEGIN SSH SIGNATURE-----\n-----END SSH SIGNATURE-----\n"] {
+        assert_eq!(carried_key(bad), None);
     }
 }

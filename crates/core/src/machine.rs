@@ -80,7 +80,7 @@ pub fn ensure_instance(folder: &Path) -> Result<String, Error> {
     let mut args: Vec<&std::ffi::OsStr> =
         ["-q", "-t", "ed25519", "-N", "", "-C", "fabrewk-instance", "-f"].iter().map(|a| a.as_ref()).collect();
     args.push(new.as_os_str());
-    if !ssh_keygen(&args, b"")?.status.success() || !new.is_file() || !new_public.is_file() {
+    if !ssh_keygen(&args, b"")?.status.success() {
         return Err(refuse(Code::ToolFailed, Some(folder), "ssh-keygen -t ed25519 failed"));
     }
     fs::rename(&new_public, folder.join("instance.pub")).map_err(io_at(folder))?;
