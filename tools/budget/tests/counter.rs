@@ -554,3 +554,14 @@ fn req_bud_1_a_lone_r_is_an_ordinary_identifier() {
         1
     );
 }
+
+#[test]
+fn req_bud_1_raw_string_data_paths() {
+    // Codex's case in its third review of part 7a; an escaped path or an alias of the macro stays refused as data.
+    let scan = scan_source(
+        "const A: &str = include_str!(r#\"a.txt\"#);\nconst B: &str = include_str!(r\"b.txt\");\n\
+         const C: &str = include_str!(r##\"c\"#.txt\"##);\nconst D: &str = include_str!(\"\\x64.txt\");\n",
+    )
+    .unwrap();
+    assert_eq!(scan.data, ["a.txt", "b.txt", "c\"#.txt"]);
+}

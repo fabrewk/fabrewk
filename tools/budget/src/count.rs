@@ -116,14 +116,19 @@ fn data_paths(src: &str, code: &[Token]) -> Vec<String> {
     (0..code.len())
         .filter(|&k| matches!(name(text(k)), "include_str" | "include_bytes"))
         .filter(|&k| text(k + 1) == "!" && matches!(text(k + 2), "(" | "[" | "{"))
-        .filter_map(|k| {
-            text(k + 3)
-                .strip_prefix('"')?
-                .strip_suffix('"')
-                .map(str::to_string)
-        })
-        .filter(|path| !path.contains('\\'))
+        .filter_map(|k| string_value(text(k + 3)))
         .collect()
+}
+
+/// The value of a plain string literal without escapes, or of a raw string literal; `None` for anything else.
+fn string_value(token: &str) -> Option<String> {
+    if let Some(raw) = token.strip_prefix('r') {
+        let hashes = raw.bytes().take_while(|&b| b == b'#').count();
+        let body = raw[hashes..].strip_prefix('"')?;
+        return Some(body[..body.len().checked_sub(hashes + 1)?].to_string());
+    }
+    let body = token.strip_prefix('"')?.strip_suffix('"')?;
+    (!body.contains('\\')).then(|| body.to_string())
 }
 
 /// Byte offsets where each line starts.

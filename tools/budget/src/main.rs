@@ -76,6 +76,11 @@ fn check(binary: PathBuf, target: &str) -> Result<bool, String> {
     problems.extend(budget::dependency_problems(&report));
     problems.extend(budget::binary_problem(bytes));
     problems.extend(budget::source_problems(&dep_info, &counts)?);
+    let targets =
+        budget::targets::parse_targets(&budget::targets::cargo_metadata(&budget::cargo(), &root)?)?;
+    let own = budget::own_packages(&root, RINGS);
+    problems.extend(budget::targets::target_problems(&targets, &own, &counts));
+    problems.extend(budget::targets::config_problems(&root, std::env::vars()));
     for p in &problems {
         println!("over budget: {p}");
     }

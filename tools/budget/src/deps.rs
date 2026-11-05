@@ -12,8 +12,6 @@ pub struct TreeLine {
     pub version: String,
     /// The package's directory, for a path package.
     pub path: Option<PathBuf>,
-    /// Marked `(proc-macro)`.
-    pub proc_macro: bool,
 }
 
 /// What the release build depends on.
@@ -25,12 +23,13 @@ pub struct Report {
     pub all: BTreeSet<(String, String)>,
     /// Fabrewk's own packages in the build.
     pub local: BTreeSet<PathBuf>,
-    /// Fabrewk's own packages that are procedural macros, which could read files the dep-info does not list.
-    pub own_proc_macros: BTreeSet<PathBuf>,
+    /// Packages taken from a path that is not a ring directory: a vendored copy may carry any name, an approved one
+    /// included, so none is allowed.
+    pub path_packages: BTreeSet<PathBuf>,
 }
 
-/// Parses `cargo tree --prefix depth --no-dedupe --format {p}`: a depth, then `name vVERSION`, then optionally
-/// ` (path or source)` and ` (proc-macro)`.
+/// Parses `cargo tree --prefix depth --no-dedupe --format {p}`: a depth, then `name vVERSION`, then groups in
+/// parentheses in any order, such as `(proc-macro)` and the package's path.
 pub fn parse_tree(text: &str) -> Result<Vec<TreeLine>, String> {
     let mut lines = Vec::new();
     for raw in text.lines().filter(|l| !l.trim().is_empty()) {
@@ -45,20 +44,18 @@ pub fn parse_tree(text: &str) -> Result<Vec<TreeLine>, String> {
         let Some(version) = version.strip_prefix('v') else {
             return Err(format!("no version in tree line: {raw}"));
         };
-        let rest = parts.next();
-        let proc_macro = rest.is_some_and(|r| r.ends_with("(proc-macro)"));
-        let path = rest
-            .and_then(|rest| rest.strip_prefix('('))
-            .and_then(|rest| rest.split_once(')'))
-            .map(|(inside, _)| inside)
-            .filter(|inside| inside.starts_with('/'))
+        let path = parts
+            .next()
+            .unwrap_or_default()
+            .split(" (")
+            .filter_map(|group| group.trim_start_matches('(').strip_suffix(')'))
+            .find(|inside| inside.starts_with('/'))
             .map(PathBuf::from);
         lines.push(TreeLine {
             depth,
             name: name.to_string(),
             version: version.to_string(),
             path,
-            proc_macro,
         });
     }
     Ok(lines)
@@ -80,12 +77,10 @@ pub fn analyse(lines: &[TreeLine], own: &[PathBuf]) -> Result<Report, String> {
         let local = line.path.as_ref().is_some_and(|p| own.contains(p));
         if local {
             report.local.insert(line.path.clone().unwrap_or_default());
-            if line.proc_macro {
-                report
-                    .own_proc_macros
-                    .insert(line.path.clone().unwrap_or_default());
-            }
         } else {
+            if let Some(path) = &line.path {
+                report.path_packages.insert(path.clone());
+            }
             if stack.last() == Some(&true) {
                 report.direct.insert(line.name.clone());
             }

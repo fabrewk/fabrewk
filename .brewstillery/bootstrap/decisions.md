@@ -1612,3 +1612,26 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Sources: chat of session 14; Codex's first review of part 7a; D-041, D-042; `core-specification.md` REQ-BUD-2,
   REQ-BUD-3, 11.2.
 - Supersedes: D-041 only in its point 4, where `cargo test` used Fedora's toolchain.
+
+## D-044 — What the line counter guarantees, and what the review guarantees
+
+- Status: decided
+- Decided: 2026-11-05
+- Origin: maintainer XEL in session 14's chat, after Codex's third review of part 7a kept three blocking findings, each
+  a deliberate way to hide code from the count: "Corregir y fijar alcance (Recomendado)".
+- Decision:
+  1. The counter of REQ-BUD-1 fails closed on every route by which a file reaches the release binary that Cargo or the
+     compiler record: the dep-info beside the binary, the targets of `cargo metadata` (their roots counted; no build
+     script and no procedural macro in a ring) and the tree of `cargo tree` (no package from a path outside the rings).
+     It also refuses what it can recognise in the source and could pull in code those records would let pass as data:
+     the identifier `include` in any form, a `path` attribute, an attribute built by a macro; and a Cargo configuration
+     in the repository or `RUSTFLAGS` with a `cfg` where it runs.
+  2. A deliberate evasion outside those records and constructs (the machine's own Cargo configuration, a compiler
+     defect, code that only a reading of the diff can tell is hidden) is the review's to catch: Codex's review of each
+     part and the maestro's reading of the diff. What is known and left open is listed in the part's receipt.
+  3. A false positive (a file of data the counter cannot tell from code, such as a data path with an escape or an alias
+     of `include_str!`) refuses, and is rewritten in the plain form.
+- Consequences: Codex's reviews of the counter are scoped to point 1; a finding outside it is recorded as residual,
+  not blocking, unless it breaks a criterion of section 12 another way.
+- Sources: chat of session 14; Codex's three reviews of part 7a; `core-specification.md` REQ-BUD-1, REQ-BUD-2, 11.6.
+- Supersedes: none.

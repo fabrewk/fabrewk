@@ -3,8 +3,10 @@
 pub mod budget;
 pub mod count;
 pub mod deps;
+pub mod json;
 pub mod rings;
 pub mod sources;
+pub mod targets;
 
 use budget::{
     APPROVED_RUNTIME_CRATES, MAX_BINARY_BYTES, MAX_DIRECT_RUNTIME_CRATES, MAX_RELEASE_CRATES, Ring,
@@ -66,9 +68,9 @@ pub fn dependency_problems(report: &deps::Report) -> Vec<String> {
             ));
         }
     }
-    for path in &report.own_proc_macros {
+    for path in &report.path_packages {
         problems.push(format!(
-            "{} is a procedural macro of Fabrewk's own, which may read files the count does not see",
+            "{} is a package taken from a path outside the rings",
             path.display()
         ));
     }
