@@ -1574,3 +1574,24 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Sources: chat of session 14; `plan.md` row 7; D-019, D-038, D-040; AD-4, AD-5; `core-specification.md` REQ-BUD-1
   to REQ-BUD-5, sections 10 (choice 11), 11.2 and 11.6.
 - Supersedes: none.
+
+## D-042 — The size budget frozen after measuring the skeleton; the licence files' holder
+
+- Status: decided
+- Decided: 2026-11-05
+- Origin: maintainer XEL in session 14's chat, answering the integrator's two questions after the skeleton was measured:
+  "Congelar techos de AD-5 (Recomendado)"; "The Fabrewk authors (Recomendado)".
+- Decision:
+  1. The measure, by `tools/budget` (REQ-BUD-1's unit): the core ring (`crates/core`, `crates/fabrewk`) 12 counted
+     lines in 2 files; 0 direct runtime crates; 0 crates in the release build for `aarch64-unknown-linux-musl`, Fabrewk's
+     own packages not counted; the stripped, statically linked musl release binary 397,600 bytes.
+  2. The budget is frozen at AD-5's ceilings: core 4,000 counted lines; each tool adapter, its stream audit included,
+     600; each confinement backend 400; the installer and the assessment 1,200; at most 8 direct runtime crates; at
+     most 50 crates in the release build; the stripped release binary at most 8 MB, read as 8,000,000 bytes, the
+     stricter reading. The numbers live in `tools/budget/src/budget.rs`, whose tests fail when a ring, a crate count or
+     the binary passes its limit. Raising any of them is a maestro's recorded decision with its reason (REQ-BUD-2).
+  3. `LICENSE-MIT` and `NOTICE` name the holder as "The Fabrewk authors"; individual authorship stays in Git.
+- Consequences: features may now be built (D-038). `AGENTS.md` states that a new runtime crate or a change of the
+  budget is a maestro's decision.
+- Sources: chat of session 14; D-038, D-041; AD-5, AD-9; `core-specification.md` REQ-BUD-1, REQ-BUD-2, REQ-BUD-5.
+- Supersedes: none.

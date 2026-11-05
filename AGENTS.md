@@ -7,7 +7,8 @@ summarizes the rules already fixed; the decisions and their origin are in `.brew
   this file authorizes work by itself.
 - **Domain.** Everything Fabrewk works on in a repository lives in `.brewstillery/`. Outside it there are only the
   entry files tools require at the root (`AGENTS.md`, `CLAUDE.md`), declared and minimal. In this repository
-  Fabrewk's own code is the product and will live at the root; none exists yet.
+  Fabrewk's own code is the product and lives at the root: a Cargo workspace with one crate per ring under `crates/`,
+  development tools under `tools/`, the licence files and a root `.gitignore` holding `/target` (D-041).
 - **Alambique.** `.brewstillery/ALAMBIQUE.md` is the project's description, approved by its maestros. No agent edits
   it directly: an agent drafts each approved edit and a maestro approves it (in the bootstrap, XEL in chat). Its
   status keys (`[decidido]` and the others defined in its opening) reflect the bootstrap record; an agent proposes a
@@ -44,6 +45,7 @@ summarizes the rules already fixed; the decisions and their origin are in `.brew
 - **Handover.** Closing a session, the integrator tells the maintainer the prompt, model and effort for the next
   chat, taken from `.brewstillery/bootstrap/plan.md`, and writes them in `STATUS.md`. The prompt names the phase or
   part and what it does, so that the chat's title shows it (D-040).
-- **Not yet decided or not yet due; do not create:** licence files (the licence is decided, D-036; its files come
-  with the first code), `.gitignore`, code, `.brewstillery/data/` (its path is decided, it is
-  created with the core) or any other structure the alambique and the bootstrap record have not fixed.
+- **Code.** A new runtime crate, or a change to the size budget in `tools/budget/src/budget.rs`, is a maestro's
+  recorded decision, never an agent's (AD-4, AD-5, D-042).
+- **Not yet decided or not yet due; do not create:** `.brewstillery/data/` (its path is decided, it is created with
+  the core) or any other structure the alambique and the bootstrap record have not fixed.

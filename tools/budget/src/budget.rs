@@ -1,7 +1,8 @@
 //! The size budget (REQ-BUD-2) and the approved runtime crates (REQ-BUD-4).
 //!
-//! PROVISIONAL: AD-5's ceilings, until a maestro freezes the budget after measuring the skeleton (D-038). Changing a
-//! number here, or the list of approved crates, is a maestro's recorded decision with its reason, never an agent's.
+//! FROZEN by the maestro after measuring the skeleton (D-042): AD-5's ceilings, the binary's 8 MB read as 8,000,000
+//! bytes. Changing a number here, or the list of approved crates, is a maestro's recorded decision with its reason,
+//! never an agent's.
 
 /// What a ring is, which sets its ceiling.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
