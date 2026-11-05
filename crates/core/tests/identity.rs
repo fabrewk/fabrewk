@@ -424,15 +424,36 @@ fn req_reg_12_the_first_write_makes_the_machine_key() {
         s.append("project", None, &draft, None).unwrap();
         s.finish(&f.verifier(), &[]).unwrap();
         assert_eq!(replay(&f.domain, &f.verifier()).unwrap().streams["project"][0].value["instance"], json!(fp));
-        // A key half made by a stopped command is made again; leftovers of a stopped key generation are removed.
+        // The fingerprint is the private key's, whatever the public file beside it says (P7C2A-2).
+        fs::write(folder.join("instance.pub"), "not a key\n").unwrap();
+        assert_eq!(machine::instance(&folder).unwrap().as_deref(), Some(fp.as_str()));
+        fs::copy(f.keys.join("stranger.pub"), folder.join("instance.pub")).unwrap();
+        assert_eq!(machine::ensure_instance(&folder).unwrap(), fp);
+        // A key half made by a stopped command (the private key not yet in place) is made again, its leftovers
+        // removed; a private key that does not read is none.
         fs::remove_file(folder.join("instance")).unwrap();
         fs::write(folder.join(".instance-new"), "partial").unwrap();
         assert_eq!(machine::instance(&folder).unwrap(), None);
         let again = machine::ensure_instance(&folder).unwrap();
         assert_ne!(again, fp);
         assert!(!folder.join(".instance-new").exists() && !folder.join(".instance-new.pub").exists());
-        fs::write(folder.join("instance.pub"), "not a key\n").unwrap();
+        let public = fs::read_to_string(folder.join("instance.pub")).unwrap();
+        assert_eq!(machine::fingerprint(public.trim()).as_deref(), Some(again.as_str()));
+        fs::write(folder.join("instance"), "not a key\n").unwrap();
         assert_eq!(machine::instance(&folder).unwrap(), None);
+        let third = machine::ensure_instance(&folder).unwrap();
+        assert_eq!(machine::instance(&folder).unwrap().as_deref(), Some(third.as_str()));
+        // Commands in several repositories at once make one key (P7C2A-1).
+        let shared = folder.parent().unwrap().join("shared");
+        let threads: Vec<_> = (0..6)
+            .map(|_| {
+                let shared = shared.clone();
+                std::thread::spawn(move || machine::ensure_instance(&shared).unwrap())
+            })
+            .collect();
+        let fps: Vec<String> = threads.into_iter().map(|t| t.join().unwrap()).collect();
+        assert!(fps.iter().all(|f| *f == fps[0]), "{fps:?}");
+        assert_eq!(machine::instance(&shared).unwrap().as_deref(), Some(fps[0].as_str()));
     });
 }
 
@@ -517,4 +538,60 @@ fn req_reg_4_the_key_a_signature_carries() {
     for bad in [&good[1..], &good[..good.len() - 1], b"-----BEGIN SSH SIGNATURE-----\n-----END SSH SIGNATURE-----\n"] {
         assert_eq!(carried_key(bad), None);
     }
+}
+
+#[test]
+fn req_reg_4_a_maestro_made_contributor_signs_nothing_after_the_adoption() {
+    let f = Fixture::new("demotion", false);
+    let first = adopt(&f, &policy_text(&f, Some("maestro"), ""), &[]);
+    let (stream, _) = task(&f);
+    let h2 = append(&f, &stream, &moved("task-authorized", "ana", "maestro", &first, json!({})), &f.stranger());
+    adopt(&f, &policy_text(&f, Some("contributor"), ""), &["maintainers.ana.role"]);
+    ok(&f);
+    for role in ["maestro", "contributor"] {
+        let forged = f.forge(
+            &stream,
+            3,
+            Some(&h2.digest),
+            &moved("task-authorized", "ana", role, &first, json!({})),
+            Some(&f.stranger()),
+        );
+        assert_eq!(refused(&f), [Code::RecordSignatureInvalid], "{role}");
+        fs::remove_file(sig(&forged)).unwrap();
+        fs::remove_file(&forged).unwrap();
+    }
+}
+
+#[test]
+fn req_reg_4_an_event_every_seal_holds_was_written_before_any_adoption() {
+    let f = Fixture::new("before-adoption", false);
+    let text = policy_text(&f, None, "");
+    fs::write(f.domain.join("settings.toml"), &text).unwrap();
+    let digest = sha256_hex(text.as_bytes());
+    // A task stream, and a maestro's move in it, written before the first adoption, whose seal then holds them.
+    let (stream, draft) = creation("task-proposed", json!({}));
+    let first = f.forge(&stream, 1, None, &draft, None);
+    let h1 = sha256_hex(&fs::read(&first).unwrap());
+    let moved_early = f.forge(
+        &stream,
+        2,
+        Some(&h1),
+        &moved("task-authorized", "xel", "maestro", &digest, json!({})),
+        Some(&f.signer()),
+    );
+    let h2 = sha256_hex(&fs::read(&moved_early).unwrap());
+    let adoption = settings::adopt(&f.domain, None, &[], None).unwrap();
+    let seal = [(stream.clone(), Head { seq: 2, digest: h2 })].into_iter().collect();
+    f.forge(
+        "project",
+        1,
+        None,
+        &moved("policy-adopted", "xel", "maestro", &digest, adoption.payload(&seal)),
+        Some(&f.signer()),
+    );
+    assert_eq!(refused(&f), [Code::RecordSignatureInvalid]);
+    // Without that move, the seal names a position its stream no longer reaches.
+    fs::remove_file(sig(&moved_early)).unwrap();
+    fs::remove_file(&moved_early).unwrap();
+    assert_eq!(refused(&f), [Code::RecordRollback]);
 }

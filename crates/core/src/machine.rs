@@ -49,33 +49,38 @@ pub fn instance(folder: &Path) -> Result<Option<String>, Error> {
         return Ok(None);
     }
     check_permissions(folder)?;
-    let (key, public) = (folder.join("instance"), folder.join("instance.pub"));
-    if !key.is_file() || !public.is_file() {
+    let key = folder.join("instance");
+    if !key.is_file() {
         return Ok(None);
     }
-    // A public key file that holds no key is a key half made: there is none, and a write command makes it again.
-    let line = fs::read_to_string(&public).map_err(io_at(&public))?;
-    Ok(fingerprint(line.trim_end()))
+    // The identity is the private key: its public half is derived from it, never read from a file beside it. A key
+    // that does not read (damaged by hand) is none, and a write command makes it again.
+    let args: Vec<&std::ffi::OsStr> =
+        ["-y".as_ref(), "-P".as_ref(), "".as_ref(), "-f".as_ref(), key.as_os_str()].into();
+    let out = ssh_keygen(&args, b"")?;
+    Ok(out.status.success().then(|| fingerprint(String::from_utf8_lossy(&out.stdout).trim_end())).flatten())
 }
 
 /// The instance, for a write command: creates the private folder (`0700`) and the machine key when absent, and gives
-/// the key's fingerprint. A key half made by a stopped command (its two files are renamed into place, the public one
-/// first) is made again.
+/// the key's fingerprint. Two commands on one machine (in two repositories) make it under the folder's `lock`, so
+/// the machine gets one key. The private key is renamed into place last, so a key half made by a stopped command is
+/// none, and is made again.
 pub fn ensure_instance(folder: &Path) -> Result<String, Error> {
-    if !folder.exists() {
-        let parent = folder.parent().unwrap_or(folder);
-        fs::create_dir_all(parent).map_err(io_at(parent))?;
-        fs::DirBuilder::new().mode(0o700).create(folder).map_err(io_at(folder))?;
+    // Every directory it makes is its owner's only, the folder's parents included; one that exists is kept as it is.
+    fs::DirBuilder::new().mode(0o700).recursive(true).create(folder).map_err(io_at(folder))?;
+    if let Some(fp) = instance(folder)? {
+        return Ok(fp);
     }
+    let path = folder.join("lock");
+    let lock = fs::File::options().create(true).truncate(false).write(true).open(&path).map_err(io_at(&path))?;
+    lock.lock().map_err(io_at(&path))?;
     if let Some(fp) = instance(folder)? {
         return Ok(fp);
     }
     let new = folder.join(".instance-new");
-    let new_public = folder.join(".instance-new.pub");
-    for leftover in [&new, &new_public] {
-        if leftover.exists() {
-            fs::remove_file(leftover).map_err(io_at(leftover))?;
-        }
+    let names = [folder.join("instance"), folder.join("instance.pub"), new.clone(), folder.join(".instance-new.pub")];
+    for leftover in names.iter().filter(|p| p.exists()) {
+        fs::remove_file(leftover).map_err(io_at(leftover))?;
     }
     let mut args: Vec<&std::ffi::OsStr> =
         ["-q", "-t", "ed25519", "-N", "", "-C", "fabrewk-instance", "-f"].iter().map(|a| a.as_ref()).collect();
@@ -83,8 +88,8 @@ pub fn ensure_instance(folder: &Path) -> Result<String, Error> {
     if !ssh_keygen(&args, b"")?.status.success() {
         return Err(refuse(Code::ToolFailed, Some(folder), "ssh-keygen -t ed25519 failed"));
     }
-    fs::rename(&new_public, folder.join("instance.pub")).map_err(io_at(folder))?;
-    fs::rename(&new, folder.join("instance")).map_err(io_at(folder))?;
+    fs::rename(&names[3], &names[1]).map_err(io_at(folder))?;
+    fs::rename(&new, &names[0]).map_err(io_at(folder))?;
     instance(folder)?.ok_or_else(|| refuse(Code::ToolFailed, Some(folder), "the machine key is not in place"))
 }
 

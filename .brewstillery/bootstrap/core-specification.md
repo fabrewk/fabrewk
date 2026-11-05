@@ -1120,7 +1120,7 @@ One test per code (11.2 rule 4), with the requirement that defines the code and 
 | `RECORD_ID_COLLISION` | REQ-REG-1 | Two creation payloads made to share an identifier, with nonces chosen by the fixture | 7 |
 | `RECORD_NONCANONICAL` | REQ-REG-3 | Keys out of order; a space added; `1.0` for an integer; a needless escape; no final newline | 7 |
 | `RECORD_ROLLBACK` | REQ-REG-8 | PD-01 | 7 |
-| `RECORD_SIGNATURE_INVALID` | REQ-REG-4, REQ-REG-6 | A person's event without `.sig`; signed by a key absent from the cited policy; a signature over other bytes; another namespace | 7 |
+| `RECORD_SIGNATURE_INVALID` | REQ-REG-4, REQ-REG-6 | A person's event without `.sig`; signed by a key absent from the cited policy; a signature over other bytes; another namespace; and after D-050: citing no adopted policy or, in `project`, another than the one in force at its place; a role the policy does not give; a contributor's move; written after an adoption that removed its signer, changed their key or made them a contributor; outside `project`, held by every seal | 7 |
 | `RECORD_TRANSITION_INVALID` | REQ-REG-6 | A hand-made `task-integrated` from `verified`; PD-06; PD-31 | 7 |
 | `RECORD_UNCOMMITTED` | REQ-TASK-6, section 6 C10 | Events left uncommitted by `RECORD_COMMIT_RACE`: `check` reports them and `close` refuses | 7, 8 |
 | `RECORD_VERSION_UNKNOWN` | REQ-REG-6 | An event with `schema` 2 (PD-03) | 7 |
@@ -1205,7 +1205,7 @@ Where a criterion names a case or a code, its test in 11.3 or 11.4 is part of th
 | REQ-REG-1 | Every event file of the flows is named by its six-digit `seq` and the first 16 hexadecimal digits of its SHA-256, in its stream's directory; identifiers match `^[pst]-[0-9a-f]{8}$` and derive from the creating payload; `RECORD_ID_COLLISION`'s test | 7 |
 | REQ-REG-2 | A schema test finds exactly the listed fields in every event of the flows, `prev` null only at `seq` 1, `at` in RFC 3339 UTC, `say` only on person moves; replay gives the same state when the `at` values of a fixture are permuted | 7 |
 | REQ-REG-3 | Property: any event value, its strings drawn from every Unicode scalar value, serializes canonically, parses back equal and re-serializes byte-identical; PD-04; `RECORD_NONCANONICAL`'s test | 7 |
-| REQ-REG-4 | Every person's event of the flows has a `.sig` that carries the key the cited policy gives its alias and that `ssh-keygen -Y check-novalidate -n fabrewk` accepts (D-048); the crash suite finds no event file in place without its signature; `RECORD_SIGNATURE_INVALID`'s test | 7 |
+| REQ-REG-4 | Every person's event of the flows has a `.sig` that carries the key the cited policy gives its alias and that `ssh-keygen -Y check-novalidate -n fabrewk` accepts (D-048); the same key and role in the policy in force at its place, a maestro's concurrent work citing either policy accepted, and a seal its stream does not hold `RECORD_ROLLBACK` (D-050); the crash suite finds no event file in place without its signature; `RECORD_SIGNATURE_INVALID`'s test | 7 |
 | REQ-REG-5 | Two write commands started together: one runs, the other refuses `LOCK_HELD` at once; a head moved between read and append (`fault-injection`) fails the append; a kill during a write leaves only a temporary file whose name starts with `.`, which readers skip | 7 |
 | REQ-REG-6 | One fixture per code it lists, each refused by that code; property: random byte damage to any event file is refused by one of its codes, never accepted and never a panic | 7 |
 | REQ-REG-7 | PD-05 | 7 |

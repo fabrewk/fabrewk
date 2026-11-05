@@ -5,13 +5,15 @@ view generated from that registry. Technical files are in English by default (D-
 
 ## Current state
 
-**Phases 0 to 6 are closed (D-037, D-040). Phase 7 (the first code) is split into parts 7a, 7b, 7c1, 7c2 and 7d
-(D-041, D-047, D-048); parts 7a (R-023), 7b, the record (R-024), and 7c1, settings and policy (R-025), are closed;
-7c2, identity and the machine, is next.** The repository now holds the first code at its root: a Cargo workspace with one crate per ring
+**Phases 0 to 6 are closed (D-037, D-040). Phase 7 (the first code) is split into parts 7a, 7b, 7c1, 7c2a, 7c2b
+and 7d (D-041, D-047, D-048, D-050); parts 7a (R-023), 7b, the record (R-024), and 7c1, settings and policy (R-025),
+are closed; 7c2a, signatures and identity, is delivered and in Codex's review (R-026); 7c2b, the machine and the
+domain, is next.** The repository now holds the first code at its root: a Cargo workspace with one crate per ring
 (`crates/core`, `crates/fabrewk`, a binary that only answers `--version`) and the size counter `tools/budget`, the
 licence files, `deny.toml` and a root `.gitignore` with `/target`. The size budget is frozen (D-042). The record is
-built as a library in `crates/core/src/record/`, the settings in `crates/core/src/settings/` (the core counts 2,102
-of 4,000 lines, formatted at width 120, D-049); no command uses them yet and no `data/` exists in this repository. The domain is `.brewstillery/`, hidden (D-032).
+built as a library in `crates/core/src/record/`, the settings in `crates/core/src/settings/`, identity in
+`crates/core/src/identity.rs` and the private folder in `machine.rs` (the core counts 2,388 of 4,000 lines, formatted
+at width 120, D-049); no command uses them yet and no `data/` exists in this repository. The domain is `.brewstillery/`, hidden (D-032).
 
 ## Read first
 
