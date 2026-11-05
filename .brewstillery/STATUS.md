@@ -64,10 +64,9 @@ repository, is imported into the single registry at production and then stays re
   (−18 % in words; section 7 moved to the source catalogue, which gained C-62 to C-66 and the maintainer's notes); the
   original is archived as `.brewstillery/bootstrap/alambique-original.md`. Codex accepted the rewrite at its second
   pass. The preview is in XEL's fermento answer, between the markers.
-- **Next, first check of the next session.** If the maintainer validated the preview in chat and pasted it over
-  `.brewstillery/ALAMBIQUE.md` in their own commit: check the alambique equals the preview (sha256 in R-017), then
-  sweep the fermento (remove the preview; point 2 is the maintainer's to remove). If not, ask the maintainer first.
-- **Then phase 5 resumes (plan row 5).** Rewrite AD-4 for the Rust core, AD-5 for the extension contract and AD-7 for
+- **Adopted (D-035).** The maintainer validated the rewrite in chat and copied it over `.brewstillery/ALAMBIQUE.md`
+  (sha256 checked against the preview). The fermento's answer recommends removing point 2.
+- **Next: phase 5 resumes (plan row 5).** Rewrite AD-4 for the Rust core, AD-5 for the extension contract and AD-7 for
   a binary installation with both routes (a `curl` script with guided onboarding, a preset prompt for any agent) and
   how the script checks what it downloads; add the decisions D-032 points 1 to 10 and 17 need where
   `architecture-decisions.md` lacks them (including the name and form of the agents' rules file inside the domain);

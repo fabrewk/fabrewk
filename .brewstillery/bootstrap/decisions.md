@@ -1247,3 +1247,17 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   1,644. AR-01 to AR-11 closed, no new finding. **Verdict accept.**
 - Progress measure (D-003): confirmed blocking findings 10, then 0. Prompts, streams and last messages stay in the
   session's scratch directory, not committed.
+
+## D-035 — The concise alambique is adopted
+
+- Status: decided
+- Decided: 2026-11-04
+- Origin: maintainer XEL in session 10's chat: "Quedó aprobado, ya realizé la copia con tu comando propuesto."
+- Decision: the rewrite of D-034, accepted by Codex at its second pass (R-017), is the project alambique. The
+  maintainer copied it from the fermento's preview with the integrator's command; `.brewstillery/ALAMBIQUE.md` sha256
+  `4f6a1e6b…a3bf2`, equal to the preview of R-017, with no separator and no markers. Committed alone by the
+  maintainer's identity, without AI co-author (D-022).
+- Consequences: the fermento's answer drops the preview and recommends removing point 2. Phase 5 resumes in a new
+  chat (plan row 5).
+- Sources: chat of session 10; R-017.
+- Supersedes: none.
