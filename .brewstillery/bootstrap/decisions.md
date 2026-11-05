@@ -1776,3 +1776,36 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   confirmed blocking findings 4, 3, 3, 4, 4, 1, 1, 1, 1, 0; P7A-1 to P7A-23 corrected.
 - Written: this entry; `plan.md` (row 7a); `STATUS.md`.
 - Not done: phase 7's parts 7b to 7d.
+
+## D-047 — Part 7b: the cut with 7c and 7d, a code for a failed append, network for `proptest`
+
+- Status: decided
+- Decided: 2026-11-05
+- Origin: maintainer XEL in session 16's chat, answering the integrator's three questions after the cut was shown
+  before any code (plan, phase 7): "Aprobar el corte (Recomendado)"; "Nuevo RECORD_HEAD_MOVED (Recomendado)"; "Sí,
+  solo crates.io (Recomendado)".
+- Decision:
+  1. Part 7b delivers the record as a library in `fabrewk-core`, tested at the library's level; the binary gains no
+     command. In 7b: REQ-REG-1 (names, streams, identifiers, `RECORD_ID_COLLISION` for stages and tasks); REQ-REG-2
+     and REQ-REG-9 (schema 1's envelope validated field by field, with `actor`, `policy` and `instance` supplied by
+     the caller, and the closed list of section 3's kinds with each one's actor class, so the rules on `say` and
+     signatures apply; PD-03 for the envelope); REQ-REG-3 (PD-04); REQ-REG-4's mechanism (`ssh-keygen -Y` with the
+     namespace `fabrewk` against signers the caller gives; the signature before the rename); REQ-REG-5; REQ-REG-6's
+     structural codes, the signature and an empty `say`; REQ-REG-7 (PD-05 at the library); REQ-REG-8 (the mark and
+     the history walk; PD-01, PD-02); REQ-REG-10 (the record commit, PD-46 for the record; the views are a list of
+     files the caller gives); REQ-REG-11; the crash suite on the record with the feature `fault-injection`; PD-10
+     for the record (nothing is reported written before its sync); PD-06's place (`RECORD_BROKEN`).
+  2. To 7c: REQ-REG-12 (the machine key, the private folder, the `instance` fingerprint) and the second half of
+     REQ-REG-4 (signers derived from the cited policy; the role must allow the kind).
+  3. To 7d: `RECORD_TRANSITION_INVALID` from the transition table (PD-06's binding, PD-10's `ATTEMPT_ENDED` on replay,
+     a hand-made `task-integrated` from `verified`); the payloads of the stage and task kinds, each payload fixed by
+     the part that first builds it; the refusal tests of the record's codes through the command line (11.2 rule 4).
+  4. A failed compare-and-swap at an append (REQ-REG-5) is refused with a new code, `RECORD_HEAD_MOVED`: nothing
+     written, exit 1, next step to run the command again. It is added to REQ-REG-5, to section 7 (now 84 codes) and to
+     11.4 of `core-specification.md`.
+  5. Network in this session, for Cargo against crates.io only, to fetch `proptest` (choice 11) and what it needs.
+- Consequences: `plan.md` records the cut in the rows of 7b, 7c and 7d. `core-specification.md` changes only as point
+  4 says; the work it affects is part 7b and the catalogue of 7d.
+- Sources: chat of session 16; `plan.md` row 7; D-041; `core-specification.md` REQ-REG-1 to REQ-REG-13, sections 3,
+  7, 11.3 to 11.5, 12 REG.
+- Supersedes: none.

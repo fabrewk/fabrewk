@@ -172,7 +172,8 @@ Every point classified I has at least one requirement; every deferral has its re
   kind (section 4). The signature is written before the event file is moved into place. (6.12, AD-14)
 - **REQ-REG-5.** One writer per repository: every command that writes holds an operating-system advisory lock on
   `.brewstillery/local/lock` for its whole run; a second writer is refused at once (`LOCK_HELD`), never queued. Each
-  append re-reads the stream's head under the lock and fails if it moved (compare-and-swap). A file is written to a
+  append re-reads the stream's head under the lock and fails if it moved (compare-and-swap; `RECORD_HEAD_MOVED`,
+  nothing written, D-047). A file is written to a
   temporary name starting with `.` in the same directory, synced, renamed, and the directory synced. Readers take no
   lock and skip temporary names. (6.37, 6.41, AD-1)
 - **REQ-REG-6.** Replay reads every stream and refuses, each by its code and never with a raw error: an unknown schema
@@ -739,6 +740,7 @@ the requirements above:
 | `GITIGNORE_CHANGED` | `.brewstillery/.gitignore` differs from what Fabrewk wrote | restore it |
 | `MAINTAINER_UNLISTED`, `FERMENTO_MISSING` | a maintainer directory and the policy disagree | `fabrewk adopt` or create the fermento |
 | `CHECK_UNKNOWN` | a verification could not run | the missing tool or reason, named |
+| `RECORD_HEAD_MOVED` | a stream's head moved under the lock, so something wrote without it; nothing was written (D-047) | run the command again |
 
 All codes, in one list: `AGENT_ENVIRONMENT`, `ALAMBIQUE_CHANGED`, `ALAMBIQUE_UNAPPROVED`, `ALIAS_INVALID`,
 `ALIAS_MISMATCH`, `ATTEMPT_ENDED`, `ATTEMPT_REPLACED`, `BASE_MOVED`, `BUDGET_EXHAUSTED`, `CHECK_DUPLICATE`,
@@ -749,7 +751,7 @@ All codes, in one list: `AGENT_ENVIRONMENT`, `ALAMBIQUE_CHANGED`, `ALAMBIQUE_UNA
 `MOVE_NOT_ALLOWED`, `NOT_A_REPOSITORY`, `NO_PROGRESS`, `OUTCOME_UNKNOWN`, `PLAN_CHANGED`, `PLATFORM_UNSUPPORTED`, `POINT_CHANGED`,
 `POLICY_ABSENT`, `POLICY_PENDING`, `POLICY_UNCOMMITTED`, `PRIVATE_FOLDER_PERMISSIONS`, `PROPOSAL_STALE`,
 `PROPOSAL_UNKNOWN`, `PROTECTED_PATH`, `PROTECTED_PATH_WILDCARD`, `PROVIDER_MISSING`, `RECORD_ABSENT`,
-`RECORD_BROKEN`, `RECORD_COMMIT_RACE`, `RECORD_DIGEST_MISMATCH`, `RECORD_FORK`, `RECORD_ID_COLLISION`,
+`RECORD_BROKEN`, `RECORD_COMMIT_RACE`, `RECORD_DIGEST_MISMATCH`, `RECORD_FORK`, `RECORD_HEAD_MOVED`, `RECORD_ID_COLLISION`,
 `RECORD_NONCANONICAL`, `RECORD_ROLLBACK`, `RECORD_SIGNATURE_INVALID`, `RECORD_TRANSITION_INVALID`,
 `RECORD_UNCOMMITTED`, `RECORD_VERSION_UNKNOWN`, `REVIEW_INVALID`, `REVIEW_UNEXAMINED`, `ROLE_FORBIDDEN`,
 `ROLE_NOT_ENFORCED`, `ROUNDS_EXHAUSTED`, `SEPARATOR_AMBIGUOUS`, `SEPARATOR_DAMAGED`, `SEPARATOR_MISSING`,
@@ -1060,6 +1062,7 @@ One test per code (11.2 rule 4), with the requirement that defines the code and 
 | `RECORD_COMMIT_RACE` | REQ-REG-10 | The branch moved during a write command, changing a file the commit holds | 7 |
 | `RECORD_DIGEST_MISMATCH` | REQ-REG-6 | A file renamed with another digest; a byte changed | 7 |
 | `RECORD_FORK` | REQ-REG-6 | Two events at one `seq` of one stream, from two clones merged | 7 |
+| `RECORD_HEAD_MOVED` | REQ-REG-5 | A stream's head moved between the command's read and its append under the lock (`fault-injection`); nothing written (D-047) | 7 |
 | `RECORD_ID_COLLISION` | REQ-REG-1 | Two creation payloads made to share an identifier, with nonces chosen by the fixture | 7 |
 | `RECORD_NONCANONICAL` | REQ-REG-3 | Keys out of order; a space added; `1.0` for an integer; a needless escape; no final newline | 7 |
 | `RECORD_ROLLBACK` | REQ-REG-8 | PD-01 | 7 |
