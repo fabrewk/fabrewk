@@ -50,16 +50,18 @@ pub struct Change {
     pub line: Option<usize>,
 }
 
-/// The effect of changing `path` from `old` to `new`. Any change to a maintainer widens (REQ-SET-5); a key with no
+/// The effect of changing `path` from `old` to `new`, which differ (both callers skip equal values). Any change to a maintainer widens (REQ-SET-5); a key with no
 /// value is at its widest (an absent area is the whole project, absent tokens are unlimited); a change that is
 /// neither larger nor smaller (a list both gaining and losing, a name) widens a key that has a direction.
-fn effect(key: &Key, path: &str, old: Option<&Val>, new: Option<&Val>) -> Effect {
-    if path.starts_with("maintainers.") {
-        return Effect::Widening;
+pub(super) fn effect(key: &Key, path: &str, old: Option<&Val>, new: Option<&Val>) -> Effect {
+    match (key.dir, old, new) {
+        _ if path.starts_with("maintainers.") => return Effect::Widening,
+        (Dir::Neutral, ..) => return Effect::Neutral,
+        // From no value (the widest) to one narrows; the way back has no order, and so widens below.
+        (_, None, _) => return Effect::Narrowing,
+        _ => {}
     }
     let larger = match (old, new) {
-        (None, _) => Some(false),
-        (_, None) => Some(true),
         (Some(Val::Bool(a)), Some(Val::Bool(b))) => Some(b > a),
         (Some(Val::Int(a)), Some(Val::Int(b))) => Some(b > a),
         (Some(Val::Str(a)), Some(Val::Str(b))) => match key.ty {
@@ -73,7 +75,6 @@ fn effect(key: &Key, path: &str, old: Option<&Val>, new: Option<&Val>) -> Effect
         _ => None,
     };
     match (key.dir, larger) {
-        (Dir::Neutral, _) => Effect::Neutral,
         (Dir::Widens, Some(true)) | (Dir::Narrows, Some(false)) | (_, None) => Effect::Widening,
         _ => Effect::Narrowing,
     }
@@ -196,7 +197,9 @@ pub fn adopt(
     let path = domain.join("settings.toml");
     let (content, settings) = super::read_text(&path, Level::Project)?;
     let mut errors = Vec::new();
-    for (key, e) in settings.values.iter().filter(|(_, e)| e.value == Val::Str("supervisor".into())) {
+    for (key, e) in settings.values.iter().filter(|(k, e)| {
+        k.starts_with("maintainers.") && k.ends_with(".role") && e.value == Val::Str("supervisor".into())
+    }) {
         let why = format!("{key} (line {}): the supervisor's role is not enforced yet", e.line);
         errors.push(refuse(Code::RoleNotEnforced, Some(&path), why));
     }

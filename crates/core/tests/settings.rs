@@ -159,6 +159,9 @@ fn refusal_role_not_enforced() {
     write_settings(&f, &text);
     let r = settings::adopt(&f.domain, None, &[], None);
     assert_eq!(codes(r.map(|_| ())), [Code::RoleNotEnforced]);
+    // Only a role is a role: the word elsewhere is a value like any other.
+    write_settings(&f, &project_file(&f, "").replace("name = \"fixture\"", "name = \"supervisor\""));
+    settings::adopt(&f.domain, None, &[], None).unwrap();
 }
 
 #[test]

@@ -344,7 +344,7 @@ pub(crate) fn base64(s: &str) -> Option<Vec<u8>> {
     }
     let (mut out, mut acc, mut bits) = (Vec::with_capacity(b.len() / 4 * 3), 0u32, 0);
     for &c in &b[..b.len() - pad] {
-        acc = acc << 6 | u32::from(digit(c)?);
+        acc = (acc << 6) + u32::from(digit(c)?);
         bits += 6;
         if bits >= 8 {
             bits -= 8;
@@ -638,12 +638,34 @@ mod tests {
 
     #[test]
     fn req_set_10_language_tags_and_their_fallbacks() {
-        for good in ["en", "es-MX", "es-419", "zh-Hant-TW", "sl-rozaj-biske", "de-CH-1901", "en-a-bbb-x-a-ccc", "x"] {
+        for good in [
+            "en",
+            "es-MX",
+            "es-419",
+            "zh-Hant-TW",
+            "sl-rozaj-biske",
+            "de-CH-1901",
+            "en-a-bbb-x-a-ccc",
+            "zh-yue-HK",
+            "x",
+        ] {
             assert_eq!(is_tag(good), good != "x", "{good}");
         }
-        for bad in
-            ["", "e", "english-", "es_MX", "es-MX-", "-es", "en-a", "en-x", "en-x-a-123456789", "toolongtag", "1en"]
-        {
+        for bad in [
+            "",
+            "e",
+            "english-",
+            "es_MX",
+            "es-MX-",
+            "-es",
+            "en-a",
+            "en-x",
+            "en-x-a-123456789",
+            "toolongtag",
+            "1en",
+            "zh-aaa-bbb-ccc-ddd",
+            "abcde-yue",
+        ] {
             assert!(!is_tag(bad), "{bad}");
         }
         assert_eq!(fallbacks("es-MX"), ["es-MX", "es", "en"]);
@@ -745,6 +767,25 @@ mod tests {
         let present =
             ok(Level::Project, &with("maintainers.ana.area", "[\"docs/\"]").replace("\"maestro\"", "\"supervisor\""));
         assert_eq!(changes(&present, &absent)[0].effect, Widening, "an area removed is the whole project");
+        let order = |a: &str, b: &str| {
+            let (x, y) = (with("review.differentProvider", a), with("review.differentProvider", b));
+            changes(&ok(Level::Project, &x), &ok(Level::Project, &y))[0].effect
+        };
+        assert_eq!(order("\"require\"", "\"prefer\""), Widening);
+        assert_eq!(order("\"prefer\"", "\"require\""), Narrowing);
+        assert_eq!(order("\"prefer\"", "\"off\""), Widening);
+        // A key that narrows and has no value is at its widest too (none is declared yet; the rule is general).
+        let narrows = Key {
+            path: "x.y",
+            ty: Type::Strs,
+            levels: &[Level::Project],
+            default: Def::Absent,
+            dir: Dir::Narrows,
+            about: "",
+        };
+        let some = Val::List(vec!["a".into()]);
+        assert_eq!(policy::effect(&narrows, "x.y", None, Some(&some)), Narrowing);
+        assert_eq!(policy::effect(&narrows, "x.y", Some(&some), None), Widening);
         let tokens = |v: &str| ok(Level::Project, &with("profiles.p.tokens", v));
         let base = ok(Level::Project, BASE);
         assert_eq!(changes(&tokens("5"), &base)[0].effect, Widening, "tokens removed are unlimited");
