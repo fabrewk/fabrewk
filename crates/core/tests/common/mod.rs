@@ -254,12 +254,14 @@ fn draft(kind: &str, actor: Value, say: Option<Say>, payload: Value) -> Draft {
 /// The project file the fixtures adopt.
 pub const PROJECT: &str = "[project]\nname = \"fixture\"\n";
 
-/// A `project` event's payload: `policy-adopted` carries [`PROJECT`] (part 7c1); the others are not fixed yet.
+/// A `project` event's payload: `policy-adopted` carries [`PROJECT`] (part 7c1), `publication-decided` the mode
+/// `published` (part 7c2b); the others are not fixed yet.
 pub fn project_payload(kind: &str) -> Value {
     match kind {
         "policy-adopted" => {
             json!({"content": PROJECT, "digest": sha256_hex(PROJECT.as_bytes()), "heads": {}, "widened": []})
         }
+        "publication-decided" => json!({"mode": "published", "warningShown": false}),
         _ => json!({}),
     }
 }

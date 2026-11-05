@@ -212,7 +212,22 @@ pub(crate) fn check(v: &Value, stream: &str, seq: u64) -> Result<Class, (Code, &
     if kind == "policy-adopted" {
         policy_payload(&o["payload"])?;
     }
+    if kind == "publication-decided" {
+        publication_payload(&o["payload"])?;
+    }
     Ok(class)
+}
+
+/// `publication-decided`'s payload (part 7c2b, D-051): exactly `mode` (`published`, `own-repository` or `unpublished`)
+/// and `warningShown` (whether the publication warning was shown); the maintainers' words are the move's `say`.
+fn publication_payload(p: &Value) -> Result<(), (Code, &'static str)> {
+    let o = p.as_object().filter(|o| o.len() == 2);
+    let mode = o.and_then(|o| o.get("mode")?.as_str());
+    let shown = o.and_then(|o| o.get("warningShown")?.as_bool());
+    if !mode.is_some_and(|m| ["published", "own-repository", "unpublished"].contains(&m)) || shown.is_none() {
+        return Err((Code::RecordVersionUnknown, "payload"));
+    }
+    Ok(())
 }
 
 /// `policy-adopted`'s payload (parts 7c1 and 7c2a, D-050): exactly `content` (the project file's text), `digest` (its

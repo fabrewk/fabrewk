@@ -48,6 +48,7 @@ pub enum Type {
     Tag,
     Tags,
     SignerKey,
+    Path,
     Enum(&'static [&'static str]),
     Ordered(&'static [&'static str]),
 }
@@ -348,6 +349,7 @@ pub(crate) fn admit(ty: Type, value: &Val) -> Result<(), (Code, &'static str)> {
         (Type::Tag, Val::Str(s)) => is_tag(s),
         (Type::Tags, Val::List(l)) => l.iter().all(|s| is_tag(s)),
         (Type::SignerKey, Val::Str(s)) => key_blob(s).is_some(),
+        (Type::Path, Val::Str(s)) => Path::new(s).is_absolute(),
         (Type::Enum(set) | Type::Ordered(set), Val::Str(s)) => set.contains(&s.as_str()),
         _ => return Err((Code::SettingsInvalid, "wrong type")),
     };
@@ -520,6 +522,7 @@ mod tests {
                 Type::Command => Some("[]"),
                 Type::SignerKey => Some("\"ssh-ed25519 AAAA\""),
                 Type::Alias => Some("\"Ana\""),
+                Type::Path => Some("\"bin/tool\""),
                 Type::Str | Type::Bool | Type::Strs => None,
             };
             if let Some(v) = outside {
@@ -860,6 +863,7 @@ mod tests {
                 Type::Tag => (quote("en"), quote("es")),
                 Type::SignerKey => (quote(KEY), quote(other)),
                 Type::Str | Type::Alias => (quote("a"), quote("b")),
+                Type::Path => (quote("/a"), quote("/b")),
             };
             let role = path.ends_with(".role");
             let fix = |t: String| {
@@ -945,7 +949,7 @@ mod tests {
             ok(Level::Personal, "[maintainer]\nalias = \"ana\"\n[languages]\nagentInteraction = \"es-MX\"\n");
         let stage = layer(Source::Stage("s-00000001".into()), &[("limits.dispatches", Val::Int(2))]);
         let task = layer(Source::Task("t-00000002".into()), &[("limits.minutes", Val::Int(60))]);
-        let eff = effective(&p, Some(&personal), &[stage, task], &[]).unwrap();
+        let eff = effective(&p, Some(&personal), None, &[stage, task], &[]).unwrap();
         let source = |k: &str| lookup(&eff, k).unwrap().unwrap().1.clone();
         assert_eq!(source("limits.rounds"), Source::Project(p.digest.clone()));
         assert_eq!(source("limits.dispatches"), Source::Stage("s-00000001".into()));
@@ -975,7 +979,7 @@ mod tests {
                 [(Source::Stage("s-1".into()), Level::Stage), (Source::Task("t-1".into()), Level::Task)]
             {
                 let l = layer(source, &[(&path, Val::Int(1))]);
-                let r = effective(&p, None, &[l], std::slice::from_ref(&path));
+                let r = effective(&p, None, None, &[l], std::slice::from_ref(&path));
                 if !key.levels.contains(&level) {
                     assert_eq!(r.unwrap_err().code(), Some(Code::SettingsInvalid), "{path} at {level:?}");
                 }
@@ -990,7 +994,7 @@ mod tests {
         ] {
             let l = layer(Source::Stage("s-1".into()), &[(key, value)]);
             assert_eq!(
-                effective(&p, None, &[l], &[key.into()]).unwrap_err().code(),
+                effective(&p, None, None, &[l], &[key.into()]).unwrap_err().code(),
                 Some(Code::SettingsInvalid),
                 "{key}"
             );
@@ -1019,7 +1023,7 @@ mod tests {
                     raised |= v > level;
                     level = v;
                 }
-                match effective(&p, Some(&personal), &layers, &widen) {
+                match effective(&p, Some(&personal), None, &layers, &widen) {
                     Ok(eff) => {
                         prop_assert!(named || !raised);
                         prop_assert_eq!(&eff.values["limits.rounds"].0, &Val::Int(level));

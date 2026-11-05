@@ -146,6 +146,16 @@ Every point classified I has at least one requirement; every deferral has its re
   repository; if not, it refuses (`DOMAIN_NOT_IGNORED`), since a later commit would publish it. In `own-repository`,
   `.brewstillery/` is a Git repository of its own and Fabrewk commits there. (6.27, AD-1, AD-7 step 6)
 
+**The domain, as part 7c2b fixed it (D-051).** At the domain's top a listed name counts only with its kind (the five
+files as files, `data/`, `local/` and each alias as directories); a link is never followed and is an unknown entry. A
+directory whose name is neither an alias nor reserved is `ALIAS_INVALID`; anything else not listed is
+`DOMAIN_UNKNOWN_ENTRY`, `bootstrap/` and, while review mode is not built, `review/` included, so `check` does not fail
+in this repository. `.gitignore` must be a file, not a link, holding exactly `local/` and a newline. The publication
+mode in force is that of the last `publication-decided`. `DOMAIN_NOT_IGNORED`'s check first requires the domain's
+parent to be the root of the product's main working tree (`NOT_A_REPOSITORY` otherwise: a repository found further up
+is not the product's), then asks `git check-ignore -q -- .brewstillery` there; a domain the product tracks is not
+ignored. The exclude line is `/.brewstillery/`, added once to the file `git rev-parse --git-path info/exclude` names.
+
 ### REG: the record
 
 - **REQ-REG-1.** The record is a set of event files under `.brewstillery/data/events/<stream>/`, named
@@ -264,8 +274,10 @@ Every point classified I has at least one requirement; every deferral has its re
 - **REQ-SET-9.** The catalogue has three tables, `tools`, `providers` and `models`; profiles name catalogue entries and
   never copy them. Before a run Fabrewk validates the profile: tool permitted and present, provider permitted, model of
   that provider, effort among the model's, required tools present; the model and effort observed are recorded apart
-  from those requested. An unsupported permission mode refuses and never falls back to the tool's default. (6.14,
-  6.15, AD-2; PR-5, PR-6, CA-6)
+  from those requested. An unsupported permission mode refuses and never falls back to the tool's default. A profile
+  invalid for any reason but an absent tool is refused `SETTINGS_INVALID`, naming the profile's key path and its line,
+  or the stage or task that set the value; a tool or required tool absent is `TOOL_MISSING` (D-051). (6.14, 6.15,
+  AD-2; PR-5, PR-6, CA-6)
 - **REQ-SET-10.** Language keys follow AD-3's table; tags are BCP 47; a regional variant falls back to its base and then
   to English. (6.20, AD-3)
 
@@ -677,6 +689,9 @@ creating nonce are fixed by the part that first builds each kind.
   and `widened` (the key paths named with `--widen`) (parts 7c1 and 7c2a, D-050). A malformed payload is
   `RECORD_VERSION_UNKNOWN`; a digest that is not its content's is `RECORD_BROKEN`; a seal naming a position its stream
   does not reach, or a digest its stream does not hold there, is `RECORD_ROLLBACK`: the seal is a signed mark.
+- `publication-decided`'s payload is exactly `mode` (`published`, `own-repository` or `unpublished`) and `warningShown`
+  (a boolean: whether the publication warning was shown); the maintainers' words are the move's `say` (part 7c2b,
+  D-051). Any other payload is `RECORD_VERSION_UNKNOWN`.
 - A person's event is checked, after the record is read field by field, against the policy it cites and the policy in
   force at its place (REQ-REG-4, D-050); every failure is `RECORD_SIGNATURE_INVALID`: a citation of a digest no
   adoption holds, an event of `project` citing another policy than the one in force at its place, an event outside
@@ -855,6 +870,19 @@ valid in it and in POSIX `sh`).
 
 **Machine file** (`machine.toml`, private folder): `tools.<name>.path` (where a tool is, when detection cannot find
 it). Every value is shown as declared.
+
+**Detection, as part 7c2b fixed it (D-051).** Each built-in module declares, for the program it drives, the
+executable's name and the arguments that print its version on the first line of standard output without calling a
+model; `git` (`--version`) and `ssh-keygen` (no version) are the core's. Detected are the core's programs, each
+module's program that serves no adapter (a backend's), every catalogued tool (by its adapter's program), every
+profile's required tool (by its own name) and every name `machine.toml` declares. A machine file's path must be
+absolute; it takes the place of the search of `PATH` (present there or absent, `declared`), except for the core's own
+programs, which are always found in `PATH`, as the core runs them. `PATH` is searched in order, absolute directories
+only, for an executable file; a name holding `/` is never searched. A version is read only when its arguments exit 0.
+`local/cache/detected.json` is canonical JSON `{"at","schema":1,"tools":{"<name>":null | {"how","path","verified",
+"version"}}}` (`how` is `observed` or `declared`), written only by write commands; the next detection reads from it
+only `verified`, the date of the last successful use, kept while the path and version are the same; a cache that does
+not read is none. The effective set is the catalogued tools that are present.
 
 **This repository.** `project.command`, `project.domain`, `maintainers.aliases` and `layout.reservedNames` are bootstrap
 keys: the first core does not declare them, so they are refused there. They are replaced at production (phase 13),
@@ -1066,7 +1094,7 @@ One test per code (11.2 rule 4), with the requirement that defines the code and 
 | `AGENT_ENVIRONMENT` | REQ-TASK-4, REQ-SEC-7 | A person's move with `CLAUDECODE=1`, with Codex's sandbox variable, and with `FABREWK_EXTENSION` set; the message says the control is cooperative | 7 |
 | `ALAMBIQUE_CHANGED` | REQ-FER-5 | `approve` after the alambique changed from the proposal's base digest | 8 |
 | `ALAMBIQUE_UNAPPROVED` | REQ-FER-7 | A byte of the alambique changed by hand, then `check`, `run`, `accept` and `close` | 8 |
-| `ALIAS_INVALID` | REQ-DOM-3 | Aliases `Xel`, `9a`, `a--b`, `a-`, 33 characters, and each reserved name; a domain directory with such a name at `check` | 7 |
+| `ALIAS_INVALID` | REQ-DOM-3 | Aliases `Xel`, `9a`, `a--b`, `a-`, 33 characters, and each reserved name; a domain directory with such a name at `check` (a reserved name at the domain's top is a listed entry or `DOMAIN_UNKNOWN_ENTRY`, D-051) | 7 |
 | `ALIAS_MISMATCH` | REQ-SET-3 | `maintainer.alias = "ana"` in `xel/settings.toml` | 7 |
 | `ATTEMPT_ENDED` | REQ-RUN-1 | A second `attempt-ended` for one attempt | 7 |
 | `ATTEMPT_REPLACED` | REQ-RUN-5 | A result for an attempt a later one replaced (PD-08) | 9 |

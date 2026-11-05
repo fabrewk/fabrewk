@@ -1,11 +1,12 @@
-//! The private folder and the instance identity (REQ-SEC-4, REQ-REG-12; AD-15; part 7c2a). The folder is outside
-//! every repository, for its owner only; Fabrewk refuses to read it when its permissions are wider. It holds the
-//! machine key, made by the first write command with `ssh-keygen -t ed25519` and no passphrase; every event records
-//! its fingerprint as `instance`, which nothing verifies yet. Reading commands only look: they create nothing.
+//! The private folder, the machine file and the instance identity (REQ-SEC-4, REQ-SET-1, REQ-REG-12; AD-15; parts
+//! 7c2a and 7c2b). The folder is outside every repository, for its owner only; Fabrewk refuses to read it when its
+//! permissions are wider. It holds `machine.toml` and the machine key, made by the first write command with
+//! `ssh-keygen -t ed25519` and no passphrase; every event records its fingerprint as `instance`, which nothing verifies
+//! yet. Reading commands only look: they create nothing.
 
 use crate::code::{Code, Error, io_at, refuse};
 use crate::record::sign::ssh_keygen;
-use crate::settings::key_blob;
+use crate::settings::{self, Level, Settings, key_blob};
 use sha2::{Digest, Sha256};
 use std::ffi::OsString;
 use std::fs;
@@ -40,6 +41,20 @@ pub fn check_permissions(folder: &Path) -> Result<(), Error> {
         return Err(refuse(Code::PrivateFolderPermissions, Some(folder), why));
     }
     Ok(())
+}
+
+/// `machine.toml` (REQ-SET-1, AD-15; part 7c2b): machine data detection cannot find, read only from a folder whose
+/// permissions are its owner's; `None` when there is no folder or no file. Its values are declared, never permitted.
+pub fn machine_file(folder: &Path) -> Result<Option<Settings>, Vec<Error>> {
+    if !folder.exists() {
+        return Ok(None);
+    }
+    check_permissions(folder).map_err(|e| vec![e])?;
+    let path = folder.join("machine.toml");
+    if !path.exists() {
+        return Ok(None);
+    }
+    settings::read(&path, Level::Machine).map(Some)
 }
 
 /// The instance, for a reading command: `None` when there is no private folder or no machine key yet. Writes

@@ -60,7 +60,7 @@ fn req_set_4_the_policy_is_the_last_adopted_content_whatever_the_file_says() {
         write_settings(&f, &format!("{first}\n[limits]\nrounds = 5\n"));
         let record = replay(&f.domain, &f.verifier()).unwrap();
         let policy = settings::in_force(&record).unwrap().unwrap();
-        let eff = settings::effective(&policy, None, &[], &[]).unwrap();
+        let eff = settings::effective(&policy, None, None, &[], &[]).unwrap();
         assert_eq!(eff.values["limits.rounds"], (Val::Int(3), Source::Default));
         let pending = settings::pending(&policy, &f.domain).unwrap().unwrap();
         assert_eq!(pending.len(), 1);
@@ -82,7 +82,7 @@ fn req_set_4_the_policy_is_the_last_adopted_content_whatever_the_file_says() {
         let personal_text = "maintainer = {\n  alias = \"xel\",\n}\nlanguages.agentInteraction = \"es-MX\"\n";
         fs::write(&personal_file, personal_text).unwrap();
         let personal = settings::read(&personal_file, settings::Level::Personal).unwrap();
-        let again = settings::effective(&policy, Some(&personal), &[], &[]).unwrap();
+        let again = settings::effective(&policy, Some(&personal), None, &[], &[]).unwrap();
         assert_eq!(again.values["languages.agentInteraction"].1, Source::Personal("xel".into()));
         assert_eq!(fs::read(&personal_file).unwrap(), personal_text.as_bytes(), "never rewritten");
         assert_eq!(again.values["limits.rounds"].0, Val::Int(3));
@@ -92,7 +92,7 @@ fn req_set_4_the_policy_is_the_last_adopted_content_whatever_the_file_says() {
         commit_settings(&f);
         let record = adopt_on_record(&f, &["limits.rounds".into()]).unwrap();
         let policy = settings::in_force(&record).unwrap().unwrap();
-        let eff = settings::effective(&policy, None, &[], &[]).unwrap();
+        let eff = settings::effective(&policy, None, None, &[], &[]).unwrap();
         assert_eq!(eff.values["limits.rounds"], (Val::Int(5), Source::Project(policy.digest.clone())));
         let last = record.streams["project"].last().unwrap();
         assert_eq!(last.value["payload"]["widened"], json!(["limits.rounds"]));
@@ -246,7 +246,7 @@ fn req_set_4_in_each_mode() {
             let record = replay(&f.domain, &f.verifier()).unwrap();
             let policy = settings::in_force(&record).unwrap().unwrap();
             assert_eq!(policy.text, first, "{mode:?}");
-            let eff = settings::effective(&policy, None, &[], &[]).unwrap();
+            let eff = settings::effective(&policy, None, None, &[], &[]).unwrap();
             assert_eq!(eff.values["limits.rounds"].0, Val::Int(3), "{mode:?}");
             let pending = settings::pending(&policy, &f.domain).unwrap().unwrap();
             assert_eq!((pending[0].key.as_str(), pending[0].effect), ("limits.rounds", Effect::Widening));

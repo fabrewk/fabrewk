@@ -94,7 +94,8 @@ pub(super) fn effect(key: &Key, path: &str, old: Option<&Val>, new: Option<&Val>
 }
 
 /// Where an effective value comes from (REQ-SET-7). `Project` carries the adopted digest; a value no level set is
-/// `Default`, also when its default is another key's value (a profile's limit follows `limits`).
+/// `Default`, also when its default is another key's value (a profile's limit follows `limits`); `Declared` is
+/// `machine.toml`'s, data that grants nothing. What is detected is reported apart, with how and when (`detect`).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Source {
     Default,
@@ -102,6 +103,7 @@ pub enum Source {
     Personal(String),
     Stage(String),
     Task(String),
+    Declared,
 }
 
 type Values = BTreeMap<String, (Val, Source)>;
@@ -262,10 +264,12 @@ pub struct Effective {
 
 /// The effective values (REQ-SET-6): defaults, then the policy, then each layer in order (a stage's values, then a
 /// task's, each `(Source::Stage(id) or Source::Task(id), values)`); `personal` sets only personal keys, which no layer
-/// may set. A layer may narrow freely; a widening must be named in `widen` (`WIDENING_UNNAMED`) and is listed.
+/// may set, and `machine` only machine keys, shown as declared. A layer may narrow freely; a widening must be named
+/// in `widen` (`WIDENING_UNNAMED`) and is listed.
 pub fn effective(
     policy: &Policy,
     personal: Option<&Settings>,
+    machine: Option<&Settings>,
     layers: &[(Source, BTreeMap<String, Val>)],
     widen: &[String],
 ) -> Result<Effective, Error> {
@@ -282,6 +286,9 @@ pub fn effective(
         for (path, e) in &p.values {
             map.insert(path.clone(), (e.value.clone(), Source::Personal(alias.clone())));
         }
+    }
+    for (path, e) in machine.iter().flat_map(|m| &m.values) {
+        map.insert(path.clone(), (e.value.clone(), Source::Declared));
     }
     let levels = [Level::Project, Level::Personal, Level::Stage, Level::Task];
     fill(&mut map, tables, &levels);

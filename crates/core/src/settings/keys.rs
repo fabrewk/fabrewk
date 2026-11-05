@@ -4,7 +4,7 @@
 use super::Def::{Absent, From, Lit, Required};
 use super::Dir::{Narrows, Neutral, Widens};
 use super::Level::{Machine, Personal, Project, Stage, Task};
-use super::Type::{Alias, Bool, Command, Enum, Int, Ordered, SignerKey, Str, Strs, Tag, Tags};
+use super::Type::{Alias, Bool, Command, Enum, Int, Ordered, Path, SignerKey, Str, Strs, Tag, Tags};
 use super::{Def, Dir, Key, Level, Type};
 
 const P: &[Level] = &[Project];
@@ -55,7 +55,7 @@ pub const KEYS: &[Key] = &[
     k("environment.shell", Enum(&["fish", "sh", "bash", "zsh"]), ME, Lit("\"sh\""), Neutral, "The person's shell"),
     k("tools.*.adapter", Enum(&["claude-code", "codex"]), P, Required, Widens, "Which module drives the tool"),
     k("tools.*.providers", Strs, P, Required, Widens, "Providers the tool may use"),
-    k("tools.*.path", Str, M, Absent, Neutral, "Where the tool is, when detection cannot find it"),
+    k("tools.*.path", Path, M, Absent, Neutral, "Where the tool is, when detection cannot find it"),
     k("providers.*.allowed", Bool, P, Lit("false"), Widens, "Whether code may be sent to it"),
     k("models.*.provider", Str, P, Required, Widens, "The model's provider"),
     k("models.*.id", Str, P, Required, Widens, "The provider's name for the model"),

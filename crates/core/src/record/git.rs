@@ -103,6 +103,24 @@ pub(crate) fn committed(repo: &Repo, path: &Path) -> Result<Option<Vec<u8>>, Err
     Ok(out.status.success().then_some(out.stdout))
 }
 
+/// Whether the repository ignores `path`, relative to its root, by `git check-ignore` (REQ-DOM-7): a tracked path is
+/// not ignored.
+pub(crate) fn ignores(repo: &Repo, path: &Path) -> Result<bool, Error> {
+    let out =
+        run(command(repo, &[OsStr::new("check-ignore"), OsStr::new("-q"), OsStr::new("--"), path.as_os_str()]), b"")?;
+    match out.status.code() {
+        Some(0) => Ok(true),
+        Some(1) => Ok(false),
+        _ => Err(refuse(Code::ToolFailed, Some(&repo.root), "git check-ignore failed")),
+    }
+}
+
+/// The repository's exclude file, `info/exclude` in its Git directory, as an absolute path.
+pub(crate) fn exclude_file(repo: &Repo) -> Result<PathBuf, Error> {
+    let out = git(repo, &os(&["rev-parse", "--path-format=absolute", "--git-path", "info/exclude"]), b"", None)?;
+    Ok(PathBuf::from(line(out)))
+}
+
 /// The commit a ref names, `None` if it names none (an unborn branch).
 pub(crate) fn head_of(repo: &Repo, name: &str) -> Result<Option<String>, Error> {
     let target = format!("{name}^{{commit}}");

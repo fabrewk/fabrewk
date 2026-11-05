@@ -26,5 +26,5 @@ pub use time::{is_utc_timestamp, now_utc};
 pub use crate::code::{Code, Error};
 pub(crate) use crate::code::{io_at, refuse};
 pub(crate) use event::is_name;
-pub(crate) use git::committed;
+pub(crate) use git::{check_main_worktree, committed, exclude_file, ignores};
 pub(crate) use store::write_atomic;

@@ -2073,3 +2073,36 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   a machine with no mark) is caught only by the rollback checks, cooperative on one machine (C4); the machine key's
   identity changes if its private file is damaged by hand.
 - Not done: parts 7c2b and 7d.
+
+## D-051 — Part 7c2b: an invalid profile is `SETTINGS_INVALID`; detection through a contract the modules fulfil; the scope
+
+- Status: decided
+- Decided: 2026-11-05
+- Origin: maintainer XEL in session 19's chat, answering the integrator's three questions before any code:
+  "SETTINGS_INVALID (Recomendado)"; "Contrato del núcleo (Recomendado)"; "Aprobar (Recomendado)".
+- Decision:
+  1. A profile that is invalid for any reason other than an absent tool (its tool not in the catalogue, its model not
+     in the catalogue or of a provider its tool does not use, that provider not permitted, its effort not one of the
+     model's) is refused `SETTINGS_INVALID`, naming the profile's key path and the file and line, or the stage or task
+     that set the value: a value outside the allowed set (REQ-SET-2). A permitted tool or a required tool that is
+     absent is `TOOL_MISSING`. No new code.
+  2. The core learns a program's executable and how to read its version through a contract it declares and every
+     built-in module fulfils (a tool adapter, a confinement backend): the executable's name and the arguments that
+     print its version without calling any model. `git` and `ssh-keygen` are the core's own (AD-4). A
+     `tools.<name>.path` in `machine.toml` takes the place of the search of `PATH` and is shown as declared. In 7c2b
+     the contract is tested with fake modules; the real ones come with phase 9.
+  3. The scope of 7c2b, as a library: `machine.toml` read from the private folder, its values with the source
+     `declared`; detection in memory at every start; `local/cache/detected.json` written only by write commands, where
+     it keeps "verified by use" with its date and never gives presence; the validation of profiles; the domain's layout
+     (`DOMAIN_UNKNOWN_ENTRY`, `ALIAS_INVALID`); the exact `.gitignore` (`GITIGNORE_CHANGED`); the cache rebuilt by write
+     commands; `publication-decided`'s payload (`mode`, `warningShown`); `DOMAIN_NOT_IGNORED` with `git check-ignore`.
+     Deferred to phase 9: the permission mode, the observed model and effort, `local/evidence/` and `local/tmp/`; to
+     phase 10: the receipt and `apply`'s use of the exclude line. `bootstrap/`, and `review/` outside review mode, are
+     reported `DOMAIN_UNKNOWN_ENTRY`, not `ALIAS_INVALID`, so that `check` does not fail in this repository.
+- Consequences: `core-specification.md` records the interpretations of point 3 and the payload of
+  `publication-decided` in section 3, and REQ-SET-9's code; the work affected is part 7c2b, and phase 9's adapters
+  and backend, which fulfil the contract.
+- Sources: chat of session 19; `STATUS.md`'s two open items for 7c2b; D-050; AD-2 ("Present, apart from permitted"),
+  AD-4 ("External tools the core calls"), AD-5 (the rings), AD-15; `core-specification.md` REQ-SET-8, REQ-SET-9,
+  REQ-DOM-2, REQ-DOM-4, REQ-DOM-5, REQ-DOM-7, sections 6, 7, 11.4 and 12.
+- Supersedes: none.

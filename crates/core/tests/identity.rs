@@ -94,7 +94,7 @@ fn req_reg_4_apply_cites_the_first_adoption() {
     let mut head = None;
     for (kind, payload) in [
         ("assessed", json!({})),
-        ("publication-decided", json!({})),
+        ("publication-decided", project_payload("publication-decided")),
         ("policy-adopted", adoption.payload(&s.seal().unwrap())),
     ] {
         let draft = moved(kind, "xel", "maestro", &digest, payload);
@@ -118,7 +118,8 @@ fn req_reg_4_apply_cites_the_first_adoption() {
         let before = f.events("project");
         let last = before.last().unwrap();
         let prev = sha256_hex(&fs::read(last).unwrap());
-        let payload = if kind == "policy-adopted" { adoption.payload(&Default::default()) } else { json!({}) };
+        let payload =
+            if kind == "policy-adopted" { adoption.payload(&Default::default()) } else { project_payload(kind) };
         let draft = moved(kind, "xel", "maestro", cites, payload);
         let path = f.forge("project", before.len() as u64 + 1, Some(&prev), &draft, Some(&f.signer()));
         let got =
@@ -507,7 +508,7 @@ fn req_reg_4_append_writes_no_event_whose_signature_would_not_verify() {
     let before = f.events("project");
     let mut s = begin_with(&f, None, &PolicyVerifier).unwrap();
     let head = s.head("project").unwrap();
-    let draft = moved("publication-decided", "xel", "maestro", &digest, json!({}));
+    let draft = moved("publication-decided", "xel", "maestro", &digest, project_payload("publication-decided"));
     let e = s.append("project", head.as_ref(), &draft, Some(&Mixed(&f))).unwrap_err();
     assert_eq!(e.code(), Some(Code::RecordSignatureInvalid));
     assert_eq!(f.events("project"), before);
