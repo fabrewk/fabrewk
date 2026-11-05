@@ -21,7 +21,7 @@ pub struct Report {
     pub direct: BTreeSet<String>,
     /// Every crate of the build that is not a workspace package, by name and version.
     pub all: BTreeSet<(String, String)>,
-    /// Workspace packages in the build.
+    /// Fabrewk's own packages in the build.
     pub local: BTreeSet<PathBuf>,
 }
 
@@ -58,8 +58,9 @@ pub fn parse_tree(text: &str) -> Result<Vec<TreeLine>, String> {
     Ok(lines)
 }
 
-/// Classifies the tree: a line is local when its path is under `root`.
-pub fn analyse(lines: &[TreeLine], root: &Path) -> Result<Report, String> {
+/// Classifies the tree: a line is Fabrewk's own when its path is exactly one of `own` (the ring directories); any
+/// other package, a vendored copy under the repository included, counts as a crate.
+pub fn analyse(lines: &[TreeLine], own: &[PathBuf]) -> Result<Report, String> {
     let mut report = Report::default();
     let mut stack: Vec<bool> = Vec::new(); // whether each ancestor is local
     for line in lines {
@@ -70,7 +71,7 @@ pub fn analyse(lines: &[TreeLine], root: &Path) -> Result<Report, String> {
             ));
         }
         stack.truncate(line.depth);
-        let local = line.path.as_ref().is_some_and(|p| p.starts_with(root));
+        let local = line.path.as_ref().is_some_and(|p| own.contains(p));
         if local {
             report.local.insert(line.path.clone().unwrap_or_default());
         } else {

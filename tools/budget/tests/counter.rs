@@ -408,3 +408,136 @@ fn req_bud_1_a_closing_quote_never_starts_another_literal() {
 fn req_bud_1_hash_after_an_attribute_in_a_macro() {
     assert_eq!(count("quote! {\n    #[derive(Debug)] #name\n}\n"), 3);
 }
+
+#[test]
+fn req_bud_1_cfg_test_inside_a_macro_is_counted() {
+    // A macro may turn its input into production code: Codex's case in its first review of part 7a.
+    let src = "macro_rules! production {\n    (#[cfg(test)] mod $n:ident { $($body:tt)* }) => { mod $n { $($body)* } };\n}\n\
+               production! {\n    #[cfg(test)]\n    mod live {\n        pub fn answer() -> u32 {\n            42\n        }\n    }\n}\n\
+               fn main() {\n    println!(\"{}\", live::answer());\n}\n";
+    assert_eq!(count(src), 14);
+    assert_eq!(count("m![#[cfg(test)] mod t { fn x() {} }];\n"), 1);
+    assert_eq!(count("m!(\n#[cfg(test)]\nmod t {\n}\n);\n"), 5);
+    // Outside any macro the module is still excluded, and `!` as negation opens no macro.
+    assert_eq!(
+        count("if !ready {\n    go();\n}\n#[cfg(test)]\nmod t {\n    fn x() {}\n}\n"),
+        3
+    );
+    assert_eq!(
+        count("m! { x }\n#[cfg(test)]\nmod t {\n    fn x() {}\n}\n"),
+        1
+    );
+}
+
+#[test]
+fn req_bud_1_include_and_path_attributes_are_errors() {
+    let hidden = |src: &str| match count_source(src) {
+        Err(CountError::HiddenSource { what, line }) => (what, line),
+        other => panic!("{src:?}: {other:?}"),
+    };
+    assert_eq!(
+        hidden("fn a() {}\ninclude!(\"live.inc\");\n"),
+        ("include!", 2)
+    );
+    assert_eq!(hidden("m! { include ! (\"x.rs\") }\n"), ("include!", 1));
+    assert_eq!(
+        hidden("#[path = \"../../tools/live.rs\"]\nmod live;\n"),
+        ("a path attribute", 1)
+    );
+    assert_eq!(
+        hidden("#[cfg_attr(unix, path = \"x.rs\")]\nmod x;\n"),
+        ("a path attribute", 1)
+    );
+    assert_eq!(
+        hidden("fn a() {}\n#![path = \"x\"]\n"),
+        ("a path attribute", 2)
+    );
+    assert_eq!(
+        CountError::HiddenSource {
+            what: "include!",
+            line: 2
+        }
+        .to_string(),
+        "line 2: include! brings in code the counter does not see; not allowed in a ring"
+    );
+    // Data, not code, may still be included; a path that is a string or a dependency is no attribute.
+    assert_eq!(
+        count(
+            "const T: &str = include_str!(\"t.txt\");\nlet path = 1;\n#[doc = \"path = x\"]\nfn a() {}\n"
+        ),
+        4
+    );
+}
+
+#[test]
+fn req_bud_1_target_paths_in_a_ring_manifest_are_errors() {
+    let manifest = |name: &str, toml: &str| {
+        let f = Fixture::new(name);
+        f.file("crates/core/Cargo.toml", toml)
+            .file("crates/core/src/lib.rs", TWO_LINES);
+        count_rings(&f.0, &[CORE])
+    };
+    for (name, toml, line) in [
+        (
+            "lib-path",
+            "[package]\nname = \"x\"\n[lib]\npath = \"../../tools/x.rs\"\n",
+            4,
+        ),
+        (
+            "bin-path",
+            "[package]\nname = \"x\"\n\n[[bin]]\nname = \"y\"\npath=\"y.txt\"\n",
+            6,
+        ),
+        (
+            "build",
+            "[package]\nname = \"x\"\nbuild = \"../../tools/b.rs\"\n",
+            3,
+        ),
+    ] {
+        match manifest(name, toml) {
+            Err(Error::ManifestPath(p, n)) => assert_eq!(
+                (p.ends_with("crates/core/Cargo.toml"), n),
+                (true, line),
+                "{name}"
+            ),
+            other => panic!("{name}: {other:?}"),
+        }
+    }
+    let deps = "[package]\nname = \"x\"\n[dependencies]\ny = { path = \"../y\" }\n[dependencies.z]\npath = \"../z\"\n\
+                [target.'cfg(unix)'.dependencies.w]\npath = \"../w\"\n";
+    assert!(manifest("dependency-paths", deps).is_ok());
+    assert_eq!(
+        Error::ManifestPath(PathBuf::from("/w/Cargo.toml"), 4).to_string(),
+        "/w/Cargo.toml:4: a target path or build script is not allowed in a ring's manifest"
+    );
+}
+
+#[test]
+fn req_bud_1_what_opens_a_macro_and_what_does_not() {
+    // A test module inside these is counted: each is a macro's input.
+    for name in ["_m", "ñ", "m"] {
+        assert_eq!(
+            count(&format!("{name}! {{\n#[cfg(test)]\nmod t {{\n}}\n}}\n")),
+            5,
+            "{name}"
+        );
+    }
+    let rules = "macro_rules! m {\n    () => {\n        #[cfg(test)]\n        mod t {\n        }\n    };\n}\n";
+    assert_eq!(count(rules), 7);
+    assert_eq!(count(&format!("fn a() {{}}\n{rules}")), 8);
+    // Not macros: negation before a block or a condition, and a plain module; their test modules are excluded.
+    let not_block = "let x = (!{\n    #[cfg(test)]\n    mod t {\n    }\n    true\n});\n";
+    assert_eq!(count(not_block), 3);
+    assert_eq!(
+        count("if !ready {\n    #[cfg(test)]\n    mod t {\n    }\n}\n"),
+        2
+    );
+    let outer = "mod outer {\n    #[cfg(test)]\n    mod t {\n        fn x() {}\n    }\n}\n";
+    assert_eq!(count(outer), 2);
+}
+
+#[test]
+fn req_bud_1_an_attribute_run_ends_at_the_first_non_attribute() {
+    assert_eq!(count("#[derive(Debug)] #name\n"), 1);
+    assert_eq!(count("#[inline]\nv[cfg(test)]\nmod t {\n}\n"), 4);
+}

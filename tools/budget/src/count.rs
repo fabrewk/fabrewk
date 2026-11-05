@@ -3,8 +3,11 @@
 //! A line counts when it is not blank and some code token outside a `#[cfg(test)]` module touches it. Comments (`//`,
 //! `///`, `//!`, `/* */` nested, `/** */`, `/*! */`) are not code; a string literal is code on every line it spans,
 //! so `//` or `/*` inside a string is code. A `#[cfg(test)]` module is excluded from its first outer attribute to its
-//! closing brace. A test module declared out of line (`#[cfg(test)] mod tests;`) is an error, so that no file escapes
-//! the count unseen: test modules are written inline (core-specification 11.2, rule 1).
+//! closing brace, unless it lies inside a macro invocation or a `macro_rules!` body, whose input may become any code.
+//!
+//! What would bring code the counter does not see is an error: a test module declared out of line
+//! (`#[cfg(test)] mod tests;`; test modules are written inline, core-specification 11.2, rule 1), `include!`, and a
+//! `path` attribute (`#[path = …]`, also inside `cfg_attr`).
 
 use std::fmt;
 
@@ -17,6 +20,8 @@ pub enum CountError {
     Unbalanced { line: usize },
     /// `#[cfg(test)] mod name;`, whose file the counter would not see.
     OutOfLineTestModule { line: usize },
+    /// `include!` or a `path` attribute, which bring in a file the counter would not see.
+    HiddenSource { what: &'static str, line: usize },
 }
 
 impl fmt::Display for CountError {
@@ -26,6 +31,10 @@ impl fmt::Display for CountError {
                 write!(f, "line {line}: {what} does not end")
             }
             CountError::Unbalanced { line } => write!(f, "line {line}: bracket without its match"),
+            CountError::HiddenSource { what, line } => write!(
+                f,
+                "line {line}: {what} brings in code the counter does not see; not allowed in a ring"
+            ),
             CountError::OutOfLineTestModule { line } => write!(
                 f,
                 "line {line}: #[cfg(test)] module declared out of line; write it inline so the counter sees it"
@@ -54,6 +63,7 @@ pub fn count_source(src: &str) -> Result<usize, CountError> {
         .into_iter()
         .filter(|t| t.kind == Kind::Code)
         .collect();
+    hidden_sources(src, &code, &lines)?;
     let excluded = test_module_spans(src, &code, &lines)?;
     let mut touched = vec![false; lines.len()];
     let mut spans = excluded.iter().peekable();
@@ -270,6 +280,12 @@ fn test_module_spans(
     let mut spans = Vec::new();
     let mut i = 0;
     while i < code.len() {
+        if let Some(group) = macro_group(&text, i) {
+            // Resume at the group's closing token, which the next pass steps over.
+            i = group_close(code, src, group)
+                .ok_or(CountError::Unbalanced { line: line(group) })?;
+            continue;
+        }
         if !(text(i) == "#" && text(i + 1) == "[") {
             i += 1;
             continue;
@@ -308,6 +324,68 @@ fn test_module_spans(
         }
     }
     Ok(spans)
+}
+
+/// Where the delimited group of a macro invocation (`name!(…)`, `name![…]`, `name!{…}`) or of a `macro_rules!`
+/// definition starting at `i` opens.
+fn macro_group<'a>(text: &impl Fn(usize) -> &'a str, i: usize) -> Option<usize> {
+    let ident = |k: usize| {
+        text(k)
+            .bytes()
+            .next()
+            .is_some_and(|b| b.is_ascii_alphabetic() || b == b'_' || b >= 0x80)
+    };
+    if !(ident(i) && text(i + 1) == "!") {
+        return None;
+    }
+    let group = if text(i) == "macro_rules" && ident(i + 2) {
+        i + 3
+    } else {
+        i + 2
+    };
+    matches!(text(group), "(" | "[" | "{").then_some(group)
+}
+
+/// Index of the token closing the group that opens at `start`, whichever its delimiter.
+fn group_close(code: &[Token], src: &str, start: usize) -> Option<usize> {
+    let open = &src[code.get(start)?.start..code[start].end];
+    let close = match open {
+        "(" => ")",
+        "[" => "]",
+        "{" => "}",
+        _ => return None,
+    };
+    matching(code, src, start, open, close)
+}
+
+/// Refuses `include!` and any attribute holding `path = …`, anywhere in the file.
+fn hidden_sources(src: &str, code: &[Token], lines: &LineIndex) -> Result<(), CountError> {
+    let text = |k: usize| code.get(k).map_or("", |t| &src[t.start..t.end]);
+    let line = |k: usize| lines.line_of(code[k].start) + 1;
+    for k in 0..code.len() {
+        if text(k) == "include" && text(k + 1) == "!" {
+            return Err(CountError::HiddenSource {
+                what: "include!",
+                line: line(k),
+            });
+        }
+        if text(k) != "#" {
+            continue;
+        }
+        let open = if text(k + 1) == "!" { k + 2 } else { k + 1 };
+        if text(open) != "[" {
+            continue;
+        }
+        let close =
+            matching(code, src, open, "[", "]").ok_or(CountError::Unbalanced { line: line(k) })?;
+        if (open..close).any(|m| text(m) == "path" && text(m + 1) == "=") {
+            return Err(CountError::HiddenSource {
+                what: "a path attribute",
+                line: line(k),
+            });
+        }
+    }
+    Ok(())
 }
 
 /// Index of the token closing the `open` at `start`; `None` when `start` is not `open` or nothing closes it.

@@ -21,6 +21,8 @@ pub enum Error {
     MissingDir(PathBuf),
     Unassigned(PathBuf),
     Overlap(&'static str, &'static str),
+    /// A ring manifest that sets a target's `path` or a `build` script, which could compile a file outside the count.
+    ManifestPath(PathBuf, usize),
 }
 
 impl fmt::Display for Error {
@@ -39,6 +41,11 @@ impl fmt::Display for Error {
             }
             Error::Unassigned(p) => write!(f, "{}: Rust code in no ring", p.display()),
             Error::Overlap(a, b) => write!(f, "ring directories {a} and {b} overlap"),
+            Error::ManifestPath(p, line) => write!(
+                f,
+                "{}:{line}: a target path or build script is not allowed in a ring's manifest",
+                p.display()
+            ),
         }
     }
 }
@@ -80,6 +87,9 @@ pub fn count_rings(root: &Path, rings: &[Ring]) -> Result<Vec<RingCount>, Error>
         }
     }
     check_assigned(root, &dirs)?;
+    for d in &dirs {
+        check_manifest(&root.join(d).join("Cargo.toml"))?;
+    }
     rings.iter().map(|ring| count_ring(root, ring)).collect()
 }
 
@@ -184,6 +194,27 @@ fn walk(dir: &Path, visit: &mut dyn FnMut(&Path) -> Result<(), Error>) -> Result
             }
         } else if is_rust(&entry) {
             visit(&entry)?;
+        }
+    }
+    Ok(())
+}
+
+/// A ring's manifest may name paths only for its dependencies: a `path` key in any other table (`[lib]`, `[[bin]]`
+/// and the like) or a `build` key could make Cargo compile a file the counter does not walk.
+fn check_manifest(manifest: &Path) -> Result<(), Error> {
+    let Ok(text) = fs::read_to_string(manifest) else {
+        return Ok(()); // a directory without a manifest compiles nothing by itself
+    };
+    let mut dependency_table = false;
+    for (n, raw) in text.lines().enumerate() {
+        let line = raw.trim();
+        if line.starts_with('[') {
+            dependency_table = line.contains("dependencies");
+            continue;
+        }
+        let key = line.split('=').next().unwrap_or_default().trim();
+        if line.contains('=') && (key == "build" || (key == "path" && !dependency_table)) {
+            return Err(Error::ManifestPath(manifest.to_path_buf(), n + 1));
         }
     }
     Ok(())

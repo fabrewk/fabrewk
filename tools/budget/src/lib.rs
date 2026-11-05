@@ -16,6 +16,15 @@ pub fn workspace_root() -> PathBuf {
     root.canonicalize().unwrap_or(root)
 }
 
+/// The ring directories under `root`, as absolute paths: Fabrewk's own packages.
+pub fn own_packages(root: &Path, rings: &[Ring]) -> Vec<PathBuf> {
+    rings
+        .iter()
+        .flat_map(|r| r.dirs)
+        .map(|d| root.join(d))
+        .collect()
+}
+
 /// The `cargo` that runs this tool, or the one on `PATH`.
 pub fn cargo() -> PathBuf {
     std::env::var_os("CARGO").map_or_else(|| PathBuf::from("cargo"), PathBuf::from)
@@ -38,7 +47,7 @@ pub fn ring_problems(counts: &[rings::RingCount]) -> Vec<String> {
 }
 
 /// Every problem of the release build's crates, as a sentence; empty when within.
-pub fn dependency_problems(report: &deps::Report, root: &Path, rings: &[Ring]) -> Vec<String> {
+pub fn dependency_problems(report: &deps::Report) -> Vec<String> {
     let mut problems = Vec::new();
     if report.direct.len() > MAX_DIRECT_RUNTIME_CRATES {
         problems.push(format!(
@@ -61,18 +70,6 @@ pub fn dependency_problems(report: &deps::Report, root: &Path, rings: &[Ring]) -
             "{} crates in the release build, over the limit of {MAX_RELEASE_CRATES}",
             report.all.len()
         ));
-    }
-    for path in &report.local {
-        if !rings
-            .iter()
-            .flat_map(|r| r.dirs)
-            .any(|d| path.starts_with(root.join(d)))
-        {
-            problems.push(format!(
-                "workspace package {} is in the release build but in no ring",
-                path.display()
-            ));
-        }
     }
     problems
 }

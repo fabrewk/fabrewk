@@ -1595,3 +1595,20 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   budget is a maestro's decision.
 - Sources: chat of session 14; D-038, D-041; AD-5, AD-9; `core-specification.md` REQ-BUD-1, REQ-BUD-2, REQ-BUD-5.
 - Supersedes: none.
+
+## D-043 — The suites run with the rustup toolchain, so the musl binary is the one measured
+
+- Status: decided
+- Decided: 2026-11-05
+- Origin: maintainer XEL in session 14's chat, after Codex's first review of part 7a found that the binary-size test
+  measured the GNU build (P7A-4): "Suite con rustup 1.99.1 (Recomendado)".
+- Decision: the suites of record run with the rustup toolchain 1.99.1 (the same version and commit as Fedora's
+  `rustc`), whose `cargo` builds for `aarch64-unknown-linux-musl`; the binary-size test builds the musl release binary
+  and measures it, the artifact D-042 froze. Run with Fedora's `cargo`, every test passes but that one, which fails
+  naming the toolchain it needs; it is never skipped (core-specification 11.2, rule 7). `budget check --binary` keeps
+  measuring a binary built beforehand.
+- Consequences: the commands to run the suites are in `STATUS.md`. REQ-BUD-3 holds, since the compiler is the
+  recorded version 1.99.1.
+- Sources: chat of session 14; Codex's first review of part 7a; D-041, D-042; `core-specification.md` REQ-BUD-2,
+  REQ-BUD-3, 11.2.
+- Supersedes: D-041 only in its point 4, where `cargo test` used Fedora's toolchain.

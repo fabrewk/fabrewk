@@ -7,7 +7,9 @@ use budget::budget::{
 };
 use budget::deps::{Report, TreeLine, analyse, cargo_tree, parse_tree};
 use budget::rings::{RingCount, count_rings};
-use budget::{binary_problem, cargo, dependency_problems, ring_problems, workspace_root};
+use budget::{
+    binary_problem, cargo, dependency_problems, own_packages, ring_problems, workspace_root,
+};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -79,15 +81,12 @@ fn req_bud_2_a_ring_over_its_limit_is_reported() {
 fn req_bud_2_crate_counts_within_budget() {
     let root = workspace_root();
     let tree = cargo_tree(&cargo(), &root, BINARY_PACKAGE, RELEASE_TARGET).unwrap();
-    let report = analyse(&parse_tree(&tree).unwrap(), &root).unwrap();
+    let report = analyse(&parse_tree(&tree).unwrap(), &own_packages(&root, RINGS)).unwrap();
     assert!(
         report.local.contains(&root.join("crates/fabrewk")),
         "{report:?}"
     );
-    assert_eq!(
-        dependency_problems(&report, &root, RINGS),
-        Vec::<String>::new()
-    );
+    assert_eq!(dependency_problems(&report), Vec::<String>::new());
 }
 
 fn line(depth: usize, name: &str, path: Option<&str>) -> TreeLine {
@@ -103,7 +102,8 @@ fn line(depth: usize, name: &str, path: Option<&str>) -> TreeLine {
 fn req_bud_2_tree_is_parsed_and_classified() {
     let text = "0fabrewk v0.0.0 (/w/crates/fabrewk)\n1fabrewk-core v0.0.0 (/w/crates/core)\n2serde v1.0.229\n\
                 3serde_derive v1.0.229 (proc-macro)\n4syn v3.0.9\n2cc v1.11.0\n1sha2 v0.10.9\n2cfg-if v1.0.5\n\
-                1other v0.1.0 (/elsewhere/other)\n2leaf v2.0.0\n";
+                1other v0.1.0 (/elsewhere/other)\n2leaf v2.0.0\n1vendored v0.1.0 (/w/vendor/vendored)\n\
+                2tools v0.0.0 (/w/tools/budget)\n";
     let lines = parse_tree(text).unwrap();
     assert_eq!(
         lines[0],
@@ -115,66 +115,62 @@ fn req_bud_2_tree_is_parsed_and_classified() {
         }
     );
     assert_eq!(lines[3].path, None);
-    let report = analyse(&lines, Path::new("/w")).unwrap();
+    // Fabrewk's own packages are the ring directories exactly; a package elsewhere under the repository is a crate.
+    let own = [
+        PathBuf::from("/w/crates/fabrewk"),
+        PathBuf::from("/w/crates/core"),
+    ];
+    let report = analyse(&lines, &own).unwrap();
     let direct: Vec<_> = report.direct.iter().map(String::as_str).collect();
-    assert_eq!(direct, ["cc", "other", "serde", "sha2"]);
-    assert_eq!(report.all.len(), 8);
-    assert_eq!(report.local.len(), 2);
+    assert_eq!(direct, ["cc", "other", "serde", "sha2", "vendored"]);
+    assert_eq!(report.all.len(), 10);
+    assert_eq!(report.local, own.into_iter().collect());
     assert!(parse_tree("fabrewk v0.0.0\n").is_err());
     assert!(parse_tree("0fabrewk\n").is_err());
     assert!(parse_tree("0fabrewk 0.0.0\n").is_err());
-    assert!(analyse(&[line(0, "a", None), line(2, "b", None)], Path::new("/w")).is_err());
+    assert!(analyse(&[line(0, "a", None), line(2, "b", None)], &[]).is_err());
 }
 
 #[test]
 fn req_bud_2_crate_counts_over_limits_are_reported() {
-    let root = Path::new("/w");
     let mut report = Report::default();
-    report.local.insert(root.join("crates/core"));
+    report.local.insert(PathBuf::from("/w/crates/core"));
     for (name, _) in APPROVED_RUNTIME_CRATES {
         report.direct.insert(name.to_string());
     }
     for n in 0..MAX_RELEASE_CRATES {
         report.all.insert((format!("c{n}"), "1.0.0".into()));
     }
-    assert_eq!(
-        dependency_problems(&report, root, RINGS),
-        Vec::<String>::new()
-    );
+    assert_eq!(dependency_problems(&report), Vec::<String>::new());
 
     let mut more = report.clone();
     more.all.insert(("one-more".into(), "1.0.0".into()));
-    assert_eq!(dependency_problems(&more, root, RINGS).len(), 1);
+    assert_eq!(dependency_problems(&more).len(), 1);
 
     let mut unapproved = report.clone();
     unapproved.direct.insert("unapproved".into());
-    assert_eq!(dependency_problems(&unapproved, root, RINGS).len(), 1);
+    assert_eq!(dependency_problems(&unapproved).len(), 1);
 
     let mut at_limit = report.clone();
     at_limit.direct = (0..MAX_DIRECT_RUNTIME_CRATES)
         .map(|n| format!("d{n}"))
         .collect();
-    assert_eq!(
-        dependency_problems(&at_limit, root, RINGS).len(),
-        at_limit.direct.len()
-    );
+    assert_eq!(dependency_problems(&at_limit).len(), at_limit.direct.len());
 
     let mut too_many = report.clone();
     too_many.direct = (0..=MAX_DIRECT_RUNTIME_CRATES)
         .map(|n| format!("d{n}"))
         .collect();
     assert_eq!(
-        dependency_problems(&too_many, root, RINGS).len(),
+        dependency_problems(&too_many).len(),
         1 + too_many.direct.len()
     );
-
-    let mut stray = report;
-    stray.local.insert(root.join("tools/budget"));
-    assert_eq!(dependency_problems(&stray, root, RINGS).len(), 1);
 }
 
 #[test]
 fn req_bud_2_binary_within_budget() {
+    // The frozen limit is the musl release binary's (D-042), built here by the cargo running the suite, which must
+    // have that target (D-043); this test fails, never skips, when it cannot.
     let target_dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("release-size");
     let status = Command::new(cargo())
         .current_dir(workspace_root())
@@ -185,15 +181,23 @@ fn req_bud_2_binary_within_budget() {
             "--offline",
             "--package",
             BINARY_PACKAGE,
+            "--target",
+            RELEASE_TARGET,
             "--target-dir",
         ])
         .arg(&target_dir)
         .status()
         .unwrap();
-    assert!(status.success());
-    let bytes = fs::metadata(target_dir.join("release").join(BINARY_PACKAGE))
-        .unwrap()
-        .len();
+    assert!(
+        status.success(),
+        "{} cannot build for {RELEASE_TARGET}: run the suite with the rustup toolchain that has it",
+        cargo().display()
+    );
+    let binary = target_dir
+        .join(RELEASE_TARGET)
+        .join("release")
+        .join(BINARY_PACKAGE);
+    let bytes = fs::metadata(&binary).unwrap().len();
     assert_eq!(binary_problem(bytes), None, "{bytes} bytes");
     assert_eq!(binary_problem(MAX_BINARY_BYTES), None);
     assert!(binary_problem(MAX_BINARY_BYTES + 1).is_some());
@@ -224,7 +228,7 @@ fn req_bud_4_direct_crates_are_approved() {
     let root = workspace_root();
     let report = analyse(
         &parse_tree(&cargo_tree(&cargo(), &root, BINARY_PACKAGE, RELEASE_TARGET).unwrap()).unwrap(),
-        &root,
+        &own_packages(&root, RINGS),
     )
     .unwrap();
     for name in &report.direct {

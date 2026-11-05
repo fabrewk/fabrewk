@@ -52,7 +52,10 @@ fn check(binary: PathBuf, target: &str) -> Result<bool, String> {
     let counts = rings::count_rings(&root, RINGS).map_err(|e| e.to_string())?;
     print_counts(&counts);
     let tree = deps::cargo_tree(&budget::cargo(), &root, BINARY_PACKAGE, target)?;
-    let report = deps::analyse(&deps::parse_tree(&tree)?, &root)?;
+    let report = deps::analyse(
+        &deps::parse_tree(&tree)?,
+        &budget::own_packages(&root, RINGS),
+    )?;
     println!(
         "direct runtime crates: {} {:?}",
         report.direct.len(),
@@ -67,7 +70,7 @@ fn check(binary: PathBuf, target: &str) -> Result<bool, String> {
         .len();
     println!("release binary {}: {bytes} bytes", binary.display());
     let mut problems = budget::ring_problems(&counts);
-    problems.extend(budget::dependency_problems(&report, &root, RINGS));
+    problems.extend(budget::dependency_problems(&report));
     problems.extend(budget::binary_problem(bytes));
     for p in &problems {
         println!("over budget: {p}");
