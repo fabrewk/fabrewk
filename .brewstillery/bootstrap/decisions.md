@@ -1011,3 +1011,160 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Sweep: the answers zone now holds the integrator's opinion on 8.2 and 8.3 and four recommendations for the input
   (section 1's Python intent; 8.2 split by idea with the need of each; 8.3 as a new point of section 6 with three
   clarifications; 8.4 removed once acted on). The input is unchanged by the integrator (digest above).
+
+## D-032 — Domain, governance and core architecture after the sweep of section 8
+
+- Status: decided
+- Decided: 2026-11-04
+- Origin: maintainer XEL in session 9's chat, answering the integrator's eighteen numbered recommendations (themselves
+  drawn from the sweep of input points 6.47.a and 8.2 to 8.4): "1 y 2: De acuerdo en todo lo recomendado." "3: Estoy de
+  acuerdo, solo me queda la duda […] quiero pensar que un meta-harness como somos nosotros siempre es preferible mantener
+  en el propio dominio la administración compleja y dejar los archivos canónicos estándar lo más limpios posibles."
+  "4, 5 y 6: De acuerdo en todo lo recomendado." "7: De acuerdo a lo que propones y sobre tus preguntas: a,b,c y d: Si tu
+  recomendación técnica es la que le sigue a la pregunta en negritas, estoy de acuerdo." "8, 9, 10 y 11: De acuerdo en
+  todo lo recomendado." "12, 13, y 14: De acuerdo en todo lo recomendado." "15: De acuerdo, y pienso va de la mano con tu
+  punto 13, si no hay todavía una 'central' no hay nada que tenga que hacer 'phone-home'." "16: De acuerdo en tu
+  recomendación […]. Nuestro piloto definirá también mejoras reales en campo." "17 y 18 De acuerdo en todo lo
+  recomendado." Earlier in the same chat: "Sobre los directorios por mantenedor […] quedemosla […] solo existiría un solo
+  ALAMBIQUE.md en el root de brewstillery y los archivos fermento de cada mantenedor serían responsabilidad de cada
+  quien." The private folder per machine was the maintainer's own addition in that chat ("~/.config/fabrewk/ donde allí
+  el usuario de cada host pueda guardar llaves […]").
+- Decision, by the numbers of the integrator's list:
+  1. The domain is `.brewstillery/` (hidden), in every repository Fabrewk serves and in its own.
+  2. One project alambique, `.brewstillery/ALAMBIQUE.md`, and one fermento per maintainer,
+     `.brewstillery/<alias>/fermento.md`, written only by that maintainer above the existing separator; agents answer
+     below it. The per-maintainer space stays, holding the fermento, the personal settings and the support material.
+  3. The project alambique is only the description of what the project must be, with stable headings and numbering;
+     no settings, no answers zone. The rules Fabrewk administers for agents live inside the domain; the root entry
+     files (`AGENTS.md`, `CLAUDE.md`) carry only the delimited reference to `STATUS.md` (the maintainer's intuition,
+     agreed by the integrator; its file name and form are fixed by the design).
+  4. Nobody edits the project alambique directly: an agent drafts the edit as a proposal and a maestro approves it.
+  5. The state of each proposal (pending, approved, integrated, discarded) is recorded by Fabrewk with the identity and
+     words of who decides, bound to the exact text, and goes stale when that text changes; the fermento and the
+     alambique only show it.
+  6. A maintainer's identity is the SSH key they sign with, listed in the project settings; the list changes only with
+     the signature of a key already on it.
+  7. Three roles are designed now: maestro, supervisor, contributor. The first core enforces maestro and contributor;
+     supervisor comes when a second maintainer needs it. The registry records the role of every act from the start.
+     (a) Roles are assigned and revoked by a change signed by a maestro already on the list. (b) With one maestro, the
+     maestro approves alone and independent review comes from agents of another provider. (c) A supervisor's scope is
+     an area (paths), the whole project when no area is given. (d) A contributor proposes and launches no agent, not
+     even read-only.
+  8. Roles live in a section of the project settings, not in a Markdown file.
+  9. Human ownership of paths is read from the Git host's code-owners file (CODEOWNERS) where it exists; Fabrewk keeps
+     no second map.
+  10. A private folder per machine, `~/.config/fabrewk/` on Linux and the user configuration folder on macOS and
+      Windows, outside every repository: Fabrewk's own keys and tokens (preferably in the operating system's key
+      store, an owner-only file as fallback) and machine data that detection cannot find. It never grants authority,
+      never copies the sessions of Claude Code or Codex, is never copied between machines, and agents do not see it.
+      Cross-project preferences there are deferred.
+  11. This repository migrates once, in its own commit, right after this decision and before the core specification.
+  12. The core is written in Rust; every crate is justified; a minimum Rust version is fixed.
+  13. Extensions are separate programs in any language that talk to the `fabrewk` command through stable structured
+      output; the project settings declare which may run; none writes the registry; no always-on service or open port
+      until the central server exists.
+  14. Confinement is one backend per operating system, bubblewrap on Linux ARM64 first, Docker as an alternative; a
+      platform counts as supported only once tested on it.
+  15. No always-on process in the first core; automatic launches happen only inside a stage's authorized plan.
+  16. Semantic code search (a vector index) is a later extension, off by default, LanceDB as candidate, vectors
+      computed on the machine by default and by an external provider only with explicit permission; built after the
+      pilot and kept only if it measures less consumption or rework.
+  17. The central server is a later stage, optional and off by default, with the rules of Pullboard's relay: it shows
+      and does not command (what is done on the dashboard returns to the repository as a signed request), holds records
+      and never code, and connecting a repository publishes its record (warning of 6.27). It lives in this repository
+      as a separate program until it needs its own release cycle. From now on each registry entry names the instance
+      that wrote it.
+  18. Containers for a project's checks are optional, declared by each project, outside the core.
+- Consequences: the integrator delivers a second audit of the alambique with the full proposed text of the project
+  alambique and of XEL's fermento (`brewstillery/bootstrap/alambique-audit.md`, replacing the phase 1 audit, which stays
+  in Git history at `8dfd9cb`). Once the maintainer adopts it, the migration of point 11 moves the domain and the
+  files, and `AGENTS.md`, `CLAUDE.md`, `STATUS.md` and `plan.md` follow. Phase 5 resumes with AD-4 rewritten for Rust,
+  AD-5 for the extension contract, AD-7 for a binary installation, and new decisions for points 1 to 10 and 17 where
+  `architecture-decisions.md` lacks them.
+- Sources: chat of session 9; the answers zone of `brewstillery/xel/alambique.md` in session 9; Pullboard at
+  `6231e10`, re-read in session 9 (R-016).
+- Supersedes: D-002 for the domain's name, the per-maintainer alambique and the swept file (now the fermento); D-031
+  only for AD-2's rule "no user-level settings file outside the repository in the first core" (replaced by point 10)
+  and for AD-1's path, which becomes `.brewstillery/data/`; D-004 and D-009 are unaffected (the pilot module stays in
+  Python, it is a product, not Fabrewk).
+
+## D-033 — The maintainer's annotations on the proposed alambique
+
+- Status: decided
+- Decided: 2026-11-04
+- Origin: maintainer XEL in session 9's chat, reviewing Part 2 of the second audit: "El encabezado preferiblemente que
+  diga # ALAMBIQUE para destilar Fabrewk"; "Hay que comenzar describiendole al usuario (mantenedores) con la analogía,
+  ejemplo: 'El Alambique es el utenciliio al cual se le vierte el fermento preparado por cada maestro para extraer un
+  destilado fino.' Creo que no debemos aquí explicar que es el único ni que lo aprueban sus maestros"; "Hay que explicar
+  claro y con poca prosa que cada mantenedor en Fabrewk cuenta con su propio dominio y directorio y en el existe un
+  markdown llamado fermento.md el cual es el archivo canónico del arnés para oficializar input de diseño entre
+  mantenedor y agentes […]"; "'prosa minimalista, clara y contundente' serian una mejor definición a mi juicio";
+  "deberiamos idear una clave de palabras que explique en el mismo Alambique que ya está decidido, integrado,
+  implementado, proyectado o en controversia, en parentesis o en brackets [...], como mas convenga, pero sería bueno
+  estandarizarlos y explicarlos"; for section 1's last item, "Instalación sencilla ya sea mediante un llamado a un
+  script con `curl` desde nuestro propio repositorio de GitHub el cual comience un proceso de 'onboarding' […] o
+  llamarlo también mediante un prompt preestablecido para que cualquier agente que el mantenedor use pueda ejecutar el
+  onboarding de instalación al repo."; "Todo lo demás parece ya encajar muy bien con lo propuesto de forma clara y
+  limpia., verificalo antes de ejecutar el punto 2 de tu propuesta."
+- Decision:
+  1. The alambique's title is "ALAMBIQUE para destilar Fabrewk" and it opens with the still analogy. That it is the
+     project's single alambique, approved by its maestros, is said in section 2 and in the usage list, not in the
+     opening.
+  2. "Cómo se usa" is a short list: each maintainer's directory `.brewstillery/<alias>/` and what the alias is;
+     `fermento.md` as Fabrewk's canonical file for design input between maintainer and agents; support files beside
+     it; only maestros approve what enters the alambique, an agent drafts each edit and a maestro approves it. Alambique
+     and fermentos are written in "prosa minimalista, clara y contundente".
+  3. Status keys, in brackets (parentheses are already common in the prose), at the end of the sentence or point title
+     they qualify: [proyectado] (a later stage), [en controversia] (proposals or decisions in conflict; nothing designed
+     or built until resolved), [decidido] (in the record), [implementado] (code exists and passes its tests),
+     [integrado] (implemented, independently verified and delivered in a published release). No key means an open
+     expectation. The keys reflect the registry, which prevails: an agent proposes a change of key in an alambique edit
+     and a maestro approves it. Until code exists no point goes past [decidido]. The integrator chose the brackets and
+     the definitions, as the maintainer left that open ("como mas convenga").
+  4. To keep the key [integrado] distinct, the proposal state that D-032 item 5 calls "integrated" is worded
+     "incorporated into the alambique" (6.8). Wording only.
+  5. Section 1's installation item takes the maintainer's wording: a `curl` script from Fabrewk's own GitHub repository
+     that starts a guided onboarding with the options chosen for the repository, or a preset prompt any agent can run;
+     in both, nothing is written before the maintainer confirms (section 1's assessment item). RSC-Harness, the
+     maintainer's example, was checked at source: its onboarding runs with `npx`, not `curl`, interviews, prints the
+     exact plan and writes nothing until that plan is accepted, and also starts from a prompt to the agent. It stays as
+     the reference for guided onboarding (7b).
+  6. The maintainer authorized step 1 of the audit's Part 5 (the integrator's migration commit) once the proposal was
+     verified.
+- Consequences: Parts 1 to 3 of `alambique-audit.md` updated; the migration commit follows. AD-7 (installation) must
+  cover both routes and decide how the script checks what it downloads; nothing about that is added to the alambique.
+- Sources: chat of session 9; RSC-Harness's repository page (R-016).
+- Supersedes: the wording of D-032 item 5 only.
+
+## R-016 — Session 9, sweep of section 8, D-032 and D-033, second audit and migration
+
+- Status: recorded
+- Date: 2026-11-04
+- Who: integrator Claude Code, `claude-opus-5-5`, effort high as the maintainer states it. No subagent, no Codex pass
+  in this session. Network authorized by the maintainer in chat: "TE autorizo acceder a la red para hacer tu
+  verificación de estos proyectos o de algún otro que consideres pertinente."
+- Start: HEAD `8dfd9cb`; the maintainer had edited the input above the separator (6.47.a, section 8, section 1).
+  During the session the maintainer edited it again (a typo, branding moved to the agent of section 4, 8.3 removed).
+  Final input lines 1–387, sha256 `06aa160f…f431`; separator lines 388–391, found once. The maintainer's edits are
+  committed alone in `ae1269d`, with the answers zone as it was at `8dfd9cb`.
+- Read: `STATUS.md`, `plan.md`, this file, the alambique, both settings files, `architecture-decisions.md`,
+  `reference-study.md`.
+- Network: Pullboard shallow-cloned into the session's scratch directory at `6231e10` (2026-10-28) and read at source:
+  `SPEC.md`, `README.md`, `docs/architecture.md`, `DOCTRINE.md`, `AGENTS.md`, `src/init.js`, `src/commands/watch.js`,
+  `src/row-decisions.js`, `relay/README.md`, and searches over `src/`. Findings used: `init` appends a delimited block
+  with its working loop to `AGENTS.md` and writes `CLAUDE.md` as `@AGENTS.md`; doctrine is a separate root file; lanes
+  in `pullboard.json` own folders and a pre-commit check refuses changes outside them; an approvers list; SSH
+  sign-offs; a machine home `~/.pullboard`; `pullboard serve` (local API and view); a relay deployed as a Docker
+  container that shows and does not command. Not found: a vector database, containers or WebAssembly for agents.
+  Correction of the integrator's first sweep, which had said Pullboard lacked worktrees, lanes, a view and a hidden
+  folder. Web pages: Kilo Code's codebase indexing (`kilo.ai/docs/customize/context/codebase-indexing`), LanceDB's
+  repository, DuckDB's vector extension (`duckdb.org/docs/stable/core_extensions/vss`), RSC-Harness's repository page;
+  two searches (agentic search versus vector retrieval in Claude Code; RSC-Harness's installation).
+- Written: the answers zone of the alambique (two sweeps, replaced each time); D-032, D-033 and this entry;
+  `alambique-audit.md` rewritten as the second audit (the phase 1 audit stays at `8dfd9cb`); the migration (below).
+  The proposed text of Part 2 is generated by a script from a verbatim copy of input lines 1–290, with each replaced
+  passage checked to occur exactly once; the annotations of D-033 applied the same way.
+- Migration (D-032 item 11), old path → new path: `brewstillery/` → `.brewstillery/`; `brewstillery/xel/alambique.md`
+  → `.brewstillery/ALAMBIQUE.md` (moved, so the text keeps its history; the maintainer then replaces its content with
+  Part 2); `.brewstillery/xel/fermento.md` is new, created by the maintainer from Part 3. Every other file keeps its
+  name under the new domain. Older entries of this record keep their paths as history.

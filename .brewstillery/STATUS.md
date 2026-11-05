@@ -1,0 +1,76 @@
+# Fabrewk — status
+
+Manual, provisional view, written by the integrator until Fabrewk's single registry exists; then it becomes a
+view generated from that registry. Technical files are in English by default (D-008).
+
+## Current state
+
+**Phase 0 (bootstrap) is closed (D-013). Nothing of Fabrewk is built yet.** No code, no licence, no `.gitignore`,
+no `data/` yet. The repository holds the project's alambique, the maintainer's fermento and settings, this file,
+the root entry files (`AGENTS.md`, `CLAUDE.md`) and the bootstrap record. The domain is `.brewstillery/`, hidden
+(D-032).
+
+## Read first
+
+1. `.brewstillery/ALAMBIQUE.md`: the description of what Fabrewk must be, approved by its maestros, with status keys
+   defined in its opening. Nobody edits it directly; it authorizes nothing by itself.
+2. `.brewstillery/xel/fermento.md`: the maintainer's input (above the separator) and the agents' answers (below it).
+3. `.brewstillery/bootstrap/decisions.md`: the decisions in force, with their origin, and what each session read.
+4. `.brewstillery/bootstrap/plan.md`: the approved construction plan.
+5. `.brewstillery/settings.toml` (project) and `.brewstillery/xel/settings.toml` (personal; never grants authority).
+
+## Evidence
+
+`.brewstillery/bootstrap/` is the provisional record of Fabrewk's self-construction (D-005). It exists only in this
+repository, is imported into the single registry at production and then stays read-only.
+
+## Latest and next
+
+- **Done:** the legacy TickBrew repository now lives at `/home/xel/Dev/TickBrew/tickbrew-legacy`, frozen at tag
+  `legacy-final` (R-004). Documentation publication languages: `en`, `es-MX` (D-014).
+- **Phase 1 closed (D-018):** the maintainer adopted the audited input (`.brewstillery/bootstrap/alambique-audit.md`),
+  with a usage note and section 8 as their channel. Phases are split into parts only when needed (D-019, in
+  `plan.md`). The answers zone holds only current recommendations (D-017).
+- **Phase 2 closed (D-021, R-008):** Codex's review had one blocking point (6.38), settled by the maintainer: it
+  stays "propone". Plan sentence on append-only clarified in `AGENTS.md`.
+- **Phase 3 closed (D-025).** Part 3a (R-009): every file of `tickbrew-harness` has a verdict in
+  `.brewstillery/bootstrap/harness-verdicts.md` (25 reuse as design, 7 rewrite, 8 discard). Part 3b (R-010): every
+  confirmed defect found by past reviews, and the three found in 3a, is a test case against Fabrewk's behaviour in
+  `.brewstillery/bootstrap/past-defect-cases.md` (46 cases). Codex (GPT-6.1 Sol, high) reviewed both: reject, two
+  scoped re-checks, accept; every confirmed finding corrected.
+- **Phase 4 delivered (D-026, D-027).** `.brewstillery/bootstrap/reference-study.md`: part 4a (R-011), Pullboard at
+  source, catalogues and profiles of agents (6.14, 6.15), permitted versus present (D-015) and installers that preview
+  their plan; part 4b (R-012), section 7a (UCI, apk-tools, SQLite, with three storage options for 6.26 and 6.27) and
+  the consolidated source catalogue (6.30, 61 sources: studied, checked or pending). Codex (GPT-6.1 Sol, high) reviewed
+  both: reject, two scoped re-checks, accept; every confirmed finding corrected. **Phase 4 closed (D-029).** UCI and
+  apk-tools stay as design patterns only; their schema is out of scope (D-028).
+- **Phase 5 in progress, one part (D-030).** `.brewstillery/bootstrap/architecture-decisions.md` gives options, consequences
+  and a recommendation for AD-1 to AD-11; Codex (GPT-6.1 Sol, high) accepted it at its third pass (R-015). Decided
+  (D-031): AD-1, the registry as immutable event files under `.brewstillery/data/`; AD-2, settings in TOML with five
+  levels and authority read from a committed or confirmed policy; AD-3, the language classes. Licence criterion
+  (D-030): open source, able to live beside any open or closed product, obliging only credit; decided without a
+  professional.
+- **Session 9 (D-032, D-033, R-016).** The sweep of 6.47.a and section 8 became eighteen decisions on the domain,
+  governance and core architecture (D-032): hidden domain `.brewstillery/`; one project `ALAMBIQUE.md`, never edited
+  directly, and one `fermento.md` per maintainer; maestro, supervisor and contributor roles with the SSH signing key as
+  identity; a private folder per machine; a Rust core with extensions as separate programs; one confinement backend
+  per operating system; semantic search and the central server as later stages. The maintainer annotated the proposed
+  text (D-033: title, opening analogy, usage list, status keys, installation). The second audit
+  (`.brewstillery/bootstrap/alambique-audit.md`) holds the full proposed alambique (Part 2) and fermento (Part 3). The
+  integrator's half of the migration is committed: the domain renamed, the old alambique moved to `ALAMBIQUE.md`,
+  entry files and this file updated.
+- **Next, first check of the next session.** The maintainer's half of the migration (audit, Part 5, step 2): Part 2
+  pasted over `.brewstillery/ALAMBIQUE.md`, `.brewstillery/xel/fermento.md` created from Part 3, and in
+  `.brewstillery/settings.toml` `domain = ".brewstillery"` with the path comments updated, in the maintainer's own
+  commit. Then check (step 3): the separator found exactly once in the fermento and not at all in the alambique; no
+  section 8; the alambique equal to Part 2. If any of this is missing, ask the maintainer before anything else.
+- **Then phase 5 resumes (plan row 5).** Rewrite AD-4 for the Rust core, AD-5 for the extension contract and AD-7 for
+  a binary installation with both routes (a `curl` script with guided onboarding, a preset prompt for any agent) and
+  how the script checks what it downloads; add the decisions D-032 points 1 to 10 and 17 need where
+  `architecture-decisions.md` lacks them (including the name and form of the agents' rules file inside the domain);
+  Codex re-checks the file against the new alambique; then the maintainer decides AD-4 to AD-11.
+- **Start prompt:** `Eres el integrador de Fabrewk; empieza por .brewstillery/STATUS.md`. Model and effort: Claude
+  Code on Opus 5.5, effort high; Codex GPT-6.1 Sol, effort high, reviews, with its full budget (D-030).
+
+Carried without blocking, with destinations, in D-013. A phase that does not pass is corrected and retried; it
+never ends the project (D-003).

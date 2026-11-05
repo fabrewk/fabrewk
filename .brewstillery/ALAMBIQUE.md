@@ -392,30 +392,164 @@ NOTA:  Toma todos los puntos de la sección 8 como propuestas para discución y 
 
 ## Respuesta del integrador
 
-Barrido de tus puntos 8.2 y 8.3, como pides en el 8.4. Primero mi opinión y mis críticas; al final, qué editar en tu entrada.
+Barrido de tus cambios: la frase de la sección 1, el nuevo 6.47.a y los puntos 8.2 a 8.4 (hay dos con el número 8.4). Incluye lo que acordamos en el chat: una carpeta privada por equipo fuera de los repositorios, conservar los directorios por mantenedor y tener un solo alambique del proyecto. Comprobé en su fuente lo que dices de Pullboard y de Kilo Code. Todo sigue siendo propuesta, como dice tu nota final.
 
-### Sobre el punto 8.2 (núcleo en Rust con extensiones en otros lenguajes)
+### En conjunto
 
-Estoy de acuerdo con el fondo: un núcleo robusto y una capa modular donde las extensiones se escriban en Python, TypeScript u otro lenguaje. Eso ya cabe en tu punto 6.2 (núcleo pequeño, extensiones mediante adaptadores). Mis críticas, para que decidas con ellas:
+Comparto el rumbo: Git como única fuente de verdad (ya lo decidiste para el registro), un núcleo pequeño con extensiones en cualquier lenguaje, verificación independiente antes de tu revisión, la central como pieza opcional y posterior, la identidad por firma y, sobre todo, separar las propuestas (fermento) del texto aprobado del proyecto (alambique). Esto último es lo de más valor: con varios mantenedores habría hoy varios alambiques y ningún texto único que mande.
 
-- Varias piezas que mencionas no están en el diseño actual: la indexación rápida de archivos, la base de datos vectorial, el bus de eventos y los sandboxes con Docker o WASM. El trabajo pesado (leer el código, buscar, razonar) lo hacen los agentes que Fabrewk lanza, como Claude Code y Codex, que ya indexan por su cuenta; lo que Fabrewk guarda es un registro pequeño de eventos. No encuentro hoy en tu entrada un requisito que pida un índice o una base vectorial. Si lo hay, por ejemplo la memoria entre sesiones del punto 6.39, conviene decirlo, porque cada pieza así agranda el núcleo, y que el núcleo creciera fue justo la lección de los pilotos anteriores (sección 4).
-- Rust tiene una ventaja real para Fabrewk: un solo programa por plataforma, sin intérprete, lo que facilita la instalación con `curl` y la portabilidad a macOS y Windows (punto 6.46). Su ventaja de velocidad pesa poco aquí, porque el tiempo lo consumen los agentes, que tardan minutos, no Fabrewk. Su costo es que escribirlo y revisarlo sale más caro. Además, tu sección 1 hoy propone un paquete de Python. Las dos opciones son viables y la decisión es tuya; te las presento lado a lado en el chat.
-- El esquema híbrido nació para TickBrew, un producto con otras necesidades. Traerlo a Fabrewk tal cual mezcla la arquitectura del producto con la del meta-harness (punto 6.1). Conviene decidirlo por lo que Fabrewk necesita.
-- Para la API local propongo empezar por lo más simple y más UNIX: el comando `fabrewk`, con una salida estructurada y estable, es el contrato, y cada extensión es un programa aparte que habla con él por la entrada y la salida estándar, como Git con sus subcomandos. Así sirve cualquier lenguaje, sin un servicio siempre encendido ni puertos abiertos. Un servicio con gRPC o WebSockets solo haría falta para lo que planteas en el 8.3, y puede llegar con él.
-- WASM sirve para aislar extensiones, no para encerrar a Claude Code o Codex, que necesitan el sistema operativo. Para ellos el diseño evalúa bubblewrap en Linux y su equivalente en cada sistema, con Docker como alternativa.
+**Lo que comprobé de Pullboard**, en la misma versión que estudiamos. Es cierto que:
 
-### Sobre el punto 8.3 (servidor central al estilo X Window)
+- cada agente trabaja en su propio worktree y tiene un comando para empezar su ciclo de trabajo;
+- hay carriles que son dueños de carpetas, y un commit que toca algo fuera del carril se rechaza;
+- las reglas de la casa viven en archivos de doctrina dentro del repositorio;
+- las especificaciones son filas con estado (borrador, aprobada);
+- la lista de quién aprueba está en su archivo de política y solo cambia con la aprobación de alguien que ya está en ella;
+- las aprobaciones llevan la firma SSH de la persona sobre el texto exacto, en una carpeta oculta dentro del repositorio;
+- cada equipo guarda su configuración y sus llaves en una carpeta privada del usuario, con permisos solo para el dueño;
+- tiene una vista web local y un relevo central opcional que se despliega como contenedor Docker.
 
-Tu analogía es correcta: en X, las aplicaciones son los clientes y el servidor es la pantalla donde se ven; aquí cada Fabrewk sería un cliente y el tablero central, la pantalla. Me parece una buena adición para la supervisión y la colaboración del punto 6.47, y el registro que ya decidiste (archivos dentro de Git) la facilita: el servidor puede leer el registro de cada repositorio publicado sin inventar otro protocolo. Mis críticas:
+No es cierto, o no aparece en su código ni en su especificación:
 
-- El servidor debe mostrar, no mandar. La autoridad sigue en el registro de cada repositorio, para no crear una segunda fuente editable del mismo estado (punto 6.26). Si desde el tablero se autoriza o se acepta algo, esa acción debe llevar tu identidad y tus palabras y volver como entrada al registro del repositorio.
-- Enviar el registro a un servidor es publicarlo. Si un proyecto decide no publicar `brewstillery/`, conectarlo a la central contradice esa decisión, y Fabrewk debe avisarlo igual que en el punto 6.27.
-- Lo pondría en una etapa posterior al núcleo y al piloto, como pides para el paralelismo en el punto 6.16. Desde ahora el diseño solo tiene que dejarle la puerta abierta: que cada entrada del registro diga qué instancia la escribió y que las vistas tengan una salida estructurada estable.
-- No creo que sea "lo único que nos faltaría": los proyectos con que nos comparamos tienen muchas más piezas, y tu sección 4 pone por delante el software correcto y verificable. Lo veo como la siguiente pieza de valor una vez probado el núcleo.
+- base vectorial, vectores de código o reindexado al detectar cambios;
+- contenedores o WebAssembly para los agentes (Docker solo sirve para desplegar el relevo, y sus agentes corren con el mismo usuario del sistema);
+- llaves guardadas en los settings del repositorio;
+- carriles con un mantenedor humano como dueño: los carriles son de los agentes, y lo que sí puede hacer una fila es nombrar a las personas que deben firmarla.
 
-### Qué editar en tu entrada
+Kilo Code es otra cosa: una extensión de editor, no un meta-harness. Su indexado del código viene apagado de fábrica; usa LanceDB dentro del mismo programa (o Qdrant como servidor aparte), y los vectores los calcula un proveedor externo, salvo con Ollama, que corre en el propio equipo. De Kilo Code solo comprobé eso.
 
-1. Sección 1, la frase de intención sobre el paquete de Python: si adoptas el núcleo en Rust, cámbiala por lo que decidas, porque hoy contradice el punto 8.2.
-2. Punto 8.2: escribe cada idea en su propia línea, con el problema que resuelve, para que cada una se evalúe por separado: el lenguaje del núcleo, las extensiones en cualquier lenguaje, la API local, el aislamiento de los agentes, la indexación con la base vectorial y el bus de eventos. En la indexación y la base vectorial, di qué necesidad cubren o quítalas. Donde dices "lo que tengas planeado en el diseño", toma en cuenta que esas piezas no están en él. Destino: las extensiones, como un punto nuevo de la sección 6 junto al 6.2 (por ejemplo 6.49); el lenguaje, a la decisión de arquitectura que sigue en el chat.
-3. Punto 8.3: llévalo a la sección 6 como un punto nuevo junto al 6.47, supervisión y colaboración (por ejemplo 6.50). Aclara tres cosas: qué se puede hacer desde el tablero (solo ver, o también autorizar y aceptar); qué significa "firmados" (una identidad comprobable de cada instancia, no un nombre que cualquiera pueda declarar); y que conectarse a la central es opcional, viene apagado y lo permite el archivo de settings del proyecto. Si el servidor vive en otro repositorio puede decidirse en su etapa.
-4. Punto 8.4: cuando adoptes lo anterior, quítalo de la sección 8.
+**Contradicciones con lo ya decidido.**
+
+- Guardar claves de API, rutas de programas y datos del equipo en el `settings.toml` del repositorio (6.47.a) choca con el punto 6.4 (ninguna ubicación del dominio guarda credenciales) y con el 6.11 (lo que hay en cada equipo se detecta, no se guarda). Tu nueva idea de una carpeta privada por equipo es el lugar correcto para eso (ver abajo).
+- Que "cualquier agente lea el alambique como su instrucción base" choca con tu encabezado: el alambique no autoriza ni instruye por sí solo.
+- Definir agentes en el alambique choca con 6.7 y 6.10: nada de configuración en el alambique.
+- Mover el dominio a `.brewstillery/` y tener un alambique único cambia la sección 2 y los puntos 6.3 y 6.6 a 6.8, que están decididos. Se puede, registrándolo como un cambio expreso.
+
+**Contradicciones internas.** El 8.2.a pide un núcleo "lo más pequeño posible" y a la vez meterle base vectorial, indexación y aislamiento. El 8.4.1 pone en el alambique una sección de doctrina y la definición de los agentes, y el segundo 8.4 lo quiere "sin secciones".
+
+**De forma.** El 8.3 repite casi palabra por palabra el 6.47.a. Hay dos puntos 8.4. La sangría de cuatro espacios hace que GitHub muestre el 6.47.a y los subpuntos del 8.2 y del 8.4 como bloques de código. El 8.2.d termina a media frase. Y `mantainers.md` sería un nombre de archivo, así que conviene escribirlo bien desde ya: `maintainers`.
+
+### Punto nuevo: carpeta privada de cada equipo
+
+Tu idea de `~/.config/fabrewk/` resuelve un hueco real y Pullboard hace lo mismo. Propongo escribirla como un punto nuevo junto al 6.10 y al 6.11, con estas reglas:
+
+- **Qué guarda:** lo que no debe viajar con ningún repositorio. Las llaves o tokens que necesite el propio Fabrewk (la central, o un proveedor de vectores), las rutas o datos del equipo que la detección no pueda encontrar, y las preferencias que valgan para todos tus proyectos en ese equipo.
+- **Qué no guarda:** nada que conceda autoridad sobre un proyecto. Igual que tu settings personal, no amplía permisos ni cambia criterios, proveedores o límites, porque nadie más lo ve ni lo revisa. Tampoco copia las sesiones de Claude Code o Codex: cada herramienta guarda las suyas.
+- **Lo que viaja contigo y lo que no:** tus preferencias de cada proyecto siguen en tu espacio del repositorio, para que un clon limpio en otro equipo las traiga (6.46). La carpeta privada se queda en el equipo y nunca se copia entre equipos.
+- **Las llaves:** mejor en el almacén de llaves del sistema operativo (en Linux el del escritorio; en macOS el llavero; en Windows su administrador de credenciales); un archivo con permisos solo para el dueño como alternativa.
+- **Los agentes no la ven:** el aislamiento de cada agente debe ocultarla, por la misma razón que el 6.38 cuenta sobre Codex y las carpetas que vio.
+- **Ruta por sistema:** `~/.config/fabrewk/` en Linux; macOS y Windows tienen su propia carpeta de configuración del usuario.
+- **Cambia una decisión:** en lo que decidiste sobre los settings quedó que el primer núcleo no tendría archivos fuera del repositorio; esto lo cambia, y lo registraría como una decisión nueva.
+
+### Sección 1
+
+Resuelve lo que te recomendé: ya no contradice un núcleo en otro lenguaje. Un ajuste: "el agente descrito para dicha tarea" todavía no está descrito; la sección 4 asigna a Codex la colaboración en diseño gráfico, así que puedes remitir ahí o decir "el agente al que se delegue el diseño". Y "agetnes" por "agentes".
+
+### 6.47.a (tablero web y servidor central)
+
+1. Deja aquí solo lo que quieres, sin la explicación de cómo lo haría Pullboard; si quieres conservarla como contexto, ponla como material de apoyo en tu espacio y cítala (punto 6.9). Quita el 8.3, porque ya vive aquí.
+2. **El precedente real es el relevo de Pullboard.** Se enciende a propósito y guarda registros del tablero, nunca código. Los guarda cifrados con una llave que solo está en los equipos de los miembros. Nunca escribe en el repositorio: lo que haces desde la web llega a tus agentes como una petición. Y solo muestra tableros de repositorios que tu cuenta puede leer. Te recomiendo adoptar esas mismas reglas.
+3. Siguen abiertas tres aclaraciones del barrido anterior, más una cuarta:
+   - **Qué se puede hacer desde el tablero.** Ahora dices "administración remota limitada": di qué acciones. En Pullboard la persona añade tareas, contesta decisiones y pausa carriles, y cada acción corre el mismo comando que en la terminal.
+   - **Qué significa que una instancia esté "firmada":** una identidad comprobable, no un nombre declarado.
+   - **Que conectarse es opcional:** viene apagado y lo permite el settings del proyecto. Su llave va en la carpeta privada del equipo.
+   - **Conectar es publicar:** conectar un repositorio a la central es publicar su registro, así que si el proyecto decidió no publicar `brewstillery/`, aplica el aviso del 6.27.
+4. Quita las dos frases que contradicen lo decidido: las credenciales en settings y el alambique como instrucción base.
+5. "El orquestador del otro equipo detecta el cambio y levanta al revisor" supone un proceso siempre encendido en cada equipo que gasta presupuesto sin preguntarte. Si lo quieres, di que solo ocurre dentro del plan autorizado de una etapa (6.16 y 6.24).
+6. **Contenedores.** Sirven para que las comprobaciones de un proyecto corran igual en cualquier equipo (6.46), declarados por cada proyecto; no son parte del núcleo. En macOS y Windows, Docker corre dentro de una máquina virtual Linux, y emular otra arquitectura es lento. WebAssembly sirve para aislar extensiones pequeñas, no para encerrar a Claude Code o Codex. El servidor central sí puede distribuirse como imagen Docker, como hace Pullboard con su relevo.
+7. Quita la sangría. Puede quedarse como 6.47.a o tomar un número propio (6.50), como prefieras.
+
+### 8.2 (arquitectura híbrida)
+
+**8.2.a, núcleo en Rust.** Cambio mi opinión a favor:
+
+- Lo que se aprovecha del harness anterior se reutiliza como diseño, no como código, así que la ventaja de Python que te di pesaba menos de lo que dije.
+- Rust da un solo programa por plataforma: la instalación con `curl` ya no necesita Python ni otro instalador.
+- Facilita macOS y Windows, y su compilador atrapa una parte de los errores que cometen los agentes al escribir código.
+- El costo de escribirlo y revisarlo sigue ahí, y cada biblioteca que use deberá justificarse.
+
+Cuando lo decidas, escríbelo como intención firme en el punto 6.2.
+
+**Aislamiento (8.2.a, inciso a).** Lo da cada sistema operativo (bubblewrap en Linux; macOS y Windows tienen mecanismos propios que las herramientas de agentes ya usan), no el lenguaje del núcleo. Rust ayuda a llamarlos directamente, pero cada sistema necesita su propia pieza y cuenta como soportado solo cuando se prueba en él (6.46); nada de macOS ni Windows está probado. Sugerencia de texto: el núcleo controla el aislamiento mediante una pieza por sistema operativo, con Docker como alternativa.
+
+**Base vectorial (8.2.a, inciso b).** No la propuse por dos razones: nada en tu entrada la pedía, y los agentes que Fabrewk lanza ya buscan en el código por su cuenta. Según varias entrevistas citadas por terceros, el creador de Claude Code dijo que probaron un índice vectorial y que buscar con herramientas funcionó mejor; él mismo reconoce que fue más una impresión que una medición, y no encontré la transcripción original. Kilo Code tomó el camino contrario, como opción apagada de fábrica. Tu texto sí nombra una necesidad real: reducir lo que cada agente lee y gasta (paquetes mínimos del 6.34, continuidad del 6.39, consumo del 6.40). Sobre tus tres razones:
+
+- La búsqueda por intención (b1) es un beneficio real, sobre todo en repositorios grandes.
+- La velocidad (b2) pesa poco: cada turno de un agente tarda segundos o minutos. Buscar en el índice sí toma milisegundos, pero indexar millones de líneas toma minutos u horas en un equipo normal.
+- La privacidad (b3) no la resuelve el índice: el código que lee Claude o Codex ya va a su proveedor. Un índice local solo evita un destinatario más si los vectores se calculan con un modelo en el propio equipo. Kilo Code lo confirma: con un proveedor externo envía fragmentos del código para calcularlos. La decisión de privacidad es qué modelo calcula los vectores.
+
+Sobre los candidatos:
+
+- **LanceDB** corre dentro del mismo programa, tiene bibliotecas para Rust, Python y TypeScript, y su licencia es Apache-2.0: es un candidato sólido.
+- **DuckDB**: guardar su índice vectorial en disco es todavía experimental, y su documentación pide no usarlo en producción.
+- **La extensión vectorial de SQLite** no la comprobé.
+
+Encaja como lo describes en el 6.47.a: un índice derivado que cada equipo reconstruye, en el área local no versionada, nunca autoridad. No lo pondría en el núcleo: esas bibliotecas son grandes, y tu 8.2.a pide el núcleo más pequeño posible; además sirven igual desde Rust que desde Python, así que no son razón para elegir lenguaje. Lo haría una extensión que se ofrece a los agentes como herramienta de búsqueda, apagada de fábrica como en Kilo Code. Se queda si, en el piloto o justo después, mide menos consumo o retrabajo que la búsqueda propia de los agentes.
+
+Qué editar:
+
+- Saca la base vectorial de "embebido en el núcleo" y hazla un punto propio de la sección 6, junto al 6.39 o al 6.40, escrito como necesidad y con la medida que la justificaría.
+- Lleva Kilo Code a la sección 7b, y LanceDB, Qdrant, DuckDB y la extensión vectorial de SQLite a la 7a, como referencias por evaluar.
+- Completa o quita la frase del 8.2.d.
+
+**8.2.b, intercomunicación.** Adoptaste mi propuesta, pero con mis palabras ("Tu propuesta es lógica"); escríbela como tu intención. Pullboard hace algo parecido: toda su salida tiene una forma estable para máquinas, y su vista web usa la misma interfaz que cualquier otro programa. Añade dos cosas:
+
+- Qué extensiones pueden correr lo declara el settings del proyecto. Un programa que solo exista en el equipo con el nombre adecuado no se vuelve parte de Fabrewk (6.38, lo permitido aparte de lo presente).
+- Una extensión nunca escribe el registro directamente: se lo pide al núcleo, que es su único escritor (6.37).
+
+**8.2.c, extensibilidad.** Una extensión en Python o TypeScript trae su intérprete: la ventaja de un solo programa es del núcleo, no de las extensiones. Destino de 8.2.b y 8.2.c: un punto nuevo junto al 6.2 (6.49).
+
+### Primer 8.4 (gobernanza y roles)
+
+**8.4.1, archivos de doctrina.**
+
+- **Identidad por firma:** sí, pero por la llave con que se firma (SSH, como Pullboard, que evita GPG), no por el nombre y correo de Git, que cualquiera escribe. La lista de llaves va en el settings del proyecto, protegida como autoridad, y solo cambia con la firma de alguien que ya esté en ella. El usuario de GitHub o GitLab sirve de etiqueta; es el servicio quien liga una llave a un usuario.
+- **Directorios por mantenedor:** los conservamos, como acordamos. Habrá un solo alambique del proyecto en la raíz del dominio, y cada mantenedor tendrá en su espacio su fermento, sus preferencias y su material de apoyo, bajo su responsabilidad. Así no hay dos personas escribiendo el mismo archivo (6.37).
+- **Agentes y modelos en el alambique:** choca con 6.7, 6.10 y 6.15 y con tu segundo 8.4. La calibración que mencionas ya está prevista: los agentes recomiendan modelo y esfuerzo en su respuesta (6.15) y un maestro cambia el settings. Recomiendo dejarlos en el settings del proyecto.
+- **Doctrina o "Bar":** aclara si el alambique será la descripción de lo que el proyecto debe ser, o las reglas de cómo trabajan los agentes. Pullboard las separa: la especificación en un archivo y las reglas de la casa en otro, heredadas de una doctrina estándar que cada proyecto amplía o declina punto por punto. Hoy nuestras reglas para agentes viven en `AGENTS.md` y en el settings. Te recomiendo que el alambique sea solo la descripción.
+- **Control por Git:** ya lo hacemos, y el 6.13 añade que un PR no aprueba su propia ampliación de permisos.
+
+**8.4.2, fermento.** Es el cambio de más valor. Con lo acordado, este archivo pasa a ser tu fermento, con su separador ya probado (tu entrada arriba y las respuestas de los agentes debajo). Lo nuevo es el alambique del proyecto, único y aprobado por los maestros. Tres ajustes:
+
+- **La aprobación no la puede escribir cualquiera.** Pullboard sí muestra el estado de cada fila en el texto, pero aprobar es un paso que solo puede venir de la persona, desde su terminal o su navegador, nunca desde la interfaz de un agente. Sus firmas van aparte, ligadas al texto exacto, y caducan si el texto cambia. Para Fabrewk: el estado de cada propuesta lo registra Fabrewk con la identidad y las palabras de quien aprueba, y lo que veas en el fermento o en el alambique es una vista de ese registro, no una segunda fuente editable (6.26).
+- **Un nombre escrito junto a un punto no es una firma.** Lo comprobable es el commit firmado que lo añadió, o la aprobación firmada en el registro.
+- **Ningún agente toca una propuesta antes de aprobarse.** Eso ya está en el diseño (propuesta, autorización y ejecución, en el 6.28). Lo nuevo es quién propone y quién aprueba según su rol, y que los cambios al alambique del proyecto también pasen por ahí: un agente puede redactar la edición, y un maestro la aprueba.
+
+**8.4.3, carriles y propiedad de rutas.** Los worktrees separan el trabajo, pero no son aislamiento (6.37); el diseño da a cada agente una copia exportada sin Git, que separa más. Pullboard reparte carpetas por carril, pero entre agentes, no entre mantenedores; para las personas, una fila nombra quién debe firmarla. Para Fabrewk:
+
+- Cada tarea ya declara los archivos que puede tocar (6.28), que es el equivalente de un carril.
+- La propiedad humana de rutas puede apoyarse en el archivo de dueños de código de GitHub y GitLab (CODEOWNERS), cuya revisión obligatoria hace cumplir el servicio. Así Fabrewk no inventa un segundo mapa.
+
+Destino: 6.13 y 6.37.
+
+**8.4.4, verificación cruzada.** Ya está en 6.42 y 6.43. Pullboard también lo tiene como principio: nada se entrega sin que otro agente lo verifique, y quien construye nunca verifica lo suyo. Lo que en el 8.4.5 dices que no tenemos (decidir qué se fusiona y validar el reporte del verificador) es nuestro paso final de aceptación; con roles, lo daría el supervisor del área. Puedes quitar el 8.4.4 o reducirlo a una línea: el verificador corre en su propio entorno aislado.
+
+**8.4.5, roles.** Maestro, supervisor y contribuidor son un mínimo razonable para el 6.12. Pullboard tiene menos: las personas que pueden escribir en el repositorio, una lista de quienes aprueban, un coordinador y los agentes. Aclara:
+
+- quién asigna y revoca roles (propongo: un cambio firmado por un maestro que ya esté en la lista);
+- qué pasa si solo hay un maestro (aprueba solo, y la revisión independiente la dan agentes de otro proveedor);
+- si el supervisor lo es de un área (rutas) o de todo el proyecto;
+- si el contribuidor puede lanzar agentes en modo de solo lectura o ninguno. Escríbelo sin nombrar un flag, porque ese flag no existe.
+
+La lista de roles da autoridad, así que va en el settings del proyecto (6.10), no en un Markdown. Destino: reescribir el 6.12, que hoy dice "evaluar si necesitamos roles", con tu decisión; el 6.48 ya prueba que nadie eleve sus permisos.
+
+### Segundo 8.4 (dominio `.brewstillery/` y sus archivos)
+
+Renuméralo como 8.5.
+
+- **Carpeta oculta:** deja más limpia la raíz (meta de la sección 2) y Pullboard también usa una carpeta oculta en el repositorio, para sus firmas. En contra: no aparece en un listado normal, y la herramienta de búsqueda que usan los agentes la salta por defecto (lo comprobé). Eso es más ventaja que problema, porque los agentes no deben trabajar dentro del dominio. No veo impedimento; es tu elección.
+- **Archivos:** con lo acordado, la lista queda así:
+  - en la raíz del dominio, `settings.toml`, `STATUS.md` y el alambique del proyecto;
+  - en el espacio de cada mantenedor, su fermento, su settings personal y su material;
+  - lo ya decidido o propuesto: el registro (`data/`), el área local no versionada y, solo en este repositorio, `bootstrap/`;
+  - fuera de todo repositorio, la carpeta privada del equipo.
+  
+  `maintainers` como archivo aparte no hace falta: mejor una sección del settings del proyecto (ver 8.4.5).
+- **"ALAMBIQUE.md sin secciones":** tus secciones y números son los que citan los demás documentos (introducción de la sección 6). Si quieres decir sin configuración y sin zona de respuestas de agentes (que ahora vive en cada fermento), escríbelo así y conserva títulos y numeración.
+- **Consecuencia:** adoptarlo reescribe la sección 2 y los puntos 6.3 y 6.6 a 6.10, que están decididos; lo registraría como una decisión nueva. La sección 2 dice que la estructura vale igual para este repositorio, así que lo migraría una sola vez, en un commit propio, después de decidirlo: este archivo pasaría a ser tu fermento y sus secciones 1 a 7 el primer alambique del proyecto. El registro del arranque conserva las rutas viejas como historia.
+
+### Orden sugerido
+
+1. Primero, el dominio, el alambique único con los fermentos, la carpeta privada de cada equipo y los roles (los dos 8.4 y el punto nuevo), porque cambian lo decidido en la sección 2 y en los puntos 6.6 a 6.12.
+2. Después, el lenguaje y las extensiones (8.2).
+3. La base vectorial y la central quedan como puntos de etapas posteriores, con la puerta abierta desde ahora.

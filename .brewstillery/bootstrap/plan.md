@@ -3,12 +3,14 @@
 Approved by the maintainer XEL in session 1's chat ("No veo objeciones a tu propuesta de fases."), decision D-010.
 Two amendments made after that approval were confirmed by the maintainer (D-012): phase 1 (audit of the
 maintainer's alambique, requested in the alambique's section 8, answer 4; its proposed text is delivered as a separate
-file in `brewstillery/bootstrap/`) and phase 2 (the bootstrap review merged with the audit's review, one dispatch
+file in `.brewstillery/bootstrap/`) and phase 2 (the bootstrap review merged with the audit's review, one dispatch
 instead of two). Phase 0 is closed (D-013). Phase 1 is closed (D-018). Phase 2 is closed (D-021). Phase 3 was
 split into parts (D-023, section "Parts"); Codex's review accepted both (R-010) and it is closed (D-025). Phase 4 is
 split into parts 4a and 4b (D-026, section "Parts"); Codex's review accepted both (R-012) and it is closed (D-029). Phase 5 is
-not split (D-030): its deliverable is `brewstillery/bootstrap/architecture-decisions.md`. AD-1 to AD-3 are decided (D-031);
-the rest waits for the sweep of input points 8.2 and 8.3.
+not split (D-030): its deliverable is `.brewstillery/bootstrap/architecture-decisions.md`. AD-1 to AD-3 are decided (D-031).
+The sweep of input points 6.47.a and 8.2 to 8.4 became D-032 (domain, governance, core architecture) and D-033 (the
+alambique's form); a second audit gave the full new alambique and fermento, and the repository migrated to
+`.brewstillery/` (R-016). Phase 5 resumes with AD-4, AD-5 and AD-7 rewritten and the decisions D-032 still needs.
 
 **Rule for every phase (alambique 6.48, D-003).** A phase that does not pass is corrected and retried; it never
 ends the project. Before each retry the progress measure is fixed (proposed: confirmed blocking findings, and
@@ -37,8 +39,8 @@ their availability is not verified.
 | 6 | Core specification and criteria | Frozen requirements, states, refusals, check semantics, test plan with the past-defect cases, size budget | 5 | Maintainer approves the text; every point classified indispensable maps to a requirement or an explicit deferral | Claude / Codex | Opus 5.5 high; Codex high | Approve the criteria |
 | 7 | Core, part 1 | Registry, transitions, effective configuration with provenance | 6 | Tests green in a clean clone; past defects do not recur; mutations caught; within size budget; clean review | Claude / Codex | Opus 5.5 high; Codex high | Budget |
 | 8 | Core, part 2 | Separator checked by code, answers zone, sweep, generated `STATUS.md` | 7 | An ambiguous separator stops with nothing written; `STATUS.md` matches the registry; clean review | Claude / Codex | Sonnet 5.5 high; Codex medium | — |
-| 9 | Adapters and confinement | Claude and Codex confined; authorized route when a provider is missing; start-directory check and required tools per task (alambique section 8) | 7 | One real dispatch per provider; a launch outside a repository is refused; clean review | Claude / Codex | Opus 5.5 high; Codex high | Permission to run the real CLIs, budget |
-| 10 | Installation | Script and guided prompt reaching the same command; assessment without writing (D-006); administer and review modes; the warning for not publishing `brewstillery/` | 5, 8, 9 | In a disposable repository nothing is written before confirmation; the three verdicts exercised; warning shown and recorded | Claude / Codex (human texts by Codex) | Opus 5.5 high; Codex high | Final warning text; publishing on GitHub (external action) |
+| 9 | Adapters and confinement | Claude and Codex confined; authorized route when a provider is missing; start-directory check and required tools per task (alambique section 8 of phase 1) | 7 | One real dispatch per provider; a launch outside a repository is refused; clean review | Claude / Codex | Opus 5.5 high; Codex high | Permission to run the real CLIs, budget |
+| 10 | Installation | Script and guided prompt reaching the same command; assessment without writing (D-006); administer and review modes; the warning for not publishing `.brewstillery/` | 5, 8, 9 | In a disposable repository nothing is written before confirmation; the three verdicts exercised; warning shown and recorded | Claude / Codex (human texts by Codex) | Opus 5.5 high; Codex high | Final warning text; publishing on GitHub (external action) |
 | 11 | Pilot specification | Module, hidden criteria, the six provoked refusals, budget for both arms (D-009) | 6, the new repository | Maintainer approves budget and criteria before starting | Claude / Codex | Opus 5.5 high | Module; new repository and its alambique (written by XEL) |
 | 12 | Pilot | Full cycle in the new repository and the comparison arm | 10, 11, the legacy migration | The six provoked cases refused as expected; one real rejection round completed; both arms measured the same way | Fabrewk dispatches, Claude integrates / Codex | Per profiles | Maintainer's acceptance |
 | 13 | Bootstrap closing | If the pilot passes: production declared, `bootstrap/` imported into the single registry and made read-only with a check. If not: diagnosis and a new attempt | 12 | Everything imported (the importer respects fenced blocks inside entries); a check fails on any later change in `bootstrap/` | Claude / Codex | Sonnet 5.5 medium; Opus 5.5 high for a diagnosis | Maintainer's production declaration |
