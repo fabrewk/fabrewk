@@ -220,7 +220,37 @@ pub(crate) fn check(v: &Value, stream: &str, seq: u64) -> Result<Class, (Code, &
     if is_creation(kind) && !nonce.is_some_and(|n| is_hex(n, 32)) {
         return Err((Unknown, "nonce"));
     }
+    if kind == "policy-adopted" {
+        policy_payload(&o["payload"])?;
+    }
     Ok(class)
+}
+
+/// `policy-adopted`'s payload (part 7c1): exactly `content` (the project file's text), `digest` (its SHA-256) and
+/// `widened` (the widenings named, each a key path).
+fn policy_payload(p: &Value) -> Result<(), (Code, &'static str)> {
+    let o = p.as_object().filter(|o| o.len() == 3);
+    let field = |f: &str| o.and_then(|o| o.get(f));
+    let (Some(content), Some(digest), Some(widened)) = (
+        field("content").and_then(Value::as_str),
+        field("digest").and_then(Value::as_str),
+        field("widened").and_then(Value::as_array),
+    ) else {
+        return Err((Code::RecordVersionUnknown, "payload"));
+    };
+    if !widened
+        .iter()
+        .all(|w| w.as_str().is_some_and(|w| !w.is_empty()))
+    {
+        return Err((Code::RecordVersionUnknown, "payload"));
+    }
+    if sha256_hex(content.as_bytes()) != digest {
+        return Err((
+            Code::RecordBroken,
+            "the policy's digest is not its content's",
+        ));
+    }
+    Ok(())
 }
 
 fn actor_class(a: &Value) -> Option<Class> {
@@ -366,6 +396,46 @@ mod tests {
         ] {
             assert!(!is_id(bad, 't'), "{bad}");
         }
+    }
+
+    #[test]
+    fn policy_adopted_payload_is_its_content_digest_and_widenings() {
+        let content = "[project]\nname = \"x\"\n";
+        let digest = sha256_hex(content.as_bytes());
+        let event = |payload: Value| {
+            let actor = json!({"kind": "person", "alias": "xel", "role": "maestro"});
+            let say = Some(Say {
+                text: "Adopto.".into(),
+                lang: "es".into(),
+            });
+            let d = Draft {
+                kind: "policy-adopted".into(),
+                actor,
+                policy: "a".repeat(64),
+                instance: "i".into(),
+                say,
+                payload,
+            };
+            check(&d.build("project", 1, None), "project", 1)
+                .map(|_| ())
+                .map_err(|e| e.0)
+        };
+        assert_eq!(
+            event(json!({"content": content, "digest": digest, "widened": ["limits.rounds"]})),
+            Ok(())
+        );
+        for bad in [
+            json!({}),
+            json!({"content": content, "digest": digest}),
+            json!({"content": content, "digest": digest, "widened": [""]}),
+            json!({"content": content, "digest": digest, "widened": [1]}),
+            json!({"content": 1, "digest": digest, "widened": []}),
+            json!({"content": content, "digest": digest, "widened": [], "x": 1}),
+        ] {
+            assert_eq!(event(bad.clone()), Err(Code::RecordVersionUnknown), "{bad}");
+        }
+        let other = json!({"content": "other", "digest": digest, "widened": []});
+        assert_eq!(event(other), Err(Code::RecordBroken));
     }
 
     #[test]

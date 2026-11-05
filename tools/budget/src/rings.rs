@@ -29,11 +29,13 @@ impl fmt::Display for Error {
             Error::Io(p, e) => write!(f, "{}: {e}", p.display()),
             Error::NotUtf8(p) => write!(f, "{}: not UTF-8", p.display()),
             Error::Count(p, e) => write!(f, "{}: {e}", p.display()),
-            Error::Symlink(p) => write!(
-                f,
-                "{}: symbolic link inside the program's code",
-                p.display()
-            ),
+            Error::Symlink(p) => {
+                write!(
+                    f,
+                    "{}: symbolic link inside the program's code",
+                    p.display()
+                )
+            }
             Error::MissingDir(p) => {
                 write!(f, "{}: a ring's directory that does not exist", p.display())
             }

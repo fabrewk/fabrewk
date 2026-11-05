@@ -23,7 +23,7 @@ fn project(f: &Fixture, s: &mut Session) -> Head {
             s.append(
                 "project",
                 head.as_ref(),
-                &person(kind, words, json!({})),
+                &person(kind, words, project_payload(kind)),
                 Some(&f.signer()),
             )
             .unwrap(),

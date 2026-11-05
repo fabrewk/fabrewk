@@ -15,6 +15,8 @@ workspace = true
 # and validated by hand, so the release build carries no procedural macro.
 serde_json = "1"
 sha2 = "0.11"
+# Settings (AD-2, D-036), read as spanned tables so every refusal names its line; TOML 1.1, no `serde` (D-048).
+toml = { version = "1.2", default-features = false, features = ["std", "parse"] }
 
 [dev-dependencies]
 # Property tests (choice 11 of the core specification, D-040); never shipped.

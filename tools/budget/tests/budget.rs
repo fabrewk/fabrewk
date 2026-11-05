@@ -205,7 +205,10 @@ fn req_bud_2_metadata_is_classified() {
 
 #[test]
 fn req_bud_1_json_is_read() {
-    let doc = budget::json::parse(r#"{"esc":"a\"\\\/\b\f\n\r\t\ud83d\ude00\u00e9","n":-1.5e3,"t":true,"f":false,"z":null,"o":{}}"#).unwrap();
+    let doc = budget::json::parse(
+        r#"{"esc":"a\"\\\/\b\f\n\r\t\ud83d\ude00\u00e9","n":-1.5e3,"t":true,"f":false,"z":null,"o":{}}"#,
+    )
+    .unwrap();
     assert_eq!(
         doc.get("esc").and_then(|v| v.as_str()),
         Some("a\"\\/\u{8}\u{c}\n\r\t😀é")

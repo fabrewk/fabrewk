@@ -3,4 +3,8 @@
 /// The version of this build, as Cargo records it.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+mod code;
 pub mod record;
+pub mod settings;
+
+pub use code::{Code, Error};

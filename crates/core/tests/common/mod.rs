@@ -279,6 +279,19 @@ fn draft(kind: &str, actor: Value, say: Option<Say>, payload: Value) -> Draft {
     }
 }
 
+/// The project file the fixtures adopt.
+pub const PROJECT: &str = "[project]\nname = \"fixture\"\n";
+
+/// A `project` event's payload: `policy-adopted` carries [`PROJECT`] (part 7c1); the others are not fixed yet.
+pub fn project_payload(kind: &str) -> Value {
+    match kind {
+        "policy-adopted" => {
+            json!({"content": PROJECT, "digest": sha256_hex(PROJECT.as_bytes()), "widened": []})
+        }
+        _ => json!({}),
+    }
+}
+
 /// A move of the maestro `xel`, with words.
 pub fn person(kind: &str, words: &str, payload: Value) -> Draft {
     let actor = json!({"kind": "person", "alias": "xel", "role": "maestro"});

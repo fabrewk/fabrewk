@@ -34,10 +34,12 @@ impl fmt::Display for CountError {
                 write!(f, "line {line}: {what} does not end")
             }
             CountError::Unbalanced { line } => write!(f, "line {line}: bracket without its match"),
-            CountError::HiddenSource { what, line } => write!(
-                f,
-                "line {line}: {what} brings in code the counter does not see; not allowed in a ring"
-            ),
+            CountError::HiddenSource { what, line } => {
+                write!(
+                    f,
+                    "line {line}: {what} brings in code the counter does not see; not allowed in a ring"
+                )
+            }
             CountError::OutOfLineTestModule { line } => write!(
                 f,
                 "line {line}: #[cfg(test)] module declared out of line; write it inline so the counter sees it"

@@ -1871,3 +1871,51 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   loss is not tested; reading commands verify signatures against an allowed-signers file, and where that file lives
   without a reading command writing anything is 7c's (with the signers derived from the policy).
 - Not done: parts 7c and 7d.
+
+## D-048 — Part 7c split into 7c1 and 7c2; signatures verified with the key the signature carries; TOML 1.1
+
+- Status: decided
+- Decided: 2026-11-05
+- Origin: maintainer XEL in session 17's chat, answering the integrator's four questions before any code: "7c1 y 7c2
+  (Recomendado)"; "Clave del .sig + check-novalidate (Recomendado)"; "toml 1.1 sin serde (Recomendado)"; "Sí, solo
+  crates.io (Recomendado)".
+- Decision:
+  1. Part 7c is split in two, each with its own Codex review. 7c1, settings and policy: every key declared once with
+     its type, levels, default, direction and description; the project and personal files read with file, key path
+     and line in every refusal; the personal keys; the policy in force from the last `policy-adopted`, the file's
+     pending changes, the classing of each change and `--widen`; the source of every value; language tags; the
+     maintainers' table (REQ-SET-1 to REQ-SET-7, REQ-SET-10, REQ-ID-1, REQ-ID-3's refusal at adoption, REQ-DOM-3).
+     7c2, identity and the machine: signers derived from the cited policy and the role checked against the kind
+     (REQ-REG-4's second half, REQ-ID-2 to REQ-ID-5), REQ-REG-12 (the machine key, `instance`), REQ-SEC-4, the
+     machine file, detection (REQ-SET-8), the validation of profiles (REQ-SET-9), and REQ-DOM-2, REQ-DOM-4, REQ-DOM-5
+     and REQ-DOM-7 on fixture records. REQ-SEC-5 moves to 7d: it labels the guards of the transition table and the
+     checks of `check`, both 7d's.
+  2. A person's signature is verified without any allowed-signers file, so that a reading command writes nothing
+     (the residual of R-024): Fabrewk reads the public key the signature itself carries, requires it to be exactly
+     the key the cited policy gives the signer's alias, and checks the signature against it with
+     `ssh-keygen -Y check-novalidate -n fabrewk`. One route serves reading and writing commands. REQ-REG-4 and its
+     criterion in section 12 say so; the derived `local/cache/allowed_signers` (REQ-ID-2) stays, for Git.
+  3. Settings are read with the approved crate `toml` (D-036) at 1.1, which reads TOML 1.1, a superset of TOML 1.0
+     in which every TOML 1.0 file reads the same; with `default-features = false` and only `std` and `parse`, so no
+     `serde` and no procedural macro. REQ-SET-1 and its criterion say TOML 1.1.
+  4. Network in this session, for Cargo against crates.io only, to fetch `toml` and what it needs.
+- Consequences: `plan.md` shows 7c1 and 7c2 instead of 7c, and SEC-5 in 7d. `core-specification.md` changes REQ-REG-4,
+  REQ-SET-1 and their criteria; the work affected is parts 7c1 and 7c2.
+- Sources: chat of session 17; `plan.md` row 7; D-036, D-047, R-024's residuals; `core-specification.md` REQ-REG-4,
+  REQ-SET, REQ-ID, REQ-DOM, REQ-SEC-4, REQ-SEC-5, sections 8 and 12.
+- Supersedes: none (D-047's point 2 stands; this entry splits its destination).
+
+## D-049 — Code formatted at width 120 with `rustfmt`'s "Max" heuristics
+
+- Status: decided
+- Decided: 2026-11-05
+- Origin: maintainer XEL in session 17's chat, answering the integrator's question after part 7c1's settings brought
+  the core to 2,915 of 4,000 counted lines: "Ancho 120 y \"Max\" (Recomendado)".
+- Decision: a `rustfmt.toml` at the repository's root holds `max_width = 120` and `use_small_heuristics = "Max"`, and
+  the whole workspace is reformatted once with it, in a commit of its own. The size budget (D-042) is unchanged; what
+  changes is the formatting its unit is measured on (REQ-BUD-1 counts lines as `rustfmt` leaves them). Measured on the
+  same code: the default formatting 2,915 counted lines, "Max" at width 100 2,335, width 120 2,542, both 1,985.
+- Consequences: the root holds `rustfmt.toml` beside `deny.toml`, as product tooling. `cargo fmt --check` keeps
+  gating every part. R-024's note that the record counts 212 lines more at width 100 is settled by this entry.
+- Sources: chat of session 17; D-042; R-024 ("Size"); `tools/budget`.
+- Supersedes: none.

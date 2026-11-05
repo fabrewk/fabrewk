@@ -123,6 +123,18 @@ fn os<'a>(items: &[&'a str]) -> Vec<&'a OsStr> {
     items.iter().map(|s| OsStr::new(*s)).collect()
 }
 
+/// The bytes of `path`, relative to the domain, at the record branch's head; `None` if it is not there or nothing is
+/// committed yet (REQ-SET-4's `POLICY_UNCOMMITTED`).
+pub(crate) fn committed(repo: &Repo, path: &Path) -> Result<Option<Vec<u8>>, Error> {
+    let branch = record_branch(repo)?;
+    let Some(head) = head_of(repo, &branch)? else {
+        return Ok(None);
+    };
+    let spec = format!("{head}:{}", repo.prefix.join(path).to_string_lossy());
+    let out = run(command(repo, &os(&["cat-file", "blob", &spec])), b"")?;
+    Ok(out.status.success().then_some(out.stdout))
+}
+
 /// The commit a ref names, `None` if it names none (an unborn branch).
 pub(crate) fn head_of(repo: &Repo, name: &str) -> Result<Option<String>, Error> {
     let target = format!("{name}^{{commit}}");

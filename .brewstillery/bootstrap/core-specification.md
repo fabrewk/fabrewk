@@ -167,9 +167,11 @@ Every point classified I has at least one requirement; every deferral has its re
   separators included, is stored and replayed intact; nothing splits a file into lines. A file not in canonical form is
   refused (`RECORD_NONCANONICAL`). (6.26; PD-04)
 - **REQ-REG-4.** A person's event has a detached signature `<file>.sig`, made with `ssh-keygen -Y sign -n fabrewk` over
-  the event file's bytes and verified with `ssh-keygen -Y verify` against the allowed signers derived from the policy
-  the event cites. The signer must hold, in that policy, the role the event claims, and the role must allow the event's
-  kind (section 4). The signature is written before the event file is moved into place. (6.12, AD-14)
+  the event file's bytes. It is verified without any allowed-signers file, so that a reading command writes nothing
+  (D-048): the public key the signature carries must be exactly the key the policy the event cites gives the event's
+  alias, and `ssh-keygen -Y check-novalidate -n fabrewk` must accept the signature over the file's bytes. The signer
+  must hold, in that policy, the role the event claims, and the role must allow the event's kind (section 4). The
+  signature is written before the event file is moved into place. (6.12, AD-14)
 - **REQ-REG-5.** One writer per repository: every command that writes holds an operating-system advisory lock on
   `.brewstillery/local/lock` for its whole run; a second writer is refused at once (`LOCK_HELD`), never queued. Each
   append re-reads the stream's head under the lock and fails if it moved (compare-and-swap; `RECORD_HEAD_MOVED`,
@@ -226,7 +228,7 @@ Every point classified I has at least one requirement; every deferral has its re
 
 ### SET: settings
 
-- **REQ-SET-1.** Three files, all TOML 1.0 and never rewritten by Fabrewk: the project's `.brewstillery/settings.toml`;
+- **REQ-SET-1.** Three files, all TOML 1.1 (a superset of TOML 1.0, D-048) and never rewritten by Fabrewk: the project's `.brewstillery/settings.toml`;
   each maintainer's `<alias>/settings.toml`; the machine's `machine.toml` in the private folder, which only declares
   data. Fabrewk reads no configuration from the alambique or a fermento. (6.7, 6.10, AD-2)
 - **REQ-SET-2.** Every key is declared once in the code with its type, the levels allowed to set it, its default, its
@@ -1185,7 +1187,7 @@ Where a criterion names a case or a code, its test in 11.3 or 11.4 is part of th
 | REQ-REG-1 | Every event file of the flows is named by its six-digit `seq` and the first 16 hexadecimal digits of its SHA-256, in its stream's directory; identifiers match `^[pst]-[0-9a-f]{8}$` and derive from the creating payload; `RECORD_ID_COLLISION`'s test | 7 |
 | REQ-REG-2 | A schema test finds exactly the listed fields in every event of the flows, `prev` null only at `seq` 1, `at` in RFC 3339 UTC, `say` only on person moves; replay gives the same state when the `at` values of a fixture are permuted | 7 |
 | REQ-REG-3 | Property: any event value, its strings drawn from every Unicode scalar value, serializes canonically, parses back equal and re-serializes byte-identical; PD-04; `RECORD_NONCANONICAL`'s test | 7 |
-| REQ-REG-4 | Every person's event of the flows has a `.sig` that `ssh-keygen -Y verify -n fabrewk` accepts against signers derived from the cited policy; the crash suite finds no event file in place without its signature; `RECORD_SIGNATURE_INVALID`'s test | 7 |
+| REQ-REG-4 | Every person's event of the flows has a `.sig` that carries the key the cited policy gives its alias and that `ssh-keygen -Y check-novalidate -n fabrewk` accepts (D-048); the crash suite finds no event file in place without its signature; `RECORD_SIGNATURE_INVALID`'s test | 7 |
 | REQ-REG-5 | Two write commands started together: one runs, the other refuses `LOCK_HELD` at once; a head moved between read and append (`fault-injection`) fails the append; a kill during a write leaves only a temporary file whose name starts with `.`, which readers skip | 7 |
 | REQ-REG-6 | One fixture per code it lists, each refused by that code; property: random byte damage to any event file is refused by one of its codes, never accepted and never a panic | 7 |
 | REQ-REG-7 | PD-05 | 7 |
@@ -1200,7 +1202,7 @@ Where a criterion names a case or a code, its test in 11.3 or 11.4 is part of th
 
 | Requirement | Accepted when | Phase |
 | --- | --- | --- |
-| REQ-SET-1 | The three files are read as TOML 1.0 and are byte-identical after every flow; TOML-like text in a fermento or the alambique changes no effective value | 7 |
+| REQ-SET-1 | The three files are read as TOML 1.1 and are byte-identical after every flow; TOML-like text in a fermento or the alambique changes no effective value | 7 |
 | REQ-SET-2 | A test walks every declared key and finds its type, levels, default, direction and description; for each key, a wrong type, a value outside its set and the key at each level not allowed are refused with file, key path and line; an unknown key is refused | 7 |
 | REQ-SET-3 | Every non-personal key in a personal file is `SETTINGS_KEY_NOT_PERSONAL`; every personal key is accepted; `ALIAS_MISMATCH`'s test | 7 |
 | REQ-SET-4 | In each mode the policy in force equals the last `policy-adopted` content whatever the file says; an edit raising `limits.rounds` grants no round until adopted and shows as pending; `POLICY_UNCOMMITTED`'s and `POLICY_ABSENT`'s tests, the latter for every command that needs a policy | 7 |
