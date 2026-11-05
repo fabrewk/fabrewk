@@ -145,12 +145,47 @@ fn refusal_record_id_collision() {
         .unwrap();
     let stream = fabrewk_core::record::subject_stream("task-proposed", &a).unwrap();
     let f = Fixture::new("collision", false);
-    f.forge(&stream, 1, None, &agent("task-proposed", a), None);
-    f.forge(&stream, 1, None, &agent("task-proposed", b), None);
+    f.forge(&stream, 1, None, &agent("task-proposed", a.clone()), None);
+    f.forge(&stream, 1, None, &agent("task-proposed", b.clone()), None);
     assert_eq!(
         codes(replay(&f.domain, &f.verifier())),
         [Code::RecordIdCollision]
     );
+    std::fs::remove_dir_all(f.stream_dir(&stream)).unwrap();
+    // One creation and one event that is not the stream's own at `seq` 1: a fork, not a collision.
+    f.forge(&stream, 1, None, &agent("task-proposed", a.clone()), None);
+    f.forge(
+        &stream,
+        1,
+        None,
+        &agent("task-proposed", json!({"nonce": "f".repeat(32)})),
+        None,
+    );
+    assert_eq!(codes(replay(&f.domain, &f.verifier())), [Code::RecordFork]);
+    std::fs::remove_dir_all(f.stream_dir(&stream)).unwrap();
+    // Two creations deriving the stream's identifier, later than `seq` 1: a fork.
+    let first = f.forge(&stream, 1, None, &agent("task-proposed", a.clone()), None);
+    let d1 = sha256_hex(&std::fs::read(&first).unwrap());
+    f.forge(&stream, 2, Some(&d1), &agent("task-proposed", a), None);
+    f.forge(&stream, 2, Some(&d1), &agent("task-proposed", b), None);
+    assert_eq!(codes(replay(&f.domain, &f.verifier())), [Code::RecordFork]);
+    // Two events at `seq` 1 of a stream that is not a stage's or a task's: a fork.
+    std::fs::remove_dir_all(f.stream_dir(&stream)).unwrap();
+    f.forge(
+        "project",
+        1,
+        None,
+        &fabrewk("installed", json!({"n": 1})),
+        None,
+    );
+    f.forge(
+        "project",
+        1,
+        None,
+        &fabrewk("installed", json!({"n": 2})),
+        None,
+    );
+    assert_eq!(codes(replay(&f.domain, &f.verifier())), [Code::RecordFork]);
 }
 
 #[test]
@@ -1523,5 +1558,117 @@ fn pd_02_a_mark_at_position_zero_is_invalid() {
     assert_eq!(
         code(&check_mark(&f.domain, &ok_replay(&f)).unwrap_err()),
         Some(Code::MarkInvalid)
+    );
+}
+
+#[test]
+fn req_reg_5_the_session_reports_the_record_and_a_forked_head() {
+    let f = Fixture::new("session-record", false);
+    let mut s = begin(&f, None);
+    assert!(s.record().is_none());
+    let h = s
+        .append(
+            "project",
+            None,
+            &fabrewk("installed", json!({"n": 1})),
+            None,
+        )
+        .unwrap();
+    s.finish(&f.verifier(), &[]).unwrap();
+    let s = begin(&f, None);
+    assert_eq!(s.record().unwrap().streams["project"].len(), 1);
+    // Two events at the next position, written meanwhile by writers that ignore the lock.
+    f.forge(
+        "project",
+        2,
+        Some(&h.digest),
+        &fabrewk("installed", json!({"n": 2})),
+        None,
+    );
+    f.forge(
+        "project",
+        2,
+        Some(&h.digest),
+        &fabrewk("installed", json!({"n": 3})),
+        None,
+    );
+    assert_eq!(
+        code(&s.head("project").unwrap_err()),
+        Some(Code::RecordFork)
+    );
+}
+
+#[test]
+fn req_reg_1_a_stream_holds_at_most_999999_events() {
+    let f = Fixture::new("full", false);
+    let mut s = begin(&f, None);
+    let last = f.forge(
+        "project",
+        999_998,
+        Some(&"0".repeat(64)),
+        &fabrewk("installed", json!({})),
+        None,
+    );
+    let head = Head {
+        seq: 999_998,
+        digest: sha256_hex(&std::fs::read(last).unwrap()),
+    };
+    let head = s
+        .append(
+            "project",
+            Some(&head),
+            &fabrewk("installed", json!({})),
+            None,
+        )
+        .unwrap();
+    assert_eq!(head.seq, 999_999);
+    let e = s
+        .append(
+            "project",
+            Some(&head),
+            &fabrewk("installed", json!({})),
+            None,
+        )
+        .unwrap_err();
+    assert_eq!(code(&e), Some(Code::RecordBroken));
+}
+
+#[test]
+fn refusal_tool_missing() {
+    if std::env::var_os("FABREWK_TEST_NO_TOOLS").is_none() {
+        let out = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "refusal_tool_missing",
+                "--exact",
+                "--nocapture",
+                "--test-threads=1",
+            ])
+            .env(
+                "FABREWK_TEST_NO_TOOLS",
+                Fixture::new("no-tools", false).root,
+            )
+            .env("PATH", "/nonexistent")
+            .output()
+            .unwrap();
+        let text = String::from_utf8_lossy(&out.stdout);
+        assert!(
+            out.status.success() && text.contains("test refusal_tool_missing ... ok"),
+            "{text}"
+        );
+        return;
+    }
+    let root = PathBuf::from(std::env::var_os("FABREWK_TEST_NO_TOOLS").unwrap());
+    let signer = fabrewk_core::record::KeySigner(root.parent().unwrap().join("keys/xel"));
+    let e = fabrewk_core::record::Sign::sign(&signer, b"x").unwrap_err();
+    assert_eq!(e.code(), Some(Code::ToolMissing));
+    let repo = Repo {
+        root,
+        prefix: ".brewstillery".into(),
+    };
+    assert_eq!(
+        fabrewk_core::record::record_branch(&repo)
+            .unwrap_err()
+            .code(),
+        Some(Code::ToolMissing)
     );
 }

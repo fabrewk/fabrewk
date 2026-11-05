@@ -115,6 +115,59 @@ mod tests {
     }
 
     #[test]
+    fn req_reg_2_at_every_day_from_1970_to_2400() {
+        let (mut y, mut m, mut d) = (1970u64, 1u64, 1u64);
+        for day in 0..157_000u64 {
+            assert_eq!(
+                format_utc(day * 86_400 + 3_661)[..19],
+                format!("{y:04}-{m:02}-{d:02}T01:01:01")
+            );
+            let leap = y % 4 == 0 && (y % 100 != 0 || y % 400 == 0);
+            let len = [
+                31,
+                28 + u64::from(leap),
+                31,
+                30,
+                31,
+                30,
+                31,
+                31,
+                30,
+                31,
+                30,
+                31,
+            ][m as usize - 1];
+            d += 1;
+            if d > len {
+                (d, m) = (1, m + 1);
+            }
+            if m > 12 {
+                (m, y) = (1, y + 1);
+            }
+        }
+    }
+
+    #[test]
+    fn req_reg_2_at_leap_years() {
+        for good in [
+            "2000-02-29T00:00:00Z",
+            "2400-02-29T00:00:00Z",
+            "2024-02-29T00:00:00Z",
+            "1999-02-28T00:00:00Z",
+        ] {
+            assert!(is_utc_timestamp(good), "{good}");
+        }
+        for bad in [
+            "1900-02-29T00:00:00Z",
+            "2100-02-29T00:00:00Z",
+            "2023-02-29T00:00:00Z",
+            "2001-02-29T00:00:00Z",
+        ] {
+            assert!(!is_utc_timestamp(bad), "{bad}");
+        }
+    }
+
+    #[test]
     fn req_reg_2_at_civil_dates() {
         for (secs, text) in [
             (0, "1970-01-01T00:00:00Z"),

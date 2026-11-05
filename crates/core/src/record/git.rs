@@ -282,39 +282,38 @@ pub(crate) fn sync_index(repo: &Repo) -> Result<(), Error> {
     if head_of(repo, "HEAD")?.is_none() {
         return Ok(());
     }
+    let events = repo.events();
     let mut args = os(&[
         "diff-index",
         "--cached",
         "--no-renames",
-        "--raw",
+        "--name-only",
         "-z",
         "HEAD",
         "--",
     ]);
-    let events = repo.events();
     args.push(events.as_os_str());
-    let raw = git(repo, &args, b"", None)?;
-    let mut entries = Vec::new();
-    let mut tokens = raw.split(|&b| b == 0);
-    while let (Some(meta), Some(path)) = (tokens.next(), tokens.next()) {
-        let fields: Vec<&[u8]> = meta.split(|&b| b == b' ').collect();
-        if fields.len() == 5
-            && fields[0].len() > 1
-            && fields[0][0] == b':'
-            && fields[0] != b":000000"
-        {
-            entries.extend([&fields[0][1..], b" ", fields[2], b"\t", path, b"\0"].concat());
-        }
+    let differ = git(repo, &args, b"", None)?;
+    let paths: Vec<&OsStr> = differ
+        .split(|&b| b == 0)
+        .filter(|p| !p.is_empty())
+        .filter_map(|p| std::str::from_utf8(p).ok())
+        .map(OsStr::new)
+        .collect();
+    if paths.is_empty() {
+        return Ok(());
     }
-    if !entries.is_empty() {
-        fault::point();
-        git(
-            repo,
-            &os(&["update-index", "-z", "--index-info"]),
-            &entries,
-            None,
-        )?;
-    }
+    // `ls-tree` prints what `--index-info` reads; a path the tip lacks is not printed and stays as it is.
+    let mut args = os(&["ls-tree", "-z", "HEAD", "--"]);
+    args.extend(paths);
+    let entries = git(repo, &args, b"", None)?;
+    fault::point();
+    git(
+        repo,
+        &os(&["update-index", "-z", "--index-info"]),
+        &entries,
+        None,
+    )?;
     Ok(())
 }
 

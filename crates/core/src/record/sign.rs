@@ -37,7 +37,7 @@ impl Sign for KeySigner {
             ],
             bytes,
         )?;
-        if !out.status.success() || out.stdout.is_empty() {
+        if !out.status.success() {
             return Err(refuse(
                 Code::ToolFailed,
                 Some(&self.0),

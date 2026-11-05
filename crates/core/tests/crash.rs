@@ -145,6 +145,8 @@ fn crash_suite_on_the_record() {
         let (ok, out) = child(&whole, &[]);
         assert!(ok, "{out}");
         let points: usize = reported(&out, "points ")[0].parse().unwrap();
+        let all = reported(&out, "appended ").len();
+        let mut before = 0;
         assert!(points > 50, "{points} write points");
         for n in 1..=points {
             let run = base.with_file_name(format!(
@@ -154,6 +156,13 @@ fn crash_suite_on_the_record() {
             copy_tree(&base, &run);
             let (ok, out) = child(&run, &[("FABREWK_FAULT_ABORT_AT", &n.to_string())]);
             assert!(!ok, "point {n} did not stop the child");
+            // The child stops at the point named, not earlier: what it reports grows with n, and all of it by the last.
+            let appended = reported(&out, "appended ").len();
+            assert!(
+                appended >= before && (n < points || appended == all),
+                "point {n}: {appended} of {all}"
+            );
+            before = appended;
             after_kill(&Fixture::at(&run), &out, n);
             std::fs::remove_dir_all(&run).unwrap();
         }
