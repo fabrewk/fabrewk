@@ -6,7 +6,7 @@ Mi entrada es exclusivamente mía. Lo que cite desde aquí (capturas, PDF, otros
 
 ## Propuestas y pendientes
 
-1. NOTA:  En el prompt del chat Claude Code activo veo que ya no estas registrando la etapa/fase o compuerta con su pequeña descripción para cada chat.  Todos ahora salen con el titulo "Integrador de Fabrewk con STATUS.md"  Si esto puede ser corregido, hazlo.
+1. PROPUESTA: (Posible addición)  No se si esto lo tengan otros meta-harnesses ni que consideres tu al respecto, pero al ver los multiples OOM's que cargo-mutants ha experimentado en este equipo, se me vino a la mente que así como escribes evidencia historica de memoria (para no volver a cometer los mismos errores) para ahorro de coste para un proyecto (repo), podemos diseñar un esquema que haga lo mismo pero con en función al host o equipo de desarrollo usado.  Esto podría vivir en el dominio del equipo  `~/.config/fabrewk/` y podria ser aprovechado no solo para un proyecto ejecutado en el mismo hardware/software, sino para otro que nos use en el mismo host como meta-harness.  Despues de desarrollar Fabrewk retomaremos el desarrollo de TickBrew y los errores aprendidos con rust pueden no volver a ser cometidos o estudiados allí.  Espero tus comentarios.
 
 
 ################################################################################
