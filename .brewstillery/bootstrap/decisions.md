@@ -1736,3 +1736,43 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Residuals (D-044): the machine's own Cargo configuration and environment beyond what `config_problems` checks, a
   compiler defect, a hiding only the diff shows; a repository whose path holds a space cannot run `budget check`.
 - Not done: Codex's review of `a40c769`; the acceptance of part 7a; phase 7's parts 7b to 7d.
+
+## R-023 — Session 15, part 7a closed: Codex accepts at its tenth pass
+
+- Status: recorded
+- Date: 2026-11-05
+- Who: integrator Claude Code, `claude-opus-5-5`. Reviewer: Codex `codex-cli 0.166.0`, `gpt-6.1-sol`, effort high,
+  launched as in R-022 (`codex exec --json`, standard input closed, sandbox `workspace-write` in a disposable clone
+  under the session's scratch directory, a user systemd scope capped at 3 GB, no network), its temporary files and
+  Cargo home kept beside the clone instead of `/tmp`. No subagent.
+- Start: HEAD `af84e04`, tree clean; the code identical to `a40c769`. The fermento was not swept: its answer has no
+  current recommendation and the maestro added no input since `e7f0c3d`.
+- Read: `STATUS.md`, `AGENTS.md`, `plan.md` (phase 7), this file (D-041 to D-046, R-022), `core-specification.md`
+  section 12 BUD; R-022's prompts and launch command; `tools/budget/src/sources.rs`.
+- Codex, pass 10 (`af84e04`, the code of `a40c769`; 468 s, 52 commands; input 1.14 million tokens, 94 % cached,
+  output 15,300): **accept**. P7A-23 closed: its reproduction against the CLI on a real release build exits 0 at the
+  parent of `a40c769` and 70 at `a40c769`, the refusal before any line is read. No new finding within D-044's scope;
+  the single rule, the split on whitespace and the colon after the target re-checked. 60 tests passed with Fedora's
+  `cargo`, the musl size test failing as D-043 says.
+- Residual, not blocking: a file whose name holds a tab is written by the compiler unescaped, and Cargo's aggregate
+  dep-info beside the binary omits it, so the counter never sees it. Such a file can reach the binary only as data
+  (`include_str!`, `include_bytes!`): every route that would make it Rust (`include` in any form, a `path`
+  attribute, an attribute built by a macro, a procedural macro or build script in a ring) is refused in the source,
+  and the binary's size still bounds it. It is lost in what Cargo records, so it falls under D-044, point 2. The
+  residuals of R-022 stand.
+- Mutation, full run of the final tree (`cargo mutants --workspace -j 2 --timeout 90`, rustup 1.99.1, in its own
+  scope as R-022 says; 24 min): 492 mutants, 456 caught, 24 timeouts, 10 unviable, 2 missed, the two equivalents R-022
+  declares (`token.end - 1` → `/` in `scan_source`, `count.rs:92`; `i < code.len()` → `<=` in `test_module_spans`,
+  `count.rs:332`). Every timeout is an index that stops advancing (the lexer, the block-comment, literal and quote
+  ends, the test-module walk, the group matchers and two in the JSON reader), a loop the suite would not end; none
+  passed.
+- Clean clone of `af84e04`, rustup 1.99.1: 61 tests green; the musl release build; `budget check --binary` exits 0
+  with core 12 of 4,000 lines in 2 files, 0 direct runtime crates, 0 release crates, the binary 397,600 bytes, the
+  measure of D-042 unchanged; `clippy --workspace --all-targets -D warnings` and `fmt --check` clean; `cargo deny
+  --offline check licenses advisories` clean.
+- Outcome: every acceptance criterion of part 7a in `plan.md` holds (BUD's criteria of section 12 for phase 7, the
+  counter's fixture tests, a clean clone and the musl build green, mutants caught or listed as equivalent, Codex's
+  review with no confirmed blocking finding open). Part 7a is closed on the terms of D-045, point 2. Ten passes,
+  confirmed blocking findings 4, 3, 3, 4, 4, 1, 1, 1, 1, 0; P7A-1 to P7A-23 corrected.
+- Written: this entry; `plan.md` (row 7a); `STATUS.md`.
+- Not done: phase 7's parts 7b to 7d.

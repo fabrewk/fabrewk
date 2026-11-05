@@ -6,7 +6,7 @@ view generated from that registry. Technical files are in English by default (D-
 ## Current state
 
 **Phases 0 to 6 are closed (D-037, D-040). Phase 7 (the first code) is split into parts 7a to 7d (D-041); part 7a
-is paused (D-045).** The repository now holds the first code at its root: a Cargo workspace with one crate per ring
+is closed (R-023); 7b, the record, is next.** The repository now holds the first code at its root: a Cargo workspace with one crate per ring
 (`crates/core`, `crates/fabrewk`, a skeleton that only answers `--version`) and the size counter `tools/budget`, the
 licence files, `deny.toml` and a root `.gitignore` with `/target`. The size budget is frozen (D-042). No feature is
 built yet and no `data/` exists. The domain is `.brewstillery/`, hidden (D-032).
@@ -112,12 +112,17 @@ repository, is imported into the single registry at production and then stays re
   MemorySwapMax=0 -p OOMPolicy=continue bash -c 'ulimit -v 1000000; exec cargo mutants --workspace -j 2 --timeout 90'`,
   with `TMPDIR` in the session's scratch directory. Run Codex in the same kind of scope, one heavy job at a time, and
   remove reviewers' leftovers from `/tmp`. Without this, a mutant that loops on memory took VS Code down.
-- **Next: part 7a resumed (plan, "Phase 7").** Codex reviews `a40c769` (P7A-23's correction) in one scoped pass worded
-  as a review of the measurement's coverage, since adversarial wording tripped the provider's filter once (R-022). If it
-  accepts, part 7a closes with a full mutation run, a clean clone, `STATUS.md` and the record; then part 7b, the record.
-- **Start prompt:** `Eres el integrador de Fabrewk; fase 7, parte 7a: revisión final de Codex del contador de líneas y
-  cierre de la parte; empieza por .brewstillery/STATUS.md`. Model and effort: Claude Code on Opus 5.5, effort high;
-  Codex GPT-6.1 Sol, effort high, reviews each part that delivers code (plan row 7).
+- **Part 7a closed (session 15, R-023).** Codex accepted at its tenth pass (P7A-23 closed, no new finding in scope;
+  one residual, a file named with a tab that Cargo's dep-info omits, reachable only as data). Full mutation run: 492
+  mutants, only the two declared equivalents missed, 24 timeouts that are loops. Clean clone: 61 tests green, musl
+  build, `budget check`, clippy, fmt and `cargo deny` clean; the measure of D-042 unchanged. Codex's prompts work best
+  worded as a review of correctness and coverage, scoped to the change and to D-044 (R-022).
+- **Next: part 7b, the record (plan, "Phase 7").** Events, replay, compare-and-swap, fork detection, the history walk
+  and the crash suite on the record (REG; `core-specification.md` section 3, 11.3, 11.5). The plan says the exact cut
+  between 7b and 7d is reviewed when 7b starts: that is the first step, shown to the maestro before any code.
+- **Start prompt:** `Eres el integrador de Fabrewk; fase 7, parte 7b: el registro (eventos, replay, compare-and-swap,
+  detección de bifurcaciones, recorrido del historial); empieza por .brewstillery/STATUS.md`. Model and effort: Claude
+  Code on Opus 5.5, effort high; Codex GPT-6.1 Sol, effort high, reviews each part that delivers code (plan row 7).
 
 Carried without blocking, with destinations, in D-013. A phase that does not pass is corrected and retried; it
 never ends the project (D-003).
