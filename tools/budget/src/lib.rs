@@ -12,32 +12,15 @@ use budget::{
 };
 use std::path::{Path, PathBuf};
 
-/// The host's target tuple, from the `rustc` on `PATH`: build scripts and procedural macros are built for it.
-pub fn host_tuple() -> Result<String, String> {
-    let out = std::process::Command::new("rustc")
-        .args(["--print", "host-tuple"])
-        .output()
-        .map_err(|e| format!("cannot run rustc: {e}"))?;
-    if !out.status.success() {
-        return Err("rustc printed no host tuple".to_string());
-    }
-    Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
-}
-
-/// The release build's packages, from the release target's graph and the host's together.
+/// The release build's packages, every feature and every platform counted.
 pub fn release_report(root: &Path, counts: &[rings::RingCount]) -> Result<deps::Report, String> {
-    let own = own_packages(root, budget::RINGS);
-    let mut report = deps::Report::default();
-    for platform in [budget::RELEASE_TARGET.to_string(), host_tuple()?] {
-        let metadata = deps::cargo_metadata(&cargo(), root, &platform)?;
-        report.merge(deps::analyse(
-            &metadata,
-            budget::BINARY_PACKAGE,
-            &own,
-            counts,
-        )?);
-    }
-    Ok(report)
+    let metadata = deps::cargo_metadata(&cargo(), root)?;
+    deps::analyse(
+        &metadata,
+        budget::BINARY_PACKAGE,
+        &own_packages(root, budget::RINGS),
+        counts,
+    )
 }
 
 /// The workspace this tool was built in.

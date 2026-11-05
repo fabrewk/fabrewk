@@ -1,20 +1,19 @@
-//! `budget count` prints each ring's measure; `budget check --binary <path> [--target <triple>]` checks the whole
+//! `budget count` prints each ring's measure; `budget check --binary <path>` checks the whole
 //! budget: rings, crates and the stripped release binary. Exit status: 0 within, 1 over, 2 usage, 70 error.
 
-use budget::budget::{BINARY_PACKAGE, RELEASE_TARGET, RINGS};
+use budget::budget::RINGS;
 use budget::{deps, rings};
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-const USAGE: &str = "usage: budget count | budget check --binary <path> [--target <triple>]";
+const USAGE: &str = "usage: budget count | budget check --binary <path>";
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let args: Vec<&str> = args.iter().map(String::as_str).collect();
     let result = match args.as_slice() {
         ["count"] => count(),
-        ["check", "--binary", binary] => check(PathBuf::from(binary), RELEASE_TARGET),
-        ["check", "--binary", binary, "--target", target] => check(PathBuf::from(binary), target),
+        ["check", "--binary", binary] => check(PathBuf::from(binary)),
         _ => {
             eprintln!("{USAGE}");
             return ExitCode::from(2);
@@ -47,23 +46,18 @@ fn print_counts(counts: &[rings::RingCount]) {
     }
 }
 
-fn check(binary: PathBuf, target: &str) -> Result<bool, String> {
+fn check(binary: PathBuf) -> Result<bool, String> {
     let root = budget::workspace_root();
     let counts = rings::count_rings(&root, RINGS).map_err(|e| e.to_string())?;
     print_counts(&counts);
-    let own = budget::own_packages(&root, RINGS);
-    let mut report = deps::Report::default();
-    for platform in [target.to_string(), budget::host_tuple()?] {
-        let metadata = deps::cargo_metadata(&budget::cargo(), &root, &platform)?;
-        report.merge(deps::analyse(&metadata, BINARY_PACKAGE, &own, &counts)?);
-    }
+    let report = budget::release_report(&root, &counts)?;
     println!(
         "direct runtime crates: {} {:?}",
         report.direct.len(),
         report.direct.values().collect::<Vec<_>>()
     );
     println!(
-        "crates in the release build for {target}: {}",
+        "crates in the release build, every platform counted: {}",
         report.all.len()
     );
     let bytes = std::fs::metadata(&binary)

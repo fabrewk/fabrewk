@@ -510,15 +510,7 @@ fn req_bud_1_compiled_sources_outside_the_count_are_reported() {
     );
     let dep_info = fs::read_to_string(root.join("target/release/bin.d")).unwrap();
     let mut problems = source_problems(&dep_info, &counts).unwrap();
-    let host = String::from_utf8(
-        Command::new("rustc")
-            .args(["--print", "host-tuple"])
-            .output()
-            .unwrap()
-            .stdout,
-    )
-    .unwrap();
-    let metadata = cargo_metadata(&cargo(), &root, host.trim()).unwrap();
+    let metadata = cargo_metadata(&cargo(), &root).unwrap();
     problems.extend(
         analyse(&metadata, "bin", &own_packages(&root, &rings), &counts)
             .unwrap()
@@ -604,7 +596,7 @@ fn req_bud_1_cargo_configuration_and_rustflags_are_reported() {
 }
 
 #[test]
-fn req_bud_2_packages_are_told_apart_by_id_and_platforms_are_merged() {
+fn req_bud_2_packages_are_told_apart_by_id_and_every_platform_counts() {
     // Codex's case in its fifth review of part 7a: packages of one name and version from distinct sources.
     let doc = r#"{"packages":[
      {"id":"bin","name":"fabrewk","version":"0.0.0","source":null,"manifest_path":"/w/crates/fabrewk/Cargo.toml","targets":[]},
@@ -616,19 +608,18 @@ fn req_bud_2_packages_are_told_apart_by_id_and_platforms_are_merged() {
     let own = [PathBuf::from("/w/crates/fabrewk")];
     let report = analyse(doc, "fabrewk", &own, &[]).unwrap();
     assert_eq!((report.direct.len(), report.all.len()), (2, 2));
-    // The host's graph adds what only the host builds; merging keeps one copy of each problem.
-    let mut merged = analyse(METADATA, "fabrewk", &own, &[]).unwrap();
-    let before = merged.problems.len();
-    merged.merge(report.clone());
-    merged.merge(analyse(METADATA, "fabrewk", &own, &[]).unwrap());
-    assert_eq!(merged.problems.len(), before);
-    assert!(
-        merged.all.contains_key("git-a")
-            && merged.all.contains_key("git-b")
-            && merged.all.contains_key("cc")
-    );
-    assert!(merged.direct.contains_key("git-b"));
-    assert!(merged.local.contains(&PathBuf::from("/w/crates/fabrewk")));
+    // Edges under any platform's cfg are followed: Codex's case in its sixth review of part 7a, a macro the target
+    // reaches whose dependencies only the host builds.
+    let cross = r#"{"packages":[
+     {"id":"bin","name":"fabrewk","version":"0.0.0","source":null,"manifest_path":"/w/crates/fabrewk/Cargo.toml","targets":[]},
+     {"id":"macro","name":"serde","version":"0.1.0","source":"git+m","manifest_path":"/g/m/Cargo.toml","targets":[]},
+     {"id":"helper","name":"helper","version":"0.1.0","source":"git+h","manifest_path":"/g/h/Cargo.toml","targets":[]}],
+     "workspace_members":["bin"],
+     "resolve":{"nodes":[{"id":"bin","deps":[{"pkg":"macro","dep_kinds":[{"kind":null,"target":"cfg(target_env = \"musl\")"}]}]},
+      {"id":"macro","deps":[{"pkg":"helper","dep_kinds":[{"kind":null,"target":"cfg(target_env = \"gnu\")"}]}]},
+      {"id":"helper","deps":[]}]}}"#;
+    let report = analyse(cross, "fabrewk", &own, &[]).unwrap();
+    assert_eq!(report.all.len(), 2);
 }
 
 #[test]

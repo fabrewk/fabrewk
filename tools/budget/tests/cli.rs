@@ -59,21 +59,14 @@ fn req_bud_2_check_within_and_over_the_binary_limit() {
     assert_eq!(out.status.code(), Some(0), "{}", stdout(&out));
     let text = stdout(&out);
     assert!(text.starts_with("ring core: "), "{text}");
-    assert!(text.contains("crates in the release build for aarch64-unknown-linux-musl: "));
+    assert!(text.contains("crates in the release build, every platform counted: "));
     assert!(text.contains(&format!(": {MAX_BINARY_BYTES} bytes\n")));
     assert!(!text.contains("over budget"));
 
     let over = fake_binary("over", MAX_BINARY_BYTES + 1, &[]);
-    let out = budget(&[
-        "check",
-        "--binary",
-        over.to_str().unwrap(),
-        "--target",
-        "aarch64-unknown-linux-gnu",
-    ]);
+    let out = budget(&["check", "--binary", over.to_str().unwrap()]);
     assert_eq!(out.status.code(), Some(1));
     let text = stdout(&out);
-    assert!(text.contains("crates in the release build for aarch64-unknown-linux-gnu: "));
     assert!(
         text.contains("over budget: the release binary has"),
         "{text}"
@@ -118,6 +111,7 @@ fn budget_usage_errors() {
         &["check", "--binary"],
         &["count", "extra"],
         &["check", "--target", "x"],
+        &["check", "--binary", "b", "--target", "x"],
     ] {
         let out = budget(args);
         assert_eq!(out.status.code(), Some(2), "{args:?}");

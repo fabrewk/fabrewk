@@ -1,5 +1,7 @@
-//! The release build's packages, from one `cargo metadata` with every feature and the release target's platform
-//! (REQ-BUD-2, REQ-BUD-4; core-specification 11.6; D-044).
+//! The release build's packages, from one `cargo metadata` with every feature and every platform (REQ-BUD-2,
+//! REQ-BUD-4; core-specification 11.6; D-044). The graph is not filtered to a platform: a path from the target to the
+//! host (a procedural macro built for the host, with dependencies only the host needs) would vanish from both filtered
+//! graphs, so every edge is followed and the count can only be too high, never too low.
 //!
 //! The world is closed: every local package (one with no registry source) must be a workspace member, and every local
 //! package the binary reaches must be a ring package whose `lib` and `bin` roots are counted, with no build script and
@@ -11,8 +13,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-/// Runs `cargo metadata` for every feature and `target`'s platform in the workspace at `root`, without network.
-pub fn cargo_metadata(cargo: &Path, root: &Path, target: &str) -> Result<String, String> {
+/// Runs `cargo metadata` for every feature and every platform in the workspace at `root`, without network.
+pub fn cargo_metadata(cargo: &Path, root: &Path) -> Result<String, String> {
     let out = Command::new(cargo)
         .current_dir(root)
         .args([
@@ -23,7 +25,6 @@ pub fn cargo_metadata(cargo: &Path, root: &Path, target: &str) -> Result<String,
             "1",
             "--all-features",
         ])
-        .args(["--filter-platform", target])
         .output()
         .map_err(|e| format!("cannot run {}: {e}", cargo.display()))?;
     if !out.status.success() {
@@ -168,20 +169,6 @@ pub fn analyse(
         }
     }
     Ok(report)
-}
-
-impl Report {
-    /// Adds what `other` found, so that one report covers the target's graph and the host's.
-    pub fn merge(&mut self, other: Report) {
-        self.direct.extend(other.direct);
-        self.all.extend(other.all);
-        self.local.extend(other.local);
-        for problem in other.problems {
-            if !self.problems.contains(&problem) {
-                self.problems.push(problem);
-            }
-        }
-    }
 }
 
 /// A ring package's targets: `lib` and `bin` roots counted, no build script, no procedural macro.
