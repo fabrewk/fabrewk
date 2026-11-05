@@ -177,8 +177,6 @@ pub fn parse(path: &Path, text: &str, level: Level) -> Result<Settings, Vec<Erro
 /// error is in a value, the text is replaced by `0` and the key holding it is the path; else the last key read before
 /// the error; `(document)` when none.
 fn locate(text: &str, span: std::ops::Range<usize>) -> String {
-    // A name the text does not hold, so no key of the file can be taken for it.
-    let mark = (0..).map(|n| format!("fabrewk-locate-{n}")).find(|m| !text.contains(m.as_str())).unwrap_or_default();
     let Some(at) = text.get(span.clone()) else { return "(document)".into() };
     let keys = |with: &str| {
         let changed = format!("{}{with}{}", &text[..span.start], &text[span.end..]);
@@ -197,6 +195,10 @@ fn locate(text: &str, span: std::ops::Range<usize>) -> String {
         }
         out
     };
+    // A name no key of the file holds, however the file spells it, so none can be taken for it.
+    let taken: Vec<String> = keys(at).into_iter().flat_map(|(p, ..)| p).collect();
+    let free = |m: &String| !text.contains(m.as_str()) && !taken.contains(m);
+    let mark = (0..).map(|n| format!("fabrewk-locate-{n}")).find(free).unwrap_or_default();
     let probe = format!("{at} = 0");
     let name =
         DeTable::parse(&probe).ok().and_then(|d| d.get_ref().iter().next().map(|(k, _)| k.get_ref().to_string()));
@@ -580,6 +582,12 @@ mod tests {
         refused(Level::Project, "[t]\nk = 1\n[t.k]\n", Code::SettingsInvalid, "t.k (line 3)");
         let mark = "[profiles.fabrewk-locate]\n[limits]\nrounds = 1\nrounds = 2\n";
         refused(Level::Project, mark, Code::SettingsInvalid, "limits.rounds (line 4)");
+        for spelled in ["\"fabrewk-locate-\\u0030\"", "\"fabrewk-locate-\\u0030\".x", "fabrewk-locate-0"] {
+            let escaped = format!("[profiles.{spelled}]\n[limits]\nrounds = 1\nrounds = 2\n");
+            refused(Level::Project, &escaped, Code::SettingsInvalid, "limits.rounds (line 4)");
+            let inside = format!("[t]\nk = 1\n{spelled} = 2\nk = 3\n");
+            refused(Level::Project, &inside, Code::SettingsInvalid, "t.k (line 4)");
+        }
         refused(Level::Project, "[t]\nk = 1\nfabrewk-locate = 2\nk = 3\n", Code::SettingsInvalid, "t.k (line 4)");
         refused(Level::Project, "limits..rounds = 1\n", Code::SettingsInvalid, "limits. (line 1)");
         refused(Level::Project, "[t]\nlimits..rounds = 1\n", Code::SettingsInvalid, "t.limits. (line 2)");
