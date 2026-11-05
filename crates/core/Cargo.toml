@@ -9,3 +9,21 @@ publish.workspace = true
 
 [lints]
 workspace = true
+
+[dependencies]
+# Approved runtime crates (AD-4, D-036): event files and digests. No derive: events are read as `serde_json::Value`
+# and validated by hand, so the release build carries no procedural macro.
+serde_json = "1"
+sha2 = "0.11"
+
+[dev-dependencies]
+# Property tests (choice 11 of the core specification, D-040); never shipped.
+proptest = { version = "1", default-features = false, features = ["std"] }
+
+[features]
+# Stops the process at a chosen write, for the crash suite (core-specification 11.5); never in a release build.
+fault-injection = []
+
+[[test]]
+name = "crash"
+required-features = ["fault-injection"]

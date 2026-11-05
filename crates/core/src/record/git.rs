@@ -1,0 +1,454 @@
+//! The record in Git (REQ-REG-8's history walk, REQ-REG-10, REQ-REG-11). Every object is read as stored: replacement
+//! objects, grafts and the commit graph are off for every call. The record commit is built through a temporary index,
+//! so the person's staged and unstaged changes stay as they were, and the branch moves by compare-and-swap.
+
+use super::replay::list_stream;
+use super::{Code, Error, fault, io_at, refuse};
+use std::collections::BTreeSet;
+use std::ffi::OsStr;
+use std::io::Write;
+use std::path::{Path, PathBuf};
+use std::process::{Command, Output, Stdio};
+
+/// Where the record is committed (REQ-DOM-7).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Publication {
+    Published,
+    OwnRepository,
+    Unpublished,
+}
+
+/// The repository that holds the record: its working tree's root and the domain's path inside it.
+#[derive(Debug, Clone)]
+pub struct Repo {
+    pub root: PathBuf,
+    pub prefix: PathBuf,
+}
+
+impl Repo {
+    /// The repository the mode commits in; `None` in `unpublished`.
+    pub fn for_domain(domain: &Path, mode: Publication) -> Option<Repo> {
+        match mode {
+            Publication::Published => Some(Repo {
+                root: domain.parent()?.to_path_buf(),
+                prefix: PathBuf::from(domain.file_name()?),
+            }),
+            Publication::OwnRepository => Some(Repo {
+                root: domain.to_path_buf(),
+                prefix: PathBuf::new(),
+            }),
+            Publication::Unpublished => None,
+        }
+    }
+
+    fn events(&self) -> PathBuf {
+        self.prefix.join("data/events")
+    }
+}
+
+fn command(repo: &Repo, args: &[&OsStr]) -> Command {
+    let mut c = Command::new("git");
+    c.current_dir(&repo.root);
+    for var in [
+        "GIT_DIR",
+        "GIT_WORK_TREE",
+        "GIT_INDEX_FILE",
+        "GIT_COMMON_DIR",
+        "GIT_OBJECT_DIRECTORY",
+    ] {
+        c.env_remove(var);
+    }
+    for var in [
+        "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+        "GIT_NAMESPACE",
+        "GIT_REPLACE_REF_BASE",
+        "GIT_SHALLOW_FILE",
+    ] {
+        c.env_remove(var);
+    }
+    c.env("GIT_NO_REPLACE_OBJECTS", "1")
+        .env("GIT_GRAFT_FILE", "/dev/null");
+    c.args(["--no-replace-objects", "-c", "core.commitGraph=false"])
+        .args(args);
+    c
+}
+
+fn run(mut c: Command, input: &[u8]) -> Result<Output, Error> {
+    let mut child = c
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|e| {
+            let code = if e.kind() == std::io::ErrorKind::NotFound {
+                Code::ToolMissing
+            } else {
+                Code::ToolFailed
+            };
+            refuse(code, None, "git")
+        })?;
+    let stdin = child.stdin.take();
+    std::thread::scope(|s| {
+        s.spawn(move || stdin.map(|mut w| w.write_all(input)));
+        child.wait_with_output()
+    })
+    .map_err(|_| refuse(Code::ToolFailed, None, "git"))
+}
+
+/// Runs git and gives its output, refusing `TOOL_FAILED` on a failure; git's own text never leaves this function.
+fn git(repo: &Repo, args: &[&OsStr], input: &[u8], index: Option<&Path>) -> Result<Vec<u8>, Error> {
+    let mut c = command(repo, args);
+    if let Some(index) = index {
+        c.env("GIT_INDEX_FILE", index);
+    }
+    let out = run(c, input)?;
+    if !out.status.success() {
+        let what: Vec<_> = args.iter().take(2).map(|a| a.to_string_lossy()).collect();
+        return Err(refuse(
+            Code::ToolFailed,
+            Some(&repo.root),
+            format!("git {} failed", what.join(" ")),
+        ));
+    }
+    Ok(out.stdout)
+}
+
+fn line(bytes: Vec<u8>) -> String {
+    String::from_utf8_lossy(&bytes)
+        .trim_end_matches('\n')
+        .to_owned()
+}
+
+fn os<'a>(items: &[&'a str]) -> Vec<&'a OsStr> {
+    items.iter().map(|s| OsStr::new(*s)).collect()
+}
+
+/// The commit a ref names, `None` if it names none (an unborn branch).
+pub(crate) fn head_of(repo: &Repo, name: &str) -> Result<Option<String>, Error> {
+    let target = format!("{name}^{{commit}}");
+    let out = run(
+        command(repo, &os(&["rev-parse", "--verify", "-q", &target])),
+        b"",
+    )?;
+    Ok(out.status.success().then(|| line(out.stdout)))
+}
+
+/// The record branch (REQ-REG-11): the branch checked out in the main working tree; `HEAD_DETACHED` otherwise.
+pub fn record_branch(repo: &Repo) -> Result<String, Error> {
+    let common = line(git(
+        repo,
+        &os(&["rev-parse", "--git-common-dir"]),
+        b"",
+        None,
+    )?);
+    let out = run(
+        command(
+            repo,
+            &os(&["--git-dir", &common, "symbolic-ref", "-q", "HEAD"]),
+        ),
+        b"",
+    )?;
+    if !out.status.success() {
+        return Err(refuse(
+            Code::HeadDetached,
+            Some(&repo.root),
+            "HEAD names no branch",
+        ));
+    }
+    Ok(line(out.stdout))
+}
+
+/// Whether raw diff output (`-z`) holds an event file deleted, changed or retyped.
+fn loses(raw: &[u8]) -> bool {
+    raw.split(|&b| b == 0)
+        .any(|t| t.first() == Some(&b':') && matches!(t.last(), Some(b'D' | b'M' | b'T')))
+}
+
+/// The history walk (REQ-REG-8, PD-01): every parent of every commit of `branch`, and the working tree after its tip,
+/// must keep, unchanged, every file under `data/events/` its parent holds. A shallow repository cannot be walked
+/// whole (`CHECK_UNKNOWN`); any loss is `RECORD_ROLLBACK`, even when a later commit restores it.
+pub fn walk_history(repo: &Repo, branch: &str) -> Result<(), Error> {
+    if line(git(
+        repo,
+        &os(&["rev-parse", "--is-shallow-repository"]),
+        b"",
+        None,
+    )?) != "false"
+    {
+        return Err(refuse(
+            Code::CheckUnknown,
+            Some(&repo.root),
+            "a shallow repository",
+        ));
+    }
+    let Some(tip) = head_of(repo, branch)? else {
+        return Ok(());
+    };
+    let events = repo.events();
+    let revs = git(repo, &os(&["rev-list", &tip]), b"", None)?;
+    let mut args = os(&[
+        "diff-tree",
+        "--stdin",
+        "-m",
+        "-r",
+        "--no-renames",
+        "--raw",
+        "-z",
+        "--",
+    ]);
+    args.push(events.as_os_str());
+    if loses(&git(repo, &args, &revs, None)?) {
+        return Err(refuse(
+            Code::RecordRollback,
+            Some(&repo.root),
+            "a commit drops or changes an event file",
+        ));
+    }
+    // The working tree after the tip, compared file by file without the index, which a stopped record commit may
+    // have left behind the branch.
+    let mut args = os(&["ls-tree", "-r", "-z", &tip, "--"]);
+    args.push(events.as_os_str());
+    let listing = git(repo, &args, b"", None)?;
+    let (mut paths, mut blobs) = (Vec::new(), Vec::new());
+    for entry in listing.split(|&b| b == 0).filter(|e| !e.is_empty()) {
+        let text = String::from_utf8_lossy(entry);
+        let (meta, path) = text.split_once('\t').unwrap_or_default();
+        blobs.push(meta.split(' ').nth(2).unwrap_or_default().to_owned());
+        paths.push(path.to_owned());
+    }
+    let lost = || {
+        refuse(
+            Code::RecordRollback,
+            Some(&repo.root),
+            "the working tree drops or changes an event file",
+        )
+    };
+    if paths
+        .iter()
+        .any(|p| !std::fs::symlink_metadata(repo.root.join(p)).is_ok_and(|m| m.is_file()))
+    {
+        return Err(lost());
+    }
+    if !paths.is_empty() {
+        let mut args = os(&["hash-object", "--no-filters", "--"]);
+        args.extend(paths.iter().map(OsStr::new));
+        if line(git(repo, &args, b"", None)?)
+            .split('\n')
+            .ne(blobs.iter().map(String::as_str))
+        {
+            return Err(lost());
+        }
+    }
+    Ok(())
+}
+
+/// Event files and signatures in the working tree that the record branch's tip does not hold (REQ-REG-10).
+pub fn uncommitted(repo: &Repo) -> Result<Vec<PathBuf>, Error> {
+    let events = repo.events();
+    let mut tracked = BTreeSet::new();
+    if head_of(repo, "HEAD")?.is_some() {
+        let mut args = os(&["ls-tree", "-r", "-z", "--name-only", "HEAD", "--"]);
+        args.push(events.as_os_str());
+        let out = git(repo, &args, b"", None)?;
+        let paths = out
+            .split(|&b| b == 0)
+            .filter_map(|p| std::str::from_utf8(p).ok())
+            .filter(|p| !p.is_empty());
+        tracked.extend(paths.map(|p| repo.root.join(p)));
+    }
+    let root = repo.root.join(&events);
+    let mut out = Vec::new();
+    for dir in std::fs::read_dir(&root)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| p.is_dir())
+    {
+        let listing = list_stream(&dir)?;
+        let files = listing
+            .events
+            .into_values()
+            .flatten()
+            .chain(listing.signatures);
+        out.extend(files.filter(|f| !tracked.contains(f)));
+    }
+    out.sort();
+    Ok(out)
+}
+
+/// Puts back in the person's index, from the tip, every event file a stopped record commit left out of it.
+pub(crate) fn sync_index(repo: &Repo) -> Result<(), Error> {
+    if head_of(repo, "HEAD")?.is_none() {
+        return Ok(());
+    }
+    let mut args = os(&[
+        "diff-index",
+        "--cached",
+        "--no-renames",
+        "--raw",
+        "-z",
+        "HEAD",
+        "--",
+    ]);
+    let events = repo.events();
+    args.push(events.as_os_str());
+    let raw = git(repo, &args, b"", None)?;
+    let mut entries = Vec::new();
+    let mut tokens = raw.split(|&b| b == 0);
+    while let (Some(meta), Some(path)) = (tokens.next(), tokens.next()) {
+        let fields: Vec<&[u8]> = meta.split(|&b| b == b' ').collect();
+        if fields.len() == 5
+            && fields[0].len() > 1
+            && fields[0][0] == b':'
+            && fields[0] != b":000000"
+        {
+            entries.extend([&fields[0][1..], b" ", fields[2], b"\t", path, b"\0"].concat());
+        }
+    }
+    if !entries.is_empty() {
+        fault::point();
+        git(
+            repo,
+            &os(&["update-index", "-z", "--index-info"]),
+            &entries,
+            None,
+        )?;
+    }
+    Ok(())
+}
+
+/// Makes the record commit of `files` (absolute paths in the working tree) on the record branch, moving it from
+/// `start` by compare-and-swap; if it moved, rebuilds once on the new head when no file of the commit changed there,
+/// and otherwise refuses `RECORD_COMMIT_RACE`, the files left as written. One `Fabrewk-Event` trailer per digest.
+pub(crate) fn commit_record(
+    repo: &Repo,
+    domain: &Path,
+    branch: &str,
+    start: Option<&str>,
+    files: &[PathBuf],
+    digests: &[String],
+) -> Result<String, Error> {
+    let mut rel = Vec::new();
+    for f in files {
+        let r = f
+            .strip_prefix(&repo.root)
+            .ok()
+            .and_then(Path::to_str)
+            .filter(|r| !r.contains(['\n', '\t', '\0']));
+        rel.push(
+            r.ok_or_else(|| refuse(Code::ToolFailed, Some(f), "a path outside the repository"))?,
+        );
+    }
+    let mut args = os(&["hash-object", "-w", "--no-filters", "--"]);
+    args.extend(rel.iter().map(OsStr::new));
+    let blobs = line(git(repo, &args, b"", None)?);
+    if blobs.split('\n').count() != rel.len() {
+        return Err(refuse(
+            Code::ToolFailed,
+            Some(&repo.root),
+            "git hash-object gave another count",
+        ));
+    }
+    let entries: String = blobs
+        .split('\n')
+        .zip(&rel)
+        .map(|(blob, path)| format!("100644 {blob}\t{path}\0"))
+        .collect();
+    let message: String = "fabrewk: record\n\n".to_owned()
+        + &digests
+            .iter()
+            .map(|d| format!("Fabrewk-Event: {d}\n"))
+            .collect::<String>();
+    let tmp = domain.join("local/tmp");
+    std::fs::create_dir_all(&tmp).map_err(io_at(&tmp))?;
+    let index = tmp.join("record-index");
+    let result = attempt(repo, branch, start, &rel, &entries, &message, &index);
+    let _ = std::fs::remove_file(&index);
+    result
+}
+
+fn attempt(
+    repo: &Repo,
+    branch: &str,
+    start: Option<&str>,
+    rel: &[&str],
+    entries: &str,
+    message: &str,
+    index: &Path,
+) -> Result<String, Error> {
+    let mut base = start.map(str::to_owned);
+    for round in 0..2 {
+        let _ = std::fs::remove_file(index);
+        let read = match &base {
+            Some(b) => os(&["read-tree", b]),
+            None => os(&["read-tree", "--empty"]),
+        };
+        git(repo, &read, b"", Some(index))?;
+        git(
+            repo,
+            &os(&["update-index", "-z", "--index-info"]),
+            entries.as_bytes(),
+            Some(index),
+        )?;
+        let tree = line(git(repo, &os(&["write-tree"]), b"", Some(index))?);
+        let mut args = vec!["commit-tree", &tree, "-F", "-"];
+        if let Some(b) = &base {
+            args.extend(["-p", b]);
+        }
+        fault::point();
+        let commit = line(git(repo, &os(&args), message.as_bytes(), None)?);
+        fault::point();
+        let old = base.clone().unwrap_or_default();
+        let moved = run(
+            command(
+                repo,
+                &os(&["update-ref", "-m", "fabrewk: record", branch, &commit, &old]),
+            ),
+            b"",
+        )?;
+        if moved.status.success() {
+            fault::point();
+            git(
+                repo,
+                &os(&["update-index", "-z", "--index-info"]),
+                entries.as_bytes(),
+                None,
+            )?;
+            fault::point();
+            return Ok(commit);
+        }
+        let now = head_of(repo, branch)?;
+        if now == base {
+            return Err(refuse(
+                Code::ToolFailed,
+                Some(&repo.root),
+                "git update-ref failed",
+            ));
+        }
+        let race = || {
+            refuse(
+                Code::RecordCommitRace,
+                Some(&repo.root),
+                "the branch moved and changed a file of the commit",
+            )
+        };
+        let Some(n) = now.as_deref() else {
+            return Err(race());
+        };
+        let mut changed = match &base {
+            Some(b) => os(&["diff-tree", "-r", "--name-only", "-z", b, n, "--"]),
+            None => os(&["ls-tree", "-r", "--name-only", "-z", n, "--"]),
+        };
+        changed.extend(rel.iter().map(OsStr::new));
+        if round == 1 || !git(repo, &changed, b"", None)?.is_empty() {
+            return Err(race());
+        }
+        base = now;
+    }
+    Err(refuse(
+        Code::RecordCommitRace,
+        Some(&repo.root),
+        "the branch moved twice",
+    ))
+}
