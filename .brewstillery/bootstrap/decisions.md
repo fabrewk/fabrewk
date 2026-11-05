@@ -1447,3 +1447,93 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   single list, every requirement cited exists, and every requirement is reached from the classification. `plan.md`
   (part 6a done); `STATUS.md`; this entry and D-038.
 - Not done: Codex's review, which covers parts 6a and 6b together (D-038).
+
+## D-039 — Codex reviews phase 6 with its full budget
+
+- Status: decided
+- Decided: 2026-11-05
+- Origin: maintainer XEL in session 13's chat, answering the integrator's question on launching Codex at the end of
+  part 6b: "Sí, presupuesto completo (Recomendado)".
+- Decision: Codex (`gpt-6.1-sol`, effort high) reviews parts 6a and 6b of `core-specification.md` together, in this
+  repository, read-only, with no network, as a full review followed by scoped re-checks until no confirmed blocking
+  finding is open (D-003), as in phase 5 (D-030).
+- Consequences: the maestro's approval of the text and of its section 10 choices follows Codex's accept (plan row 6).
+- Sources: chat of session 13; D-038; plan row 6.
+- Supersedes: none.
+
+## R-021 — Session 13, part 6b and Codex's review of phase 6
+
+- Status: recorded
+- Date: 2026-11-05
+- Who: integrator Claude Code, `claude-opus-5-5`. Reviewer: Codex `codex-cli 0.166.0`, `gpt-6.1-sol`, effort high,
+  read-only sandbox, launched in this repository with `codex exec --json`, standard input closed. No subagent, no
+  network.
+- Start: HEAD `8e3f8c2`, tree clean. The fermento held a new point 1 (the chats' titles), written by the maintainer
+  during session 12 and committed inside that session's closing commit `8e3f8c2`, together with the integrator's work
+  and its AI co-author: against D-022 and the very defect of PD-41. History is not rewritten; it is recorded here, and
+  this session commits the maintainer's edits, if any, alone. The separator's banner line found once; input above it
+  unchanged by the integrator (sha256 `bba78baf…` before and after); the answer replaced, recommending to keep point 1
+  until the next chat's title shows the fix.
+- Read: `STATUS.md`, the fermento, both settings files, `plan.md`, this file (rules, D-030, D-036 to D-038, R-018 to
+  R-020), `core-specification.md` whole (`24c94c05…`), `past-defect-cases.md` whole (`b8bacf1c…`), AD-4 and AD-5's
+  passages on tests, crates and budget, AD-1's open item, AD-2's protection of authority, AD-5's extension contract,
+  AD-8's credential check, alambique 6.9.
+- Decided at the start: D-039 (Codex reviews with its full budget).
+- Written: `core-specification.md` sections 11 to 13 (part 6b): corrections to part 6a found while writing the tests
+  (new REQ-TASK-7, the allowed-files language and lane guard; new codes `MOVE_NOT_ALLOWED` and `TOOL_FAILED`; halts,
+  rounds, packets, links, integration guards); the rules every test follows; the 46 past-defect cases mapped to
+  requirements and tests; one test per refusal code (C8F-5 and FX-8); whole flows and a crash suite; mutation, size and
+  dependencies; an acceptance criterion for each of the 103 requirements; the phase each group is due in. Section 10
+  gained choices 10 to 13. A script checked that every requirement has a criterion, every case and code a test, and
+  nothing is cited that is not defined; a scan with the tightened credential patterns found no match in
+  `.brewstillery/` (only file names read in `xel/`, whose two files are the fermento and settings). 10,075 words to
+  22,672 (sha256 `b5884bd7…`). This entry, D-039, `plan.md`, `STATUS.md`, the fermento's answer.
+- Codex, pass 1, whole file (sha256 `b56afe15…`): 10 min 2 s; 20 commands, none failed; input 1,191,497 tokens
+  (1,081,216 cached), output 15,201 (12,291 reasoning). Verdict reject, 13 blocking findings, all confirmed by the
+  integrator: P6-1 (in `published`, the record's own commits moved the branch, so every integration was `BASE_MOVED`);
+  P6-2 (a dependent task had no definable base); P6-3 (`approve` needed two commits where one was required); P6-4 (the
+  extension criterion contradicted AD-5's read access); P6-5 (credential scan against alambique 6.9); P6-6 (`accept`
+  from `halted` contradicted REQ-TASK-5); P6-7 (refusals that write had no stated writes); P6-8 (`assess` would create
+  the machine key and caches); P6-9 (a truncation restored exactly passed the history walk); P6-10 (the domain
+  criterion forbade the product changes it integrates); P6-11 (MSRV not checked); P6-12 (proposals to `rules` had no
+  base or stream); P6-13 (an accepted task with stale evidence and the branch at its candidate had no way out).
+- Codex, pass 2, scoped (`6d3f455e…`): 7 min 51 s; 19 commands, none failed; input 1,155,291 (1,052,928 cached),
+  output 13,199. Closed ten; reject with P6-5, P6-7, P6-13 open and new P6-14 (`task-integrated` could not precede
+  the move) and P6-15 (the specification's own text matched the credential patterns). All confirmed.
+- Codex, pass 3, scoped (`1608117d…`): 2 min; 22 commands, 4 non-zero (searches with no match); input 365,599
+  (303,488 cached), output 3,694. Closed P6-13 to P6-15; reject with P6-5 (REQ-FER-9 not aligned) and P6-7 (a person's
+  edit after the move). Both confirmed.
+- Codex, pass 4, scoped (`2b110ae6…`): 57 s; 15 commands, none failed; input 147,387 (109,312 cached), output 2,002.
+  Closed P6-5; reject with P6-7 (the snapshot taken before the injected edit). Confirmed.
+- Codex, pass 5, scoped (`41857bff…`): 31 s; 4 commands, none failed; input 87,695 (51,712 cached), output 614.
+  P6-7 closed, no new finding. **Verdict accept.** The state line was then updated (`b5884bd7…`); nothing else changed.
+- Progress measure (D-003): confirmed blocking findings 13, 5, 2, 1, 0. Codex answered in Spanish; prompts, streams
+  and last messages stay in the session's scratch directory, not committed.
+
+## D-040 — Phase 6 closed: the core specification approved; start prompts name their phase
+
+- Status: decided
+- Decided: 2026-11-05
+- Origin: maintainer XEL in session 13's chat, answering the integrator's two questions after Codex's accept (R-021):
+  "Aprobar todo (Recomendado)"; and, on the fermento's point 1, "Sí, como regla (Recomendado)".
+- Decision:
+  1. The maestro approves `core-specification.md` as Codex accepted it (sha256 `b5884bd7…`, its state line then
+     updated to `de8834bb…`), with every choice of its section 10 as recommended: `lexopt` as a runtime crate and
+     `cargo-deny` as a development tool; review mode, pushing and pull requests after the pilot; a supervisor in a
+     policy refused until enforced; the commands `adopt` and `close`; the policy in force carried by `policy-adopted`;
+     `.git/info/exclude` as the one write outside the domain in the unpublished modes; `run` signed by whoever runs it;
+     no change of the alambique's status keys; `authorize … --run`; the test tooling of section 11.2; the corrections of
+     section 11.1 and the phases of section 13; the credential scan's scope, which matches a maintainer's uncited
+     material by name only, reconciling AD-8 with alambique 6.9.
+  2. The text is frozen. A change to a requirement is a maestro's recorded decision that names the work it affects
+     (6.25).
+  3. Phase 6 is closed: every point classified, every indispensable point mapped, every past-defect case and refusal
+     with a test, every requirement with a criterion, Codex's review with no confirmed finding open.
+  4. The start prompt of every handover names the phase or part and what it does, so that each chat's title shows it.
+     `AGENTS.md`'s handover rule says so.
+- Consequences: phase 7 (core, part 1) follows: its first commit is the skeleton with its line counter, then a maestro
+  freezes the size budget (D-038). Whether it splits into parts is decided at its start (D-019). It needs the network
+  permission to fetch crates and to install `cargo-deny` and `cargo-mutants`, and `fish`, `dash` and `bwrap` on the
+  machine (choice 11). Licence files come with its first code (D-036).
+- Sources: chat of session 13; `core-specification.md`; R-021; `.brewstillery/xel/fermento.md`, point 1.
+- Supersedes: none.

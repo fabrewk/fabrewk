@@ -42,7 +42,8 @@ summarizes the rules already fixed; the decisions and their origin are in `.brew
 - **Closing.** During the bootstrap only, until Fabrewk adopts its own rules (D-022): closing a session, the integrator
   commits everything so the tree is clean; the maintainer's edits go in their own commit with no AI co-author.
 - **Handover.** Closing a session, the integrator tells the maintainer the prompt, model and effort for the next
-  chat, taken from `.brewstillery/bootstrap/plan.md`, and writes them in `STATUS.md`.
+  chat, taken from `.brewstillery/bootstrap/plan.md`, and writes them in `STATUS.md`. The prompt names the phase or
+  part and what it does, so that the chat's title shows it (D-040).
 - **Not yet decided or not yet due; do not create:** licence files (the licence is decided, D-036; its files come
   with the first code), `.gitignore`, code, `.brewstillery/data/` (its path is decided, it is
   created with the core) or any other structure the alambique and the bootstrap record have not fixed.

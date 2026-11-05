@@ -5,7 +5,7 @@ view generated from that registry. Technical files are in English by default (D-
 
 ## Current state
 
-**Phases 0 to 5 are closed (D-037); phase 6 is in progress, part 6a delivered (D-038, R-020). Nothing of Fabrewk is built yet.** No code, no licence files (the licence is
+**Phases 0 to 6 are closed (D-037, D-040); phase 7, the first code, is next. Nothing of Fabrewk is built yet.** No code, no licence files (the licence is
 decided, D-036), no `.gitignore`, no `data/` yet. The repository holds the project's alambique, the maintainer's
 fermento and settings, this file, the root entry files (`AGENTS.md`, `CLAUDE.md`) and the bootstrap record. The domain is `.brewstillery/`, hidden
 (D-032).
@@ -18,6 +18,8 @@ fermento and settings, this file, the root entry files (`AGENTS.md`, `CLAUDE.md`
 3. `.brewstillery/bootstrap/decisions.md`: the decisions in force, with their origin, and what each session read.
 4. `.brewstillery/bootstrap/plan.md`: the approved construction plan.
 5. `.brewstillery/settings.toml` (project) and `.brewstillery/xel/settings.toml` (personal; never grants authority).
+6. `.brewstillery/bootstrap/core-specification.md`: the frozen specification phases 7 to 10 build, its tests and
+   acceptance criteria (D-040).
 
 ## Evidence
 
@@ -82,12 +84,20 @@ repository, is imported into the single registry at production and then stays re
   `.brewstillery/bootstrap/core-specification.md`: every alambique point classified, 101 requirements, the record's
   events, the transition tables, 16 commands, `fabrewk check`, 83 refusal codes, the settings keys, the items phase 5
   left open, and nine choices for the maestro to approve with the text (its section 10).
-- **Next: part 6b (plan, section "Parts").** Read `core-specification.md` and `past-defect-cases.md` whole; add the
-  test plan, mapping every past-defect case to a requirement and a test, and an acceptance criterion for every
-  requirement. Then Codex reviews parts 6a and 6b together, and the maestro approves the text and the choices of its
-  section 10.
-- **Start prompt:** `Eres el integrador de Fabrewk; empieza por .brewstillery/STATUS.md`. Model and effort: Claude
-  Code on Opus 5.5, effort high; Codex GPT-6.1 Sol, effort high, reviews at the end of part 6b (plan row 6).
+- **Phase 6 closed (D-039, D-040, R-021).** Part 6b added to `core-specification.md` the test plan (every past-defect
+  case and every refusal code with its test, whole flows, a crash suite, mutation and size rules), an acceptance
+  criterion for each of the 103 requirements and the phase each is due in, and corrected part 6a where the tests
+  showed gaps (section 11.1). Codex (GPT-6.1 Sol, high) accepted at its fifth pass, confirmed blocking findings 13, 5,
+  2, 1, 0. The maestro approved the text and its 13 choices; it is frozen. Start prompts now name their phase
+  (`AGENTS.md`, handover). The previous closing commit had folded the maintainer's fermento edit into the integrator's
+  commit; recorded in R-021.
+- **Next: phase 7, core part 1 (plan row 7; `core-specification.md` section 13).** At its start: decide whether it
+  splits into parts (D-019), and ask for the network permission to fetch crates and install `cargo-deny` and
+  `cargo-mutants`, and for `fish`, `dash` and `bwrap` on the machine (choice 11). Its first commit is the skeleton with
+  its line counter and the licence files; then the maestro freezes the size budget (D-038), before any feature.
+- **Start prompt:** `Eres el integrador de Fabrewk; fase 7, núcleo parte 1: esqueleto, contador de líneas y
+  presupuesto de tamaño; empieza por .brewstillery/STATUS.md`. Model and effort: Claude Code on Opus 5.5, effort high;
+  Codex GPT-6.1 Sol, effort high, reviews each part that delivers code (plan row 7).
 
 Carried without blocking, with destinations, in D-013. A phase that does not pass is corrected and retried; it
 never ends the project (D-003).

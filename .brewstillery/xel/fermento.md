@@ -16,4 +16,10 @@ Mi entrada es exclusivamente mía. Lo que cite desde aquí (capturas, PDF, otros
 
 ## Respuesta del integrador
 
-No hay recomendaciones vigentes: tu entrada no tiene puntos abiertos.
+**Punto 1, el título de cada chat.** Claude Code titula cada chat a partir de su primer mensaje, y como el mensaje de
+arranque ha sido siempre el mismo («Eres el integrador de Fabrewk; empieza por .brewstillery/STATUS.md»), todos los
+chats salen con el mismo título. Lo corrijo desde este cierre: el mensaje de arranque que te dejo en `STATUS.md`
+nombrará la fase o parte y lo que hace, por ejemplo «Eres el integrador de Fabrewk; fase 6, revisión y aprobación de
+la especificación del núcleo; empieza por .brewstillery/STATUS.md». No puedo cambiar el título de un chat ya abierto
+ni decidir cómo lo resume Claude Code; lo que sí controlo es ese mensaje. Como lo aprobaste en el chat, ya es regla
+en `AGENTS.md`. Cuando veas el título correcto en el siguiente chat, puedes quitar el punto.

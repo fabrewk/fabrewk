@@ -3,7 +3,9 @@
 Phase 6 deliverable, split into two parts (D-038). Part 6a, written by the integrator in session 12, holds sections 1
 to 10: the classification of the alambique, the requirements, the record's format, the states and the transition
 table, the commands, the refusals, the semantics of `fabrewk check`, the settings keys and what phase 5 left open.
-Part 6b adds the test plan, with every past-defect case, and the acceptance criteria. Codex reviews both parts
+Part 6b, written in session 13, adds sections 11 to 13: the test plan, with every past-defect case and every refusal,
+the acceptance criterion of every requirement, and what each later phase must show; writing the tests found gaps in
+part 6a, corrected in place and listed in section 11.1. Codex reviews both parts
 together; then the maintainer approves the text (plan row 6). Until that approval nothing here is frozen. After it, a
 change to a requirement is a maestro's recorded decision that names the work it affects (6.25).
 
@@ -13,7 +15,8 @@ is `UPPER_SNAKE` and is listed once, in section 7. Event kinds are `kebab-case`.
 points and the architecture decisions (AD-n, in `architecture-decisions.md`) it serves. Names of commands, keys,
 codes, events and files are part of the specification and are approved with it.
 
-**State (session 12).** Part 6a delivered; part 6b pending.
+**State (session 13).** Parts 6a and 6b delivered; Codex accepted both at its fifth pass (R-021); the maestro
+approved the text and every choice of section 10 as recommended (D-040). The text is frozen.
 
 ## 0. Inputs
 
@@ -21,7 +24,10 @@ Session 12, at `919886d`: `.brewstillery/ALAMBIQUE.md` (sha256 `f2cac00b…`); `
 (`9e45b1bc…`); `decisions.md` up to D-038; `.brewstillery/settings.toml` (`96635397…`); the observations and "In short"
 of `harness-verdicts.md`; the findings of `reference-study.md` sent to phase 6 (PB-1 to PB-4, PB-7, UC-5, AP-7, SQ-5);
 the case titles and sections A to C of `past-defect-cases.md` (`b8bacf1c…`), read so that the refusals here already
-answer them. Part 6b reads that file whole. No network; nothing run beyond reading and digests.
+answer them. No network; nothing run beyond reading and digests.
+
+Session 13, at `8e3f8c2`: this file as part 6a left it (`24c94c05…`) and `past-defect-cases.md` whole (`b8bacf1c…`);
+AD-4 and AD-5's passages on tests, crates and the budget in `architecture-decisions.md` (`9e45b1bc…`). No network.
 
 ## 1. Classification of the alambique
 
@@ -79,7 +85,7 @@ names, organization and domain, and the trademark check, are not code.
 | 6.25 Stable requirements | I | REQ-TASK-2, REQ-GATE-7 | — |
 | 6.26 Single state [decidido] | I | REQ-REG-1 to 12, REQ-VIEW-3 | SQLite index: only if a query needs it (decided, AD-1). |
 | 6.27 Persistence and collaboration | I | REQ-REG-8 to 11, REQ-DOM-7 | The warning's text: phase 10. Pushing, pull requests and events of unmerged work on a protected branch: with 6.44's deferred part (section 9, item 1). |
-| 6.28 Tasks and transitions controlled by code | I | REQ-TASK-1 to 6, section 4 | — |
+| 6.28 Tasks and transitions controlled by code | I | REQ-TASK-1 to 7, section 4 | — |
 | 6.29 Traceability | I | REQ-REG-2, REQ-REG-13, REQ-GATE-3, REQ-GATE-7 | — |
 | 6.30 Catalogue of external sources | L | — | A feature for projects that follow sources, not needed to build or pilot the core. During the bootstrap the catalogue is `reference-study.md` section 11; the first core records each crate's reason (REQ-BUD-4), which covers Fabrewk's own dependencies. |
 | 6.31 Following sources (`followBuildSources`) | A | — | Evaluated with 6.30, as an extension (AD-5). |
@@ -88,7 +94,7 @@ names, organization and domain, and the trademark check, are not code.
 | 6.34 Orchestration | I | REQ-RUN-1 to 8 | — |
 | 6.35 Separation of responsibilities | I | REQ-RUN-8, REQ-GATE-4 | — |
 | 6.36 Provider independence | I | REQ-GATE-4, REQ-SEC-1 | OpenCode's adapter: after the pilot (alambique section 4). |
-| 6.37 One writer; concurrency | I | REQ-REG-5, REQ-FER-3 | Separate databases and ports for parallel work: with parallel steps (6.16). |
+| 6.37 One writer; concurrency | I | REQ-REG-5, REQ-FER-3, REQ-TASK-7 | Separate databases and ports for parallel work: with parallel steps (6.16). |
 | 6.38 Security, confinement, extensions | I | REQ-SEC-1 to 7, REQ-EXT-1 to 5 | Docker as alternative backend: A, evaluated when a second platform starts. The per-sweep proposal of each project's tools: after the pilot. |
 | 6.39 Continuity from `STATUS.md` | I | REQ-VIEW-1 | — |
 | 6.40 Consumption | I | REQ-RUN-7, REQ-VIEW-1 | Reports beyond the per-task figures: after the pilot. |
@@ -99,7 +105,7 @@ names, organization and domain, and the trademark check, are not code.
 | 6.45 Documentation for people and agents | I | REQ-CLI-1, REQ-VIEW-2 | Fabrewk's manuals: phase 10. |
 | 6.46 Portability | I | REQ-BUD-3, REQ-INS-7 | Linux x86-64, macOS ARM64, Windows: each when its tests pass on it (decided, AD-4). Project containers: A, after the pilot. |
 | 6.47 Supervision and outside collaboration | I | REQ-VIEW-1, REQ-VIEW-4, REQ-REG-6 | — |
-| 6.48 The pilot | I | Part 6b; phases 11 and 12 | Not code: the pilot's specification (phase 11) uses the requirements here. |
+| 6.48 The pilot | I | Sections 11 to 13; phases 11 and 12 | Not code: the pilot's specification (phase 11) uses the requirements here. |
 | 6.49 Extensions [decidido] | I | REQ-EXT-1 to 5 | Built in phase 9, with confinement, which the contract needs. |
 | 6.50 Central server [proyectado] | L | REQ-REG-12 | Decided as a later stage. The first core records the instance in every event and keeps the schema versioned. |
 | 6.51 Private folder [decidido] | I | REQ-SEC-4, REQ-REG-12 | Preferences common to a machine's projects: deferred (decided). |
@@ -145,7 +151,7 @@ Every point classified I has at least one requirement; every deferral has its re
 - **REQ-REG-1.** The record is a set of event files under `.brewstillery/data/events/<stream>/`, named
   `<seq>-<digest16>.json`, where `seq` is the event's position in its stream, six digits with leading zeros, and
   `digest16` the first 16 hexadecimal digits of the file's SHA-256. Streams: `project`, `alambique`,
-  `fermento-<alias>`, `stage-<id>`, `task-<id>`, `ext-<name>`. A stage, task or proposal identifier is a letter, a
+  `rules`, `fermento-<alias>`, `stage-<id>`, `task-<id>`, `ext-<name>`. A stage, task or proposal identifier is a letter, a
   hyphen and the first 8 hexadecimal digits of the digest of the payload that creates it, which holds a random nonce of
   16 bytes (`s-…`, `t-…`, `p-…`); `check` refuses two subjects with one identifier (`RECORD_ID_COLLISION`). (6.26,
   AD-1)
@@ -173,34 +179,49 @@ Every point classified I has at least one requirement; every deferral has its re
   version (`RECORD_VERSION_UNKNOWN`), a name whose digest does not match the file (`RECORD_DIGEST_MISMATCH`), a
   non-canonical file, a gap or a `prev` that names no event (`RECORD_BROKEN`), two events at one position of a stream
   (`RECORD_FORK`, handed to a person: Fabrewk does not choose), a move the transition table does not allow from the
-  replayed state (`RECORD_TRANSITION_INVALID`), a missing or failing signature (`RECORD_SIGNATURE_INVALID`). (6.26,
-  6.47; PD-03)
+  replayed state (`RECORD_TRANSITION_INVALID`), a missing or failing signature (`RECORD_SIGNATURE_INVALID`). An event
+  whose `stream` or `seq` field disagrees with the file's place is `RECORD_BROKEN`. A person's event whose bound
+  identifier or head (REQ-TASK-2, REQ-GATE-7) is not its own stream's, or whose `say` is empty after trimming, is
+  `RECORD_TRANSITION_INVALID`. (6.26, 6.47; PD-03, PD-06, PD-31)
 - **REQ-REG-7.** If the domain exists and `data/` does not, `status` says the record is absent and `check` fails
   (`RECORD_ABSENT`); absence is never read as an empty record. A record exists only from `apply`'s first event. (6.27;
   PD-05)
 - **REQ-REG-8.** Rollback is detected two ways. Each machine keeps the last head it saw of every stream in
   `local/cache/heads.json`, replaced whole (temporary file, sync, rename); a stream whose head does not descend from the
   mark is refused (`RECORD_ROLLBACK`), and a mark that exists but is empty or invalid is refused (`MARK_INVALID`) and
-  only a person removes it, the message naming the file. In `published` and `own-repository`, `check` walks the Git
-  history of `data/` on the record branch with replacement objects and grafts disabled: an event file present in any
-  ancestor commit and missing or different now is a rollback. (6.26, 6.29; PD-01, PD-02)
+  only a person removes it, the message naming the file. Only write commands update the mark. In `published` and
+  `own-repository`, `check` walks the whole Git history of `data/` on the record branch, every parent of every commit,
+  with replacement objects and grafts disabled: every commit must hold, unchanged, every event file each of its parents
+  holds. A commit that lacks an event file, or holds it changed, is a rollback even when a later commit restores it
+  exactly. (6.26, 6.29; PD-01, PD-02)
 - **REQ-REG-9.** Any change to an event's fields raises `schema`. The binary reads every version ever written; a
   migration is a reader or a new event, never a rewrite of a file. (6.27; PD-03)
-- **REQ-REG-10.** In `published` and `own-repository`, each write command ends with one commit holding only the files
-  Fabrewk owns that the command changed (event files, signatures, views), built through a temporary index so the
-  person's staged and unstaged changes are untouched, with one trailer `Fabrewk-Event: <digest>` per event; the branch
-  moves by compare-and-swap from the head read at the start. If the head moved meanwhile, the commit is rebuilt once on
-  the new head when no file it holds changed there; otherwise the command refuses (`RECORD_COMMIT_RACE`), the events
-  stay written and uncommitted, and `check` reports them. In `unpublished` nothing is committed. (6.44, AD-1, AD-11;
-  PD-41)
+- **REQ-REG-10.** In `published` and `own-repository`, each write command ends with one record commit holding only
+  the files Fabrewk owns that the command changed (event files, signatures, views), built through a temporary index so
+  the person's staged and unstaged changes are untouched, with one trailer `Fabrewk-Event: <digest>` per event; the
+  branch moves by compare-and-swap from the head read at the start. Two commands make one commit before it: `approve`
+  of an alambique proposal commits the alambique alone, with the maestro as author and no co-author (REQ-FER-5), and
+  integration makes its move (REQ-GATE-8). An event a commit depends on is written before that commit
+  (`proposal-incorporated` before the alambique's commit, `task-accepted` before the integration move); an event that
+  records a commit's outcome is written after it (`task-integrated`, once the move and the checks with the branch at
+  the candidate have passed); all go into the command's record commit. If the head moved
+  meanwhile, a commit is rebuilt once on the new head when no file it holds changed there; otherwise the command
+  refuses (`RECORD_COMMIT_RACE`) and its events stay written and uncommitted. Events left uncommitted, by a race or by a
+  command stopped between its commits, are reported by `check` (`RECORD_UNCOMMITTED`), and the next write command first
+  commits them in a record commit of their own. Before a record commit, the command replays every stream it appended
+  to and regenerates the views; if either fails, nothing is committed and the refusal says why. In `unpublished`
+  nothing is committed. (6.44, AD-1, AD-11; PD-41, PD-46)
 - **REQ-REG-11.** The record branch is the branch checked out in the repository's main working tree; tasks integrate
   into it. With a detached head, write commands refuse (`HEAD_DETACHED`). (6.27, AD-1)
-- **REQ-REG-12.** At first run Fabrewk creates the machine key in the private folder (`ssh-keygen -t ed25519`, no
-  passphrase) and records its fingerprint in every event; the effective configuration says that nothing verifies it
-  yet. (6.26, 6.50, AD-15)
+- **REQ-REG-12.** The first write command on a machine creates the machine key in the private folder (`ssh-keygen -t
+  ed25519`, no passphrase); every event records its fingerprint; the effective configuration says that nothing
+  verifies it yet, or that there is none yet. Reading commands (`status`, `config`, `check`, `assess`, and `onboard`
+  before the person's words) write nothing anywhere, the key, the mark and the caches included: they detect in memory
+  and compare with the mark without updating it. (6.26, 6.50, AD-7, AD-15)
 - **REQ-REG-13.** Raw output of tools and providers, their error texts included, never enters an event: it is kept in
-  `local/evidence/`, and the event holds a code, the file's digest and the agent's structured result fields. (6.29,
-  6.38; PD-28, PD-29)
+  `local/evidence/`, and the event holds a code, the file's digest and the agent's structured result fields. Evidence
+  is readable and writable by its owner only (directories `0700`, files `0600` on Unix), and every message about a
+  failed tool names its evidence file. (6.29, 6.38; PD-28, PD-29)
 
 ### SET: settings
 
@@ -228,7 +249,8 @@ Every point classified I has at least one requirement; every deferral has its re
   digest, `stage <id>`, `task <id>`, `personal <alias>`, `detected` with how and when, or `declared` (from
   `machine.toml`); pending changes come apart, with their file and line. (6.11, AD-2)
 - **REQ-SET-8.** What is present is detected at the start of every command that needs it (`git`, `ssh-keygen`,
-  `bwrap`, every catalogued tool, with versions), kept with its date in `local/cache/detected.json` and never written
+  `bwrap`, every catalogued tool, with versions), kept by write commands with its date in `local/cache/detected.json`
+  (REQ-REG-12) and never written
   to a settings file. Each value says whether it was observed, verified by use, or only declared. The effective set is
   what is both permitted and present; naming something grants nothing. (6.11, 6.14, D-015, AD-2)
 - **REQ-SET-9.** The catalogue has three tables, `tools`, `providers` and `models`; profiles name catalogue entries and
@@ -261,28 +283,53 @@ Every point classified I has at least one requirement; every deferral has its re
 
 - **REQ-TASK-1.** One declarative table in the code holds every state, move, actor, role, guard and refusal of section
   4. Commands, help, the replay's validation and the reference documentation derive from it; a test compares the table
-  with section 4. (6.28; PB-1)
-- **REQ-TASK-2.** A task holds: identifier, stage, goal, requirements (each with its checkable criterion), base commit,
-  dependencies, allowed files (glob patterns), the profiles for building and reviewing, checks, limits (`rounds`,
+  with section 4. A row's guards are evaluated in the order it lists them; the first that fails is the refusal reported,
+  and nothing is written (`check` reports every finding instead). A command whose move the table does not allow from
+  its subject's state is refused (`MOVE_NOT_ALLOWED`), naming the state and the moves that are allowed. (6.28; PB-1)
+- **REQ-TASK-2.** A task holds: identifier, stage, goal, requirements (each with its checkable criterion), base commit
+  (none for a task with dependencies, REQ-TASK-3), dependencies, allowed files (glob patterns), the profiles for building and reviewing, checks, limits (`rounds`,
   `dispatches`, `minutes`, and `tokens` only where the tool reports them) and the delegation language. An authorization
   binds the task's identifier, the digest of these fields and the stream's head; any change to the fields needs a new
   authorization (`TASK_CHANGED`). (6.24, 6.25, 6.28; PD-06; PB-2)
 - **REQ-TASK-3.** A stage holds: identifier, goal, its tasks in order, its budget and the checks it approves.
   Authorizing a stage authorizes each of its tasks by binding each task's digest and head. In the first core, tasks run
-  one at a time in a repository, and only when their dependencies are integrated (`DEPENDENCY_OPEN`). (6.16, AD-10)
+  one at a time in a repository, and only when their dependencies are integrated (`DEPENDENCY_OPEN`). A task with
+  dependencies is proposed and authorized without a base commit; its authorization binds its dependencies'
+  identifiers. Its base is fixed at `run-started` as the record branch's head, whose product tree (REQ-GATE-8) must
+  equal the one the last of its dependencies' integrations left (`BASE_MOVED` otherwise), and `run-started` records it.
+  (6.16, AD-10)
 - **REQ-TASK-4.** A person's move takes `--say` with their words: not empty after trimming (`WORDS_MISSING`), not equal
   to any example the catalogue prints (`WORDS_COPIED`), recorded verbatim with a language tag, signed. It is refused
   where the environment shows an agent's or extension's markers (`AGENT_ENVIRONMENT`); that refusal is cooperative and
-  says so. Fabrewk never prints words for the person to copy. (6.20, 6.24, AD-6; PD-30 to PD-32)
+  says so. Fabrewk never prints words for the person to copy. A missing `--say`, or one that is not valid UTF-8, is
+  `WORDS_MISSING`, not a usage error, so the person reads why. `propose` grants nothing and is no person's move: it
+  takes no `--say`, and the words that make a task workable are those of `authorize`. (6.20, 6.24, AD-6; PD-30 to
+  PD-32)
 - **REQ-TASK-5.** A task halts and waits for a person when: rounds, dispatches, minutes or tokens are spent
-  (`ROUNDS_EXHAUSTED`, `BUDGET_EXHAUSTED`); two rounds in a row do not lower the confirmed blocking findings
-  (`NO_PROGRESS`, with the alternatives of D-003: reduce the scope, change the design, replace a component); a required
-  provider is missing (`PROVIDER_MISSING`); an attempt's outcome is unknown (`OUTCOME_UNKNOWN`). Only `authorize` or
-  `reject` moves a halted task. (6.41, 6.48, D-003; PD-07)
+  (`ROUNDS_EXHAUSTED`, `BUDGET_EXHAUSTED`); two rounds in a row do not lower the confirmed blocking findings, that is,
+  round n's count is not below round n−1's and round n−1's is not below round n−2's (`NO_PROGRESS`, with the
+  alternatives of D-003: reduce the scope, change the design, replace a component); a required provider is missing
+  (`PROVIDER_MISSING`); an attempt's outcome is unknown (`OUTCOME_UNKNOWN`); a candidate is refused (`LANE_VIOLATION`,
+  `PROTECTED_PATH`, `CREDENTIAL_SUSPECTED`); a review is invalid or unexamined (`REVIEW_INVALID`,
+  `REVIEW_UNEXAMINED`); a tool fails (`TOOL_FAILED`); confinement is missing or its preflight fails
+  (`CONFINEMENT_UNAVAILABLE`). At a round's end `NO_PROGRESS` is evaluated first; the round limit is checked before the
+  next dispatch. Only `authorize` or `reject` moves a halted task, and `accept` when the record branch is at its
+  candidate (section 4, REQ-GATE-8). (6.41, 6.48, D-003; PD-07, PD-25, PD-44)
 - **REQ-TASK-6.** A stage closes only by a maestro's signed move, when every task is integrated or rejected, every
   maintainer's fermento was swept after the last of them ended (each sweep records the heads it saw), the alambique
   matches its last approved digest, and every file Fabrewk owns is committed where the mode commits (`STAGE_OPEN_TASKS`,
   `SWEEP_MISSING`, `ALAMBIQUE_UNAPPROVED`, `RECORD_UNCOMMITTED`). (6.16, AD-10, AD-11, AD-13)
+- **REQ-TASK-7.** Allowed files are patterns relative to the repository's root, segments separated by `/`: `*`
+  matches any run of characters inside one segment, `?` one character inside a segment, and a segment that is exactly
+  `**` matches zero or more whole segments; every other character is literal (no classes, braces or escapes). Empty
+  and `.` segments are dropped; a pattern with a `..` segment, a leading `/`, more than 256 bytes or more than 32
+  segments is refused (`TASK_INVALID`). The lane guard, at `propose` and again at `authorize`, refuses (`PROTECTED_PATH`)
+  a pattern that can match a path whose first component is `.git` or `.brewstillery` under ASCII case folding, or any of
+  whose segments other than a bare `**` can match one of those names under ASCII case folding. A bare `**` is not
+  refused for what it could reach deeper, because REQ-RUN-3 refuses those components at any depth in the change set.
+  The guard decides from the pattern language itself, never from sample paths; the matcher of REQ-RUN-3 implements the
+  same language, case-sensitively, in steps bounded by (pattern length + 1) × (path length + 1). (6.3, 6.13, 6.37;
+  PD-15, PD-17)
 
 ### RUN: dispatch, attempts and recovery
 
@@ -296,25 +343,35 @@ Every point classified I has at least one requirement; every deferral has its re
   without `.brewstillery`, at any depth; symbolic links are copied as links, never followed, whatever their target.
   Fabrewk computes the change set itself (added, modified and deleted files, executable bit, links), through a
   temporary index, with paths delimited by NUL and the base's ignore rules applied. Every changed path must match the
-  task's allowed files by an exact matcher that cannot backtrack (`LANE_VIOLATION`); a path with a `.git` or
-  `.brewstillery` component, exact or nested, is refused even when a pattern allows it (`PROTECTED_PATH`). (6.37,
-  6.38; PD-15 to PD-22)
+  task's allowed files by the matcher of REQ-TASK-7, which cannot backtrack (`LANE_VIOLATION`); a path with a `.git`
+  or `.brewstillery` component, exact or nested, compared under ASCII case folding, is refused even when a pattern
+  allows it (`PROTECTED_PATH`), a symbolic link at such a name included. A tracked link left untouched is not a change,
+  whatever it points to. A new or changed link is a change like a file: its path must match the allowed files, its
+  target is stored as written, never followed, and `accept` shows it. A change of the executable bit alone is a change.
+  If the export fails, the attempt is recorded as ended with `TOOL_FAILED` before any dispatch and the task halts; no
+  raw error reaches the person. (6.37, 6.38; PD-15 to PD-22)
 - **REQ-RUN-4.** The candidate is a commit whose parent is the task's base, on the branch `fabrewk/<task-id>`. It names
   the agent (tool, provider, model) as co-author and carries the sign-off the project requires (`git.signOff`). (6.29,
   6.44; PD-45)
 - **REQ-RUN-5.** Every command that writes first ends, as `unknown`, each attempt left open by a process that no longer
   runs, counts it as spent and halts its task (`OUTCOME_UNKNOWN`); nothing is retried without a person. A result for an
   attempt that a later one replaced is refused (`ATTEMPT_REPLACED`). (6.41; PD-08 to PD-10)
-- **REQ-RUN-6.** A tool's error in one task is recorded in that task, with a code and words for the person; other tasks
-  go on. (6.41; PD-11)
+- **REQ-RUN-6.** A tool's error in one task (`git`, `ssh-keygen`, `bwrap`, an agent's CLI) is recorded in that task as
+  `TOOL_FAILED`, with the tool, its exit status, the digest of its raw output (REQ-REG-13) and words for the person;
+  other tasks go on and reading commands keep working. (6.41; PD-11, PD-21, PD-36)
 - **REQ-RUN-7.** Usage (tokens, time) is recorded only as the tool reports it; what is not reported is recorded as
   unknown, never as zero. A token limit on a profile whose tool does not report tokens is refused at authorization
   (`LIMIT_UNOBSERVABLE`). (6.39, 6.40; PD-39)
 - **REQ-RUN-8.** The packet an agent receives holds only: the task's goal, requirements, allowed files, the rules its
-  role needs (from `RULES.md`'s source), the delegation and code languages, and the output schema of its role. The
+  role needs (from `RULES.md`'s source), the delegation and code languages, the output schema of its role and, from the
+  second round on, the previous round's confirmed findings and the output of the checks that failed. The
   result is validated against that schema by the core: a review's verdict is `accept` or `reject`, its findings have a
   severity (`blocking`, `minor`) and a status (`confirmed`, `suspected`); a reject needs at least one confirmed blocking
   finding (`REVIEW_INVALID`). (6.34, 6.35, 6.42)
+- **REQ-RUN-9.** A revalidation re-runs the required checks and the review on an existing candidate and dispatches no
+  builder. `run` starts one on a `verified` task whose evidence is stale and on an `authorized` task that keeps a
+  candidate (after `authorize` from `accepted`). It is a round: it counts against the round limit (REQ-RUN-2) and ends
+  as a round does, verified or with a reject that starts a building round. (6.41, 6.43; PD-07)
 
 ### GATE: checks, review, verification and integration
 
@@ -323,7 +380,7 @@ Every point classified I has at least one requirement; every deferral has its re
 - **REQ-GATE-2.** Each check runs confined on a fresh export of the candidate's tree, with no network unless the check
   declares it and the policy permits it, and with its time limit. Only a check that finished with exit status 0
   counts; failed, timed out, interrupted or unknown does not. (6.43)
-- **REQ-GATE-3.** A check result's identity is the digest of: the candidate's tree, the check's definition, the policy
+- **REQ-GATE-3.** A check result's identity is the digest of: the candidate's product tree (REQ-GATE-8), the check's definition, the policy
   digest, the versions of the tools the check names, and the platform. It is recomputed whenever the result is used;
   a mismatch makes the result stale (`EVIDENCE_STALE`). (6.29, 6.43; PB-3)
 - **REQ-GATE-4.** The reviewer is dispatched after the checks pass, on the same candidate, never by the attempt that
@@ -335,21 +392,40 @@ Every point classified I has at least one requirement; every deferral has its re
   6.42; PB-7; PD-25, PD-26)
 - **REQ-GATE-5.** A task is verified when every required check is satisfactory with a current identity and a review
   accept is bound to the same candidate tree and the same requirements digest. (6.43; PB-3)
-- **REQ-GATE-6.** A reject moves the task to its next round within the authorization, without asking the person. The
-  progress measure is the number of confirmed blocking findings. (6.24, 6.42, D-003)
+- **REQ-GATE-6.** A review's reject, or a required check that does not pass, ends the round and moves the task to its
+  next round within the authorization, without asking the person; each check that does not pass counts as one
+  confirmed blocking finding, and the reviewer is not dispatched in that round. The progress measure is the number of
+  confirmed blocking findings. (6.24, 6.42, D-003; PD-33)
 - **REQ-GATE-7.** Before signing, `accept` prints what it freezes: the candidate, its files, the checks and their
   identities, the review and the requirements. The signed event binds the task's identifier, its head, the candidate
-  commit and tree, the requirements digest and the evidence identities, and carries the summary shown. (6.25, 6.29;
-  PD-06, PD-37)
-- **REQ-GATE-8.** Integration moves the record branch only from the task's base to the candidate, by one
-  compare-and-swap (`git update-ref` with the old value), refusing a moved base (`BASE_MOVED`). Its preconditions
-  (evidence current, base unmoved, working tree clean at the touched paths) are checked before the signature, again
-  just before the move, and again with the branch at the candidate. A checked-out working tree is brought to the
-  candidate only if it is clean (`WORKTREE_DIRTY`). A failure records `merge-failed` with its reason and the task stays
-  accepted. `run` on an accepted task finishes its merge under the same checks. A task in any waiting state whose
+  commit and tree, the requirements digest and the evidence identities, and carries the summary shown. The same holds
+  for `authorize`: `status <task>` shows verbatim, with the language tag of each text, everything an authorization or
+  an acceptance would bind, and the signed event carries the digest of that rendering, so the person reads what they
+  freeze before signing it. Fabrewk translates none of it (6.21 is a later stage). (6.25, 6.29; PD-06, PD-37)
+- **REQ-GATE-8.** Integration brings the candidate's change set into the record branch. The product tree of a commit
+  is its tree outside `.brewstillery/` (in `own-repository` and `unpublished`, its whole tree). The base is unmoved when
+  the product tree at the branch's head equals the base's, so Fabrewk's own record commits never move it; otherwise
+  integration refuses (`BASE_MOVED`). If the head is the base commit itself, the branch moves to the candidate;
+  otherwise Fabrewk makes an integration commit with the head as its only parent and the head's tree with the
+  candidate's change set applied, so that its product tree equals the candidate's; it carries the candidate's message,
+  co-author and sign-off trailers, and a trailer `Fabrewk-Candidate: <commit>`. Either way the branch moves by one
+  compare-and-swap (`git update-ref` with the old value). The branch is at the candidate when its product tree equals
+  the candidate's. The preconditions (evidence current; base unmoved, or the branch already at the candidate; working
+  tree clean at the touched paths) are checked before the signature, again just before the move, and again with the
+  branch at the candidate. Before the move Fabrewk also recomputes the change
+  set from the base to the candidate under REQ-RUN-3's rules and refuses a protected path (`PROTECTED_PATH`), a third
+  guard independent of the lane guard and the change-set guard. A checked-out working tree is brought to the candidate
+  only if it is clean (`WORKTREE_DIRTY`): at every touched path the working tree and the index hold the base's content
+  or, after an interrupted move, the candidate's. A failure before the move records `merge-failed` with its reason;
+  the product tree, the index and the working tree are untouched, and only the record commit of REQ-REG-10 advances
+  the branch. A failure after the move (the working tree not brought to the candidate, or a check with the branch at
+  the candidate failing) records `merge-failed` saying that the branch is at the candidate, and nothing is moved back.
+  A working tree or index path holding neither the base's nor the candidate's content is never written. Either way the task stays accepted. `run` on an accepted task finishes its merge under the same checks. A task in any waiting state whose
   record branch is already at its candidate can be finished by `accept` or stopped by `reject`, the record saying where
-  the branch is; `reject` is refused while a merge is accepted and the branch is at its candidate (`MERGE_IN_PROGRESS`).
-  (6.41, 6.44; PD-12 to PD-14, PD-44, PD-46)
+  the branch is; `reject` is refused, whatever the task's state, while a `task-accepted` for its current candidate is
+  on record and the branch is at that candidate (`MERGE_IN_PROGRESS`). An accepted task whose integration failed, its
+  evidence gone stale included, is revalidated: `authorize` returns it to `authorized` keeping its candidate, and `run`
+  then revalidates it (REQ-RUN-9); so may a `verified` task whose revalidation the round limit stops. (6.41, 6.44; PD-12 to PD-14, PD-44, PD-46)
 - **REQ-GATE-9.** A path in `gate.protectedPaths` (the files that define the checks, by default the project's build
   and test configuration) can be in a task's allowed files only when listed literally, never through a wildcard
   (`PROTECTED_PATH_WILDCARD`), so a change cannot weaken the control that verifies it unless the maestro named it.
@@ -384,15 +460,21 @@ Every point classified I has at least one requirement; every deferral has its re
   (6.8, AD-11, AD-13)
 - **REQ-FER-6.** An edit replaces whole units: the opening (before `## 1.`), a section (`## <n>.`) or a point
   (`**<n>.<m>.`). A unit not found exactly once refuses (`UNIT_AMBIGUOUS`). Status keys change only inside an edit.
-  (AD-13)
+  The above is for a proposal whose target is `alambique`. A proposal whose target is `rules` edits the project rules,
+  which live in the record, not in a file: numbered rules `R<n>`, each added, replaced or removed whole. Its base digest
+  is the digest of the project rules the replay gives; `approve` refuses when it differs or when the point is stale
+  (`PROPOSAL_STALE`), never checks or commits the alambique, records `proposal-incorporated` in the stream `rules`
+  with the rules' new text, and regenerates `RULES.md` (REQ-VIEW-2). The two targets' digests are independent. (AD-12,
+  AD-13)
 - **REQ-FER-7.** `check` compares the alambique with the last incorporated digest (the first is recorded at `apply`;
   in this repository, at the bootstrap's import). A difference is `ALAMBIQUE_UNAPPROVED`: stages do not close and tasks
   are not accepted until a maestro signs `approve alambique` (recording the difference as an edit) or reverts it. (6.8,
   AD-13)
 - **REQ-FER-8.** No proposal state is written by hand anywhere; fermento and alambique only show what the record says.
   (6.8)
-- **REQ-FER-9.** Fabrewk reads from a maintainer's space only the fermento and the files the fermento or the alambique
-  cite. (6.9; alambique, agents' rules)
+- **REQ-FER-9.** Fabrewk reads from a maintainer's space only its `fermento.md`, its `settings.toml` and the files the
+  fermento or the alambique cite. Of the rest it reads names alone, for `check`'s credential scan (REQ-SEC-3), never
+  their content. (6.9; alambique, agents' rules)
 
 ### VIEW: generated views
 
@@ -402,8 +484,8 @@ Every point classified I has at least one requirement; every deferral has its re
   cannot know is shown as unknown; a person's response time counts only while a decision waited for that person; it
   states nothing that later events would make false without regenerating it. (6.39, 6.40, 6.47; OT-6; PD-39, PD-40,
   PD-43)
-- **REQ-VIEW-2.** `RULES.md` is generated from the binary's base rules and the project rules incorporated through
-  approved proposals targeting it. (6.45, AD-12)
+- **REQ-VIEW-2.** `RULES.md` is generated from the binary's base rules and the project rules that the stream `rules`
+  holds, incorporated through approved proposals targeting them (REQ-FER-6). (6.45, AD-12)
 - **REQ-VIEW-3.** Every write command regenerates the views it affects; `check` compares each view with a fresh
   generation (`VIEW_STALE`). (6.26)
 - **REQ-VIEW-4.** `status` and `config` take no lock and work while a run is in progress. (6.47, AD-6)
@@ -456,15 +538,25 @@ Every point classified I has at least one requirement; every deferral has its re
   binary and its own credential, the exported copy writable at `/work`, the repository, `.brewstillery/`, the private
   folder and the SSH agent's socket invisible; network only for an agent's provider, never for a check unless REQ-GATE-2
   allows it. The shared network is a stated residual risk. Each adapter carries its tool's machine rules and checks them
-  at every launch (Codex never starts in a directory that holds other repositories). (6.1, 6.38, AD-5)
+  at every launch (Codex never starts in a directory that holds other repositories). Before a provider's first
+  dispatch on a machine, and whenever its tool's version changes, the adapter runs a preflight that calls no model:
+  under the confinement and the copy permissions of each role, the tool, its helper programs and its own sandbox start
+  and create a temporary file. The tool's release directory is bound whole and read-only. A failed preflight refuses
+  the dispatch (`CONFINEMENT_UNAVAILABLE`) and names its evidence file. (6.1, 6.38, AD-5; PD-27)
 - **REQ-SEC-2.** Where no backend exists, dispatch refuses (`CONFINEMENT_UNAVAILABLE`). (6.38, 6.46)
 - **REQ-SEC-3.** A file that looks like a credential is refused in `.brewstillery/` (by `check`) and in a candidate's
-  change set (by `run`), with `CREDENTIAL_SUSPECTED`. Patterns: a private-key header (`-----BEGIN` followed by `PRIVATE
-  KEY-----` on the same line, OpenSSH's included); `AKIA` and 16 uppercase letters or digits; `ghp_`, `gho_`, `ghu_`,
-  `ghs_`, `ghr_` or `github_pat_` followed by at least 20 token characters; `sk-ant-`; `sk-` followed by at least 20
-  token characters; `xox` with `b`, `a`, `p`, `r` or `s` and a hyphen; file names `.env`, `id_rsa`, `id_ecdsa`,
-  `id_ed25519` (without `.pub`), and `*.pem`, `*.p12`, `*.pfx`, `*.key`. The match is a heuristic, a cooperative
-  control, and Fabrewk says so; the patterns are matched by hand, with no regular-expression crate. (6.4, 6.38, AD-8)
+  change set (by `run`), with `CREDENTIAL_SUSPECTED`. In the domain, `check` matches the content of every file but a
+  maintainer's uncited material (anything in `<alias>/` other than `fermento.md`, `settings.toml` and the files the
+  fermento or the alambique cite), whose names alone it matches, so that AD-8's "anywhere in `.brewstillery/`" and
+  6.9's "only what is cited is read" both hold; a file it must read and cannot is `CHECK_UNKNOWN`. Token characters
+  are ASCII letters, digits, `_` and `-`. Patterns: a line that is exactly five hyphens, `BEGIN`, a space, optional
+  uppercase words each followed by a space, `PRIVATE KEY` and five hyphens (OpenSSH's included); `AKIA` followed by 16
+  uppercase letters or digits; `ghp_`, `gho_`, `ghu_`, `ghs_`, `ghr_` or `github_pat_` followed by at least 20 token
+  characters; `sk-ant-` followed by at least 20 token characters; `sk-` followed by at least 20 token characters;
+  `xoxb-`, `xoxa-`, `xoxp-`, `xoxr-` or `xoxs-` followed by at least 10 token characters; file names `.env`, `id_rsa`,
+  `id_ecdsa`, `id_ed25519` (without `.pub`), and `*.pem`, `*.p12`, `*.pfx`, `*.key`. A pattern's description, as in
+  this file, is no match. The match is a heuristic, a cooperative control, and Fabrewk says so; the patterns are
+  matched by hand, with no regular-expression crate. (6.4, 6.9, 6.38, AD-8; P6-15)
 - **REQ-SEC-4.** The private folder is created with access for its owner only, and Fabrewk refuses to read it if its
   permissions are wider (`PRIVATE_FOLDER_PERMISSIONS`). (6.51, AD-15)
 - **REQ-SEC-5.** Every control in the transition table and in `check` is labelled `effective` (enforced by code with
@@ -523,7 +615,7 @@ named are fixed in phase 7 with the code and recorded in this file.
 | `fermento-<alias>` | `sweep-recorded` | agent | the input's digest, per point its number, text digest and recommendation, the stage and task heads seen |
 | `fermento-<alias>` | `proposal-recorded` | agent | identifier, point number and text digest, target (`alambique` or `rules`), base digest, units and their new text, status-key changes, predicted result digest |
 | `fermento-<alias>` | `proposal-withdrawn` | fabrewk | identifier, why (point gone) |
-| `alambique` | `proposal-incorporated` | person, signed | identifier, resulting digest |
+| `alambique` or `rules` (its target) | `proposal-incorporated` | person, signed | identifier, resulting digest; for `rules`, the rules' new text |
 | `fermento-<alias>` | `proposal-discarded` | person, signed | identifier |
 | `alambique` | `direct-edit-approved` | person, signed | old and new digests, the difference |
 | `stage-<id>` | `stage-proposed` | any | goal, tasks in order, budget, approved checks |
@@ -552,19 +644,20 @@ named are fixed in phase 7 with the code and recorded in this file.
 
 | Move (event) | From | To | Who | Guards (refusal) |
 | --- | --- | --- | --- | --- |
-| `task-proposed` | — | `proposed` | anyone; grants nothing | stage exists and is open (`STAGE_CLOSED`); fields valid (`TASK_INVALID`); protected paths literal (`PROTECTED_PATH_WILDCARD`) |
-| `task-authorized`, or covered by `stage-authorized` | `proposed`, `halted` | `authorized` | maestro, `--say` | role (`ROLE_FORBIDDEN`); words (`WORDS_MISSING`, `WORDS_COPIED`); digest and head current (`TASK_CHANGED`); widenings named (`WIDENING_UNNAMED`); observable limits (`LIMIT_UNOBSERVABLE`) |
-| `run-started`, then `attempt-started` | `authorized` | `running` | maestro (signed) | policy adopted (`POLICY_ABSENT`); dependencies integrated (`DEPENDENCY_OPEN`); no other task running (`LOCK_HELD`); REQ-RUN-2; confinement (`CONFINEMENT_UNAVAILABLE`); alambique approved (`ALAMBIQUE_UNAPPROVED`) |
+| `task-proposed` | — | `proposed` | anyone; grants nothing | stage exists and is open (`STAGE_CLOSED`); fields and patterns valid (`TASK_INVALID`, REQ-TASK-7); no pattern reaches a protected name (`PROTECTED_PATH`); protected paths literal (`PROTECTED_PATH_WILDCARD`) |
+| `task-authorized`, or covered by `stage-authorized` | `proposed`, `halted`; `verified` and `accepted` for a revalidation, keeping the candidate (REQ-GATE-8, REQ-RUN-9) | `authorized` | maestro, `--say` | role (`ROLE_FORBIDDEN`); words (`WORDS_MISSING`, `WORDS_COPIED`); digest and head current (`TASK_CHANGED`); lane guard again (`PROTECTED_PATH`); widenings named (`WIDENING_UNNAMED`); observable limits (`LIMIT_UNOBSERVABLE`) |
+| `run-started`, then `attempt-started` | `authorized`; `verified` with stale evidence, as a revalidation (REQ-RUN-9) | `running` | maestro (signed) | policy adopted (`POLICY_ABSENT`); dependencies integrated (`DEPENDENCY_OPEN`); a dependent task's base fixed (`BASE_MOVED`, REQ-TASK-3); no other task running (`LOCK_HELD`); REQ-RUN-2; confinement (`CONFINEMENT_UNAVAILABLE`); alambique approved (`ALAMBIQUE_UNAPPROVED`) |
 | `attempt-ended`, `candidate-recorded`, `check-recorded`, `review-recorded` | `running` | `running` | fabrewk | one end per attempt (`ATTEMPT_ENDED`); lanes (`LANE_VIOLATION`, `PROTECTED_PATH`); credentials (`CREDENTIAL_SUSPECTED`); review schema (`REVIEW_INVALID`) |
 | `task-verified` | `running` | `verified` | fabrewk | REQ-GATE-5 |
 | `task-halted` | `authorized`, `running` | `halted` | fabrewk | one of REQ-TASK-5's codes |
 | `task-accepted` | `verified`; or any waiting state with the branch at the candidate | `accepted` | maestro, `--say` | REQ-GATE-7; evidence current (`EVIDENCE_STALE`); alambique approved (`ALAMBIQUE_UNAPPROVED`) |
 | `task-integrated` | `accepted` | `integrated` | fabrewk | REQ-GATE-8 (`BASE_MOVED`, `WORKTREE_DIRTY`, `EVIDENCE_STALE`) |
 | `merge-failed` | `accepted` | `accepted` | fabrewk | — |
-| `task-rejected` | `proposed`, `authorized`, `halted`, `verified`, `accepted` | `rejected` | maestro, `--say` | not while accepted with the branch at the candidate (`MERGE_IN_PROGRESS`) |
+| `task-rejected` | `proposed`, `authorized`, `halted`, `verified`, `accepted` | `rejected` | maestro, `--say` | not while a `task-accepted` for the current candidate is on record and the branch is at it, whatever the state (`MERGE_IN_PROGRESS`) |
 
 "Waiting state" is `authorized`, `halted` or `verified`. `run` on an `accepted` task finishes its merge. A `running`
-task with no live process is halted by the next write command (REQ-RUN-5).
+task with no live process is halted by the next write command (REQ-RUN-5). A command whose move this table does not
+allow from the task's state is refused (`MOVE_NOT_ALLOWED`); the same holds for stages and proposals.
 
 **Stages.** `proposed` (`stage-proposed`, anyone) → `authorized` (`stage-authorized`, maestro, `--say`) → `closed`
 (`stage-closed`, maestro, `--say`, REQ-TASK-6). Tasks may be added to an authorized stage; each needs its own
@@ -594,7 +687,7 @@ the project file) and `close` (REQ-TASK-6). Every command takes `--help`; every 
 | `fabrewk apply <plan-digest> --say` | yes | project events | `PLAN_CHANGED`, `VERDICT_NONE`, `MODE_NOT_AVAILABLE`, `AGENT_ENVIRONMENT` |
 | `fabrewk adopt --say [--widen <key>]…` | yes | `policy-adopted` | `POLICY_UNCOMMITTED`, `WIDENING_UNNAMED`, `ROLE_NOT_ENFORCED`, `SETTINGS_INVALID` |
 | `fabrewk propose <file>` | yes | `stage-proposed`, `task-proposed` | `TASK_INVALID`, `STAGE_CLOSED` |
-| `fabrewk authorize <stage\|task> --say [--widen <key>]…` | yes | `stage-authorized`, `task-authorized` | section 4 |
+| `fabrewk authorize <stage\|task> --say [--widen <key>]… [--run]` | yes | `stage-authorized`, `task-authorized`; with `--run`, also as `run` | section 4 |
 | `fabrewk run <task\|stage>` | yes | `run-started` and the run's events | section 4 |
 | `fabrewk accept <task> --say` | yes | `task-accepted`, `task-integrated` | section 4 |
 | `fabrewk reject <task> --say` | yes | `task-rejected` | `MERGE_IN_PROGRESS` |
@@ -605,7 +698,9 @@ the project file) and `close` (REQ-TASK-6). Every command takes `--help`; every 
 
 `propose` and `sweep` read a JSON file the integrator wrote; their schemas are printed by `--help` and published with
 the reference documentation. `run <stage>` runs the stage's authorized tasks one after another and stops at the first
-that waits for a person. Every write command first applies REQ-RUN-5 and REQ-DOM-7.
+that waits for a person. `authorize … --run` signs the authorization and the `run-started` that follows it, and runs at
+once, so a person's decision continues the work without another command (PD-33; choice 10 in section 10); `accept`
+integrates in the same command. Every write command first applies REQ-RUN-5 and REQ-DOM-7.
 
 ## 6. What `fabrewk check` verifies
 
@@ -631,8 +726,8 @@ result is never a pass (6.43).
 
 ## 7. Refusals
 
-Each code has a catalogue entry with its reason and next step; part 6b gives each a test. Codes not described in the
-requirements above:
+Each code has a catalogue entry with its reason and next step; section 11.4 gives each a test. Codes not described in
+the requirements above:
 
 | Code | When | Next step |
 | --- | --- | --- |
@@ -651,7 +746,7 @@ All codes, in one list: `AGENT_ENVIRONMENT`, `ALAMBIQUE_CHANGED`, `ALAMBIQUE_UNA
 `DOMAIN_UNKNOWN_ENTRY`, `EVIDENCE_STALE`, `EXTENSION_DIGEST`, `EXTENSION_OUTPUT_INVALID`, `FERMENTO_MISSING`,
 `GITIGNORE_CHANGED`, `HEAD_DETACHED`, `INPUT_CHANGED`, `INPUT_UNCOMMITTED`, `KEY_UNKNOWN`, `LANE_VIOLATION`,
 `LIMIT_UNOBSERVABLE`, `LOCK_HELD`, `MAINTAINER_UNLISTED`, `MARK_INVALID`, `MERGE_IN_PROGRESS`, `MODE_NOT_AVAILABLE`,
-`NOT_A_REPOSITORY`, `NO_PROGRESS`, `OUTCOME_UNKNOWN`, `PLAN_CHANGED`, `PLATFORM_UNSUPPORTED`, `POINT_CHANGED`,
+`MOVE_NOT_ALLOWED`, `NOT_A_REPOSITORY`, `NO_PROGRESS`, `OUTCOME_UNKNOWN`, `PLAN_CHANGED`, `PLATFORM_UNSUPPORTED`, `POINT_CHANGED`,
 `POLICY_ABSENT`, `POLICY_PENDING`, `POLICY_UNCOMMITTED`, `PRIVATE_FOLDER_PERMISSIONS`, `PROPOSAL_STALE`,
 `PROPOSAL_UNKNOWN`, `PROTECTED_PATH`, `PROTECTED_PATH_WILDCARD`, `PROVIDER_MISSING`, `RECORD_ABSENT`,
 `RECORD_BROKEN`, `RECORD_COMMIT_RACE`, `RECORD_DIGEST_MISMATCH`, `RECORD_FORK`, `RECORD_ID_COLLISION`,
@@ -659,7 +754,7 @@ All codes, in one list: `AGENT_ENVIRONMENT`, `ALAMBIQUE_CHANGED`, `ALAMBIQUE_UNA
 `RECORD_UNCOMMITTED`, `RECORD_VERSION_UNKNOWN`, `REVIEW_INVALID`, `REVIEW_UNEXAMINED`, `ROLE_FORBIDDEN`,
 `ROLE_NOT_ENFORCED`, `ROUNDS_EXHAUSTED`, `SEPARATOR_AMBIGUOUS`, `SEPARATOR_DAMAGED`, `SEPARATOR_MISSING`,
 `SETTINGS_INVALID`, `SETTINGS_KEY_NOT_PERSONAL`, `STAGE_CLOSED`, `STAGE_OPEN_TASKS`, `SWEEP_MISSING`, `TASK_CHANGED`,
-`TASK_INVALID`, `TERMINAL_REQUIRED`, `TOOL_MISSING`, `UNIT_AMBIGUOUS`, `VERDICT_NONE`, `VIEW_STALE`,
+`TASK_INVALID`, `TERMINAL_REQUIRED`, `TOOL_FAILED`, `TOOL_MISSING`, `UNIT_AMBIGUOUS`, `VERDICT_NONE`, `VIEW_STALE`,
 `WIDENING_UNNAMED`, `WORDS_COPIED`, `WORDS_MISSING`, `WORKTREE_DIRTY`.
 
 ## 8. Settings keys
@@ -743,6 +838,484 @@ architecture did not settle:
 8. `run` signed by whoever runs it (`run-started`), so Fabrewk can refuse a key with no role that may dispatch (AD-14);
    an integrator agent that runs an authorized task uses the maestro's key, the gap AD-14 already states.
 9. No change to the alambique's status keys: no point passes [decidido] while there is no code.
+10. `authorize … --run`, so that a person's authorization continues into the run without another command (PD-33);
+    without it, `authorize` records the decision and `fabrewk run` is the next step.
+11. The test tooling of section 11.2: `proptest` as a development crate, never shipped; a Cargo feature
+    `fault-injection`, never enabled in a release build; `fish`, `dash`, `bwrap`, `cargo-mutants` and `cargo-deny` on
+    the machine that runs the suites, installed in phase 7 with the network permission that phase asks for.
+12. The corrections part 6b made to part 6a (section 11.1), among them the requirements REQ-TASK-7 and REQ-RUN-9 and the codes
+    `MOVE_NOT_ALLOWED` and `TOOL_FAILED`; and the phase in which each group of tests is due (section 13).
+13. The credential scan's scope (REQ-SEC-3): content everywhere in the domain except a maintainer's uncited
+    material, which is matched by name only. AD-8 asks for the check "anywhere in `.brewstillery/`" and the alambique's
+    6.9 lets only cited material be read; this is how the text reconciles them, and it is the maestro's to approve.
 
-Part 6b receives this file, `past-defect-cases.md` whole, and the list of refusal codes in section 7; it maps every
-case to a requirement and a test, and gives every requirement its acceptance criterion.
+## 11. Test plan
+
+### 11.1 Corrections made to part 6a
+
+Mapping every past-defect case to a requirement and a test found places where part 6a did not say what a test could
+check. Each was corrected in its requirement, in place, and is listed here so that the review and the approval see it.
+
+| Where | Correction | Case |
+| --- | --- | --- |
+| REQ-TASK-7 (new) | The pattern language of allowed files, its limits, and a lane guard at `propose` and `authorize`; part 6a refused protected paths only in the change set | PD-15, PD-17 |
+| REQ-RUN-3 | Protected names compared under ASCII case folding; the rule for new, changed and untouched links; a mode change alone is a change; a failed export is `TOOL_FAILED`, recorded before dispatch | PD-16, PD-19 to PD-21 |
+| REQ-GATE-8 | A third guard on protected paths at integration; "clean" defined against the base or, after an interrupted move, the candidate | PD-12, PD-16 |
+| REQ-RUN-6, section 7 | New code `TOOL_FAILED` for an external tool's error, so none reaches the person raw | PD-11, PD-21, PD-36 |
+| REQ-TASK-1, section 4 | Guards evaluated in their listed order, the first failure reported; new code `MOVE_NOT_ALLOWED` for a move the table does not allow from the current state (part 6a had no code for it) | — |
+| REQ-TASK-5 | What a task does after a refused candidate, an invalid or unexamined review, a tool's failure or a failed preflight: it halts; the no-progress rule stated over rounds n−2, n−1, n, and its order with the round limit | PD-07, PD-25 |
+| REQ-GATE-6, REQ-RUN-8 | A failed required check ends the round like a reject, counted as one confirmed blocking finding; the next round's packet carries the previous round's findings and the failed checks' output (part 6a gave the next round nothing to work from) | PD-33 |
+| REQ-GATE-7 | `status <task>` shows verbatim what an authorization or an acceptance binds, with each text's language tag, and the event carries that rendering's digest | PD-37 |
+| REQ-TASK-4 | A missing or non-UTF-8 `--say` is `WORDS_MISSING`, not a usage error; `propose` takes no `--say` | PD-30, PD-31 |
+| REQ-REG-6 | An event out of its place is `RECORD_BROKEN`; a person's event bound to another stream, or with empty words, is `RECORD_TRANSITION_INVALID` | PD-06, PD-31 |
+| REQ-REG-10 | The record is replayed and the views regenerated before Fabrewk commits; a failure commits nothing | PD-46 |
+| REQ-REG-13 | Evidence readable by its owner only; messages name the evidence file | PD-28 |
+| REQ-SEC-1 | A preflight per provider that calls no model, before its first dispatch and after a version change; the release directory bound whole | PD-27 |
+| Section 5 | `authorize … --run` (choice 10) | PD-33 |
+
+Codex's first review of both parts (R-021) found more, corrected the same way:
+
+| Where | Correction | Finding |
+| --- | --- | --- |
+| REQ-GATE-8, REQ-GATE-3 | The base is compared by its product tree (outside `.brewstillery/`), so Fabrewk's own record commits never move it; when the head is not the base itself, integration makes a single-parent commit on the head carrying the candidate's change set and trailers | P6-1 |
+| REQ-TASK-2, REQ-TASK-3, section 4 | A dependent task has no base when authorized; its base is fixed at `run-started`, after its dependencies' integrations, and recorded | P6-2 |
+| REQ-REG-10 | `approve` and integration each make one commit before the record commit; events left uncommitted are committed first by the next write command | P6-3, P6-7 |
+| REQ-REG-8 | The history walk requires every commit to hold every event file of each parent, so a truncation later restored exactly is still a rollback | P6-9 |
+| REQ-REG-12, REQ-SET-8 | Only write commands create the machine key or write the mark and caches; reading commands, `assess` among them, write nothing | P6-8 |
+| REQ-RUN-9 (new), REQ-GATE-8, REQ-TASK-5, section 4 | Revalidation of an existing candidate: `run` on a verified task with stale evidence, `authorize` from `accepted`; `MERGE_IN_PROGRESS` holds in every state while an acceptance of the candidate is on record and the branch is at it; `accept` moves a halted task whose branch is at its candidate | P6-6, P6-13 |
+| REQ-FER-6, REQ-VIEW-2, REQ-REG-1, section 3 | Proposals targeting `rules`: their units, base digest and stream, independent of the alambique's | P6-12 |
+| REQ-FER-9, REQ-SEC-3 | The credential scan matches content everywhere in the domain except a maintainer's uncited material, whose names alone it matches and whose content nothing reads; an unreadable file it must read is `CHECK_UNKNOWN` (choice 13) | P6-5 |
+
+Its second review found four more, corrected the same way:
+
+| Where | Correction | Finding |
+| --- | --- | --- |
+| REQ-REG-10 | Events a commit depends on are written before it, events recording its outcome after it; `task-integrated` only once the move and its checks passed | P6-14 |
+| REQ-GATE-8, 11.2 rule 4 | Integration failures before and after the move, each with what it may change | P6-7 |
+| Section 4, REQ-GATE-8 | `authorize` from `verified` as well, so a revalidation stopped by the round limit has a way out | P6-13 |
+| REQ-SEC-3 | Patterns tightened so that describing them is no match (`sk-ant-` and the private-key line need what a real key has); this repository's domain passes the scan | P6-15 |
+
+The specification now holds 103 requirements and 85 refusal codes.
+
+### 11.2 Rules for every test
+
+1. **Levels.** Unit tests live beside the code in `#[cfg(test)]` modules. Integration tests, in `tests/`, run the built
+   `fabrewk` binary as a person or an agent would, in a disposable repository the test creates. Property tests generate
+   their inputs with `proptest`, a development crate (choice 11). The crash suite stops the binary at every write
+   (11.5). Mutation testing uses `cargo-mutants` (11.6). Real dispatches, from phase 9, call the real CLIs with the
+   maestro's permission and budget and are never part of `cargo test`.
+2. **Fixtures are built by the test**: `git init`, commits, SSH keys made with `ssh-keygen` inside the fixture, and a
+   home and private folder of the fixture's own (the test sets `HOME` and `XDG_CONFIG_HOME`). Nothing is read from the
+   machine's home, private folder or SSH agent. Temporary files go under Cargo's `CARGO_TARGET_TMPDIR`. Until phase 10
+   builds `apply`, a test helper writes the same signed project events that `apply` would.
+3. **Fake tools.** An agent's CLI is replaced by a fixture program placed on `PATH` under the real tool's name, which
+   replays a recorded stream or a scripted behaviour (write files, change a mode, make a link, print a marker, exit
+   with a code, sleep, crash). The built-in adapters are the code under test. The recorded streams for the audit
+   (PD-26) come from phase 9's first real dispatch per provider, with every credential, account name and provider text
+   the audit does not need removed, and their digests pinned in the test.
+4. **What a refusal test asserts**, all of: the exit status of REQ-CLI-3; the code in the human output and in `--json`;
+   the catalogue's reason, and a next step that names an existing command, with no unfilled placeholder; and that
+   nothing was written: the working tree, the index, the refs, `.git/info/exclude`, the domain and the private folder
+   are byte-identical before and after. Three kinds of refusal write, and their tests assert exactly what: a halt
+   writes its `task-halted` event, the `attempt-ended` it implies and the views they affect; a refused integration
+   (`BASE_MOVED`, `WORKTREE_DIRTY`, `EVIDENCE_STALE`, `PROTECTED_PATH`, `TOOL_FAILED`) writes `task-accepted` when the
+   command was `accept`, then `merge-failed` and the views, in one record commit; before the move, the product tree, the
+   index and the working tree are byte-identical and, in `published`, the branch differs only by that record commit;
+   after the move (PD-12's variants), the branch holds the integration and the record commit, and the working tree
+   and the index are byte-identical to before the command except at touched paths that held the base's content,
+   which may now hold the candidate's (an interrupted sync); a path that held anything else, a person's edit, is
+   byte-identical. "Before" is the state after the fixture's last injection: a test that injects a person's edit
+   while the command runs, as PD-12's variants do after the move, compares with a snapshot taken right after that
+   injection, so the edit must survive byte-identical in the working tree and in the index; `RECORD_COMMIT_RACE` leaves the command's
+   events written and uncommitted, and nothing else.
+5. **Names.** A requirement's tests are `req_<area>_<n>_<what>`; a past-defect case's, `pd_<nn>_<what>`; a refusal's,
+   `refusal_<code in lower case>`. A search for the name finds the test from this file and this file from the test.
+6. **A past-defect test fails without its fix.** The phase's receipt names one mutation of the guard the case protects
+   (a `cargo-mutants` mutant or a written patch) and shows the test killing it.
+7. **Clean clone.** Every suite runs in a new clone: `cargo test --locked`, then the crash suite with
+   `--features fault-injection`. A test that needs a tool the machine lacks (`git`, `ssh-keygen`, `bwrap`, `fish`,
+   `dash`) fails naming it; it is never skipped as passed. A phase is accepted only with every test of its groups run.
+8. **Release builds carry no test seam.** `fabrewk --version --json` lists the build's features; a test on the release
+   binary requires that `fault-injection` is absent.
+9. **Shells.** Every command a message prints passes `fish --no-execute` and `dash -n` (REQ-CLI-2, PD-38).
+10. **Platforms.** The suites run on Linux ARM64 first (AD-4); a platform is supported only when every suite passes
+    on it.
+
+### 11.3 Past-defect cases
+
+Every case of `past-defect-cases.md`, with the requirements it maps to, the test that keeps it from recurring, and the
+phase that must pass it (section 13). Case variants are written there; a test exercises every variant. The cases name
+the domain as `brewstillery/`, from before it was hidden (D-032); here it is `.brewstillery/`, which REQ-RUN-3
+protects at any depth.
+
+| Case | Requirements | Test: what it builds and asserts | Phase |
+| --- | --- | --- | --- |
+| PD-01 | REQ-REG-8, REQ-REG-6 | In `published`, after a mark exists: (a) a commit whose `data/` is a prefix of its parent's; (b) the branch reset to an ancestor; (c) a merge whose first parent is the old state and the second the watched one; (d) events seen, cut and regrown; (e) a `git replace` object hiding a commit; (f) a graft file; (g) a commit that drops the last two events and a later one that restores them byte-identical and appends a new event. `check` reports `RECORD_ROLLBACK` for each (by the mark for (b), by the history walk for the rest) and every write command refuses. In `unpublished`, (a), (b) and (d) are made by deleting event files and are refused by the mark | 7 |
+| PD-02 | REQ-REG-8 | `heads.json` empty, holding invalid JSON, or naming a digest no stream holds: every command that reads it refuses `MARK_INVALID`, naming the file, and nothing deletes it; once a person removes it, the next command writes a fresh mark. The crash suite stops the binary during the mark's replacement: the old or the new mark remains, never an empty one | 7 |
+| PD-03 | REQ-REG-9, REQ-REG-6 | A test compares every event kind's fields with a pinned description of schema 1, so a changed field without a new `schema` fails it; an event with `schema` 2 is refused `RECORD_VERSION_UNKNOWN`; a record holding every version the binary knows replays; no replay test ends in a panic or a raw parse error | 7 |
+| PD-04 | REQ-REG-3 | Events whose agent text, person's words, finding text and file names hold U+0085, U+2028, U+2029 and a lone CR are written, replayed, re-serialized byte-identical and shown whole by `status`; a truncated file and one with a changed byte are still refused (`RECORD_DIGEST_MISMATCH`, `RECORD_NONCANONICAL`); a source test fails if the record or the stream audit calls a line-splitting function on recorded text | 7 |
+| PD-05 | REQ-REG-7 | A clone whose domain has no `data/`, and one with an empty `data/events/`: `status` shows the record absent (exit 0), `check` exits 3 with `RECORD_ABSENT`, every write command refuses | 7 |
+| PD-06 | REQ-TASK-2, REQ-REG-6, REQ-GATE-7 | Two tasks with identical fields: the signed `task-authorized` of one, copied into the other's stream, is refused on replay (`RECORD_BROKEN` for its place, `RECORD_TRANSITION_INVALID` for its binding); re-appended later in its own stream, refused; `authorize` after a change to any field refuses `TASK_CHANGED`. The same for `task-accepted` | 7 |
+| PD-07 | REQ-RUN-2, REQ-TASK-5 | `rounds = 2` and a fake reviewer that always rejects: no third review is dispatched, a revalidation of stale evidence (REQ-RUN-9) counted as a round (counted by the fake's invocations); the task halts `ROUNDS_EXHAUSTED`; only `authorize --say` grants another round | 9 |
+| PD-08 | REQ-RUN-5, REQ-RUN-1, REQ-TASK-5, REQ-VIEW-1 | The fake agent ends successfully and the binary is killed before `attempt-ended`, for the build and the review roles: the next write command ends the attempt `unknown`, counts it and halts `OUTCOME_UNKNOWN`; `status` says the attempt's result is unknown and that a retry spends a dispatch; a late result for the replaced attempt is refused `ATTEMPT_REPLACED`. Variants: a second loss on the retry; no dispatch left (halts `BUDGET_EXHAUSTED`, nothing dispatched); an earlier halt already answered is not what `status` shows; another task runs to integration meanwhile. Property: the crash suite (11.5) | 9; the crash suite on the record, 7 |
+| PD-09 | REQ-RUN-5, REQ-RUN-1 | A task whose attempt's process died, in `authorized` (before dispatch), `running` and `halted`: `reject --say` ends the open attempt `unknown`, counted, then rejects; a later `attempt-ended` for it is refused `ATTEMPT_ENDED`; a second task then runs | 9 |
+| PD-10 | REQ-RUN-1, REQ-RUN-5 | `attempt-started` is on disk before the fake CLI starts (the fake reads the record and fails otherwise); a second `attempt-ended` is refused `ATTEMPT_ENDED`, at the command and on replay, and the first is kept; a killed attempt stays counted and nothing dispatches again without `authorize` | 7 (record), 9 (dispatch) |
+| PD-11 | REQ-RUN-6, REQ-GATE-8 | A leftover `.git/index.lock` during task A's integration: A records `merge-failed` with `TOOL_FAILED` and words, and stays `accepted`; `status` and `check` work; task B builds its candidate meanwhile (its export uses a temporary index); once the lock is removed, `run` integrates A | 9 |
+| PD-12 | REQ-GATE-8 | Each precondition (evidence current, base unmoved, touched paths clean, reviewer profile unchanged in the adopted policy) made false at each of the three points (before signing, just before the move, with the branch at the candidate): no `task-integrated`, a `merge-failed` naming it, the task `accepted`. Variants: the branch already at the candidate, moved by someone else; the binary killed between `update-ref` and the working tree's update, after which `run` finishes it | 9 |
+| PD-13 | REQ-GATE-8 | The branch moved after acceptance by a commit that changes a file outside the domain: `BASE_MOVED`, branch untouched; record commits alone in between do not count as a move, and integration then makes a single-parent commit whose product tree is the candidate's; a race test moves it between Fabrewk's read and its `update-ref`, and the compare-and-swap fails; a checked-out tree dirty at a touched path: `WORKTREE_DIRTY`, the tree untouched | 9 |
+| PD-14 | REQ-GATE-8 | An accepted task whose branch reached the candidate and whose integration then failed: `reject` refuses `MERGE_IN_PROGRESS`, `run` finishes it. The reviewer's variant: accepted, failed before moving, run back to accepted, then the branch brought to the candidate by hand as in PD-44: `reject` refused, `run` finishes under every precondition. With no acceptance on record, `reject` is allowed whatever the branch and records where it is. After `authorize` returns such a task to `authorized`, `reject` is still `MERGE_IN_PROGRESS` | 9 |
+| PD-15 | REQ-TASK-7 | Refused at `propose`, and at `authorize` for a proposal edited in the record by a fixture: `**/*.png`, `*/xel/**`, `?brewstillery/settings.toml`, `**/attachments/**`, `*`, `**`, `**/*.py`, `*/config/*`, `*.git`, `.G*`, `./.brewstillery/x`, `tests/fixtures/.brewstillery/**` (`PROTECTED_PATH`); `src/../.git/config` and a 257-byte pattern (`TASK_INVALID`). Kept: `*.md`, `src/**`, `.github/**`, `.gitignore`, `.git*ignore`, `tests/fixtures/brewstillery/**`, `.brewstillery-old/x`, `brewstillery-old/x`. Properties: over the tokens `a`, `G`, `.`, `/`, `*`, `?`, `**`, `.git`, `.brewstillery`, for patterns and paths of up to six tokens, the guard refuses a pattern exactly when a reference built on the matcher finds a protected match as REQ-TASK-7 defines it, both ways; random long patterns the guard keeps never match a protected path at the first component | 7 |
+| PD-16 | REQ-RUN-3, REQ-GATE-8 | The fake agent writes `.brewstillery`, `.brewstillery/x`, `.BrewStillery/x`, `a/.git/config`, `.GIT` and a link named `.brewstillery`, with the lane guard switched off by `fault-injection`: each refused `PROTECTED_PATH` at the change set; with the change-set guard also off, integration refuses `PROTECTED_PATH`. Run with the domain committed in the base and not, and with the record branch checked out and not. What Git refuses surfaces as `TOOL_FAILED`, never raw | 9 |
+| PD-17 | REQ-TASK-7, REQ-RUN-3 | `src/` followed by eight `**a` and a `b` against a 60-character path, and 150 `**` segments against a 4,000-character path: the matcher's step count, exposed to tests, stays within REQ-TASK-7's bound. Property: the matcher equals a recursive reference definition over random small pairs, paths with newlines included | 7 |
+| PD-18 | REQ-RUN-3 | The base ignores `*.log` and `out/`; the fake agent creates ignored files whose names hold a space, a double quote, a backslash, a newline, a tab, an accented letter and U+2028: none enters the candidate; tracked files with the same names, edited inside the lane, are kept byte-exact | 9 |
+| PD-19 | REQ-RUN-3 | A base with tracked links to a relative file, to `/etc/passwd`, to a missing target and to a directory, left untouched: none is in the change set and the task proceeds; a new link inside the lane is in the candidate as a link with its target as written; a new link outside it is `LANE_VIOLATION` | 9 |
+| PD-20 | REQ-RUN-3 | The fake sets the executable bit on a tracked file and changes nothing else: the change set holds the mode change and the candidate has mode `100755`; with another file also edited, both are in the candidate; never "no change" | 9 |
+| PD-21 | REQ-RUN-3, REQ-RUN-6 | A base holding a link to an absolute path: the export holds it as a link and the task proceeds. An export made to fail by `fault-injection`: `attempt-ended` with `TOOL_FAILED` is recorded before any fake CLI starts, the task halts, the message names the evidence file and holds no raw error | 9 |
+| PD-22 | REQ-RUN-3, REQ-RUN-8, REQ-SEC-1 | A base holding `.git` and `.brewstillery` at the root and nested: the exports for an agent and for a check hold neither at any depth; the fake agent and a check probe for the repository's real path, the domain and the private folder and find none; marker strings planted in the settings, the alambique and a fermento appear nowhere in what the fake receives | 9 |
+| PD-23 | REQ-GATE-1, REQ-GATE-3, REQ-GATE-5 | A task accepted, then a check removed from its profile and the policy adopted: integration refuses `EVIDENCE_STALE`; a check the stage approved but the profile lacks is still required and run | 9 |
+| PD-24 | REQ-GATE-1, REQ-SET-2 | A stage approving a check `test` defined differently from the project's `test`: `CHECK_DUPLICATE` at `propose`, before any check runs; a duplicate TOML table: `SETTINGS_INVALID`. The legacy pair (a required `false` and an optional `true` under one name) cannot be stated without one of the two refusals | 7 |
+| PD-25 | REQ-GATE-4, REQ-TASK-5 | A fake reviewer returns a well-formed `accept` after running no command: the task halts `REVIEW_UNEXAMINED`, with no `task-verified` | 9 |
+| PD-26 | REQ-GATE-4 | For each provider's adapter, its recorded valid stream (11.2 rule 3) audits as examined. Each of PD-26.1 to PD-26.20 is a generator that inserts its anomaly at every position of that stream, and every result audits as not examined, except PD-26.16, whose stream reads whole and counts as the valid one does. One stream per sub-case goes through the whole flow and halts `REVIEW_UNEXAMINED`. PD-26.2: quoted separators do not split, unquoted `;`, `&&`, `\|\|`, `\|` and newlines do. PD-26.19: a final newline is not a blank line | 9 |
+| PD-27 | REQ-SEC-1 | A fake CLI that needs a sibling helper and starts its own sandbox: the preflight passes only with the release directory bound whole; a fake whose sandbox cannot start in a role's copy fails the preflight with `CONFINEMENT_UNAVAILABLE` before any dispatch. In the real dispatches of phase 9, the preflight runs first | 9 |
+| PD-28 | REQ-REG-13 | Fake CLIs that fail, succeed and time out each leave their standard output and error in `local/evidence/` (files `0600`, directories `0700`), with their digests in the attempt's event; the message names the file | 9 |
+| PD-29 | REQ-REG-13 | A fake CLI's error text, error subtype, standard error and a free-form usage field each carry a marker: no file under `data/` holds a marker, the evidence files do, and the event keeps the model and CLI version as reported | 9 |
+| PD-30 | REQ-TASK-4 | For every person move of section 4, the words given are in the signed event byte-identical, with their language tag; `propose --say` is a usage error and `propose` records no person | 7 |
+| PD-31 | REQ-TASK-4, REQ-REG-6 | For every person move: `--say` absent, `""`, `" "`, a tab and a newline, U+2028 alone, and bytes that are not UTF-8: `WORDS_MISSING`, nothing written; a hand-made, validly signed event with empty `say`: `RECORD_TRANSITION_INVALID` on replay | 7 |
+| PD-32 | REQ-TASK-4, REQ-CLI-2 | Every catalogue message rendered with every parameter offers no words: a command it names that needs `--say` is printed without it, so running it as printed refuses `WORDS_MISSING`, nothing written; the catalogue's example words given as `--say` refuse `WORDS_COPIED` | 7 |
+| PD-33 | REQ-GATE-6, REQ-GATE-8, REQ-VIEW-1, REQ-CLI-2 | After `accept --say` the same command integrates; after a review's reject or a failed check, the next round starts with no command; `authorize --run --say` runs the task with no other command. `status`, in every waiting state, names who acts next and shows no command to a person with nothing to decide | 9 (moves), 8 (views) |
+| PD-34 | REQ-CLI-2 | Every catalogue key rendered in every language with every value the code can pass (each state, event kind, role and code): no bare key, no internal token without its words, no doubled punctuation; every key has a description; every state, event kind, role and code has words in every catalogue | 7 |
+| PD-35 | REQ-CLI-2, REQ-CLI-4 | Every refusal test (11.4) asserts the code in the human output and in `--json` | 7 |
+| PD-36 | REQ-CLI-2, REQ-RUN-6 | No rendered message holds a `{name}` placeholder; failures provoked in `git` and `ssh-keygen` reach the person as `TOOL_FAILED` with words, their raw text only in evidence | 7 |
+| PD-37 | REQ-GATE-7 | `status <task>` before `authorize` and before `accept` shows verbatim every requirement and its criterion, the allowed files and the limits, and before `accept` the candidate and its evidence, each text with its language tag; the signed event carries the digest of exactly that rendering; for a maintainer whose interaction language is `es-MX`, the surrounding words are in Spanish and the requirements in the language they were written, labelled | 7 (authorize), 9 (accept) |
+| PD-38 | REQ-CLI-2, REQ-CLI-1 | Every command and flag that any message names is accepted by the command declaration's parser; every printed command passes `fish --no-execute` and `dash -n` | 7 |
+| PD-39 | REQ-RUN-7, REQ-VIEW-1 | A fake CLI that reports no cached tokens, one that reports 0, and a mix of both across attempts: the events record unknown, 0, and both; the view shows "unknown", "0", and a sum with an unknown part as unknown | 9 (record), 8 (view) |
+| PD-40 | REQ-VIEW-1 | A dispatch interrupted for an hour, then halted: the person's response time starts at the halt, not at the dispatch; with nothing pending for them, the view says there is none | 8 |
+| PD-41 | REQ-REG-10, REQ-FER-3, REQ-FER-5 | A maintainer's edit to their fermento staged, another unstaged: every write command's commit holds only Fabrewk's files and leaves both edits as they were; `sweep` refuses `INPUT_UNCOMMITTED`; `approve` commits the alambique alone, with the maestro as author and no co-author | 8 |
+| PD-42 | REQ-VIEW-1, REQ-FER-4 | Every count and state in `STATUS.md` and in the fermento's answer follows the replay: events are added and the views regenerated, and every figure changes as the replay says; no view takes text from anywhere but the replay and the catalogue | 8 |
+| PD-43 | REQ-VIEW-1, REQ-VIEW-3 | `STATUS.md` holds no branch head or other fact a later event could make false without a regeneration; a hand edit of a view is `VIEW_STALE`; after every write command, a fresh generation equals the committed text | 8 |
+| PD-44 | REQ-GATE-8 | A task in `authorized`, `halted` and `verified`, each with the record branch brought to its candidate by hand (a cherry-pick of the candidate in `published`, so the record's commits stay; a move to the candidate commit in the other modes): `accept --say` integrates it under every precondition of PD-12, and `reject --say` stops it, recording where the branch is; no hand move of the branch is needed | 9 |
+| PD-45 | REQ-RUN-4 | The candidate commit read back: its parent is the base; one co-author trailer names the tool, provider and model the adapter observed; with `git.signOff = true` a sign-off trailer, with `false` none | 9 |
+| PD-46 | REQ-GATE-5, REQ-GATE-10, REQ-REG-10 | A required check fails: no `task-verified`, the branch never moves, no commit but the record's own; a write command whose replay before commit fails (made to fail by `fault-injection`) commits nothing and says so | 9 (gate), 7 (record) |
+
+Of the items `past-defect-cases.md` did not turn into cases, C8F-5 and FX-8 (refusal codes with no test) are answered
+by 11.4, which gives every code a test; the others keep their destinations there.
+
+### 11.4 Refusals
+
+One test per code (11.2 rule 4), with the requirement that defines the code and what the test does to provoke it.
+`check`'s findings exit 3; a halt exits 4; every other refusal exits 1. What each writes follows 11.2 rule 4.
+
+| Code | Requirement | Provoked by | Phase |
+| --- | --- | --- | --- |
+| `AGENT_ENVIRONMENT` | REQ-TASK-4, REQ-SEC-7 | A person's move with `CLAUDECODE=1`, with Codex's sandbox variable, and with `FABREWK_EXTENSION` set; the message says the control is cooperative | 7 |
+| `ALAMBIQUE_CHANGED` | REQ-FER-5 | `approve` after the alambique changed from the proposal's base digest | 8 |
+| `ALAMBIQUE_UNAPPROVED` | REQ-FER-7 | A byte of the alambique changed by hand, then `check`, `run`, `accept` and `close` | 8 |
+| `ALIAS_INVALID` | REQ-DOM-3 | Aliases `Xel`, `9a`, `a--b`, `a-`, 33 characters, and each reserved name; a domain directory with such a name at `check` | 7 |
+| `ALIAS_MISMATCH` | REQ-SET-3 | `maintainer.alias = "ana"` in `xel/settings.toml` | 7 |
+| `ATTEMPT_ENDED` | REQ-RUN-1 | A second `attempt-ended` for one attempt | 7 |
+| `ATTEMPT_REPLACED` | REQ-RUN-5 | A result for an attempt a later one replaced (PD-08) | 9 |
+| `BASE_MOVED` | REQ-GATE-8, REQ-TASK-3 | The product tree changed after acceptance (PD-13); a dependent task's `run` after another product change followed its dependency's integration | 9 |
+| `BUDGET_EXHAUSTED` | REQ-TASK-5, REQ-RUN-2 | `dispatches` spent; `minutes` spent by a fake that sleeps past the limit | 9 |
+| `CHECK_DUPLICATE` | REQ-GATE-1 | A stage and the project defining one check name differently (PD-24) | 7 |
+| `CHECK_UNKNOWN` | Section 6 | `check` with `git` absent from `PATH`; with the Git history unreadable; with a domain file it must scan unreadable (C9) | 7 |
+| `CONFINEMENT_UNAVAILABLE` | REQ-SEC-2, REQ-SEC-1 | `run` with `bwrap` absent; a failed preflight (PD-27) | 9 |
+| `CREDENTIAL_SUSPECTED` | REQ-SEC-3 | Each pattern of REQ-SEC-3 in a file under the domain (`check`) and in a candidate (`run`); near misses (`AKIA` with 15 characters, `id_ed25519.pub`, `sk-` with 19) are not refused | 7, 9 |
+| `DEPENDENCY_OPEN` | REQ-TASK-3 | `run` on a task whose dependency is not integrated | 7 |
+| `DOMAIN_NOT_IGNORED` | REQ-DOM-7 | `unpublished` with the exclude line removed: every write command, and `check` | 7 |
+| `DOMAIN_UNKNOWN_ENTRY` | REQ-DOM-2 | A file `notes.md` at the domain's top: a warning, `check` exits 0 if it is the only finding, the file kept | 7 |
+| `EVIDENCE_STALE` | REQ-GATE-3 | Each input of a check's identity changed after the check: tree, definition, policy, a named tool's version, platform | 9 |
+| `EXTENSION_DIGEST` | REQ-EXT-1 | An extension whose file differs from its pinned digest | 9 |
+| `EXTENSION_OUTPUT_INVALID` | REQ-EXT-3 | An extension printing one valid request and one invalid line: none applied | 9 |
+| `FERMENTO_MISSING` | Section 6, C12 | A listed maintainer's directory without `fermento.md` | 8 |
+| `GITIGNORE_CHANGED` | REQ-DOM-4 | `.brewstillery/.gitignore` with a line added | 7 |
+| `HEAD_DETACHED` | REQ-REG-11 | A write command with a detached head | 7 |
+| `INPUT_CHANGED` | REQ-FER-3 | The input edited between the sweep's two digests (`fault-injection` pauses the write) | 8 |
+| `INPUT_UNCOMMITTED` | REQ-FER-3 | `sweep` in `published` with the input edited and not committed | 8 |
+| `KEY_UNKNOWN` | Section 7 | `config nosuch.key` | 7 |
+| `LANE_VIOLATION` | REQ-RUN-3 | The fake agent changes a file outside the allowed files | 9 |
+| `LIMIT_UNOBSERVABLE` | REQ-RUN-7 | A `tokens` limit on a profile whose adapter declares no token report, at `authorize` | 7 |
+| `LOCK_HELD` | REQ-REG-5 | A second write command while the first holds the lock | 7 |
+| `MAINTAINER_UNLISTED` | Section 6, C12 | A directory `ana/` with a fermento, not in the policy | 8 |
+| `MARK_INVALID` | REQ-REG-8 | An empty `heads.json` (PD-02) | 7 |
+| `MERGE_IN_PROGRESS` | REQ-GATE-8 | `reject` on an accepted task with the branch at its candidate (PD-14) | 9 |
+| `MODE_NOT_AVAILABLE` | REQ-INS-3 | `apply` of a plan whose verdict is `review` | 10 |
+| `MOVE_NOT_ALLOWED` | REQ-TASK-1 | `run` on a `proposed` task, `accept` on a `running` one, `authorize` on an `integrated` one, `approve` of a discarded proposal, `close` of a closed stage | 7 |
+| `NOT_A_REPOSITORY` | Section 7 | `assess` outside a Git working tree, and in a bare repository | 10 |
+| `NO_PROGRESS` | REQ-TASK-5 | Confirmed blocking findings 2, 2, 2 over three rounds; 2, 3, 1 does not halt | 9 |
+| `OUTCOME_UNKNOWN` | REQ-TASK-5, REQ-RUN-5 | The binary killed during an attempt (PD-08) | 9 |
+| `PLAN_CHANGED` | REQ-INS-3 | A root file changed between `assess` and `apply`; `apply` with a key other than the plan's | 10 |
+| `PLATFORM_UNSUPPORTED` | REQ-INS-7 | The installation script with a fake `uname` reporting an unlisted platform | 10 |
+| `POINT_CHANGED` | REQ-FER-3 | An answer whose point's digest differs; one naming a point that does not exist | 8 |
+| `POLICY_ABSENT` | REQ-SET-4 | `authorize` in a record with no `policy-adopted` | 7 |
+| `POLICY_PENDING` | Section 6, C2 | The project file edited after adoption: a warning at `check`, the change pending in `config` | 7 |
+| `POLICY_UNCOMMITTED` | REQ-SET-4 | `adopt` in `published` with the file edited and not committed | 7 |
+| `PRIVATE_FOLDER_PERMISSIONS` | REQ-SEC-4 | The private folder with mode `0755` | 7 |
+| `PROPOSAL_STALE` | REQ-FER-5, REQ-FER-6 | `approve` after its point's text changed, after the point's number changed with the same words, and after the drafted text changed; a `rules` proposal after another rules proposal was incorporated | 8 |
+| `PROPOSAL_UNKNOWN` | Section 7 | `discard p-00000000` | 8 |
+| `PROTECTED_PATH` | REQ-TASK-7, REQ-RUN-3, REQ-GATE-8 | The patterns of PD-15 and the writes of PD-16 | 7, 9 |
+| `PROTECTED_PATH_WILDCARD` | REQ-GATE-9 | Allowed files `*.toml` with `Cargo.toml` in `gate.protectedPaths`; `Cargo.toml` listed literally is kept | 7 |
+| `PROVIDER_MISSING` | REQ-TASK-5, REQ-GATE-4 | `review.differentProvider = "require"` with one provider permitted; a required provider's tool absent | 9 |
+| `RECORD_ABSENT` | REQ-REG-7 | PD-05 | 7 |
+| `RECORD_BROKEN` | REQ-REG-6 | A gap in `seq`; a `prev` naming no event; an event in another stream's directory | 7 |
+| `RECORD_COMMIT_RACE` | REQ-REG-10 | The branch moved during a write command, changing a file the commit holds | 7 |
+| `RECORD_DIGEST_MISMATCH` | REQ-REG-6 | A file renamed with another digest; a byte changed | 7 |
+| `RECORD_FORK` | REQ-REG-6 | Two events at one `seq` of one stream, from two clones merged | 7 |
+| `RECORD_ID_COLLISION` | REQ-REG-1 | Two creation payloads made to share an identifier, with nonces chosen by the fixture | 7 |
+| `RECORD_NONCANONICAL` | REQ-REG-3 | Keys out of order; a space added; `1.0` for an integer; a needless escape; no final newline | 7 |
+| `RECORD_ROLLBACK` | REQ-REG-8 | PD-01 | 7 |
+| `RECORD_SIGNATURE_INVALID` | REQ-REG-4, REQ-REG-6 | A person's event without `.sig`; signed by a key absent from the cited policy; a signature over other bytes; another namespace | 7 |
+| `RECORD_TRANSITION_INVALID` | REQ-REG-6 | A hand-made `task-integrated` from `verified`; PD-06; PD-31 | 7 |
+| `RECORD_UNCOMMITTED` | REQ-TASK-6, section 6 C10 | Events left uncommitted by `RECORD_COMMIT_RACE`: `check` reports them and `close` refuses | 7, 8 |
+| `RECORD_VERSION_UNKNOWN` | REQ-REG-6 | An event with `schema` 2 (PD-03) | 7 |
+| `REVIEW_INVALID` | REQ-RUN-8 | A reject with no confirmed blocking finding; a verdict `maybe`; a finding without a severity | 9 |
+| `REVIEW_UNEXAMINED` | REQ-GATE-4 | PD-25 and PD-26 | 9 |
+| `ROLE_FORBIDDEN` | REQ-ID-3 | `authorize` signed by a contributor; by a key with no role | 7 |
+| `ROLE_NOT_ENFORCED` | REQ-ID-3 | `adopt` of a policy that lists a supervisor | 7 |
+| `ROUNDS_EXHAUSTED` | REQ-TASK-5, REQ-RUN-2 | PD-07 | 9 |
+| `SEPARATOR_AMBIGUOUS` | REQ-FER-1 | Two marker lines outside fences | 8 |
+| `SEPARATOR_DAMAGED` | REQ-FER-1 | The marker with an edited banner line | 8 |
+| `SEPARATOR_MISSING` | REQ-FER-1 | No marker; the marker only inside a fenced block (backticks, tildes, an unclosed fence); the marker indented | 8 |
+| `SETTINGS_INVALID` | REQ-SET-2 | An unknown key, a wrong type, a value outside its set, a duplicate table: each with file, key path and line | 7 |
+| `SETTINGS_KEY_NOT_PERSONAL` | REQ-SET-3 | `review.differentProvider` in a personal file | 7 |
+| `STAGE_CLOSED` | Section 4 | `propose` of a task into a closed stage | 7 |
+| `STAGE_OPEN_TASKS` | REQ-TASK-6 | `close` with a task `verified` | 8 |
+| `SWEEP_MISSING` | REQ-TASK-6 | `close` when a maintainer's last sweep predates the end of the stage's last task | 8 |
+| `TASK_CHANGED` | REQ-TASK-2 | `authorize` after the task's fields changed or its stream's head moved | 7 |
+| `TASK_INVALID` | Section 4, REQ-TASK-7 | A task with no requirement; a requirement with no criterion; a pattern with `..` (PD-15) | 7 |
+| `TERMINAL_REQUIRED` | Section 7 | `onboard` with standard input not a terminal | 10 |
+| `TOOL_FAILED` | REQ-RUN-6 | `git` failing on an index lock (PD-11); a failed export (PD-21); `ssh-keygen` failing to sign | 7, 9 |
+| `TOOL_MISSING` | REQ-RUN-2 | A profile's `requiredTools` entry absent | 9 |
+| `UNIT_AMBIGUOUS` | REQ-FER-6 | An edit whose section heading occurs twice in the alambique | 8 |
+| `VERDICT_NONE` | REQ-INS-3 | `apply` of a plan whose verdict is `none` | 10 |
+| `VIEW_STALE` | REQ-VIEW-3 | A byte of `STATUS.md` or `RULES.md` changed by hand | 8 |
+| `WIDENING_UNNAMED` | REQ-SET-5 | `adopt` raising `limits.rounds` without `--widen limits.rounds`; adding a maintainer | 7 |
+| `WORDS_COPIED` | REQ-TASK-4 | The catalogue's example words given as `--say` (PD-32) | 7 |
+| `WORDS_MISSING` | REQ-TASK-4 | PD-31 | 7 |
+| `WORKTREE_DIRTY` | REQ-GATE-8 | A touched path edited in the checked-out tree (PD-13) | 9 |
+
+### 11.5 Whole flows and the crash suite
+
+- **F-1, administer, `published`.** Project events (from `apply`, or from the test helper before phase 10); `propose`
+  a stage with two tasks, the second depending on the first; `authorize` the stage; `run` it: task 1 rejected by the
+  review in round 1, accepted in round 2 and integrated; task 2 waits for it, then runs and integrates; `sweep`;
+  `approve` a proposal to the alambique and one to the rules; `close`. After every command `check` exits 0, the views
+  equal a fresh generation, and the record branch has one record commit per write command with its trailers, preceded
+  by the alambique's own commit for `approve` and by the integration's for `accept`.
+- **F-2.** F-1 in `own-repository` (commits in the domain's repository, none in the product's) and in `unpublished`
+  (no commit; the exclude line in place).
+- **F-3, two maintainers.** A maestro and a contributor in two clones: the contributor's moves refused
+  `ROLE_FORBIDDEN`, their fermento swept like the maestro's; events written in both clones and merged are
+  `RECORD_FORK`, handed to a person.
+- **Crash suite.** With `fault-injection`, the binary is killed before and after every file write of F-1: each event,
+  signature, mark, view, commit, ref update and working tree update. After each kill: replay is valid or refused by a
+  code, never by a raw error; no task stays `running` after the next write command; nothing is dispatched without a
+  person's move recorded after the kill; no event already committed is lost. This is PD-08's property and 6.41's test.
+
+### 11.6 Mutation, size and dependencies
+
+- **Mutation.** `cargo mutants` over the core ring and the built-in modules, in a clean clone, from phase 7. Every
+  missed mutant is killed by a new test or listed in the phase's receipt as equivalent, with its reason; the
+  reviewer checks that list. Timeouts are listed; unviable mutants are not counted.
+- **Size.** The counter of REQ-BUD-1 has fixture tests of its own: blank lines, `//`, `///` and `//!` comments,
+  nested `/* */`, a `//` inside a string, `#[cfg(test)]` modules, `tests/`, `benches/`, `examples/`. A test fails when a
+  ring passes its ceiling.
+- **Dependencies.** `cargo build --release --locked`; `cargo deny check licenses advisories` with REQ-BUD-4's allowlist;
+  the stripped binary's size; the crates of the release build counted by `cargo tree --edges normal,build` for the
+  release target, the package itself not counted. Development crates are outside the runtime budget (AD-4) and inside
+  the licence and advisory check.
+
+## 12. Acceptance criteria
+
+A requirement is met when its criterion holds in the suites of its phase (section 13), run under the rules of 11.2.
+Where a criterion names a case or a code, its test in 11.3 or 11.4 is part of the criterion.
+
+### DOM
+
+| Requirement | Accepted when | Phase |
+| --- | --- | --- |
+| REQ-DOM-1 | After every flow of 11.5, comparing a snapshot of the repository from before shows changes outside `.git/` only under `.brewstillery/`, in the entry block of REQ-DOM-6, and at the paths of the integrated candidates' change sets, each with the candidate's content; and inside `.git/` only Git objects, the record branch's and `fabrewk/<task>` refs and their logs, the index when a checked-out tree is brought to a candidate and, in `own-repository` and `unpublished`, the one exclude line | 7, 10 |
+| REQ-DOM-2 | After every flow the domain's top holds only the listed names; an extra entry is reported `DOMAIN_UNKNOWN_ENTRY` as a warning and left in place | 7 |
+| REQ-DOM-3 | `xel`, `ana-maria` and `a1` are accepted; the aliases of `ALIAS_INVALID`'s test are refused; `layout.reservedNames` in a project file is `SETTINGS_INVALID` | 7 |
+| REQ-DOM-4 | After project creation the file is exactly `local/` and a newline, its digest in the receipt; any change is `GITIGNORE_CHANGED` | 7, 10 |
+| REQ-DOM-5 | After F-1, `local/tmp/` is empty, each attempt's directory having existed during it; `status` lists the evidence with digests equal to the record's; removing `local/cache/` and running any write command rebuilds it, while reading commands leave it absent; with `TMPDIR` set to an empty directory, the directory is still empty after F-1 | 9 |
+| REQ-DOM-6 | `apply` in administer mode with no `AGENTS.md`, an existing one, one already holding the block (replaced in place, a second `apply` changing nothing), no `CLAUDE.md` (created as `@AGENTS.md` and a newline) and an existing one (block added): bytes outside the block unchanged in each | 10 |
+| REQ-DOM-7 | In each mode `publication-decided` holds the mode and the words; in `own-repository` and `unpublished` the plan declares the exclude line and `apply` adds it; `DOMAIN_NOT_IGNORED`'s test; in `own-repository` the domain's repository receives the commits and the product's none | 7, 10 |
+
+### REG
+
+| Requirement | Accepted when | Phase |
+| --- | --- | --- |
+| REQ-REG-1 | Every event file of the flows is named by its six-digit `seq` and the first 16 hexadecimal digits of its SHA-256, in its stream's directory; identifiers match `^[pst]-[0-9a-f]{8}$` and derive from the creating payload; `RECORD_ID_COLLISION`'s test | 7 |
+| REQ-REG-2 | A schema test finds exactly the listed fields in every event of the flows, `prev` null only at `seq` 1, `at` in RFC 3339 UTC, `say` only on person moves; replay gives the same state when the `at` values of a fixture are permuted | 7 |
+| REQ-REG-3 | Property: any event value, its strings drawn from every Unicode scalar value, serializes canonically, parses back equal and re-serializes byte-identical; PD-04; `RECORD_NONCANONICAL`'s test | 7 |
+| REQ-REG-4 | Every person's event of the flows has a `.sig` that `ssh-keygen -Y verify -n fabrewk` accepts against signers derived from the cited policy; the crash suite finds no event file in place without its signature; `RECORD_SIGNATURE_INVALID`'s test | 7 |
+| REQ-REG-5 | Two write commands started together: one runs, the other refuses `LOCK_HELD` at once; a head moved between read and append (`fault-injection`) fails the append; a kill during a write leaves only a temporary file whose name starts with `.`, which readers skip | 7 |
+| REQ-REG-6 | One fixture per code it lists, each refused by that code; property: random byte damage to any event file is refused by one of its codes, never accepted and never a panic | 7 |
+| REQ-REG-7 | PD-05 | 7 |
+| REQ-REG-8 | PD-01, PD-02; reading commands leave the mark byte-identical | 7 |
+| REQ-REG-9 | PD-03 | 7 |
+| REQ-REG-10 | In `published`, each write command adds exactly one record commit, holding only the Fabrewk files it changed, one trailer per event, preceded only by the alambique's commit for `approve` and the integration's; killed between the two, the events are `RECORD_UNCOMMITTED` at `check` and the next write command commits them first; PD-41's staged and unstaged edits byte-identical after; a head moved at an untouched file: the commit rebuilt on it; at a touched file: `RECORD_COMMIT_RACE`, events kept, `RECORD_UNCOMMITTED` at `check`; PD-46's replay failure commits nothing; in `unpublished`, no commit | 7 |
+| REQ-REG-11 | With branch `trunk` checked out, F-1 integrates into `trunk`; `HEAD_DETACHED`'s test | 7, 9 |
+| REQ-REG-12 | The first write command with an empty private folder creates an ed25519 key with no passphrase; every event's `instance` is its fingerprint; `config` says nothing verifies it; `status`, `config`, `check` and `assess` run first leave the private folder and `local/` byte-identical | 7 |
+| REQ-REG-13 | PD-28, PD-29 | 9 |
+
+### SET
+
+| Requirement | Accepted when | Phase |
+| --- | --- | --- |
+| REQ-SET-1 | The three files are read as TOML 1.0 and are byte-identical after every flow; TOML-like text in a fermento or the alambique changes no effective value | 7 |
+| REQ-SET-2 | A test walks every declared key and finds its type, levels, default, direction and description; for each key, a wrong type, a value outside its set and the key at each level not allowed are refused with file, key path and line; an unknown key is refused | 7 |
+| REQ-SET-3 | Every non-personal key in a personal file is `SETTINGS_KEY_NOT_PERSONAL`; every personal key is accepted; `ALIAS_MISMATCH`'s test | 7 |
+| REQ-SET-4 | In each mode the policy in force equals the last `policy-adopted` content whatever the file says; an edit raising `limits.rounds` grants no round until adopted and shows as pending; `POLICY_UNCOMMITTED`'s and `POLICY_ABSENT`'s tests, the latter for every command that needs a policy | 7 |
+| REQ-SET-5 | For every declared key, a change each way is classed by its direction; adding, removing or changing a maintainer or a role is a widening; `adopt` refuses until every widening is named (`WIDENING_UNNAMED`) and the event lists those named | 7 |
+| REQ-SET-6 | Property over random values at every level: the effective value follows the precedence; a stage or task widening without `--widen` is `WIDENING_UNNAMED`, and with it is shown as a widening in `config` and in the event; personal values are untouched by stages and tasks | 7 |
+| REQ-SET-7 | `config` and `config <key>` print one listed source per value, the adopted digest for `project`, and pending changes apart with file and line; `--json` carries the same | 7 |
+| REQ-SET-8 | A tool removed from `PATH` between two commands leaves the effective set at the second; `detected.json` is dated; no settings file is written; each value is marked observed, verified by use or declared; permitted but absent, and present but not permitted, are both outside the effective set | 7 |
+| REQ-SET-9 | Each invalid profile (tool not permitted or absent, provider not permitted, model of another provider, effort not the model's, required tool absent) is refused before any dispatch; observed model and effort are recorded apart from the requested; an unsupported permission mode refuses and the fake CLI shows it was never called | 7 (validation), 9 (dispatch) |
+| REQ-SET-10 | A key missing in `es-MX` falls back to `es`, then `en`; a tag that is not BCP 47 is `SETTINGS_INVALID`; every AD-3 key is read where AD-3 says | 7 |
+
+### ID
+
+| Requirement | Accepted when | Phase |
+| --- | --- | --- |
+| REQ-ID-1 | Maintainer tables with each field parse; a missing `role` or `key` is `SETTINGS_INVALID`; `area` outside a supervisor is `SETTINGS_INVALID` | 7 |
+| REQ-ID-2 | After every adoption, `allowed_signers` equals a fresh derivation from the policy in force; a key added to it by hand verifies nothing | 7 |
+| REQ-ID-3 | A maestro makes every person move of section 4; a contributor and a key with no role make none (`ROLE_FORBIDDEN`, each move tested); `ROLE_NOT_ENFORCED`'s test | 7 |
+| REQ-ID-4 | Every signed event of the flows records alias and role; editing a personal file and the private folder, then replaying, changes no role | 7 |
+| REQ-ID-5 | `config` prints each key's type, and touch enforcement as `unknown` for ed25519, `sk-ssh-ed25519` and `sk-ecdsa-sha2-nistp256` keys unless the verification itself requires touch | 7 |
+| REQ-ID-6 | `apply` records the plan's first maestro and key, the plan states trust on first use, and `apply` with another key is `PLAN_CHANGED` | 10 |
+
+### TASK
+
+| Requirement | Accepted when | Phase |
+| --- | --- | --- |
+| REQ-TASK-1 | A test compares the code's table with a rendering of section 4 pinned when phase 7 starts; a move added only to the table appears in help, replay and the reference documentation; for each row, two guards made to fail at once report the first listed; `MOVE_NOT_ALLOWED`'s test | 7 |
+| REQ-TASK-2 | A task missing any field is `TASK_INVALID`; an authorization binds the identifier, the fields' digest and the head; a change to each field in turn makes `authorize` refuse `TASK_CHANGED`; PD-06 | 7 |
+| REQ-TASK-3 | Authorizing a stage records each task's digest and head, and for the dependent task its dependencies; its `run-started` records the base fixed after the dependency's integration; F-1 runs its tasks one at a time; `DEPENDENCY_OPEN`'s test; `run` of a second task while one runs is `LOCK_HELD` | 7, 9 |
+| REQ-TASK-4 | PD-30, PD-31, PD-32; `AGENT_ENVIRONMENT`'s test | 7 |
+| REQ-TASK-5 | Each halting code provoked leaves the task `halted` with exit 4; every command but `authorize`, `reject` and, with the branch at the candidate, `accept` on a halted task is `MOVE_NOT_ALLOWED`; `NO_PROGRESS`'s test; with `rounds = 3` and findings 2, 2, 2, the halt is `NO_PROGRESS`, not `ROUNDS_EXHAUSTED` | 9 |
+| REQ-TASK-6 | `close` refuses for each unmet condition with its code and succeeds when all are met; `stage-closed` lists the sweeps it relied on | 8 |
+| REQ-TASK-7 | PD-15, PD-17; a pattern of 33 segments, one with a leading `/` and one with `..` are `TASK_INVALID`; empty and `.` segments are dropped before matching | 7 |
+
+### RUN
+
+| Requirement | Accepted when | Phase |
+| --- | --- | --- |
+| REQ-RUN-1 | PD-10; every attempt of the flows has exactly one start and one end | 9 |
+| REQ-RUN-2 | Each check before dispatch provoked in turn (invalid profile, `TOOL_MISSING`, `BUDGET_EXHAUSTED`, `ROUNDS_EXHAUSTED`) leaves the fake CLI uncalled | 9 |
+| REQ-RUN-3 | PD-15 to PD-22 | 9 |
+| REQ-RUN-4 | PD-45; the candidate is on `fabrewk/<task-id>` | 9 |
+| REQ-RUN-5 | PD-08, PD-09, PD-10; the crash suite | 9 |
+| REQ-RUN-6 | PD-11, PD-21; `TOOL_FAILED`'s test | 9 |
+| REQ-RUN-7 | PD-39; `LIMIT_UNOBSERVABLE`'s test | 9 |
+| REQ-RUN-8 | The fake agent stores the packet it received: a schema check finds only the listed parts, and in round 2 the previous findings and the failed checks' output; `REVIEW_INVALID`'s test | 9 |
+| REQ-RUN-9 | A verified task whose evidence went stale, and an accepted task returned by `authorize`: `run` dispatches checks and a review on the same candidate and no builder (counted by the fakes' invocations), and the round counts against the limit; with the branch at the candidate, a revalidation that spends the last round, then stale evidence again: `run` refuses `ROUNDS_EXHAUSTED`, `authorize` grants a round, and the task reaches `integrated` | 9 |
+
+### GATE
+
+| Requirement | Accepted when | Phase |
+| --- | --- | --- |
+| REQ-GATE-1 | PD-23, PD-24 | 9 |
+| REQ-GATE-2 | A probe check finds a fresh export and no network unless its definition declares it; a check that sleeps past its limit is killed and counts as not passed; exit 1, a timeout, a signal and an unknown result each count as not passed | 9 |
+| REQ-GATE-3 | `EVIDENCE_STALE`'s test, one input at a time | 9 |
+| REQ-GATE-4 | The reviewer is dispatched only after every check passes, on the same candidate, as a new attempt; `off`, `prefer` and `require` each with one and with two providers give the recorded limitation, the halt or the review as REQ-GATE-4 says; `--widen review.differentProvider` lets a halted task continue with the limitation recorded; PD-25, PD-26 | 9 |
+| REQ-GATE-5 | A task becomes `verified` only with every required check current and a review accept bound to the same tree and requirements digest; an accept bound to another tree or digest does not count | 9 |
+| REQ-GATE-6 | A reject and a failed check each start the next round with no person's move; a failed check dispatches no reviewer in its round and counts one finding | 9 |
+| REQ-GATE-7 | PD-37; the `task-accepted` event binds every field listed | 9 |
+| REQ-GATE-8 | PD-11 to PD-14, PD-44, and the integration guard of PD-16; in `published`, the integration commit has the head as its only parent, the candidate's product tree, the domain of the head, and the trailers listed; with the head at the base itself, the branch moves to the candidate | 9 |
+| REQ-GATE-9 | `PROTECTED_PATH_WILDCARD`'s test; the default list holds every file a check's command names | 7 |
+| REQ-GATE-10 | A policy adopted, or a named tool's version changed (`fault-injection`), between verification and the move: the move refuses `EVIDENCE_STALE` | 9 |
+
+### FER
+
+| Requirement | Accepted when | Phase |
+| --- | --- | --- |
+| REQ-FER-1 | The three separator codes' tests; property: over random documents with backtick and tilde fences (closed, unclosed, longer closers, indented up to three spaces) and markers, the finder agrees with a reference fence scanner written from CommonMark's rules; every refusal writes nothing | 8 |
+| REQ-FER-2 | Points are found as top-level numbered items outside fences; a numbered line inside a fence, a nested item and text under a heading are not points; `10.` follows `9.` | 8 |
+| REQ-FER-3 | A valid answer records the events and changes only the text below the separator (the input's digest equal before and after); points gone withdraw their open proposals; the tests of `POINT_CHANGED`, `INPUT_UNCOMMITTED` and `INPUT_CHANGED` | 8 |
+| REQ-FER-4 | The answer regenerated from the events equals the one written; it is in the maintainer's interaction language; each proposal shows its state and the command to approve or discard it, its identifier only after that | 8 |
+| REQ-FER-5 | `approve` applies the edit, the result's digest is the predicted one, `proposal-incorporated` is recorded and the alambique is committed alone with the maestro as author; the tests of `PROPOSAL_STALE` and `ALAMBIQUE_CHANGED`; `discard` records `proposal-discarded` | 8 |
+| REQ-FER-6 | The opening, a section and a point are each replaced whole; `UNIT_AMBIGUOUS`'s test; a status key changed by hand outside an edit is `ALAMBIQUE_UNAPPROVED`; a `rules` proposal adds, replaces and removes whole rules, is recorded in the stream `rules`, leaves the alambique and its digest untouched, and `RULES.md` follows | 8 |
+| REQ-FER-7 | `ALAMBIQUE_UNAPPROVED`'s test; `approve alambique` records the difference as `direct-edit-approved` and the check passes after it | 8 |
+| REQ-FER-8 | A proposal state typed by hand into the fermento's answer is overwritten at the next sweep, and typed into the alambique is `ALAMBIQUE_UNAPPROVED`; the replay's states are unchanged in both | 8 |
+| REQ-FER-9 | Uncited files of a maintainer's space made unreadable (mode `000`): every command, `check` included, succeeds; no event or view holds any text of an uncited file | 8 |
+
+### VIEW
+
+| Requirement | Accepted when | Phase |
+| --- | --- | --- |
+| REQ-VIEW-1 | For each task state and each mode, `STATUS.md` shows what REQ-VIEW-1 lists, the warning only in `unpublished`, and next steps that pass 11.2 rule 9; PD-33, PD-39, PD-40, PD-42, PD-43 | 8 |
+| REQ-VIEW-2 | `RULES.md` equals the base rules plus every incorporated proposal that targets it, regenerated after each `approve` | 8 |
+| REQ-VIEW-3 | After every write command of the flows each view equals a fresh generation; `VIEW_STALE`'s test | 8 |
+| REQ-VIEW-4 | `status` and `config` succeed while another process holds the lock and a fake dispatch sleeps | 7 |
+
+### CLI
+
+| Requirement | Accepted when | Phase |
+| --- | --- | --- |
+| REQ-CLI-1 | Every command of the declaration appears in help, in the fish and POSIX completions and in the reference documentation, and the parser accepts exactly what the declaration lists; the fish completion file passes `fish --no-execute` | 7 |
+| REQ-CLI-2 | PD-32, PD-34, PD-35, PD-36, PD-38; every key exists in `en` and `es` | 7 |
+| REQ-CLI-3 | A test provokes each exit status, 10 included from a fake extension | 7, 9 |
+| REQ-CLI-4 | Every reading command's `--json` validates against a pinned schema carrying a `schema` field; each refusal's code is in it; changing a document's fields without a new `schema` fails a test | 7 |
+
+### INS
+
+| Requirement | Accepted when | Phase |
+| --- | --- | --- |
+| REQ-INS-1 | `assess` with the repository, the home and the private folder mounted read-only and no network succeeds, and gives the plan it gives unconfined; fixtures holding each side effect listed (a hook in `.claude/` settings, a Codex setting, automatic updates, telemetry, a sync that commits, generated pre-approvals) are each reported | 10 |
+| REQ-INS-2 | The plan holds every item listed; its identity is its content's digest; two assessments of an unchanged repository give one digest | 10 |
+| REQ-INS-3 | `apply` writes the plan's files and records the events in the order of section 4, the receipt's digests equal to the files written; a file present that the plan did not write is never overwritten; the tests of `PLAN_CHANGED`, `VERDICT_NONE` and `MODE_NOT_AVAILABLE` | 10 |
+| REQ-INS-4 | `onboard` on a pseudo-terminal with scripted answers in Spanish and English applies the plan only after explicit words; end of input or an empty answer applies nothing; `TERMINAL_REQUIRED`'s test | 10 |
+| REQ-INS-5 | Not built in the first core: `MODE_NOT_AVAILABLE`'s test. When built: in review mode, a snapshot shows writes only under `.brewstillery/review/` | 10 |
+| REQ-INS-6 | In `dash`, with a local release signed by a fixture key: exactly one file, `~/.local/bin/fabrewk`, is installed; a changed binary or signature installs nothing; the script has no option that skips verification and no `sudo`; the agent route's last command is `fabrewk assess` | 10 |
+| REQ-INS-7 | `PLATFORM_UNSUPPORTED`'s test; the message lists the supported platforms | 10 |
+
+### SEC
+
+| Requirement | Accepted when | Phase |
+| --- | --- | --- |
+| REQ-SEC-1 | A probe run as an agent and as a check fails to read the repository's path, the domain, the private folder, the real home and the SSH agent's socket, and to write outside `/work`; a check has no network; `config` states the shared network as a residual risk; each adapter's machine rules are checked at launch (Codex refuses a directory holding other repositories); PD-22, PD-27 | 9 |
+| REQ-SEC-2 | With `bwrap` absent, agents, checks and extensions each refuse `CONFINEMENT_UNAVAILABLE` and nothing is dispatched | 9 |
+| REQ-SEC-3 | `CREDENTIAL_SUSPECTED`'s test at both places; this repository's `.brewstillery/` at the commit phase 7 starts from, this file included, passes the scan, while fixtures holding real-shaped keys fail it; uncited files in `<alias>/` made unreadable change nothing, and one named `id_rsa` is refused by its name; the message calls the control a heuristic; `Cargo.lock` holds no regular-expression crate | 7, 9 |
+| REQ-SEC-4 | The private folder is created `0700`; `PRIVATE_FOLDER_PERMISSIONS`'s test | 7 |
+| REQ-SEC-5 | Every guard of section 4 and every check C1 to C12 has a label, `config` lists them, and a test fails when a guard has none | 7 |
+| REQ-SEC-6 | The fixture home's `.claude/` and `.codex/` settings are byte-identical after every flow; the suites, except the dispatch tests, pass with no network | 9, 10 |
+| REQ-SEC-7 | Each adapter declares its markers and each drives `AGENT_ENVIRONMENT` | 7 (Claude Code), 9 |
+
+### EXT
+
+| Requirement | Accepted when | Phase |
+| --- | --- | --- |
+| REQ-EXT-1 | A permitted, present extension runs; not permitted or absent, `fabrewk <name>` is a usage error; `EXTENSION_DIGEST`'s test; a program `fabrewk-status` never runs for `fabrewk status` | 9 |
+| REQ-EXT-2 | A fake extension sees the four variables and reads `"$FABREWK_BIN" status --json` | 9 |
+| REQ-EXT-3 | A `note` and a `propose` request are applied with the extension's name and digest as actor and no signature; `EXTENSION_OUTPUT_INVALID`'s test; its standard error reaches the person | 9 |
+| REQ-EXT-4 | A probe extension can read the repository and `.brewstillery/data/` and run `"$FABREWK_BIN" status --json`; it cannot write anywhere but `.brewstillery/local/ext/<name>/`, reach the private folder or the SSH agent's socket, or use the network unless permitted; with no backend, `CONFINEMENT_UNAVAILABLE` | 9 |
+| REQ-EXT-5 | The core returns only after the extension exits, and the extension's confinement has no network unless `extensions.<name>.network` permits it | 9 |
+
+### BUD
+
+| Requirement | Accepted when | Phase |
+| --- | --- | --- |
+| REQ-BUD-1 | The counter's fixture tests of 11.6 pass; it reports per ring | 7 |
+| REQ-BUD-2 | The maestro's freeze is recorded at phase 7's start after the skeleton is measured; a test fails when a ring, the crate counts or the binary's size passes its frozen limit | 7 |
+| REQ-BUD-3 | `rust-version` equals the Fedora `rustc` version recorded at phase 7's start (AD-4), or a later one a maestro recorded; `edition = "2024"`; the suites pass built with that compiler, and with the newest stable once a build service exists; a release build for `aarch64-unknown-linux-musl` passes them | 7 |
+| REQ-BUD-4 | A test compares the direct runtime dependencies with the list of approved reasons; every build uses `--locked`; `cargo deny check licenses advisories` passes with the allowlist | 7 |
+| REQ-BUD-5 | `license = "MIT OR Apache-2.0"`, `LICENSE-MIT`, `LICENSE-APACHE` and `NOTICE` exist from the first code; a release's third-party notices equal a fresh generation from `Cargo.lock` | 7, 10 |
+
+## 13. What each later phase must show
+
+A phase's acceptance (plan rows 7 to 10) includes every criterion of section 12 assigned to it, every past-defect case
+and refusal assigned to it in 11.3 and 11.4, the mutation rule of 11.6 for its code, and a clean clone (11.2 rule 7).
+A criterion assigned to two phases is first met with what the earlier one builds and met whole in the later one.
+
+- **Phase 7 (core, part 1).** First the skeleton and its counter, and the maestro's freeze of the budget. Then the
+  record, settings, identity, the transition table and the command surface: REG, SET, ID, TASK (but TASK-5 and TASK-6),
+  CLI, BUD, DOM-2 to DOM-5 and DOM-7 on fixture records, VIEW-4, SEC-3 at `check`, SEC-4, SEC-5; the crash suite on the
+  record; PD-01 to PD-06, PD-10 (record), PD-15, PD-17, PD-24, PD-30 to PD-32, PD-34 to PD-38, PD-46 (record).
+- **Phase 8 (core, part 2).** FER, VIEW-1 to VIEW-3, TASK-6; the views of PD-33 and PD-39; PD-40 to PD-43.
+- **Phase 9 (adapters and confinement).** RUN (RUN-9 included), GATE, TASK-5, SEC-1, SEC-2, SEC-3 in the change set, SEC-7, EXT, SET-9's
+  dispatch; PD-07 to PD-14, PD-16, PD-18 to PD-29, PD-33, PD-44 to PD-46; the flows F-1 to F-3 with fake tools; one real
+  dispatch per provider, preflight first.
+- **Phase 10 (installation).** INS, DOM-1, DOM-6, SEC-6, BUD-5's release notices; F-1 from a real `apply`.
+- **Phases 11 and 12 (the pilot).** The pilot's specification picks its six provoked refusals (6.48, D-009) from 11.4
+  and holds both arms to the same measures.

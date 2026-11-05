@@ -14,7 +14,8 @@ alambique's form); a second audit gave the full new alambique and fermento, and 
 integrator, with Codex checking its fidelity against the archived original (D-034); adopted (D-035). Phase 5 resumed
 in session 11: AD-4, AD-5 and AD-7 rewritten and AD-12 to AD-15 added for what D-032 still needed; Codex accepted the
 file at its second pass (R-018). The maintainer decided AD-4 to AD-15 as recommended (D-036), and Codex re-checked
-the decided file (R-019). Phase 5 is closed (D-037). Phase 6 is split into parts 6a and 6b, and the size budget is frozen at phase 7's start (D-038, section "Parts").
+the decided file (R-019). Phase 5 is closed (D-037). Phase 6 is split into parts 6a and 6b, and the size budget is frozen at phase 7's start (D-038, section "Parts"). Codex
+accepted both parts at its fifth pass (R-021); the maestro approved the text and phase 6 is closed (D-040).
 
 **Rule for every phase (alambique 6.48, D-003).** A phase that does not pass is corrected and retried; it never
 ends the project. Before each retry the progress measure is fixed (proposed: confirmed blocking findings, and
@@ -74,4 +75,4 @@ effort high, reviews both together when phase 6 ends; then the maintainer approv
 | Part | Delivers | Inputs | Acceptance (checkable) | State |
 | --- | --- | --- | --- | --- |
 | 6a | `core-specification.md`: every alambique point classified, each indispensable one mapped to a requirement or an explicit deferral; states and the transition table; commands and refusals; check semantics; settings keys and the items phase 5 left open | `ALAMBIQUE.md`; `architecture-decisions.md` (decided); `decisions.md`; the observations of `harness-verdicts.md` and the phase 6 findings of `reference-study.md` | Every point of section 6 has a class; every indispensable point has a requirement or a deferral with its reason; every command has its moves and refusals; every item AD-1 to AD-15 left to phase 6 is settled or deferred with a reason | Done, session 12 (R-020) |
-| 6b | The test plan and the acceptance criteria, in the same file | Part 6a; `past-defect-cases.md` | Every past-defect case maps to a requirement and a test; every requirement has a checkable criterion; then Codex's review of 6a and 6b with no confirmed blocking finding open | Pending |
+| 6b | The test plan and the acceptance criteria, in the same file | Part 6a; `past-defect-cases.md` | Every past-defect case maps to a requirement and a test; every requirement has a checkable criterion; then Codex's review of 6a and 6b with no confirmed blocking finding open | Done, session 13 (R-021): five Codex passes, accept at the fifth; approved (D-040) |
