@@ -6,16 +6,18 @@ view generated from that registry. Technical files are in English by default (D-
 ## Current state
 
 **Phases 0 to 6 are closed (D-037, D-040). Phase 7 (the first code) is split into parts 7a, 7b, 7c1, 7c2a, 7c2b,
-7d1, 7d2 and 7d3 (D-041, D-047, D-048, D-050, D-053); parts 7a to 7c2b and 7d1, the transition table and the
-payloads (R-028), are closed; 7d2, the command surface and the reading commands, is next.** The repository holds the
-first code at its root: a Cargo workspace with one crate per ring (`crates/core`, `crates/fabrewk`, a binary that
-only answers `--version`) and the size counter `tools/budget`, the licence files, `deny.toml` and a root `.gitignore`
-with `/target`. The record is built as a library in `crates/core/src/record/`, the settings in
-`crates/core/src/settings/`, identity in `identity.rs`, the private folder and the machine file in `machine.rs`,
-detection and profiles in `detect.rs`, the domain's layout in `domain.rs`, the transition table in `table.rs`, the
-stage and task payloads and the pattern guards in `task.rs`, the credential scan in `scan.rs` (the core counts 3,299
-of 7,500 lines, formatted at width 120, D-049, D-054); no command uses them yet and no `data/` exists in this
-repository. The domain is `.brewstillery/`, hidden (D-032).
+7d1, 7d2 and 7d3 (D-041, D-047, D-048, D-050, D-053); parts 7a to 7d2 are closed, 7d2 the command surface and the
+reading commands (R-029); 7d3, the write commands, is next.** The repository holds the first code at its root: a
+Cargo workspace with one crate per ring (`crates/core`, `crates/fabrewk`, the binary, which runs the core's command
+surface) and the size counter `tools/budget`, the licence files, `deny.toml` and a root `.gitignore` with `/target`.
+The record is built in `crates/core/src/record/`, the settings in `crates/core/src/settings/`, identity in
+`identity.rs`, the private folder and the machine file in `machine.rs`, detection and profiles in `detect.rs`, the
+domain's layout in `domain.rs`, the transition table in `table.rs`, the payloads and pattern guards in `task.rs`, the
+credential scan in `scan.rs`, and the command surface in `crates/core/src/cli/` with its catalogue in
+`crates/core/catalogue/` (`en`, `es`); `fabrewk status`, `fabrewk config` and `fabrewk check` exist, and no command
+writes yet. The core counts 4,530 of 7,500 lines, formatted at width 120 (D-049, D-054). No `data/` exists in this
+repository, whose project file still holds bootstrap keys, so `fabrewk check` here reports them. The domain is
+`.brewstillery/`, hidden (D-032).
 
 ## Read first
 
@@ -174,16 +176,31 @@ repository, is imported into the single registry at production and then stays re
   and the credential scan. Codex accepted at its third pass (confirmed blocking 3, 1, 0). Mutation: caught, none
   equivalent. Clean clone: 197 tests and the crash suite green, musl build, `budget check`, clippy, fmt, `cargo deny`
   clean. Measured at +548 lines (estimated 750), the maestro raised the core's ceiling to 7,500 (D-054).
-- **Next: part 7d2 (plan, "Phase 7").** The declaration of commands with `lexopt` (approved, D-040; not yet in the
-  lock file, so the session needs network for Cargo against crates.io only, a maestro's permission), the parser,
-  help, the fish and POSIX completions, the reference documentation, the catalogue in `en` and `es` (data files the
-  counter reads as data, D-044), `--json`, the exit statuses, and `status`, `config` and `check` (C1 to C4, C8 to
-  C11): CLI, VIEW-4, SEC-3 at `check` (which files the fermento or the alambique cite is 7d2's to settle), SEC-5's
-  listing in `config`; PD-34 to PD-36, PD-38. Projection (D-054): 650 to 900 lines. Open for 7d3, in R-028's
-  residuals: `run-started`'s words, and how `TASK_CHANGED` arises.
-- **Start prompt:** `Eres el integrador de Fabrewk; fase 7, parte 7d2: superficie de comandos, catálogo de mensajes,
-  status, config y check; empieza por .brewstillery/STATUS.md`. Model and effort: Claude Code on Opus 5.5, effort
-  high; Codex GPT-6.1 Sol, effort high, reviews each part that delivers code (plan row 7).
+- **Part 7d2 closed (session 21, D-055 to D-058, R-029).** Before any code the maestro decided that a command knows
+  the person by Git's signing key (`user.signingkey`, matched with the policy; their file gives the language), that
+  the fermento and the alambique cite by Markdown links, that completions and the reference are generated files, and
+  the scope. 7d2 delivers one declaration of commands (`lexopt` as a lexer) with the parser, help, the fish and POSIX
+  completions and the reference in `en` and `es` generated from it; the catalogue in `en` and `es` as data; `--json`
+  documents with a pinned `schema`; exit statuses 0, 1, 2, 3 and 70; `status`, `config` and `check` (C1 to C4, C8 to
+  C11), reading without a lock and writing nothing. Codex reviewed ten times (confirmed blocking 9, 7, 5, 4, 1, 2, 1,
+  1, 1, 1), mostly on what a reading command may open: no link followed on the way to a file, only regular files,
+  nothing read from any Fabrewk domain where the person names a place, what cannot be examined never taken for absent.
+  The maestro decided citations are read lexically (D-056), a tenth pass after two retries without progress (D-057),
+  and that what Git reads to run is Git's (D-058), which accepted the part. Mutation: caught but one declared
+  equivalent. Clean clone: 257 tests and the crash suite green, musl build, `budget check`, clippy, fmt, `cargo deny`
+  clean. Measured at +1,231 lines (projected 650 to 900); corrected projection in R-029: the ceiling of 7,500 may not
+  hold through phase 9, the maestro's to decide when 7d3 is measured. A mutation run filled the disk once: the test
+  fixtures are now swept when their process ends. The maestro's fermento edit (point 1, skills for the agents) was
+  folded into an integrator's commit, as in R-021; its answer is current.
+- **Next: part 7d3 (plan, "Phase 7").** The write commands: `adopt`, `propose`, `authorize` (PD-37 for `authorize`),
+  `reject`, `run` up to confinement (`CONFINEMENT_UNAVAILABLE`), `--say` and `--say-lang`, `AGENT_ENVIRONMENT`, the
+  guards every write command applies (REQ-RUN-5, REQ-DOM-7), signing with Git's signing key (D-055 point 1), and the
+  record's refusal tests through the command line (D-047); TASK-4, PD-30 to PD-32, PD-37. Open from R-028:
+  `run-started`'s words, and how `TASK_CHANGED` arises. The declaration, catalogue, completions and reference grow
+  with each command (D-053 point 3); next steps that today are words become commands.
+- **Start prompt:** `Eres el integrador de Fabrewk; fase 7, parte 7d3: comandos de escritura adopt, propose,
+  authorize, reject y run hasta el aislamiento; empieza por .brewstillery/STATUS.md`. Model and effort: Claude Code
+  on Opus 5.5, effort high; Codex GPT-6.1 Sol, effort high, reviews each part that delivers code (plan row 7).
 
 Carried without blocking, with destinations, in D-013. A phase that does not pass is corrected and retried; it
 never ends the project (D-003).

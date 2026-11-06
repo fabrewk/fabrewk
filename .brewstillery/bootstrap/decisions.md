@@ -2384,3 +2384,82 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   global and system configuration, each followed by an eleventh pass.
 - Sources: chat of session 21; Codex's tenth pass of 7d2; D-055, D-057; `core-specification.md` REQ-SEC-3.
 - Supersedes: none.
+
+## R-029 — Session 21, part 7d2: the command surface, the catalogue, status, config and check
+
+- Status: recorded
+- Date: 2026-11-06
+- Who: integrator Claude Code, `claude-opus-5-5`. Reviewer: Codex `codex-cli 0.166.0`, `gpt-6.1-sol`, effort high,
+  launched with `codex exec --json`, standard input closed, sandbox `workspace-write`, no network, in a user systemd
+  scope capped at 3 GB, in a disposable clone under `target/review-7d2/` with a copy of the Cargo registry (35 MB).
+  No subagent.
+- Start: HEAD `4b61ed2`, tree clean; the fermento's answer had no current recommendation. Network, given by the maestro in the session's first message, was used for Cargo against
+  crates.io only, to fetch `lexopt` 0.3.2.
+- Read: `STATUS.md`, `AGENTS.md`, `plan.md`, this file (D-047 to D-054, R-027, R-028), `core-specification.md`
+  (sections 0, 2 VIEW, CLI, SEC and ID, 3, 5 to 9, 10, 11.2 to 11.4, 12 VIEW, CLI and SEC, 13), `architecture-decisions.md`
+  AD-6, the alambique's 6.51, and the code of the record, settings, identity, the machine, detection, the domain, the
+  table and the scan, with their test fixtures.
+- Decided before any code (D-055): the person is Git's signing key; citations are Markdown links; completions and the
+  reference are generated files; the scope. During the review: D-056 (citations read lexically, after Codex's third
+  pass), D-057 (a tenth pass after two retries without progress), D-058 (what Git reads to run is Git's; 7d2 accepted).
+- Written: `crates/core/src/cli/` (`decl.rs`: the declaration, the parser on `lexopt`, help, the fish and POSIX
+  completions, the reference; `text.rs`: the catalogue reader; `mod.rs`: the reading context, the person and the
+  language, refusals, usage and internal errors, the exit statuses, `--json`; `status.rs`, `config.rs`, `check.rs`),
+  the catalogues `crates/core/catalogue/en.toml` and `es.toml`, the generated `crates/fabrewk/completions/` and
+  `crates/fabrewk/doc/reference.{en,es}.md`; `person` and `identity`'s guard, `signing_key` with its origin,
+  `head_of` that tells an unborn branch from a ref naming no commit, `table::current`, `RECORD_UNCOMMITTED`,
+  `Clone` for `Error`, `normal`, `unlinked` and `in_domain` in `code.rs`; regular files only, and no link on the way,
+  in the settings, the mark, the cache, the record and the private folder; `ssh-keygen`'s exit 255 as the only
+  refused signature; the binary wired to the surface; tests in `crates/fabrewk/tests/` (`surface.rs`, `reading.rs`,
+  `common/`), the skeleton's test removed, one 7b test's assertions changed (a non-directory `data/events` and a
+  directory mark are now refused by code, never read as absence); both test fixture libraries sweep the fixtures of
+  ended test processes. `core-specification.md` (the paragraphs "The command surface, as part 7d2 fixed it",
+  REQ-SEC-3's and section 6's "As part 7d2 fixed it"), `plan.md`, `STATUS.md`, this entry.
+- Interpretations, given to the review and not re-opened by it: the domain is `./.brewstillery` where the command
+  runs; `status` and `check` show an absent record as a statement and as `RECORD_ABSENT`; a refusal's detail is the
+  core's technical note in English, shown after the catalogue's words, never a tool's output; the catalogue covers
+  the codes the core raises; `config` refuses `POLICY_ABSENT` with no policy; C5, C6, C7 and C12 come with phase 8;
+  a private folder is refused inside this repository or any domain, not searched for in other repositories (accepted
+  by Codex as an interpretation).
+- Codex, ten passes, confirmed blocking findings by pass: 9, 7, 5, 4, 1, 2, 1, 1, 1, 1. Pass 1 (`94f2443`): P7D2-1 to
+  P7D2-9 (a raw error in `status`; citing files that are links or pipes; citations by substring; C2 silent on an
+  unreadable file; a crashed verifier taken as a bad signature; a detached head; C4's label in `unpublished`; guards
+  shown as internal keys; a schema test that let fields go). Pass 2 (`0ca64b0`): P7D2-10 to P7D2-16 (fences, titles,
+  a ref naming no commit, `status <id>` on an unreadable record, settings that are pipes or links, a citing file not
+  UTF-8, the release build's features). Pass 3 (`551d5a1`): P7D2-17 to P7D2-21 (a signing key that is a pipe; links
+  on the way to a file; CommonMark's lists and block quotes, settled by D-056; C1's listing). Pass 4 (`04ef5a1`):
+  P7D2-22 to P7D2-25 (a key in the domain through a link; white space beyond space and tab; the private folder that
+  cannot be examined; `--version` reading the context). Pass 5 (`c498109`): P7D2-26 (an unreadable personal file).
+  Pass 6 (`8d14560`): P7D2-27, P7D2-28 (a domain that cannot be examined; a private folder inside the domain). Pass 7
+  (`cf6faac`): P7D2-29 (one in another domain). Pass 8 (`05a618a`): P7D2-30 (a key in another domain). Pass 9 (cut
+  short once by Codex's quota; run again on `ae40625`): P7D2-31 (a document branch the schema test did not see).
+  Pass 10 (`bf12253`): P7D2-32, settled by D-058 as Git's own reading. Each pass checked that every new test fails
+  without its correction. Codex ran no command outside its clone.
+- Mutation (`cargo mutants --in-diff` over the part, rustup 1.99.1, `-j 2`, in its own scope as R-022 says, `TMPDIR`
+  under `target/`): the first run filled the disk after 83 mutants, since every run of the suites left its fixtures
+  (about 24 MB) and a failing test could leave a directory of mode 0000; corrected in the fixtures (`9a6479f`), and
+  disposable clones of earlier sessions under `target/` were removed. Then 442 mutants: 44 missed, each killed by a
+  new assertion or removed by simpler code; re-run on 437: 2 missed, one killed by a new case (`ae40625`), one
+  declared equivalent: `>` → `>=` in `targets`, since `](` never starts where a `[` stands.
+- Clean clone of `bbdacb0`, rustup 1.99.1: 257 tests green, and the crash suite (3 tests) with `--features
+  fault-injection`; the musl release build, whose `--version --json` lists no feature; `budget check --binary` exits 0:
+  core 4,530 of 7,500 counted lines in 30 files, 4 direct runtime crates, 31 crates in the release build, the binary
+  1,380,712 bytes; `clippy --workspace --all-targets -D warnings` with and without the feature, `fmt --check`, `cargo
+  deny --offline check licenses advisories` clean.
+- Residuals, not blocking: P7D2-32 (Git reads what its own configuration includes, D-058); a private folder inside a
+  repository with no domain is not detected; an unreadable signing key names nobody, so `config` shows no personal
+  file; the crash suite failed once in Codex's clone copying a fixture (`PermissionDenied`), passed on repeat and in
+  every run here; the next steps of `POLICY_ABSENT`, `PROTECTED_PATH` and other codes of later commands are words
+  until those commands exist; the reference's options list `--help` as "Shows this help".
+- Size: the core grew from 3,299 to 4,530 counted lines (+1,231; projected 650 to 900, the review's hardening about a
+  third of it). Corrected projection, with this part's factor: about 5,350 to 5,650 after 7d3, 6,150 to 6,750 after
+  phase 8, 7,150 to 8,150 after the core's part of phase 9; the ceiling of 7,500 may not hold through phase 9, which
+  is the maestro's to decide when 7d3 is measured.
+- Fermento: during the session the maestro added point 1 to their input, a question on skills that agents could
+  use to work better in the bootstrap. The integrator's commit `8d14560` (`git add -A`) took that edit in with an AI
+  co-author, the same slip as R-021's; history was not rewritten. At the close the answer was replaced, with the
+  separator found exactly once and the input byte-identical: the point is not defined for the bootstrap (the
+  alambique's 6.38 asks it for the projects Fabrewk serves), what to clarify (whom it serves, whether to find and
+  evaluate or to write skills, where they would live given the domain rule), a wording as a proposal, and its
+  destination.
+- Not done: part 7d3.
