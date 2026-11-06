@@ -59,12 +59,19 @@ and `TMPDIR` on disk under `target/`:
     mkdir -p target/mutants-tmp
     export TMPDIR=$PWD/target/mutants-tmp
     systemd-run --user --scope -p MemoryMax=3G -p MemorySwapMax=0 -p OOMPolicy=continue \
-      bash -c 'ulimit -v 1000000; exec cargo mutants --workspace -j 2 --timeout 90 --features fabrewk-core/fault-injection --in-diff target/<part>.diff --output target/mutants-<part>'
+      bash -c 'ulimit -v 1000000; exec cargo mutants --package fabrewk-core --package fabrewk --test-workspace true -j 2 --timeout 90 --features fabrewk-core/fault-injection --in-diff target/<part>.diff --output target/mutants-<part>'
+
+and, when the part touches `tools/budget/`, a second run in the same kind of scope for the counter, without the
+feature (it does not depend on the core):
+
+      bash -c 'ulimit -v 1000000; exec cargo mutants --package budget -j 2 --timeout 90 --in-diff target/<part>.diff --output target/mutants-<part>-budget'
 
 with the prefix exported first, and `target/<part>.diff` written by `git diff <start>..HEAD > target/<part>.diff`.
 `--features fabrewk-core/fault-injection` makes the crash suite judge every mutant too (R-024: mutants in the
-record's store, Git and fault code are caught only by it); without it the `crash` target is not built. `--in-diff`
-limits the run to the part; a full run drops it. Keep `OOMPolicy=continue` (with `stop` the scope ends the
+record's store, Git and fault code are caught only by it); without it the `crash` target is not built.
+`--test-workspace true` runs every package's tests on each mutant (the binary's tests reach the core's command
+surface). The counter has its own run because cargo-mutants builds the baseline for the mutated packages alone, and
+`budget` refuses the core's feature (P7S-5). `--in-diff` limits a run to the part; a full run drops it. Keep `OOMPolicy=continue` (with `stop` the scope ends the
 run) and 1 GB per process (with 4 GB the scope's killer once took `cargo-mutants` itself). Run one heavy job at a time:
 never a mutation run beside a Codex review or another build.
 
