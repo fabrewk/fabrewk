@@ -17,4 +17,4 @@ PENDIENTE: (edición/corrección):  Derivado de la addición y manejo de skills,
 
 ## Respuesta del integrador
 
-Sin recomendaciones vigentes: tu entrada no tiene propuestas ni pendientes.
+**Pendiente (skills que los agentes cargan desde fuera del proyecto).** Ya está en el alambique: aprobaste la oración y quedó en el 6.38. Al evaluar un repositorio y en cada barrido, Fabrewk informa qué skills cargan los agentes desde las carpetas de usuario del equipo y avisa si alguna repite el nombre de una aprobada o contradice las reglas del proyecto, sin tocarlas. Puedes quitar este pendiente de tu entrada.
