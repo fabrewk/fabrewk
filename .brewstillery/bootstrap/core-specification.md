@@ -894,8 +894,8 @@ does not replay shows the record's state instead. A ref that exists and names no
 and no link is followed, on the file or on its way from the domain (or the private folder) to it: a settings file that is not one is `SETTINGS_INVALID`, a mark `MARK_INVALID`, and the
 record's `data/`, `data/events/` or a stream that is not a directory `RECORD_BROKEN` (P7D2-14); a citing file that is
 not UTF-8 is read as far as it is (P7D2-15). A domain that is a link is `RECORD_BROKEN` (C3 in `check`); a private
-folder that is one is `PRIVATE_FOLDER_PERMISSIONS`; Git's signing key is read only from a regular file outside the domain,
-written or reached there through a link (P7D2-17, P7D2-22), and `--version` reads nothing (P7D2-25). What cannot be
+folder that is one is `PRIVATE_FOLDER_PERMISSIONS`; Git's signing key is read only from a regular file outside this
+repository and outside every Fabrewk domain, as written and as it resolves (P7D2-17, P7D2-22, P7D2-30), and `--version` reads nothing (P7D2-25). What cannot be
 examined on the way to the private folder, `machine.toml` or the person's own file is an error, never an absence
 (P7D2-24, P7D2-26), and a domain that cannot be examined is `CHECK_UNKNOWN`, not absent (P7D2-27). A private
 folder inside this repository or inside any Fabrewk domain (a path with a `.brewstillery` component), written there or

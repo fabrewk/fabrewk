@@ -150,15 +150,7 @@ impl Cx {
     /// P7D2-28, P7D2-29).
     fn folder(&self) -> Result<PathBuf, Error> {
         let folder = crate::machine::private_folder(|k| std::env::var_os(k))?;
-        let canonical = |p: &Path| p.canonicalize().ok();
-        let domain = |p: &Path| p.components().any(|c| c.as_os_str() == ".brewstillery");
-        let paths = [Some(crate::code::normal(&folder)), canonical(&folder)];
-        let root = canonical(&self.root);
-        let inside = paths
-            .iter()
-            .flatten()
-            .any(|p| domain(p) || p.starts_with(&self.root) || root.as_ref().is_some_and(|r| p.starts_with(r)));
-        if inside {
+        if crate::code::in_domain(&folder, &self.root) {
             let why = "inside this repository or a Fabrewk domain; the private folder lies outside every repository";
             return Err(crate::code::refuse(Code::PrivateFolderPermissions, Some(&folder), why));
         }

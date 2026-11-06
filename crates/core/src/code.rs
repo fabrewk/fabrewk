@@ -129,6 +129,18 @@ pub(crate) fn normal(path: &Path) -> PathBuf {
     out
 }
 
+/// Whether `path`, as written or as it resolves, lies in a Fabrewk domain (a `.brewstillery` component) or under
+/// `root`: what Fabrewk reads from a place the person names must lie in neither (P7D2-22, P7D2-28 to P7D2-30).
+pub(crate) fn in_domain(path: &Path, root: &Path) -> bool {
+    let canonical = |p: &Path| p.canonicalize().ok();
+    let (paths, root_canonical) = ([Some(normal(path)), canonical(path)], canonical(root));
+    paths.iter().flatten().any(|p| {
+        p.components().any(|c| c.as_os_str() == ".brewstillery")
+            || p.starts_with(root)
+            || root_canonical.as_ref().is_some_and(|r| p.starts_with(r))
+    })
+}
+
 pub(crate) fn refuse(code: Code, path: Option<&Path>, detail: impl Into<String>) -> Error {
     Error::Refused { code, path: path.map(Path::to_path_buf), detail: detail.into() }
 }

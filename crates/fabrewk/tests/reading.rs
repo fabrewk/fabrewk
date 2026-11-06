@@ -1012,9 +1012,10 @@ fn p7d2_22_a_signing_key_in_the_domain_is_never_read() {
         fx.git(&["config", "user.signingkey", named.to_str().unwrap()]);
         assert_eq!(fx.run(&["config", "--json"]).doc()["person"], Value::Null, "{}", named.display());
     }
-    // Outside the domain, a key reached through a link is the person's own.
-    std::os::unix::fs::symlink(fx.keys.join("xel.pub"), fx.root.join("outside/own")).unwrap();
-    fx.git(&["config", "user.signingkey", fx.root.join("outside/own").to_str().unwrap()]);
+    // Outside the repository and every domain, a key reached through a link is the person's own.
+    let own = tmp("key-own").join("own");
+    std::os::unix::fs::symlink(fx.keys.join("xel.pub"), &own).unwrap();
+    fx.git(&["config", "user.signingkey", own.to_str().unwrap()]);
     assert_eq!(fx.run(&["config", "--json"]).doc()["person"], "xel");
 }
 
@@ -1135,4 +1136,20 @@ fn p7d2_29_a_private_folder_in_another_domain_is_never_read() {
             "{doc}"
         );
     }
+}
+
+#[test]
+fn p7d2_30_a_signing_key_in_another_domain_is_never_read() {
+    let (a, b) = (published("key-other-a"), published("key-other-b"));
+    let key = b.domain.join("xel/uncited-key.txt");
+    fs::copy(a.keys.join("xel.pub"), &key).unwrap();
+    fs::copy(a.keys.join("xel.pub"), b.domain.join("xel/private.pub")).unwrap();
+    let outside = tmp("key-other-link");
+    std::os::unix::fs::symlink(&key, outside.join("key")).unwrap();
+    for named in [key.clone(), outside.join("key"), b.domain.join("xel/private")] {
+        a.git(&["config", "user.signingkey", named.to_str().unwrap()]);
+        assert_eq!(a.run(&["config", "--json"]).doc()["person"], Value::Null, "{}", named.display());
+    }
+    a.git(&["config", "user.signingkey", a.keys.join("xel.pub").to_str().unwrap()]);
+    assert_eq!(a.run(&["config", "--json"]).doc()["person"], "xel");
 }
