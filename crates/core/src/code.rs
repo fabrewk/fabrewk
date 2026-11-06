@@ -114,6 +114,21 @@ pub(crate) fn unlinked(base: &Path, rel: &str) -> bool {
         })
 }
 
+/// `path` with `.` dropped and each `..` taken against the part before it, read as written.
+pub(crate) fn normal(path: &Path) -> PathBuf {
+    let mut out = PathBuf::new();
+    for c in path.components() {
+        match c {
+            std::path::Component::CurDir => {}
+            std::path::Component::ParentDir => {
+                out.pop();
+            }
+            other => out.push(other),
+        }
+    }
+    out
+}
+
 pub(crate) fn refuse(code: Code, path: Option<&Path>, detail: impl Into<String>) -> Error {
     Error::Refused { code, path: path.map(Path::to_path_buf), detail: detail.into() }
 }

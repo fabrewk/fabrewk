@@ -46,12 +46,18 @@ pub fn check_permissions(folder: &Path) -> Result<(), Error> {
 /// `machine.toml` (REQ-SET-1, AD-15; part 7c2b): machine data detection cannot find, read only from a folder whose
 /// permissions are its owner's; `None` when there is no folder or no file. Its values are declared, never permitted.
 pub fn machine_file(folder: &Path) -> Result<Option<Settings>, Vec<Error>> {
-    if !folder.exists() {
+    // Absent is only what does not exist; what cannot be examined is an error, never an absence (P7D2-24).
+    let absent = |p: &Path| match fs::symlink_metadata(p) {
+        Ok(_) => Ok(false),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(true),
+        Err(e) => Err(vec![io_at(p)(e)]),
+    };
+    if absent(folder)? {
         return Ok(None);
     }
     check_permissions(folder).map_err(|e| vec![e])?;
     let path = folder.join("machine.toml");
-    if fs::symlink_metadata(&path).is_err() {
+    if absent(&path)? {
         return Ok(None);
     }
     settings::read(&path, Level::Machine).map(Some)

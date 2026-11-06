@@ -728,6 +728,11 @@ fn d_056_text_shaped_as_a_link_cites_its_whole_destination() {
         ("](notes(1).txt) and then [", false),
         ("[notes]\n(notes(1).txt)", false),
         ("[notes]( notes(1).txt)", false),
+        // P7D2-23: any white space ends the destination, Unicode's included.
+        ("[notes](notes(1).txt\u{c}title)", true),
+        ("[notes](notes(1).txt\u{b}title)", true),
+        ("[notes](notes(1).txt\u{a0}title)", true),
+        ("[notes](notes(1).txt\u{2028}title)", true),
         ("[notes](<notes(1).txt)", false),
         ("[notes](#notes(1).txt)", false),
         ("[notes](/notes(1).txt)", false),
@@ -993,4 +998,67 @@ fn p7d2_21_c1_cannot_list_what_it_must_read() {
     let doc = fx.run(&["check", "--json"]).doc();
     fs::set_permissions(&fx.domain, fs::Permissions::from_mode(0o755)).unwrap();
     assert!(finding_of(&doc, "C1").contains(&"CHECK_UNKNOWN".to_owned()), "{doc}");
+}
+
+#[test]
+fn p7d2_22_a_signing_key_in_the_domain_is_never_read() {
+    let fx = published("key-in-domain");
+    let x = fx.domain.join("xel");
+    std::os::unix::fs::symlink(fx.keys.join("xel.pub"), x.join("uncited-key")).unwrap();
+    fs::copy(fx.keys.join("xel.pub"), x.join("copied-key")).unwrap();
+    fs::create_dir(fx.root.join("outside")).unwrap();
+    std::os::unix::fs::symlink(x.join("copied-key"), fx.root.join("outside/key")).unwrap();
+    for named in [x.join("uncited-key"), x.join("copied-key"), fx.root.join("outside/key")] {
+        fx.git(&["config", "user.signingkey", named.to_str().unwrap()]);
+        assert_eq!(fx.run(&["config", "--json"]).doc()["person"], Value::Null, "{}", named.display());
+    }
+    // Outside the domain, a key reached through a link is the person's own.
+    std::os::unix::fs::symlink(fx.keys.join("xel.pub"), fx.root.join("outside/own")).unwrap();
+    fx.git(&["config", "user.signingkey", fx.root.join("outside/own").to_str().unwrap()]);
+    assert_eq!(fx.run(&["config", "--json"]).doc()["person"], "xel");
+}
+
+#[test]
+fn p7d2_24_a_private_folder_that_cannot_be_examined_is_unknown() {
+    let fx = published("folder-unknown");
+    let folder = fx.folder();
+    fs::create_dir_all(&folder).unwrap();
+    fs::write(folder.join("machine.toml"), "not = [toml\n").unwrap();
+    fs::set_permissions(&folder, fs::Permissions::from_mode(0o000)).unwrap();
+    let doc = fx.run(&["check", "--json"]).doc();
+    let config = fx.run(&["config", "--json"]);
+    fs::set_permissions(&folder, fs::Permissions::from_mode(0o700)).unwrap();
+    assert_eq!(doc["errors"].as_u64().map(|n| n > 0), Some(true), "{doc}");
+    assert!(finding_of(&doc, "C1").contains(&"CHECK_UNKNOWN".to_owned()), "{doc}");
+    assert_eq!(config.status, 70, "{config:?}");
+    // A parent that cannot be searched, and a dangling link where the folder stands.
+    fs::write(folder.join("machine.toml"), "").unwrap();
+    fs::set_permissions(&folder, fs::Permissions::from_mode(0o777)).unwrap();
+    let parent = fx.home.join(".config");
+    fs::set_permissions(&parent, fs::Permissions::from_mode(0o600)).unwrap();
+    let doc = fx.run(&["check", "--json"]).doc();
+    fs::set_permissions(&parent, fs::Permissions::from_mode(0o755)).unwrap();
+    assert_eq!(finding_of(&doc, "C11"), ["CHECK_UNKNOWN"], "{doc}");
+    fs::remove_dir_all(&folder).unwrap();
+    std::os::unix::fs::symlink(fx.home.join("nowhere"), &folder).unwrap();
+    let doc = fx.run(&["check", "--json"]).doc();
+    assert_eq!(finding_of(&doc, "C11"), ["PRIVATE_FOLDER_PERMISSIONS"], "{doc}");
+}
+
+#[test]
+fn p7d2_25_the_version_reads_nothing() {
+    let fx = published("version-reads");
+    let (bin, marker) = (tmp("version-bin"), tmp("version-marker").join("ran"));
+    for tool in ["git", "ssh-keygen"] {
+        let script = bin.join(tool);
+        fs::write(&script, format!("#!/bin/sh\necho {tool} >> '{}'\nexit 1\n", marker.display())).unwrap();
+        fs::set_permissions(&script, fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    let path = std::ffi::OsString::from(format!("{}:{}", bin.display(), std::env::var("PATH").unwrap()));
+    for args in [&["--version"][..], &["--version", "--json"]] {
+        assert_eq!(fx.run_with(args, Some(&path)).status, 0);
+    }
+    assert!(!marker.exists(), "--version ran {}", fs::read_to_string(&marker).unwrap_or_default());
+    fx.run_with(&["status"], Some(&path));
+    assert!(marker.exists(), "the fake tools are on the way of a command that reads");
 }

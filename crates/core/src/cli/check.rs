@@ -4,14 +4,14 @@
 //! C7 and C12 are declared with phase 8.
 
 use super::{Cx, FOUND, Failed, Out};
-use crate::code::{Code::*, Error, refuse};
+use crate::code::{Code::*, Error, normal, refuse};
 use crate::domain;
 use crate::record::{self, Publication, Repo};
 use crate::settings::{self, Level, is_alias};
 use crate::table::Control::{self, Cooperative, Effective};
 use serde_json::{Value, json};
 use std::collections::BTreeSet;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 
 /// One verification: its number in section 6, the codes it finds and its control's label (REQ-SEC-5).
 #[derive(Debug)]
@@ -105,31 +105,32 @@ pub(crate) fn cited(domain: &Path) -> BTreeSet<PathBuf> {
 fn targets(text: &str) -> Vec<String> {
     let mut out = Vec::new();
     for line in text.lines() {
-        let b = line.as_bytes();
         let Some(open) = line.find('[') else { continue };
         for (at, _) in line.match_indices("](").filter(|(at, _)| *at > open) {
-            let (mut dest, mut i, mut depth) = (Vec::new(), at + 2, 0usize);
-            let angle = b.get(i) == Some(&b'<');
-            i += usize::from(angle);
-            while let Some(&c) = b.get(i) {
-                if c == b'\\' && b.get(i + 1).is_some_and(u8::is_ascii_punctuation) {
-                    dest.push(b[i + 1]);
-                    i += 2;
+            let (mut dest, mut depth) = (String::new(), 0usize);
+            let mut chars = line[at + 2..].chars().peekable();
+            let angle = chars.next_if_eq(&'<').is_some();
+            let mut closed = !angle;
+            while let Some(c) = chars.next() {
+                if c == '\\' && chars.peek().is_some_and(char::is_ascii_punctuation) {
+                    dest.extend(chars.next());
                     continue;
                 }
                 match c {
-                    b'>' if angle => break,
-                    b' ' | b'\t' if !angle => break,
-                    b'(' if !angle => depth += 1,
-                    b')' if !angle && depth == 0 => break,
-                    b')' if !angle => depth -= 1,
+                    '>' if angle => {
+                        closed = true;
+                        break;
+                    }
+                    c if c.is_whitespace() && !angle => break,
+                    '(' if !angle => depth += 1,
+                    ')' if !angle && depth == 0 => break,
+                    ')' if !angle => depth -= 1,
                     _ => {}
                 }
                 dest.push(c);
-                i += 1;
             }
-            if !angle || b.get(i) == Some(&b'>') {
-                out.push(String::from_utf8_lossy(&dest).into_owned());
+            if closed {
+                out.push(dest);
             }
         }
     }
@@ -142,21 +143,6 @@ fn link(dest: &str) -> Option<&str> {
     let path = dest.split(['#', '?']).next()?;
     let scheme = path.split_once(':').is_some_and(|(s, _)| !s.is_empty() && !s.contains('/'));
     (!path.is_empty() && !path.starts_with('/') && !scheme).then_some(path)
-}
-
-/// `path` with `.` dropped and each `..` taken against the part before it, read as written.
-fn normal(path: &Path) -> PathBuf {
-    let mut out = PathBuf::new();
-    for c in path.components() {
-        match c {
-            Component::CurDir => {}
-            Component::ParentDir => {
-                out.pop();
-            }
-            other => out.push(other),
-        }
-    }
-    out
 }
 
 pub(super) fn run(cx: &Cx) -> Result<Out, Failed> {
@@ -266,8 +252,10 @@ pub(super) fn run(cx: &Cx) -> Result<Out, Failed> {
     }
     // C11: the private folder.
     match folder {
-        Ok(f) if f.exists() => found.extend(crate::machine::check_permissions(&f).err().map(|e| ("C11", unknown(e)))),
-        Ok(_) => {}
+        Ok(f) => match std::fs::symlink_metadata(&f) {
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            _ => found.extend(crate::machine::check_permissions(&f).err().map(|e| ("C11", unknown(e)))),
+        },
         Err(e) => found.push(("C11", unknown(e))),
     }
     Ok(render(cx, found, mode))

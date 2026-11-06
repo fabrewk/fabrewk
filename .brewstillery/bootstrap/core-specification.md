@@ -611,7 +611,8 @@ their effect, each maintainer's key (REQ-ID-5), what detection finds, the effect
   As part 7d2 fixed it (D-055, D-056): a citation is read lexically, with no Markdown structure: in `ALAMBIQUE.md`
   and in each `<alias>/fermento.md`, every `[`, then on the same line `](`, followed by a destination, cites it,
   wherever it stands (in code, in a title, in another link's text). The destination is `<…>` up to its `>` on the same
-  line, or every character up to the first white space or the `)` that closes it, parentheses balanced; a backslash
+  line, or every character up to the first white space (as Unicode defines it) or the `)` that closes it, parentheses
+  balanced; a backslash
   before punctuation escapes it. A destination with a scheme, an absolute path, only a fragment, or empty, cites
   nothing; a fragment or a query after the path is dropped; it is resolved from the citing file's directory with `.`
   and `..` read as written. A citing file is read only when it is a regular file in a maintainer's directory that is
@@ -893,8 +894,9 @@ does not replay shows the record's state instead. A ref that exists and names no
 and no link is followed, on the file or on its way from the domain (or the private folder) to it: a settings file that is not one is `SETTINGS_INVALID`, a mark `MARK_INVALID`, and the
 record's `data/`, `data/events/` or a stream that is not a directory `RECORD_BROKEN` (P7D2-14); a citing file that is
 not UTF-8 is read as far as it is (P7D2-15). A domain that is a link is `RECORD_BROKEN` (C3 in `check`); a private
-folder that is one is `PRIVATE_FOLDER_PERMISSIONS`; Git's signing key is read only from a regular file (P7D2-17), and
-`--version` reads nothing. A domain or a maintainer's directory that cannot be listed leaves C1 `CHECK_UNKNOWN`.
+folder that is one is `PRIVATE_FOLDER_PERMISSIONS`; Git's signing key is read only from a regular file outside the domain,
+written or reached there through a link (P7D2-17, P7D2-22), and `--version` reads nothing (P7D2-25). What cannot be
+examined on the way to the private folder or `machine.toml` is an error, never an absence (P7D2-24). A domain or a maintainer's directory that cannot be listed leaves C1 `CHECK_UNKNOWN`.
 
 ## 7. Refusals
 

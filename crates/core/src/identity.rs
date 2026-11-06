@@ -155,8 +155,14 @@ pub fn person(policy: &Settings, root: &Path) -> Option<String> {
     let public = match named.strip_prefix("key::") {
         Some(literal) => literal.to_owned(),
         None => {
-            // Only a regular file is opened, so that a pipe never blocks a reading command (P7D2-17).
-            let regular = |p: &Path| std::fs::metadata(p).is_ok_and(|m| m.is_file());
+            // Only a regular file is opened, so that a pipe never blocks a reading command (P7D2-17), and never one
+            // in the domain, however it is reached: a key is no maintainer's cited material (P7D2-22).
+            let (named_domain, domain) = (root.join(".brewstillery"), root.join(".brewstillery").canonicalize().ok());
+            let written = |p: &Path| crate::code::normal(p).starts_with(&named_domain);
+            let inside = |p: &Path| {
+                written(p) || p.canonicalize().is_ok_and(|c| domain.as_ref().is_some_and(|d| c.starts_with(d)))
+            };
+            let regular = |p: &Path| !inside(p) && std::fs::metadata(p).is_ok_and(|m| m.is_file());
             let read = |p: &Path| {
                 regular(p).then(|| std::fs::read_to_string(p).ok()).flatten().filter(|t| key_blob(t.trim()).is_some())
             };
