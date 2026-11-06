@@ -17,14 +17,6 @@ Mi entrada es exclusivamente mía. Lo que cite desde aquí (capturas, PDF, otros
 
 ## Respuesta del integrador
 
-**Punto 1 (skills para que los agentes trabajen mejor).** Respuesta corta: no está definido. El alambique ya lo pide para los proyectos que Fabrewk administre o revise: en el 6.38, las skills, los MCP y las demás extensiones se evalúan (permisos, procedencia, versiones y efectos) antes de incorporarlas, y en cada barrido Fabrewk propone qué herramientas usa cada proyecto. Pero ninguna parte del plan ni ninguna decisión lo pide para la construcción de Fabrewk misma, y las reglas actuales de este repositorio no permiten crear carpetas de skills fuera de `.brewstillery/`, como las que leen Claude Code o Codex.
+**Punto 1 (skills para los agentes, en el bootstrap y en el producto).** Aprobaste las dos ediciones y ya están en el alambique: en la sección 2, `.brewstillery/skills/` guarda las skills aprobadas, que `AGENTS.md` indica leer de ahí; en el 6.38, cada proyecto pide desde su incorporación buscar y evaluar skills, el maestro decide cuáles se adoptan y solo esas se instalan, y en el bootstrap de Fabrewk eso se hace antes de seguir con el núcleo.
 
-Qué aclarar, para que el punto pueda volverse una propuesta:
-
-- A quién sirve: a los agentes que construyen Fabrewk ahora (el bootstrap), a Fabrewk como producto, o a ambos.
-- Qué esperas del agente: que busque skills existentes, las evalúe y te proponga cuáles adoptar; que escriba skills propias a partir de lo que se repite en las sesiones; o las dos cosas.
-- Dónde vivirían: dentro de `.brewstillery/`, o en las carpetas que cada herramienta lee, lo que pediría una excepción a la regla del dominio.
-
-Cómo escribirlo: como propuesta en lugar de pregunta. Por ejemplo: «Propongo que, durante el bootstrap, el integrador busque y evalúe skills para Claude Code y Codex que ahorren trabajo repetido, me proponga cuáles adoptar con su evaluación, y que solo las que yo apruebe se instalen, en un lugar que también apruebe».
-
-Destino: si es para el bootstrap, una decisión registrada y una tarea del plan, con la evaluación del 6.38 antes de instalar nada; si es para el producto, basta precisar en el 6.38 qué ocurre ya durante el bootstrap. En ambos casos lo redacto como edición del alambique para tu aprobación cuando el punto esté claro.
+Lo que falta lo hace el chat intermedio, antes de la parte 7d3: buscar y evaluar las skills, proponerte cuáles adoptar, instalar solo las que apruebes y reservar el nombre `skills` en el núcleo, con la revisión de Codex. Cuando ese chat termine, puedes quitar este punto de tu entrada.

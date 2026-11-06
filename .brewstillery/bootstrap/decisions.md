@@ -2463,3 +2463,34 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   evaluate or to write skills, where they would live given the domain rule), a wording as a proposal, and its
   destination.
 - Not done: part 7d3.
+
+## D-059 — Skills for the agents: two alambique edits applied, and a part 7s before 7d3
+
+- Status: decided
+- Decided: 2026-11-06
+- Origin: maintainer XEL in session 21's chat, after the closing commit, asking for a sweep of their fermento's point 1
+  (now a proposal: the integrator finds and evaluates skills for Claude Code and Codex, the maestro approves which,
+  only those are installed, preferably inside the domain; the search required in every project's alambique) and
+  suggesting an intermediate chat; then answering the integrator's two questions: "Aprobar ambas (Recomendado)";
+  "Sí, con red (Recomendado)". The maestro's edit of the fermento went in its own commit (`3253df8`), with no AI
+  co-author.
+- Decision:
+  1. The integrator applies the two edits drafted in the fermento's answer, as worded there: in section 2, a line
+     after the maintainers' space that creates `.brewstillery/skills/` for the skills the maestros approved, read by
+     every agent as `AGENTS.md` says, any file a tool demands elsewhere declared and minimal like `AGENTS.md`; in
+     6.38, a sentence after the per-sweep tools: skills by the project's languages, tools and approach and to spare
+     repeated work, found and evaluated by the agent, chosen by the maestro, only those installed, in
+     `.brewstillery/skills/`; every project's alambique asks the search from its onboarding, as this one does for the
+     bootstrap, where it is done before the core continues. Neither carries a status key.
+  2. A part 7s runs before part 7d3, in its own chat: search and evaluate skills for Claude Code and Codex (Rust, Git,
+     mutation testing, review, the bootstrap's flow), each with its permissions, provenance, version, licence and
+     effects (6.38); propose which to adopt; install only those the maestro approves, in `.brewstillery/skills/`,
+     with `AGENTS.md` saying to read them from there; reserve the name `skills` in the core's domain layout with its
+     test (a maestro's approval of the exact change is asked in that chat); Codex reviews the evaluation and the code.
+     Network in that chat to read sources of skills only; nothing is installed without the maestro's approval.
+- Consequences: `ALAMBIQUE.md` changes as point 1 says (sha256 `61be0e9f…` before, `07181c8e…` after); `plan.md` gains
+  the row of 7s; `STATUS.md`'s next part is 7s. `.brewstillery/skills/` is not created before 7s installs an
+  approved skill.
+- Sources: chat of session 21; `xel/fermento.md` point 1; `ALAMBIQUE.md` section 2 and 6.38; `AGENTS.md` ("Domain");
+  `reference-study.md` PP-10 (generated skills that pre-approve tools) and C-60, C-61.
+- Supersedes: none.

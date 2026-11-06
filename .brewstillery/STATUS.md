@@ -6,8 +6,8 @@ view generated from that registry. Technical files are in English by default (D-
 ## Current state
 
 **Phases 0 to 6 are closed (D-037, D-040). Phase 7 (the first code) is split into parts 7a, 7b, 7c1, 7c2a, 7c2b,
-7d1, 7d2 and 7d3 (D-041, D-047, D-048, D-050, D-053); parts 7a to 7d2 are closed, 7d2 the command surface and the
-reading commands (R-029); 7d3, the write commands, is next.** The repository holds the first code at its root: a
+7d1, 7d2, 7s and 7d3 (D-041, D-047, D-048, D-050, D-053, D-059); parts 7a to 7d2 are closed, 7d2 the command
+surface and the reading commands (R-029); 7s, skills for the agents, is next, then 7d3, the write commands.** The repository holds the first code at its root: a
 Cargo workspace with one crate per ring (`crates/core`, `crates/fabrewk`, the binary, which runs the core's command
 surface) and the size counter `tools/budget`, the licence files, `deny.toml` and a root `.gitignore` with `/target`.
 The record is built in `crates/core/src/record/`, the settings in `crates/core/src/settings/`, identity in
@@ -192,15 +192,24 @@ repository, is imported into the single registry at production and then stays re
   hold through phase 9, the maestro's to decide when 7d3 is measured. A mutation run filled the disk once: the test
   fixtures are now swept when their process ends. The maestro's fermento edit (point 1, skills for the agents) was
   folded into an integrator's commit, as in R-021; its answer is current.
-- **Next: part 7d3 (plan, "Phase 7").** The write commands: `adopt`, `propose`, `authorize` (PD-37 for `authorize`),
+- **Skills for the agents (D-059).** After the closing commit the maestro made the fermento's point 1 a proposal and
+  approved the two alambique edits the integrator drafted: `.brewstillery/skills/` for approved skills, read as
+  `AGENTS.md` says (section 2), and the search and evaluation of skills in every project, asked by each alambique and
+  done in the bootstrap before the core continues (6.38). A part 7s runs before 7d3.
+- **Next: part 7s (plan, "Phase 7").** Search and evaluate skills for Claude Code and Codex (Rust, Git, mutation
+  testing, review, the bootstrap's flow), each with its permissions, provenance, version, licence and effects (6.38;
+  `reference-study.md` PP-10 on skills that pre-approve tools); propose which to adopt; install only the approved, in
+  `.brewstillery/skills/`, with `AGENTS.md` pointing there; reserve the name `skills` in the core's domain layout
+  with its test, the exact change approved by the maestro; Codex reviews. Network to read sources of skills only.
+- **Then: part 7d3 (plan, "Phase 7").** The write commands: `adopt`, `propose`, `authorize` (PD-37 for `authorize`),
   `reject`, `run` up to confinement (`CONFINEMENT_UNAVAILABLE`), `--say` and `--say-lang`, `AGENT_ENVIRONMENT`, the
   guards every write command applies (REQ-RUN-5, REQ-DOM-7), signing with Git's signing key (D-055 point 1), and the
   record's refusal tests through the command line (D-047); TASK-4, PD-30 to PD-32, PD-37. Open from R-028:
   `run-started`'s words, and how `TASK_CHANGED` arises. The declaration, catalogue, completions and reference grow
   with each command (D-053 point 3); next steps that today are words become commands.
-- **Start prompt:** `Eres el integrador de Fabrewk; fase 7, parte 7d3: comandos de escritura adopt, propose,
-  authorize, reject y run hasta el aislamiento; empieza por .brewstillery/STATUS.md`. Model and effort: Claude Code
-  on Opus 5.5, effort high; Codex GPT-6.1 Sol, effort high, reviews each part that delivers code (plan row 7).
+- **Start prompt:** `Eres el integrador de Fabrewk; fase 7, parte 7s: búsqueda, evaluación e instalación de skills
+  para los agentes; empieza por .brewstillery/STATUS.md`. Model and effort: Claude Code on Opus 5.5, effort high;
+  Codex GPT-6.1 Sol, effort high, reviews the evaluation and the code (plan row 7).
 
 Carried without blocking, with destinations, in D-013. A phase that does not pass is corrected and retried; it
 never ends the project (D-003).
