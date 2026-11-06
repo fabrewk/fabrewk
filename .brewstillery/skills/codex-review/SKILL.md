@@ -36,7 +36,9 @@ to the decisions that fix it. It says:
 - That Codex works only inside `$d`; the repository is `repo/`, a disposable clone; `cargo-home/` the registry copy;
   there is no network; it commits nothing, edits no tracked file, and puts scratch files under `repo/target/review/`.
 - How to build and test, in bash: `export RUSTUP_HOME=$HOME/.rustup CARGO_HOME=$PWD/cargo-home
-  CARGO_NET_OFFLINE=true`, then `cd repo && cargo +1.99.1 test --locked` and the crash suite with `--features
+  CARGO_NET_OFFLINE=true PATH="$HOME/.rustup/cargo-home/bin:$PATH"` (the rustup shims first: Fedora's `cargo`, first
+  on `PATH` otherwise, does not take `+1.99.1`; `CARGO_HOME` is the registry copy, the shims stay in the maintainer's
+  rustup folder), then `cd repo && cargo +1.99.1 test --locked` and the crash suite with `--features
   fault-injection`. A binary run by hand runs in a fixture repository under `repo/target/review/`, with `HOME` and
   `XDG_CONFIG_HOME` pointing there, never in a real home.
 - The change: `git diff <start>..HEAD` in `repo/`, and the decisions that fixed its scope, to be read.

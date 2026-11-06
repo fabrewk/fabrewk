@@ -74,7 +74,7 @@ says.
 | --- | --- | --- | --- | --- |
 | `property-based-testing` | `trailofbits/skills` `470419e`, `plugins/property-based-testing/skills/property-based-testing/`, plugin 1.2.2, 9 files | When a property earns its place, generators, shrinking, and how to tell a weak property; `proptest` is its Rust library, already this core's | Upstream `effort: low`. No script, no hook, no network. Writes test code only where the task does | Adopt, adapted |
 | `sharp-edges` | Same repository, `plugins/sharp-edges/skills/sharp-edges/`, 1.1.3, 19 files with `references/lang-rust.md` | Misuse-resistant APIs and configuration: defaults, dangerous options, silent fallbacks; the class most of 7d2's passes found | Upstream `allowed-tools: Read Grep Glob` (pre-approves reading). No script, no hook. Writes nothing | Adopt, adapted |
-| `differential-review` | Same repository, `plugins/differential-review/skills/differential-review/`, 1.1.4, 7 files | A review of a diff by risk: history (`git blame`), blast radius by callers, coverage of changed code, adversarial pass. For the integrator before each Codex pass, to cut passes | Upstream `allowed-tools: Read Write Grep Glob Bash` (pre-approves shell and writing). Runs read-only Git commands. Writes its report in the working directory by default (`reporting.md`, "File Naming and Location"), against the domain rule; names an `adversarial-modeler` agent and an `issue-writer` skill that are not installed | Adopt, adapted: the notice sends the report to the session's scratch directory, never the tree, and says the agent and `issue-writer` are absent |
+| `differential-review` | Same repository, `plugins/differential-review/skills/differential-review/`, 1.1.4, 7 files | A review of a diff by risk: history (`git blame`), blast radius by callers, coverage of changed code, adversarial pass. For the integrator before each Codex pass, to cut passes | Upstream `allowed-tools: Read Write Grep Glob Bash` (pre-approves shell and writing). Runs Git commands that read history, and `methodology.md` asks for a `git checkout` of the baseline and back when the `audit-context-building` skill is present (not installed here), which moves HEAD and changes the working tree. Writes its report in the working directory by default (`reporting.md`, "File Naming and Location"), against the domain rule; names an `adversarial-modeler` agent and an `issue-writer` skill that are not installed | Adopt, adapted: the notice sends the report to the session's scratch directory, never the tree, forbids any command that moves HEAD or changes the index or the working tree (another revision is read with `git show` or `git diff`), and says the agent and `issue-writer` are absent |
 
 ### Recommended to write, for the bootstrap's repeated work
 
@@ -134,9 +134,12 @@ Trail of Bits' skills are CC BY-SA 4.0. The criterion of D-030 (open source, bes
 credit) was fixed for Fabrewk's own licence. These files are not part of the product or its binary: they keep their
 own licence, the licence text goes in each skill's folder, and an adaptation stays CC BY-SA 4.0 (share-alike) with
 its changes stated. Adopting them is the maestro's to accept under that condition. Changes made in the adapted copies:
-the frontmatter keys `allowed-tools` and `effort` removed; a notice after the frontmatter naming the source, revision,
-licence and changes, and saying that this repository's `AGENTS.md` and the maestro's authorization come first, that
-reports go to the session's scratch directory and never into the tree, and that no tool is installed by the skill.
+the frontmatter keys `allowed-tools` and `effort` removed; a notice after the frontmatter naming the creator the
+upstream plugin names (Omar Inuwa for `differential-review`, Henrik Brodin for `property-based-testing`, Trail of
+Bits for `sharp-edges`, from each `.claude-plugin/plugin.json`), the source, revision, licence and changes, and saying
+that this repository's `AGENTS.md` and the maestro's authorization come first, that a skill's own output goes outside
+every tracked path and the domain, that no command moves HEAD or changes the index or the working tree, and that no
+tool is installed by the skill.
 
 ## 7. The reserved name
 
