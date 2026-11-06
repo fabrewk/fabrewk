@@ -1150,6 +1150,13 @@ fn p7d2_30_a_signing_key_in_another_domain_is_never_read() {
         a.git(&["config", "user.signingkey", named.to_str().unwrap()]);
         assert_eq!(a.run(&["config", "--json"]).doc()["person"], Value::Null, "{}", named.display());
     }
+    // Nor is a key that Git takes from a configuration file there.
+    let included = b.domain.join("xel/uncited-git-config.txt");
+    fs::write(&included, format!("[user]\n\tsigningkey = key::{}\n", public(&a.keys, "xel"))).unwrap();
+    a.git(&["config", "--unset", "user.signingkey"]);
+    a.git(&["config", "include.path", included.to_str().unwrap()]);
+    assert_eq!(a.run(&["config", "--json"]).doc()["person"], Value::Null);
+    a.git(&["config", "--unset", "include.path"]);
     a.git(&["config", "user.signingkey", a.keys.join("xel.pub").to_str().unwrap()]);
     assert_eq!(a.run(&["config", "--json"]).doc()["person"], "xel");
 }

@@ -119,8 +119,15 @@ pub(crate) fn ignores(repo: &Repo, path: &Path) -> Result<bool, Error> {
 /// Git cannot say.
 pub(crate) fn signing_key(root: &Path) -> Option<String> {
     let repo = Repo { root: root.to_path_buf(), prefix: PathBuf::new() };
-    let out = run(command(&repo, &os(&["config", "--type=path", "--get", "user.signingkey"])), b"").ok()?;
-    Some(line(out.stdout)).filter(|s| out.status.success() && !s.is_empty())
+    let args = os(&["config", "--show-origin", "-z", "--type=path", "--get", "user.signingkey"]);
+    let out = run(command(&repo, &args), b"").ok().filter(|o| o.status.success())?;
+    let text = String::from_utf8(out.stdout).ok()?;
+    let (origin, value) = text.strip_suffix('\0')?.split_once('\0')?;
+    // A value Git takes from a file in a Fabrewk domain (an `include.path` there) is that file's content, read
+    // for Fabrewk: never used (P7D2-30).
+    let file = origin.strip_prefix("file:").map(|f| root.join(f));
+    let foreign = file.is_some_and(|f| crate::code::in_a_domain(&f));
+    (!foreign && !value.is_empty()).then(|| value.to_owned())
 }
 
 /// The repository's exclude file, `info/exclude` in its Git directory, as an absolute path.

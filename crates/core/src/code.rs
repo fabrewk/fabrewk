@@ -132,13 +132,18 @@ pub(crate) fn normal(path: &Path) -> PathBuf {
 /// Whether `path`, as written or as it resolves, lies in a Fabrewk domain (a `.brewstillery` component) or under
 /// `root`: what Fabrewk reads from a place the person names must lie in neither (P7D2-22, P7D2-28 to P7D2-30).
 pub(crate) fn in_domain(path: &Path, root: &Path) -> bool {
-    let canonical = |p: &Path| p.canonicalize().ok();
-    let (paths, root_canonical) = ([Some(normal(path)), canonical(path)], canonical(root));
-    paths.iter().flatten().any(|p| {
-        p.components().any(|c| c.as_os_str() == ".brewstillery")
-            || p.starts_with(root)
-            || root_canonical.as_ref().is_some_and(|r| p.starts_with(r))
-    })
+    let root_canonical = root.canonicalize().ok();
+    in_a_domain(path)
+        || [Some(normal(path)), path.canonicalize().ok()]
+            .iter()
+            .flatten()
+            .any(|p| p.starts_with(root) || root_canonical.as_ref().is_some_and(|r| p.starts_with(r)))
+}
+
+/// Whether `path`, as written or as it resolves, has a `.brewstillery` component.
+pub(crate) fn in_a_domain(path: &Path) -> bool {
+    let domain = |p: &Path| p.components().any(|c| c.as_os_str() == ".brewstillery");
+    domain(&normal(path)) || path.canonicalize().is_ok_and(|p| domain(&p))
 }
 
 pub(crate) fn refuse(code: Code, path: Option<&Path>, detail: impl Into<String>) -> Error {
