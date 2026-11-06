@@ -796,6 +796,10 @@ fn d_056_text_shaped_as_a_link_cites_its_whole_destination() {
         let found = finding_of(&check_within(&fx), "C9");
         assert_eq!(found.len(), usize::from(cites), "{text}: {found:?}");
     }
+    // A destination with a scheme cites nothing, even where a file bears the name it would resolve to.
+    fs::write(x.join("x:secret.txt"), format!("{token}\n")).unwrap();
+    fs::write(x.join("fermento.md"), "[n](x:secret.txt)\n").unwrap();
+    assert!(finding_of(&check_within(&fx), "C9").is_empty());
 }
 
 #[test]
