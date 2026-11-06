@@ -172,7 +172,8 @@ pub fn detect(domain: &Path, eff: &Effective, modules: &[Program], path: Option<
     for name in required.map(String::as_str) {
         wanted.insert((Space::Required, name), Want { executable: Some(name), version: &[], declarable: true });
     }
-    let marks = std::fs::read(cache(domain)).ok().and_then(|b| decode(&b));
+    let regular = std::fs::symlink_metadata(cache(domain)).is_ok_and(|m| m.is_file());
+    let marks = regular.then(|| std::fs::read(cache(domain)).ok()).flatten().and_then(|b| decode(&b));
     let mut found = BTreeMap::new();
     for ((space, name), want) in wanted {
         let declared = if want.declarable { text(eff, &format!("tools.{name}.path")) } else { None };

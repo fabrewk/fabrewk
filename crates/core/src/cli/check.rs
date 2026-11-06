@@ -89,91 +89,122 @@ pub(crate) fn cited(domain: &Path) -> BTreeSet<PathBuf> {
     }
     let mut out = BTreeSet::new();
     for file in citing.into_iter().filter(|f| regular(f)) {
-        let (Ok(text), Some(dir)) = (std::fs::read_to_string(&file), file.parent()) else { continue };
-        for target in targets(&text).iter().filter_map(|t| link(t)) {
+        // A citing file that is not UTF-8 is read as far as it is; one that does not read is C9's `CHECK_UNKNOWN`.
+        let (Ok(bytes), Some(dir)) = (std::fs::read(&file), file.parent()) else { continue };
+        for target in targets(&String::from_utf8_lossy(&bytes)).iter().filter_map(|t| link(t)) {
             out.insert(normal(&dir.join(target)));
         }
     }
     out
 }
 
-/// The destinations of the inline links and images of a Markdown text, `[text](destination "title")`, outside fenced
-/// blocks and code spans; a destination in `<…>` may hold spaces, one without them may hold balanced parentheses, and
-/// a backslash escapes the character after it. A link's text stays on one line.
-fn targets(text: &str) -> Vec<String> {
-    let (mut out, mut fence) = (Vec::new(), None::<&str>);
+/// The text outside fenced blocks, with every line of a block, and every line holding only white space, blank. A fence
+/// opens with three or more backticks or tildes indented at most three spaces (a backtick fence's info holding no
+/// backtick) and closes with a line of the same character, as many or more, and nothing else.
+fn prose(text: &str) -> String {
+    let mut fence: Option<(u8, usize)> = None;
+    let mut out = String::new();
     for line in text.lines() {
         let t = line.trim_start_matches(' ');
-        if let Some(m) = ["```", "~~~"].into_iter().find(|m| line.len() - t.len() <= 3 && t.starts_with(m)) {
-            fence = match fence {
-                None => Some(m),
-                Some(f) if f == m => None,
-                other => other,
-            };
-            continue;
+        let (c, n) = (t.bytes().next().unwrap_or(0), t.bytes().take_while(|b| Some(*b) == t.bytes().next()).count());
+        let marker = line.len() - t.len() <= 3 && matches!(c, b'`' | b'~') && n >= 3;
+        match fence {
+            Some((f, m)) if marker && c == f && n >= m && t[n..].trim().is_empty() => fence = None,
+            None if marker && (c == b'~' || !t[n..].contains('`')) => fence = Some((c, n)),
+            None if !line.trim().is_empty() => out += line,
+            _ => {}
         }
-        if fence.is_some() {
-            continue;
-        }
-        let b = line.as_bytes();
-        let run = |i: usize| b[i..].iter().take_while(|c| **c == b'`').count();
-        let (mut i, mut depth, mut close) = (0, 0usize, false);
-        while i < b.len() {
-            match b[i] {
-                b'\\' => i += 1,
-                b'`' => {
-                    let n = run(i);
-                    let end = (i + n..b.len()).find(|&j| run(j) == n && (j == 0 || b[j - 1] != b'`'));
-                    i = end.map_or(i + n, |j| j + n) - 1;
-                }
-                b'[' => depth += 1,
-                b']' if depth > 0 => {
-                    depth -= 1;
-                    close = b.get(i + 1) == Some(&b'(');
-                }
-                _ => {}
-            }
-            i += 1;
-            if std::mem::take(&mut close) {
-                let (dest, end) = destination(&b[i + 1..]);
-                out.extend(dest);
-                i += 1 + end;
-            }
-        }
+        out.push('\n');
     }
     out
 }
 
-/// A link's destination at the start of `b`, after its `(`, and how many bytes it took; `None` if it does not close.
-fn destination(b: &[u8]) -> (Option<String>, usize) {
+/// The destinations of the inline links and images of a Markdown text, `[text](destination "title")`, outside fenced
+/// blocks and code spans (which may cross lines, not a blank one); a link's text stays on one line, and a backslash
+/// escapes the punctuation after it (P7D2-3, P7D2-10).
+fn targets(text: &str) -> Vec<String> {
+    let text = prose(text);
+    let b = text.as_bytes();
+    let run = |i: usize| b[i..].iter().take_while(|c| **c == b'`').count();
     let (mut out, mut i, mut depth) = (Vec::new(), 0, 0usize);
-    let angle = b.first() == Some(&b'<');
+    while i < b.len() {
+        match b[i] {
+            b'\\' if b.get(i + 1).is_some_and(u8::is_ascii_punctuation) => i += 1,
+            b'`' => {
+                let n = run(i);
+                let paragraph = text[i..].find("\n\n").map_or(b.len(), |p| i + p);
+                let end = (i + n..paragraph).find(|&j| run(j) == n && b[j - 1] != b'`');
+                i = end.map_or(i + n, |j| j + n) - 1;
+            }
+            b'\n' => depth = 0,
+            b'[' => depth += 1,
+            b']' if depth > 0 => {
+                depth -= 1;
+                if let Some((dest, used)) = (b.get(i + 1) == Some(&b'(')).then(|| tail(&b[i + 2..])).flatten() {
+                    out.push(dest);
+                    i += 1 + used;
+                }
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    out
+}
+
+/// A link's tail after its `(`: the destination, unescaped, and how many bytes the tail takes up to its `)`; `None`
+/// when it is not one. A destination in `<…>` may hold spaces; one without may hold balanced parentheses. A title is
+/// quoted with `"`, `'` or parentheses, and is never a destination (P7D2-11).
+fn tail(b: &[u8]) -> Option<(String, usize)> {
+    let space = |mut i: usize| {
+        while b.get(i).is_some_and(|c| matches!(c, b' ' | b'\t' | b'\n')) {
+            i += 1;
+        }
+        i
+    };
+    let (mut dest, mut i, mut depth) = (Vec::new(), space(0), 0usize);
+    let angle = b.get(i) == Some(&b'<');
     i += usize::from(angle);
     while let Some(&c) = b.get(i) {
         if c == b'\\' && b.get(i + 1).is_some_and(u8::is_ascii_punctuation) {
-            out.push(b[i + 1]);
+            dest.push(b[i + 1]);
             i += 2;
             continue;
         }
         match c {
             b'>' if angle => break,
-            b'<' if angle => return (None, i),
-            b' ' | b'\t' if !angle => break,
+            b'<' | b'\n' if angle => return None,
+            b' ' | b'\t' | b'\n' if !angle => break,
             b'(' if !angle => depth += 1,
             b')' if !angle && depth == 0 => break,
             b')' if !angle => depth -= 1,
             _ => {}
         }
-        out.push(c);
+        dest.push(c);
         i += 1;
     }
-    let rest = &b[(i + usize::from(angle)).min(b.len())..];
-    let closes = rest.iter().position(|c| *c == b')').is_some_and(|p| {
-        let title = rest[..p].trim_ascii();
-        title.is_empty()
-            || title.len() >= 2 && matches!((title[0], title[title.len() - 1]), (b'"', b'"') | (b'\'', b'\''))
-    });
-    (closes.then(|| String::from_utf8_lossy(&out).into_owned()), i)
+    if angle && b.get(i) != Some(&b'>') || !angle && depth > 0 {
+        return None;
+    }
+    let after = i + usize::from(angle);
+    let mut j = space(after);
+    if j > after && b.get(j) != Some(&b')') {
+        let close = match b.get(j)? {
+            b'"' => b'"',
+            b'\'' => b'\'',
+            b'(' => b')',
+            _ => return None,
+        };
+        j += 1;
+        while *b.get(j)? != close {
+            if b[j] == b'(' && close == b')' {
+                return None;
+            }
+            j += if b[j] == b'\\' { 2 } else { 1 };
+        }
+        j = space(j + 1);
+    }
+    (b.get(j) == Some(&b')')).then(|| (String::from_utf8_lossy(&dest).into_owned(), j + 1))
 }
 
 /// A destination as a relative path, without its fragment or query; `None` for a scheme, an absolute path or only a
@@ -211,7 +242,8 @@ pub(super) fn run(cx: &Cx) -> Result<Out, Failed> {
     add("C1", settings::read(&d.join("settings.toml"), Level::Project).map(drop));
     for entry in std::fs::read_dir(d).into_iter().flatten().flatten() {
         let file = entry.path().join("settings.toml");
-        if entry.file_name().to_str().is_some_and(is_alias) && file.exists() {
+        let dir = entry.file_type().is_ok_and(|t| t.is_dir());
+        if entry.file_name().to_str().is_some_and(is_alias) && dir && std::fs::symlink_metadata(&file).is_ok() {
             add("C1", settings::read(&file, Level::Personal).map(drop));
         }
     }

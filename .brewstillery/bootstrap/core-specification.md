@@ -886,7 +886,12 @@ rule and C10 are `CHECK_UNKNOWN`; with a record and no `publication-decided`, C4
 A project file that does not read leaves C2 `CHECK_UNKNOWN` besides C1's finding. With no domain at all, the one
 finding is `RECORD_ABSENT`. C4 is labelled cooperative in `unpublished` and effective otherwise, in `check`'s list
 and in `config`'s; C9 is cooperative. `config` words every guard of section 4 from the catalogue (`guard.<name>`).
-`status` and `config` give exit 70 when the record's files cannot be read at all.
+`status` and `config` give exit 70 when the record's files cannot be read at all; `status <id>` with a record that
+does not replay shows the record's state instead. A ref that exists and names no commit, or a Git that cannot say, is
+`TOOL_FAILED`, never an unborn branch (P7D2-12). Nothing a reading command reads is opened unless it is a regular file,
+and no link is followed: a settings file that is not one is `SETTINGS_INVALID`, a mark `MARK_INVALID`, and the
+record's `data/`, `data/events/` or a stream that is not a directory `RECORD_BROKEN` (P7D2-14); a citing file that is
+not UTF-8 is read as far as it is (P7D2-15).
 
 ## 7. Refusals
 

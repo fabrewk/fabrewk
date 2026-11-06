@@ -1047,11 +1047,11 @@ fn req_reg_6_random_damage_is_always_refused_by_a_code() {
 #[test]
 fn an_unreadable_place_is_an_error_never_an_absence() {
     let f = Fixture::new("unreadable", false);
-    // `data/events` that is a file: neither an absent record nor an empty one.
+    // `data/events` that is a file: neither an absent record nor an empty one, but a broken one (P7D2-14).
     std::fs::create_dir_all(f.domain.join("data")).unwrap();
     std::fs::write(f.domain.join("data/events"), b"").unwrap();
     let errors = replay(&f.domain, &f.verifier()).unwrap_err();
-    assert!(errors.iter().all(|e| e.code().is_none()), "{errors:?}");
+    assert!(errors.iter().all(|e| e.code() == Some(Code::RecordBroken)), "{errors:?}");
     std::fs::remove_file(f.domain.join("data/events")).unwrap();
     // A stream that is a file, read by a writer's head.
     let s = begin(&f, None);
@@ -1067,7 +1067,7 @@ fn an_unreadable_place_is_an_error_never_an_absence() {
     let mark = f.domain.join("local/cache/heads.json");
     std::fs::remove_file(&mark).unwrap();
     std::fs::create_dir(&mark).unwrap();
-    assert_eq!(check_mark(&f.domain, &ok_replay(&f)).unwrap_err().code(), None);
+    assert_eq!(check_mark(&f.domain, &ok_replay(&f)).unwrap_err().code(), Some(Code::MarkInvalid));
 }
 
 #[test]

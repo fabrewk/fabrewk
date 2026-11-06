@@ -140,7 +140,12 @@ fn subject(cx: &Cx, id: &str) -> Result<Out, Failed> {
         _ => id.to_owned(),
     };
     let unknown = || Failed::Usage(Usage { key: "usage.id", word: id.to_owned(), command: Some(&COMMANDS[0]) });
-    let record = cx.record.as_ref().map_err(|_| unknown())?;
+    // A record that does not replay cannot say whether it holds the identifier: its state is shown instead.
+    let record = match &cx.record {
+        Ok(record) => record,
+        Err(errors) if errors.iter().all(|e| e.code() == Some(Code::RecordAbsent)) => return Err(unknown()),
+        Err(_) => return overview(cx),
+    };
     let subject = match stream_kind(&stream) {
         Some(StreamKind::Stage) => "stage",
         Some(StreamKind::Task) => "task",

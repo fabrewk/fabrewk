@@ -51,7 +51,7 @@ pub fn machine_file(folder: &Path) -> Result<Option<Settings>, Vec<Error>> {
     }
     check_permissions(folder).map_err(|e| vec![e])?;
     let path = folder.join("machine.toml");
-    if !path.exists() {
+    if fs::symlink_metadata(&path).is_err() {
         return Ok(None);
     }
     settings::read(&path, Level::Machine).map(Some)

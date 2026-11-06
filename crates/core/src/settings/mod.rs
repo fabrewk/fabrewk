@@ -146,6 +146,10 @@ pub fn read(path: &Path, level: Level) -> Result<Settings, Vec<Error>> {
 
 /// Reads one file at `level`, giving its text with its settings.
 pub(crate) fn read_text(path: &Path, level: Level) -> Result<(String, Settings), Vec<Error>> {
+    // A link is never followed and nothing but a regular file is opened (REQ-SEC-3, P7D2-14).
+    if std::fs::symlink_metadata(path).is_ok_and(|m| !m.is_file()) {
+        return Err(vec![refuse(Code::SettingsInvalid, Some(path), "(document) (line 1): not a regular file")]);
+    }
     let bytes = std::fs::read(path).map_err(|e| vec![io_at(path)(e)])?;
     let text =
         String::from_utf8(bytes).map_err(|_| vec![refuse(Code::SettingsInvalid, Some(path), "line 1: not UTF-8")])?;

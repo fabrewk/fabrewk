@@ -311,4 +311,8 @@ fn version_and_its_features() {
     // 11.2 rule 8: the build lists its features; only the crash suite's feature can be one.
     let features = doc["features"].as_array().unwrap();
     assert!(features.iter().all(|f| f == "fault-injection"), "{features:?}");
+    // A release build carries no test seam (P7D2-16): run this test with `--release` on the release binary.
+    if !cfg!(debug_assertions) {
+        assert!(features.is_empty(), "a release build with {features:?}");
+    }
 }

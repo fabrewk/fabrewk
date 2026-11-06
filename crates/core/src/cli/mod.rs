@@ -154,7 +154,7 @@ impl Cx {
     fn personal(&self) -> Result<Option<settings::Settings>, Vec<Error>> {
         let Some(alias) = &self.person else { return Ok(None) };
         let path = self.domain.join(alias).join("settings.toml");
-        if !path.exists() {
+        if std::fs::symlink_metadata(&path).is_err() {
             return Ok(None);
         }
         settings::read(&path, Level::Personal).map(Some)

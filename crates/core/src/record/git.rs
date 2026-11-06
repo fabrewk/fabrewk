@@ -129,11 +129,21 @@ pub(crate) fn exclude_file(repo: &Repo) -> Result<PathBuf, Error> {
     Ok(PathBuf::from(line(out)))
 }
 
-/// The commit a ref names, `None` if it names none (an unborn branch).
+/// The commit a ref names, `None` for an unborn branch, which has no ref at all; a ref that names no commit, or a Git
+/// that cannot say, is `TOOL_FAILED` (P7D2-12).
 pub(crate) fn head_of(repo: &Repo, name: &str) -> Result<Option<String>, Error> {
     let target = format!("{name}^{{commit}}");
     let out = run(command(repo, &os(&["rev-parse", "--verify", "-q", &target])), b"")?;
-    Ok(out.status.success().then(|| line(out.stdout)))
+    if out.status.success() {
+        return Ok(Some(line(out.stdout)));
+    }
+    let failed = || refuse(Code::ToolFailed, Some(&repo.root), format!("{name} names no commit"));
+    let refname = match name {
+        "HEAD" => line(git(repo, &os(&["symbolic-ref", "-q", "HEAD"]), b"", None).map_err(|_| failed())?),
+        _ => name.to_owned(),
+    };
+    let listed = git(repo, &os(&["for-each-ref", "--format=%(refname)", &refname]), b"", None)?;
+    if listed.is_empty() { Ok(None) } else { Err(failed()) }
 }
 
 /// Refuses `NOT_A_REPOSITORY` unless `repo.root` is the repository's main working tree, at its top: the record, its
@@ -221,7 +231,13 @@ pub fn uncommitted(repo: &Repo) -> Result<Vec<PathBuf>, Error> {
     }
     let root = repo.root.join(&events);
     let mut out = Vec::new();
-    for dir in std::fs::read_dir(&root).into_iter().flatten().flatten().map(|e| e.path()).filter(|p| p.is_dir()) {
+    for dir in std::fs::read_dir(&root)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| p.symlink_metadata().is_ok_and(|m| m.is_dir()))
+    {
         let listing = list_stream(&dir)?;
         let files = listing.events.into_values().flatten().chain(listing.signatures);
         out.extend(files.filter(|f| !tracked.contains(f)));

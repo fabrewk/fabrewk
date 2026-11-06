@@ -57,6 +57,11 @@ pub(crate) fn name_matches(path: &Path, digest: &str) -> bool {
     path.file_name().and_then(|n| n.to_str()).is_some_and(|n| n.get(7..23) == Some(&digest[..16]))
 }
 
+/// Whether `path` is a regular file, never following a link: nothing else in the record is read (P7D2-14).
+fn regular(path: &Path) -> bool {
+    fs::symlink_metadata(path).is_ok_and(|m| m.is_file())
+}
+
 pub(crate) fn list_stream(dir: &Path) -> Result<Listing, Error> {
     let mut l = Listing {
         events: BTreeMap::new(),
@@ -77,13 +82,13 @@ pub(crate) fn list_stream(dir: &Path) -> Result<Listing, Error> {
             // Skipped by readers; removed by a writer only if it is one of the record's own temporary files.
             let own = name.strip_prefix('.').and_then(|n| n.strip_suffix(".tmp"));
             if own.is_some_and(|n| seq_of(n).or_else(|| n.strip_suffix(".sig").and_then(seq_of)).is_some())
-                && path.is_file()
+                && regular(&path)
             {
                 l.temporary.push(path);
             }
-        } else if let Some(seq) = seq_of(&name).filter(|_| path.is_file()) {
+        } else if let Some(seq) = seq_of(&name).filter(|_| regular(&path)) {
             l.events.entry(seq).or_default().push(path);
-        } else if name.strip_suffix(".sig").and_then(seq_of).is_some() && path.is_file() {
+        } else if name.strip_suffix(".sig").and_then(seq_of).is_some() && regular(&path) {
             sigs.push(path);
         } else {
             l.unknown.push(path);
@@ -105,6 +110,11 @@ pub(crate) fn list_stream(dir: &Path) -> Result<Listing, Error> {
 pub fn replay(domain: &Path, verifier: &dyn Verify) -> Result<Replay, Vec<Error>> {
     let root = domain.join("data/events");
     let absent = || vec![refuse(Code::RecordAbsent, Some(&root), "no event")];
+    for dir in [domain.join("data"), root.clone()] {
+        if fs::symlink_metadata(&dir).is_ok_and(|m| !m.is_dir()) {
+            return Err(vec![refuse(Code::RecordBroken, Some(&dir), "not a directory; a link is not followed")]);
+        }
+    }
     let entries = match fs::read_dir(&root) {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Err(absent()),
         other => other.map_err(|e| vec![io_at(&root)(e)])?,
@@ -119,7 +129,9 @@ pub fn replay(domain: &Path, verifier: &dyn Verify) -> Result<Replay, Vec<Error>
         let name = path.file_name().and_then(|n| n.to_str()).map(str::to_owned);
         match name {
             Some(n) if n.starts_with('.') => {}
-            Some(n) if path.is_dir() && event::stream_kind(&n).is_some() => names.push(n),
+            Some(n) if fs::symlink_metadata(&path).is_ok_and(|m| m.is_dir()) && event::stream_kind(&n).is_some() => {
+                names.push(n)
+            }
             _ => errors.push(refuse(Code::RecordBroken, Some(&path), "not a stream")),
         }
     }

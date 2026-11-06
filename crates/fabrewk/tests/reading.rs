@@ -96,9 +96,8 @@ fn req_cli_3_each_exit_status() {
     assert_eq!(fx.run(&["check"]).status, 3);
     fs::write(fx.domain.join(".gitignore"), "local/\n").unwrap();
     assert_eq!(fx.run(&["check"]).status, 0);
-    // An internal error: the project file that `config` compares with the policy is a directory.
-    fs::remove_file(fx.domain.join("settings.toml")).unwrap();
-    fs::create_dir(fx.domain.join("settings.toml")).unwrap();
+    // An internal error: the project file that `config` compares with the policy does not read.
+    fs::set_permissions(fx.domain.join("settings.toml"), fs::Permissions::from_mode(0o000)).unwrap();
     let internal = fx.run(&["config"]);
     assert_eq!(internal.status, 70, "{internal:?}");
     assert!(internal.stderr.contains(&cli::say("es", "internal.io", &[("path", ".brewstillery/settings.toml")])));
@@ -604,8 +603,7 @@ fn req_cli_4_every_document_holds_to_its_pinned_schema() {
     fs::write(broken.domain.join("data/events/project/000009-0000000000000000.json"), "{}").unwrap();
     docs.push(broken.run(&["status", "--json"]).doc());
     docs.push(broken.run(&["check", "--json"]).doc());
-    fs::remove_file(broken.domain.join("settings.toml")).unwrap();
-    fs::create_dir(broken.domain.join("settings.toml")).unwrap();
+    fs::set_permissions(broken.domain.join("settings.toml"), fs::Permissions::from_mode(0o000)).unwrap();
     fs::remove_file(broken.domain.join("data/events/project/000009-0000000000000000.json")).unwrap();
     docs.push(broken.run(&["config", "--json"]).doc());
     docs.push(run_in(&fx.root, &fx.home, &["--version", "--json"], None).doc());
@@ -662,15 +660,19 @@ fn finding_of(doc: &Value, check: &str) -> Vec<String> {
 fn p7d2_1_a_record_that_cannot_be_read_is_an_internal_error_in_words() {
     let fx = published("status-io");
     let events = fx.domain.join("data/events");
-    fs::rename(&events, fx.domain.join("data/moved")).unwrap();
-    fs::write(&events, "not a directory\n").unwrap();
-    for args in [&["status"][..], &["status", "--json"]] {
+    fs::set_permissions(&events, fs::Permissions::from_mode(0o000)).unwrap();
+    for args in [&["status"][..], &["status", "--json"], &["status", "t-00000000"], &["config"]] {
         let out = fx.run(args);
-        assert_eq!(out.status, 70, "{out:?}");
-        assert!(!out.all().contains("os error") && !out.all().contains("Not a directory"), "{out:?}");
+        assert_eq!(out.status, 70, "{args:?}: {out:?}");
+        assert!(!out.all().contains("os error") && !out.all().contains("Permission denied"), "{out:?}");
     }
     let doc = fx.run(&["check", "--json"]).doc();
     assert!(!doc.to_string().contains("os error"), "{doc}");
+    fs::set_permissions(&events, fs::Permissions::from_mode(0o755)).unwrap();
+    // A record directory that is not a directory is a broken record, shown as such.
+    fs::rename(&events, fx.domain.join("data/moved")).unwrap();
+    fs::write(&events, "not a directory\n").unwrap();
+    assert_eq!(fx.run(&["status", "--json"]).doc()["problems"][0]["code"], "RECORD_BROKEN");
 }
 
 /// Runs `check --json` and fails if it does not end within ten seconds.
@@ -719,6 +721,19 @@ fn p7d2_3_only_markdown_links_cite_and_their_whole_destination() {
         ("```\n[notes](notes(1).txt)\n```", false),
         ("[notes](notes(1).txt", false),
         ("[notes](https://example.invalid/notes(1).txt)", false),
+        // P7D2-10: fences closed only by their own kind and length, code spans across lines.
+        ("````\n```\n[notes](notes(1).txt)\n````", false),
+        ("```\n```rust\n[notes](notes(1).txt)\n```", false),
+        ("An example: `[notes]\n(notes(1).txt)` and `[notes](notes(1).txt)\n` there.", false),
+        ("``\n[notes](notes(1).txt)\n\n``", true),
+        ("~~~\n[notes](notes(1).txt)\n~~~\n\n[notes](notes(1).txt)", true),
+        // P7D2-11: titles in quotes or parentheses, white space before the destination, a link in a title.
+        ("[notes](notes(1).txt \"notes (1)\")", true),
+        ("[notes](notes(1).txt (notes))", true),
+        ("[notes]( notes(1).txt )", true),
+        ("[notes](other.txt \"an example [link](notes(1).txt)\")", false),
+        ("[notes](other.txt 'it\\'s [x](notes(1).txt)')", false),
+        ("[notes](other.txt 'it''s [x](notes(1).txt)')", true),
     ];
     fs::write(x.join("notes(1).txt"), format!("{token}\n")).unwrap();
     for (text, cites) in cases {
@@ -793,4 +808,103 @@ fn p7d2_8_every_control_config_lists_is_in_words() {
         cli::say("es", "guard.REQ-RUN-2", &[])
     );
     assert!(human.contains(&line), "{human}");
+}
+
+#[test]
+fn p7d2_15_a_citing_file_that_is_not_utf_8_still_cites() {
+    let fx = published("cite-utf8");
+    let x = fx.domain.join("xel");
+    fs::write(x.join("secret.txt"), format!("gh{}_{}\n", "p", "a".repeat(36))).unwrap();
+    fs::write(x.join("fermento.md"), b"[notes](secret.txt)\n\xff\n").unwrap();
+    assert_eq!(finding_of(&check_within(&fx), "C9"), ["CREDENTIAL_SUSPECTED"]);
+}
+
+#[test]
+fn p7d2_12_a_branch_whose_commit_git_cannot_give_is_unknown() {
+    let fx = published("history-fails");
+    let bin = tmp("history-fails-bin");
+    let real =
+        String::from_utf8(std::process::Command::new("sh").args(["-c", "command -v git"]).output().unwrap().stdout)
+            .unwrap();
+    let script = bin.join("git");
+    let body = format!(
+        "#!/bin/sh\nfor a in \"$@\"; do [ \"$a\" = 'refs/heads/main^{{commit}}' ] && exit 128; done\nexec {} \"$@\"\n",
+        real.trim()
+    );
+    fs::write(&script, body).unwrap();
+    fs::set_permissions(&script, fs::Permissions::from_mode(0o755)).unwrap();
+    let path = std::ffi::OsString::from(format!("{}:{}", bin.display(), std::env::var("PATH").unwrap()));
+    let doc = fx.run_with(&["check", "--json"], Some(&path)).doc();
+    assert_eq!(finding_of(&doc, "C4"), ["CHECK_UNKNOWN"], "{doc}");
+    // A ref that names an object Git does not hold.
+    fs::write(fx.root.join(".git/refs/heads/main"), format!("{}\n", "0123456789".repeat(4))).unwrap();
+    let doc = fx.run(&["check", "--json"]).doc();
+    assert!(finding_of(&doc, "C4").contains(&"CHECK_UNKNOWN".to_owned()), "{doc}");
+}
+
+#[test]
+fn p7d2_13_status_of_an_identifier_in_a_record_that_cannot_be_read() {
+    let fx = published("subject-io");
+    let (_, task) = fx.stage_and_task();
+    let events = fx.domain.join("data/events");
+    fs::set_permissions(&events, fs::Permissions::from_mode(0o000)).unwrap();
+    let out = fx.run(&["status", &task, "--json"]);
+    assert_eq!((out.status, out.doc()["schema"].as_str()), (70, Some("fabrewk.internal/1")), "{out:?}");
+    fs::set_permissions(&events, fs::Permissions::from_mode(0o755)).unwrap();
+    // A record that does not replay shows its state instead of calling the identifier unknown.
+    let dir = fx.domain.join("data/events/project");
+    let first = fs::read_dir(&dir)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.extension().is_some_and(|e| e == "json"))
+        .min()
+        .unwrap();
+    let mut bytes = fs::read(&first).unwrap();
+    bytes[10] ^= 1;
+    fs::write(&first, bytes).unwrap();
+    assert_eq!(fx.run(&["status", &task, "--json"]).doc()["record"], "broken");
+}
+
+#[test]
+fn p7d2_14_settings_that_are_links_or_not_regular_are_never_opened() {
+    let fx = published("settings-fifo");
+    let x = fx.domain.join("xel");
+    fs::write(x.join("uncited.txt"), "not = [toml\n").unwrap();
+    fs::remove_file(x.join("settings.toml")).unwrap();
+    std::os::unix::fs::symlink("uncited.txt", x.join("settings.toml")).unwrap();
+    let doc = check_within(&fx);
+    let c1: Vec<&Value> = doc["findings"].as_array().unwrap().iter().filter(|f| f["check"] == "C1").collect();
+    assert_eq!(c1.len(), 1, "{doc}");
+    assert!(c1[0]["detail"].as_str().unwrap().contains("not a regular file"), "{doc}");
+    fs::remove_file(x.join("settings.toml")).unwrap();
+    assert!(std::process::Command::new("mkfifo").arg(x.join("settings.toml")).status().unwrap().success());
+    check_within(&fx);
+    for args in [&["status"][..], &["--help"], &["config"]] {
+        let mut c = std::process::Command::new(env!("CARGO_BIN_EXE_fabrewk"));
+        isolate(&mut c, &fx.home, None);
+        let mut child = c
+            .current_dir(&fx.root)
+            .args(args)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .unwrap();
+        let ended = (0..500).any(|_| {
+            std::thread::sleep(std::time::Duration::from_millis(10));
+            child.try_wait().unwrap().is_some()
+        });
+        let _ = child.kill();
+        assert!(ended, "{args:?} did not end");
+    }
+    for file in [fx.domain.join("settings.toml"), fx.domain.join("local/cache/heads.json")] {
+        fs::remove_file(&file).unwrap();
+        assert!(std::process::Command::new("mkfifo").arg(&file).status().unwrap().success());
+    }
+    let codes: Vec<String> = check_within(&fx)["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| f["code"].as_str().unwrap().to_owned())
+        .collect();
+    assert!(codes.contains(&"MARK_INVALID".to_owned()) && codes.contains(&"SETTINGS_INVALID".to_owned()), "{codes:?}");
 }
