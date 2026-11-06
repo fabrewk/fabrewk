@@ -45,6 +45,12 @@ summarizes the rules already fixed; the decisions and their origin are in `.brew
 - **Handover.** Closing a session, the integrator tells the maintainer the prompt, model and effort for the next
   chat, taken from `.brewstillery/bootstrap/plan.md`, and writes them in `STATUS.md`. The prompt names the phase or
   part and what it does, so that the chat's title shows it (D-040).
+- **Skills.** The skills the maestro approved are in `.brewstillery/skills/<name>/SKILL.md`; no tool loads them by
+  itself, so read the one whose use matches your task before doing it (D-060): `verify-part` to run a part's
+  checks, clean clone and mutation on this machine; `codex-review` to launch and record Codex's review;
+  `differential-review` to review a diff by risk before a review pass; `sharp-edges` for APIs, refusals and settings
+  that a caller could misuse; `property-based-testing` for `proptest` properties. A skill never outranks this file or
+  the maestro.
 - **Code.** A new runtime crate, or a change to the size budget in `tools/budget/src/budget.rs`, is a maestro's
   recorded decision, never an agent's (AD-4, AD-5, D-042).
 - **Not yet decided or not yet due; do not create:** `.brewstillery/data/` (its path is decided, it is created with

@@ -16,7 +16,7 @@ pub const GITIGNORE: &str = "local/\n";
 pub const EXCLUDE: &str = "/.brewstillery/";
 
 const FILES: [&str; 5] = ["ALAMBIQUE.md", "STATUS.md", "RULES.md", "settings.toml", ".gitignore"];
-const DIRS: [&str; 2] = ["data", "local"];
+const DIRS: [&str; 3] = ["data", "local", "skills"];
 
 /// Every entry at the domain's top that is not part of it (REQ-DOM-2), in name order: a directory whose name is not an
 /// alias and not reserved is `ALIAS_INVALID`; anything else not listed, a listed name of the wrong kind, and a link

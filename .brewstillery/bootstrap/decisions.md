@@ -2494,3 +2494,36 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Sources: chat of session 21; `xel/fermento.md` point 1; `ALAMBIQUE.md` section 2 and 6.38; `AGENTS.md` ("Domain");
   `reference-study.md` PP-10 (generated skills that pre-approve tools) and C-60, C-61.
 - Supersedes: none.
+
+## D-060 — Part 7s: the skills adopted, read from the domain, and `skills` reserved
+
+- Status: decided
+- Decided: 2026-11-06
+- Origin: maintainer XEL in session 22's chat, answering the integrator's four questions after reading the evaluation
+  (`skills-evaluation.md`): third-party skills "property-based-testing (Recomendado), sharp-edges (Recomendado),
+  differential-review (Recomendado)"; own skills "verify-part (Recomendado), codex-review (Recomendado)"; where they
+  are read from "Solo el dominio (Recomendado)"; the exact change for the reserved name "Aprobar (Recomendado)". The
+  first question named the licence (CC BY-SA 4.0), the revision (`470419e`) and the adaptation.
+- Decision:
+  1. Adopted from `trailofbits/skills` at `470419e16f97e112d01fc32f4898aea1755015d9`, adapted (the frontmatter keys
+     `allowed-tools` and `effort` removed, a notice added; every other file unchanged), under CC BY-SA 4.0 with the
+     licence text in each folder: `property-based-testing`, `sharp-edges`, `differential-review`. The notice puts
+     `AGENTS.md` and the maestro first and sends a skill's own output outside every tracked path and the domain.
+  2. Written by the integrator from what the record fixes, deciding nothing new: `verify-part` (the checks, the clean
+     clone and mutation on this machine) and `codex-review` (launching and recording Codex's review).
+  3. Route A of the evaluation: the skills live only in `.brewstillery/skills/<name>/`; `AGENTS.md` lists them and
+     says when to read each; no entry under `.claude/` or `.agents/`, so neither tool loads them by itself, no
+     frontmatter grants a tool, and nothing loads twice beside the copies in the maintainer's user folders.
+  4. The core reserves `skills` (`RESERVED`, so no alias takes it) and lists `skills/` among the domain's directories
+     (`DIRS`, so `check` reports nothing for it; a file or a link so named stays `DOMAIN_UNKNOWN_ENTRY`); its test in
+     `crates/core/tests/domain.rs`; REQ-DOM-2 and REQ-DOM-3 amended. The core reads nothing inside `skills/`.
+  5. Not adopted now, with a later use recorded in the evaluation: `spec-to-code-compliance` and `rust-review` as
+     one-off plugin runs in a disposable clone, `security-threat-model` at phase 9; each a maestro's decision then.
+- Consequences: `.brewstillery/skills/` exists with five skills; `AGENTS.md` gains the line "Skills";
+  `core-specification.md` REQ-DOM-2, REQ-DOM-3 and the paragraph "The domain, as part 7c2b fixed it" name `skills`;
+  `plan.md` row 7s. The five TickBrew copies in `~/.agents/skills/` (linked from `~/.claude/skills/`) are the
+  maintainer's machine and stay as they are; `.brewstillery/settings.toml`'s `layout.reservedNames` is a bootstrap
+  key no code reads, and adding `skills` there is the maestro's edit if wanted.
+- Sources: chat of session 22; `skills-evaluation.md`; D-059; `ALAMBIQUE.md` section 2 and 6.38; `reference-study.md`
+  PP-10.
+- Supersedes: none.

@@ -34,7 +34,9 @@ fn req_dom_2_the_top_holds_only_the_listed_names_and_anything_else_is_reported_n
     for file in ["ALAMBIQUE.md", "STATUS.md", "RULES.md", "settings.toml"] {
         fs::write(d.join(file), "x\n").unwrap();
     }
-    for dir in ["data", "local", "xel", "ana-maria", "a1"] {
+    // `skills/` holds the skills the maestros approved (D-060): reserved, so never an alias, and listed.
+    assert!(!settings::is_alias("skills"));
+    for dir in ["data", "local", "skills", "xel", "ana-maria", "a1"] {
         fs::create_dir(d.join(dir)).unwrap();
     }
     assert_eq!(findings(d), []);
@@ -93,6 +95,7 @@ fn req_dom_2_a_listed_name_of_the_wrong_kind_is_not_the_listed_entry() {
     symlink(f.keys.join("allowed"), d.join(".gitignore")).unwrap();
     fs::write(d.join("STATUS.md"), "x\n").unwrap();
     symlink(d.join("STATUS.md"), d.join("RULES.md")).unwrap();
+    fs::write(d.join("skills"), "a file\n").unwrap();
     assert_eq!(
         findings(d),
         [
@@ -101,8 +104,15 @@ fn req_dom_2_a_listed_name_of_the_wrong_kind_is_not_the_listed_entry() {
             ("data".into(), Code::DomainUnknownEntry),
             ("local".into(), Code::DomainUnknownEntry),
             ("settings.toml".into(), Code::DomainUnknownEntry),
+            ("skills".into(), Code::DomainUnknownEntry),
         ]
     );
+
+    // A link named `skills` is not the skills' directory either (D-060).
+    let f = Fixture::new("dom-2-skills-link", false);
+    fs::create_dir(f.domain.join("elsewhere")).unwrap();
+    symlink(f.domain.join("elsewhere"), f.domain.join("skills")).unwrap();
+    assert_eq!(findings(&f.domain), [("skills".into(), Code::DomainUnknownEntry)]);
 }
 
 #[test]

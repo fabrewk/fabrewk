@@ -99,8 +99,18 @@ pub struct Settings {
 }
 
 /// Names an alias may not take (REQ-DOM-3); the list lives in the code, never in a settings file.
-pub const RESERVED: [&str; 9] =
-    ["ALAMBIQUE.md", "STATUS.md", "RULES.md", "settings.toml", ".gitignore", "data", "local", "review", "bootstrap"];
+pub const RESERVED: [&str; 10] = [
+    "ALAMBIQUE.md",
+    "STATUS.md",
+    "RULES.md",
+    "settings.toml",
+    ".gitignore",
+    "data",
+    "local",
+    "review",
+    "bootstrap",
+    "skills",
+];
 
 /// Whether `s` may be an alias: REQ-DOM-3's pattern, at most 32 characters, not reserved.
 pub fn is_alias(s: &str) -> bool {

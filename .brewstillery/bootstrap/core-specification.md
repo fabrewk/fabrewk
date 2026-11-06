@@ -120,10 +120,11 @@ Every point classified I has at least one requirement; every deferral has its re
 - **REQ-DOM-1.** Every file Fabrewk writes in a repository is under `.brewstillery/`, except the entry block of
   REQ-DOM-6 and, in the publication modes that need it, one line in `.git/info/exclude` (REQ-DOM-7). (§2, 6.3, AD-12)
 - **REQ-DOM-2.** The domain holds only: `ALAMBIQUE.md`, `STATUS.md`, `RULES.md`, `settings.toml`, `.gitignore`,
-  `data/`, `local/`, one directory per alias, and `review/` in review mode. Fabrewk creates nothing else. `check` reports
+  `data/`, `local/`, `skills/` (the skills the maestros approved, §2; amended by D-060), one directory per alias, and
+  `review/` in review mode. Fabrewk creates nothing else; the core reads nothing inside `skills/`. `check` reports
   any other entry at the domain's top as a warning (`DOMAIN_UNKNOWN_ENTRY`); it does not delete it. (§2, AD-8, AD-12)
 - **REQ-DOM-3.** Reserved names: `ALAMBIQUE.md`, `STATUS.md`, `RULES.md`, `settings.toml`, `.gitignore`, `data`,
-  `local`, `review`, `bootstrap`. An alias matches `^[a-z][a-z0-9]*(-[a-z0-9]+)*$`, has at most 32 characters and is
+  `local`, `review`, `bootstrap`, `skills` (D-060). An alias matches `^[a-z][a-z0-9]*(-[a-z0-9]+)*$`, has at most 32 characters and is
   not reserved (`ALIAS_INVALID`). The list lives in the code; `layout.reservedNames` is not a production key (section
   8). (§2, 6.6, AD-12)
 - **REQ-DOM-4.** `.brewstillery/.gitignore` holds exactly the line `local/`. Fabrewk writes it, records its digest in
@@ -147,7 +148,7 @@ Every point classified I has at least one requirement; every deferral has its re
   `.brewstillery/` is a Git repository of its own and Fabrewk commits there. (6.27, AD-1, AD-7 step 6)
 
 **The domain, as part 7c2b fixed it (D-051).** At the domain's top a listed name counts only with its kind (the five
-files as files, `data/`, `local/` and each alias as directories); a link is never followed and is an unknown entry. A
+files as files, `data/`, `local/`, `skills/` (D-060) and each alias as directories); a link is never followed and is an unknown entry. A
 directory whose name is neither an alias nor reserved is `ALIAS_INVALID`; anything else not listed is
 `DOMAIN_UNKNOWN_ENTRY`, `bootstrap/` and, while review mode is not built, `review/` included, so `check` does not fail
 in this repository. `.gitignore` must be a file, not a link, holding exactly `local/` and a newline. The publication
