@@ -707,33 +707,31 @@ fn p7d2_2_a_citing_file_that_is_a_link_or_not_regular_is_never_read() {
 }
 
 #[test]
-fn p7d2_3_only_markdown_links_cite_and_their_whole_destination() {
+fn d_056_text_shaped_as_a_link_cites_its_whole_destination() {
     let fx = published("cite-syntax");
     let token = format!("gh{}_{}", "p", "a".repeat(36));
     let x = fx.domain.join("xel");
+    // D-056: a `[`, then on the same line `](`, then a destination, wherever it stands, code and titles included.
     let cases = [
         ("[notes](notes(1).txt)", true),
         ("[notes](<notes(1).txt>)", true),
         ("![a [nested] capture](notes(1).txt \"a title\")", true),
         ("[notes](notes\\(1\\).txt)", true),
+        ("[notes](notes(1).txt#part)", true),
+        ("[notes](notes(1).txt", true),
+        ("An example: `[notes](notes(1).txt)`", true),
+        ("```\n[notes](notes(1).txt)\n```", true),
+        ("- ```\n  [notes](notes(1).txt)\n  ```", true),
+        ("[x](other.txt \"an example [link](notes(1).txt)\")", true),
+        ("[notes](other.txt \"example\n\n[link](notes(1).txt)\")", true),
         ("This is not a link: ](notes(1).txt)", false),
-        ("An example: `[notes](notes(1).txt)`", false),
-        ("```\n[notes](notes(1).txt)\n```", false),
-        ("[notes](notes(1).txt", false),
+        ("](notes(1).txt) and then [", false),
+        ("[notes]\n(notes(1).txt)", false),
+        ("[notes]( notes(1).txt)", false),
+        ("[notes](<notes(1).txt)", false),
+        ("[notes](#notes(1).txt)", false),
+        ("[notes](/notes(1).txt)", false),
         ("[notes](https://example.invalid/notes(1).txt)", false),
-        // P7D2-10: fences closed only by their own kind and length, code spans across lines.
-        ("````\n```\n[notes](notes(1).txt)\n````", false),
-        ("```\n```rust\n[notes](notes(1).txt)\n```", false),
-        ("An example: `[notes]\n(notes(1).txt)` and `[notes](notes(1).txt)\n` there.", false),
-        ("``\n[notes](notes(1).txt)\n\n``", true),
-        ("~~~\n[notes](notes(1).txt)\n~~~\n\n[notes](notes(1).txt)", true),
-        // P7D2-11: titles in quotes or parentheses, white space before the destination, a link in a title.
-        ("[notes](notes(1).txt \"notes (1)\")", true),
-        ("[notes](notes(1).txt (notes))", true),
-        ("[notes]( notes(1).txt )", true),
-        ("[notes](other.txt \"an example [link](notes(1).txt)\")", false),
-        ("[notes](other.txt 'it\\'s [x](notes(1).txt)')", false),
-        ("[notes](other.txt 'it''s [x](notes(1).txt)')", true),
     ];
     fs::write(x.join("notes(1).txt"), format!("{token}\n")).unwrap();
     for (text, cites) in cases {
@@ -907,4 +905,92 @@ fn p7d2_14_settings_that_are_links_or_not_regular_are_never_opened() {
         .map(|f| f["code"].as_str().unwrap().to_owned())
         .collect();
     assert!(codes.contains(&"MARK_INVALID".to_owned()) && codes.contains(&"SETTINGS_INVALID".to_owned()), "{codes:?}");
+}
+
+/// Runs `args` and fails if they do not end within five seconds.
+fn ends(fx: &Fx, args: &[&str]) {
+    let mut c = std::process::Command::new(env!("CARGO_BIN_EXE_fabrewk"));
+    isolate(&mut c, &fx.home, None);
+    let mut child = c
+        .current_dir(&fx.root)
+        .args(args)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .unwrap();
+    let ended = (0..500).any(|_| {
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        child.try_wait().unwrap().is_some()
+    });
+    let _ = child.kill();
+    assert!(ended, "{args:?} did not end");
+}
+
+#[test]
+fn p7d2_17_a_signing_key_that_is_a_pipe_never_blocks() {
+    let fx = published("key-fifo");
+    for (named, fifo) in [("pipe", "pipe"), ("absent", "absent.pub")] {
+        let path = fx.keys.join(fifo);
+        assert!(std::process::Command::new("mkfifo").arg(&path).status().unwrap().success());
+        fx.git(&["config", "user.signingkey", fx.keys.join(named).to_str().unwrap()]);
+        for args in [&["status"][..], &["check"], &["config"], &["--help"], &["--version"], &["status", "--nope"]] {
+            ends(&fx, args);
+        }
+    }
+}
+
+#[test]
+fn p7d2_18_no_link_on_the_way_to_a_file_is_followed() {
+    // A maintainer's directory that is a link: their file is not read, and the domain reports the entry.
+    let fx = published("alias-link");
+    let moved = fx.root.join("../elsewhere");
+    fs::rename(fx.domain.join("xel"), &moved).unwrap();
+    std::os::unix::fs::symlink(&moved, fx.domain.join("xel")).unwrap();
+    refused(&fx, &["config"], "SETTINGS_INVALID", 1, "en");
+    assert!(findings(&fx).contains(&("DOMAIN_UNKNOWN_ENTRY".into(), "warning".into())));
+    // The mark's directory that is a link: the file behind it is not parsed.
+    let fx = published("mark-link");
+    let cache = fx.domain.join("local/cache");
+    let away = fx.domain.join("xel/uncited-cache");
+    fs::rename(&cache, &away).unwrap();
+    fs::write(away.join("heads.json"), "UNCITED NOT JSON").unwrap();
+    std::os::unix::fs::symlink("../xel/uncited-cache", &cache).unwrap();
+    let e = refused(&fx, &["check"], "MARK_INVALID", 3, "es");
+    assert_eq!(e["detail"], "not a regular file", "{e}");
+    // A domain that is a link: no record, policy or settings is read through it.
+    let fx = published("domain-link");
+    let away = fx.root.join("../domain-elsewhere");
+    fs::rename(&fx.domain, &away).unwrap();
+    std::os::unix::fs::symlink(&away, &fx.domain).unwrap();
+    let doc = fx.run(&["status", "--json"]).doc();
+    assert_eq!((doc["record"].as_str(), doc["problems"][0]["code"].as_str()), (Some("broken"), Some("RECORD_BROKEN")));
+    refused(&fx, &["config"], "RECORD_BROKEN", 1, "en");
+    refused(&fx, &["check"], "RECORD_BROKEN", 3, "en");
+    // A private folder that is a link: its machine file is not read.
+    let fx = published("folder-link");
+    let away = fx.home.join("elsewhere");
+    fs::create_dir_all(&away).unwrap();
+    fs::set_permissions(&away, fs::Permissions::from_mode(0o700)).unwrap();
+    fs::write(away.join("machine.toml"), "not = [toml\n").unwrap();
+    fs::create_dir_all(fx.home.join(".config")).unwrap();
+    std::os::unix::fs::symlink(&away, fx.folder()).unwrap();
+    let doc = fx.run(&["check", "--json"]).doc();
+    assert_eq!(finding_of(&doc, "C1"), Vec::<String>::new(), "{doc}");
+    assert_eq!(finding_of(&doc, "C11"), ["PRIVATE_FOLDER_PERMISSIONS"], "{doc}");
+}
+
+#[test]
+fn p7d2_21_c1_cannot_list_what_it_must_read() {
+    let fx = published("c1-list");
+    let ana = fx.domain.join("ana");
+    fs::create_dir(&ana).unwrap();
+    fs::write(ana.join("settings.toml"), "[maintainer]\nalias = \"ana\"\n").unwrap();
+    fs::set_permissions(&ana, fs::Permissions::from_mode(0o000)).unwrap();
+    let doc = fx.run(&["check", "--json"]).doc();
+    assert_eq!(finding_of(&doc, "C1"), ["CHECK_UNKNOWN"], "{doc}");
+    fs::set_permissions(&ana, fs::Permissions::from_mode(0o755)).unwrap();
+    fs::set_permissions(&fx.domain, fs::Permissions::from_mode(0o111)).unwrap();
+    let doc = fx.run(&["check", "--json"]).doc();
+    fs::set_permissions(&fx.domain, fs::Permissions::from_mode(0o755)).unwrap();
+    assert!(finding_of(&doc, "C1").contains(&"CHECK_UNKNOWN".to_owned()), "{doc}");
 }

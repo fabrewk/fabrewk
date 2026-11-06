@@ -31,9 +31,9 @@ pub fn private_folder(var: impl Fn(&str) -> Option<OsString>) -> Result<PathBuf,
 
 /// Refuses a private folder that is not a directory with access for its owner only (`PRIVATE_FOLDER_PERMISSIONS`).
 pub fn check_permissions(folder: &Path) -> Result<(), Error> {
-    let meta = fs::metadata(folder).map_err(io_at(folder))?;
+    let meta = fs::symlink_metadata(folder).map_err(io_at(folder))?;
     if !meta.is_dir() {
-        return Err(refuse(Code::PrivateFolderPermissions, Some(folder), "not a directory"));
+        return Err(refuse(Code::PrivateFolderPermissions, Some(folder), "not a directory; a link is not followed"));
     }
     let mode = meta.permissions().mode() & 0o777;
     if mode & 0o077 != 0 {

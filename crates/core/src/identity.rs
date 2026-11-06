@@ -155,7 +155,11 @@ pub fn person(policy: &Settings, root: &Path) -> Option<String> {
     let public = match named.strip_prefix("key::") {
         Some(literal) => literal.to_owned(),
         None => {
-            let read = |p: &Path| std::fs::read_to_string(p).ok().filter(|t| key_blob(t.trim()).is_some());
+            // Only a regular file is opened, so that a pipe never blocks a reading command (P7D2-17).
+            let regular = |p: &Path| std::fs::metadata(p).is_ok_and(|m| m.is_file());
+            let read = |p: &Path| {
+                regular(p).then(|| std::fs::read_to_string(p).ok()).flatten().filter(|t| key_blob(t.trim()).is_some())
+            };
             let path = root.join(&named);
             let mut public = path.clone().into_os_string();
             public.push(".pub");

@@ -608,13 +608,14 @@ their effect, each maintainer's key (REQ-ID-5), what detection finds, the effect
   that is not regular is matched by its name only, never followed or read; a maintainer's top directory is any
   directory at the domain's top whose name is an alias; which files the fermento or the alambique cite is given to the
   scan by `check` (part 7d2).
-  As part 7d2 fixed it (D-055): the files cited are the targets of every Markdown inline link `[text](target)` and
-  image `![text](target)` in `ALAMBIQUE.md` and in each `<alias>/fermento.md` that are relative paths (a target in
-  `<…>` may hold spaces; the title, a fragment and a query are dropped), resolved from the citing file's directory
-  with `.` and `..` read as written; a target with a scheme, an absolute path or only a fragment cites nothing. A
-  destination without `<…>` may hold balanced parentheses, and a backslash escapes punctuation; links inside fenced
-  blocks and code spans are examples and cite nothing; a link's text stays on one line. A citing file is read only
-  when it is a regular file in a maintainer's directory that is not a link (P7D2-2).
+  As part 7d2 fixed it (D-055, D-056): a citation is read lexically, with no Markdown structure: in `ALAMBIQUE.md`
+  and in each `<alias>/fermento.md`, every `[`, then on the same line `](`, followed by a destination, cites it,
+  wherever it stands (in code, in a title, in another link's text). The destination is `<…>` up to its `>` on the same
+  line, or every character up to the first white space or the `)` that closes it, parentheses balanced; a backslash
+  before punctuation escapes it. A destination with a scheme, an absolute path, only a fragment, or empty, cites
+  nothing; a fragment or a query after the path is dropped; it is resolved from the citing file's directory with `.`
+  and `..` read as written. A citing file is read only when it is a regular file in a maintainer's directory that is
+  not a link, and as far as it is UTF-8. The cost accepted (D-056): a file a maintainer names in an example is read too.
 - **REQ-SEC-4.** The private folder is created with access for its owner only, and Fabrewk refuses to read it if its
   permissions are wider (`PRIVATE_FOLDER_PERMISSIONS`). (6.51, AD-15)
 - **REQ-SEC-5.** Every control in the transition table and in `check` is labelled `effective` (enforced by code with
@@ -889,9 +890,11 @@ and in `config`'s; C9 is cooperative. `config` words every guard of section 4 fr
 `status` and `config` give exit 70 when the record's files cannot be read at all; `status <id>` with a record that
 does not replay shows the record's state instead. A ref that exists and names no commit, or a Git that cannot say, is
 `TOOL_FAILED`, never an unborn branch (P7D2-12). Nothing a reading command reads is opened unless it is a regular file,
-and no link is followed: a settings file that is not one is `SETTINGS_INVALID`, a mark `MARK_INVALID`, and the
+and no link is followed, on the file or on its way from the domain (or the private folder) to it: a settings file that is not one is `SETTINGS_INVALID`, a mark `MARK_INVALID`, and the
 record's `data/`, `data/events/` or a stream that is not a directory `RECORD_BROKEN` (P7D2-14); a citing file that is
-not UTF-8 is read as far as it is (P7D2-15).
+not UTF-8 is read as far as it is (P7D2-15). A domain that is a link is `RECORD_BROKEN` (C3 in `check`); a private
+folder that is one is `PRIVATE_FOLDER_PERMISSIONS`; Git's signing key is read only from a regular file (P7D2-17), and
+`--version` reads nothing. A domain or a maintainer's directory that cannot be listed leaves C1 `CHECK_UNKNOWN`.
 
 ## 7. Refusals
 

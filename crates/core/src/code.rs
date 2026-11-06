@@ -103,6 +103,17 @@ impl Error {
     }
 }
 
+/// Whether no entry from `base` itself down to `base/rel` is a link; one that does not exist is none (P7D2-18).
+pub(crate) fn unlinked(base: &Path, rel: &str) -> bool {
+    let link = |p: &Path| std::fs::symlink_metadata(p).is_ok_and(|m| m.file_type().is_symlink());
+    let mut path = base.to_path_buf();
+    !link(&path)
+        && rel.split('/').all(|part| {
+            path.push(part);
+            !link(&path)
+        })
+}
+
 pub(crate) fn refuse(code: Code, path: Option<&Path>, detail: impl Into<String>) -> Error {
     Error::Refused { code, path: path.map(Path::to_path_buf), detail: detail.into() }
 }

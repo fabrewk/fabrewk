@@ -157,6 +157,10 @@ impl Cx {
         if std::fs::symlink_metadata(&path).is_err() {
             return Ok(None);
         }
+        if !crate::code::unlinked(&self.domain, &format!("{alias}/settings.toml")) {
+            let why = "(document) (line 1): a link on its path; it is not followed";
+            return Err(vec![crate::code::refuse(Code::SettingsInvalid, Some(&path), why)]);
+        }
         settings::read(&path, Level::Personal).map(Some)
     }
 
@@ -177,7 +181,8 @@ impl Cx {
 /// policy's canonical documentation language, else `en`; then the first catalogue its fallbacks reach.
 fn language(domain: &Path, policy: Option<&Policy>, person: Option<&str>) -> &'static str {
     let tag = policy.and_then(|p| {
-        let file = person.map(|a| domain.join(a).join("settings.toml"));
+        let own = person.filter(|a| crate::code::unlinked(domain, &format!("{a}/settings.toml")));
+        let file = own.map(|a| domain.join(a).join("settings.toml"));
         let personal = file.and_then(|f| settings::read(&f, Level::Personal).ok());
         let eff = settings::effective(p, personal.as_ref(), None, &[], &[]).ok()?;
         match eff.values.get("languages.interfaceLanguage") {
@@ -210,17 +215,21 @@ pub fn main(args: Vec<OsString>, modules: &'static [Program]) -> i32 {
     let asked = args.iter().any(|a| a == "--json");
     let parsed = decl::parse(args);
     let json = asked && !matches!(parsed, Ok(Parsed::Help(_)));
-    let cx = || std::env::current_dir().map(|root| Cx::new(root, modules));
-    let out = match (parsed, cx()) {
+    // The version reads nothing: no record, no Git, no file the person names.
+    let out = match (parsed, std::env::current_dir()) {
         (Ok(Parsed::Version { .. }), _) => version(),
         (_, Err(_)) => internal("en", "."),
-        (Err(u), Ok(cx)) => cx.usage(u),
-        (Ok(Parsed::Help(c)), Ok(cx)) => Out::new(Value::Null, decl::help(cx.lang, c)),
-        (Ok(Parsed::Run { command, arg, .. }), Ok(cx)) => {
-            let result = match command.name {
-                "status" => status::run(&cx, arg.as_deref()),
-                "config" => config::run(&cx, arg.as_deref()),
-                _ => check::run(&cx),
+        (parsed, Ok(root)) => {
+            let cx = Cx::new(root, modules);
+            let result = match parsed {
+                Err(u) => Err(Failed::Usage(u)),
+                Ok(Parsed::Help(c)) => Ok(Out::new(Value::Null, decl::help(cx.lang, c))),
+                Ok(Parsed::Run { command, arg, .. }) => match command.name {
+                    "status" => status::run(&cx, arg.as_deref()),
+                    "config" => config::run(&cx, arg.as_deref()),
+                    _ => check::run(&cx),
+                },
+                Ok(Parsed::Version { .. }) => Ok(version()),
             };
             match result {
                 Ok(out) => out,

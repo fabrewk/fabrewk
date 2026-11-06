@@ -2332,3 +2332,23 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Sources: chat of session 21; `STATUS.md`'s "Next"; D-040 (`lexopt`), D-053; `core-specification.md` REQ-CLI-1 to
   REQ-CLI-4, REQ-SEC-3, REQ-SEC-5, REQ-VIEW-4, sections 5, 6, 7, 11.2, 12 CLI and SEC.
 - Supersedes: none.
+
+## D-056 — Part 7d2: a citation is any text shaped as a Markdown link, read lexically
+
+- Status: decided
+- Decided: 2026-11-05
+- Origin: maintainer XEL in session 21's chat, answering the integrator's question after Codex's third pass of 7d2
+  kept finding CommonMark's structure (fences inside lists, block quotes, titles across paragraphs) breaking the
+  citation reader (P7D2-3, P7D2-10, P7D2-11, P7D2-19, P7D2-20): "Regla léxica (Recomendado)".
+- Decision: what the fermento or the alambique cites (D-055 point 2, REQ-SEC-3 at `check`) is read lexically, with no
+  Markdown structure: every `[`, then on the same line `](`, followed by a destination, cites that destination,
+  wherever it stands (in code, in a title, in another link's text). The destination is `<…>` up to its `>` on the
+  same line, or else every character up to the first white space or the `)` that closes it, parentheses balanced; a
+  backslash before punctuation escapes it. A destination with a scheme, an absolute path, only a fragment, or empty
+  cites nothing; a fragment or a query after the path is dropped. The cost accepted: a file a maintainer names in an
+  example is read for credentials too.
+- Consequences: REQ-SEC-3's paragraph "As part 7d2 fixed it" in `core-specification.md` says so; the work affected is
+  part 7d2's citation reader and its tests. D-055 point 2 stands, read with this entry.
+- Sources: chat of session 21; Codex's three passes of 7d2; D-055; `core-specification.md` REQ-SEC-3.
+- Supersedes: the interpretation of D-055 point 2 recorded after Codex's first pass (fences and code spans cite
+  nothing).

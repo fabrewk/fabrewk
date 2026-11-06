@@ -110,6 +110,9 @@ pub(crate) fn list_stream(dir: &Path) -> Result<Listing, Error> {
 pub fn replay(domain: &Path, verifier: &dyn Verify) -> Result<Replay, Vec<Error>> {
     let root = domain.join("data/events");
     let absent = || vec![refuse(Code::RecordAbsent, Some(&root), "no event")];
+    if !crate::code::unlinked(domain, "data/events") {
+        return Err(vec![refuse(Code::RecordBroken, Some(domain), "a link on the record's path; it is not followed")]);
+    }
     for dir in [domain.join("data"), root.clone()] {
         if fs::symlink_metadata(&dir).is_ok_and(|m| !m.is_dir()) {
             return Err(vec![refuse(Code::RecordBroken, Some(&dir), "not a directory; a link is not followed")]);

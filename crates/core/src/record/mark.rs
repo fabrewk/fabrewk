@@ -15,7 +15,9 @@ fn path(domain: &Path) -> PathBuf {
 /// Compares the record with this machine's mark; no mark is no comparison.
 pub fn check_mark(domain: &Path, replay: &Replay) -> Result<(), Error> {
     let path = path(domain);
-    if std::fs::symlink_metadata(&path).is_ok_and(|m| !m.is_file()) {
+    if !crate::code::unlinked(domain, "local/cache/heads.json")
+        || std::fs::symlink_metadata(&path).is_ok_and(|m| !m.is_file())
+    {
         return Err(refuse(Code::MarkInvalid, Some(&path), "not a regular file"));
     }
     let bytes = match std::fs::read(&path) {
