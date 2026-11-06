@@ -145,15 +145,21 @@ impl Cx {
         Out { doc, text, error: true, exit: USAGE }
     }
 
-    /// The private folder, from this process's environment; one inside the repository, written there or reached
-    /// through a link, is refused, since it lies outside every repository (AD-15, P7D2-28).
+    /// The private folder, from this process's environment; one inside this repository or inside any Fabrewk domain,
+    /// written there or reached through a link, is refused, so that no maintainer's material is read as it (AD-15,
+    /// P7D2-28, P7D2-29).
     fn folder(&self) -> Result<PathBuf, Error> {
         let folder = crate::machine::private_folder(|k| std::env::var_os(k))?;
         let canonical = |p: &Path| p.canonicalize().ok();
-        let inside = crate::code::normal(&folder).starts_with(&self.root)
-            || canonical(&folder).zip(canonical(&self.root)).is_some_and(|(f, r)| f.starts_with(r));
+        let domain = |p: &Path| p.components().any(|c| c.as_os_str() == ".brewstillery");
+        let paths = [Some(crate::code::normal(&folder)), canonical(&folder)];
+        let root = canonical(&self.root);
+        let inside = paths
+            .iter()
+            .flatten()
+            .any(|p| domain(p) || p.starts_with(&self.root) || root.as_ref().is_some_and(|r| p.starts_with(r)));
         if inside {
-            let why = "inside the repository; the private folder lies outside every repository";
+            let why = "inside this repository or a Fabrewk domain; the private folder lies outside every repository";
             return Err(crate::code::refuse(Code::PrivateFolderPermissions, Some(&folder), why));
         }
         Ok(folder)

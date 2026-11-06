@@ -1114,3 +1114,25 @@ fn p7d2_28_a_private_folder_in_the_repository_is_never_read() {
     let (status, doc) = run(&["config", "--json"]);
     assert_eq!((status, doc["refusals"][0]["code"].as_str()), (1, Some("PRIVATE_FOLDER_PERMISSIONS")), "{doc}");
 }
+
+#[test]
+fn p7d2_29_a_private_folder_in_another_domain_is_never_read() {
+    let (a, b) = (published("folder-other-a"), published("folder-other-b"));
+    let uncited = b.domain.join("xel/uncited");
+    fs::create_dir_all(uncited.join("fabrewk")).unwrap();
+    fs::set_permissions(uncited.join("fabrewk"), fs::Permissions::from_mode(0o700)).unwrap();
+    fs::write(uncited.join("fabrewk/machine.toml"), "not valid TOML [\n").unwrap();
+    let outside = tmp("folder-other-link");
+    std::os::unix::fs::symlink(&uncited, outside.join("config")).unwrap();
+    for xdg in [uncited.clone(), outside.join("config")] {
+        let mut c = std::process::Command::new(env!("CARGO_BIN_EXE_fabrewk"));
+        isolate(&mut c, &a.home, None);
+        let out = c.current_dir(&a.root).env("XDG_CONFIG_HOME", &xdg).args(["check", "--json"]).output().unwrap();
+        let doc: Value = serde_json::from_slice(&out.stdout).unwrap();
+        assert_eq!(
+            (finding_of(&doc, "C1"), finding_of(&doc, "C11")),
+            (vec![], vec!["PRIVATE_FOLDER_PERMISSIONS".to_owned()]),
+            "{doc}"
+        );
+    }
+}
