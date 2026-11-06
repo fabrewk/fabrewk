@@ -204,9 +204,10 @@ repository, is imported into the single registry at production and then stays re
   `codex-review` (launching and recording Codex). They live only in `.brewstillery/skills/`; `AGENTS.md` says when to
   read each, and no tool loads them by itself. The core reserves `skills` and lists `skills/` in the domain
   (REQ-DOM-2, REQ-DOM-3 amended). Codex accepted at its third pass (confirmed blocking 3, 1, 0). Clean clone: 257
-  tests and the crash suite green, musl build, `budget check`, clippy, fmt, `cargo deny` clean. The five TickBrew
-  copies in `~/.agents/skills/` still load in every session on this machine; they are the maintainer's to keep or
-  remove. The disk had 4.9 GB free at the start; old clones under `target/` were removed.
+  tests and the crash suite green, musl build, `budget check`, clippy, fmt, `cargo deny` clean. After the close the
+  maintainer removed the five TickBrew copies from their user folders, added `skills` to `layout.reservedNames`, and
+  approved a sentence in 6.38: Fabrewk reports skills loaded from outside the project and warns on a duplicate name
+  or a contradiction, never touching them (D-061; a requirement is due when phase 8 or 10 starts). The disk had 4.9 GB free at the start; old clones under `target/` were removed.
 - **Next: part 7d3 (plan, "Phase 7").** The write commands: `adopt`, `propose`, `authorize` (PD-37 for `authorize`),
   `reject`, `run` up to confinement (`CONFINEMENT_UNAVAILABLE`), `--say` and `--say-lang`, `AGENT_ENVIRONMENT`, the
   guards every write command applies (REQ-RUN-5, REQ-DOM-7), signing with Git's signing key (D-055 point 1), and the

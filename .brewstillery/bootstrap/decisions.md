@@ -2582,3 +2582,25 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Fermento: the answer was replaced at the close, the separator found exactly once and the input byte-identical
   (everything above the answer, sha256 `141a03e1…`, before and after): point 1 is done and may be removed.
 - Not done: part 7d3.
+
+## D-061 — Skills from outside the project: reported, never touched
+
+- Status: decided
+- Decided: 2026-11-06
+- Origin: maintainer XEL in session 22's chat, after the close. The integrator had said that this repository's case
+  (five TickBrew copies in the maintainer's user folders, three with the names of skills adopted in D-060) is
+  something Fabrewk should report when it assesses a repository. The maintainer added it to their fermento as an open
+  item authorizing the edit, removed the five copies from `~/.agents/skills/` and `~/.claude/skills/` (kept in
+  `~/Dev/tmp/skills-tickbrew/`, whose `MANIFEST.sha256` verifies), and answered the drafted sentence: "Aprobar
+  (Recomendado)".
+- Decision: 6.38 gains, after the sentence on the search for skills: "Al evaluar un repositorio y en cada barrido,
+  Fabrewk informa además qué skills cargan los agentes desde fuera del proyecto (las carpetas de usuario de cada
+  herramienta en el equipo) y avisa cuando una lleva el nombre de una aprobada en `.brewstillery/skills/` o
+  contradice las reglas del proyecto; no las toca: conservarlas o quitarlas lo decide el dueño del equipo." No status
+  key, like D-059's sentences.
+- Consequences: `ALAMBIQUE.md` changes (sha256 `07181c8e…` before, `58774ab4…` after). The core specification is frozen
+  and has no requirement for it yet; it is due where the assessment (REQ-INS) and the sweep are specified, a change to
+  propose when phase 8 or phase 10 starts. The residual of R-030 on the user copies is closed. The maintainer's
+  settings edit (`layout.reservedNames` gains `skills`) went in its own commit, `29b7a40`.
+- Sources: chat of session 22; `xel/fermento.md`'s open item; D-060, R-030; `ALAMBIQUE.md` 6.38.
+- Supersedes: none.
