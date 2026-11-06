@@ -629,7 +629,7 @@ const PINNED: &[(&str, &str)] = &[
 #[test]
 fn req_cli_4_every_document_holds_to_its_pinned_schema() {
     let fx = published("cli-4");
-    let (_, task) = fx.stage_and_task();
+    let (stage, task) = fx.stage_and_task();
     let path = fx.domain.join("settings.toml");
     fs::write(&path, fs::read_to_string(&path).unwrap() + "\n[limits]\nrounds = 5\n").unwrap();
     fs::write(fx.domain.join("notes.md"), "x\n").unwrap();
@@ -654,6 +654,27 @@ fn req_cli_4_every_document_holds_to_its_pinned_schema() {
     fs::remove_file(broken.domain.join("data/events/project/000009-0000000000000000.json")).unwrap();
     docs.push(broken.run(&["config", "--json"]).doc());
     docs.push(run_in(&fx.root, &fx.home, &["--version", "--json"], None).doc());
+    // Every branch of each document: a tool declared and absent, a value that is a list, a stage, an absent record,
+    // a refusal with a place and no command to run (P7D2-31).
+    fs::create_dir_all(fx.folder()).unwrap();
+    fs::set_permissions(fx.folder(), fs::Permissions::from_mode(0o700)).unwrap();
+    fs::write(fx.folder().join("machine.toml"), "[tools.sentinel]\npath = \"/no-such-review-tool\"\n").unwrap();
+    for args in [&["config"][..], &["config", "gate.protectedPaths"], &["status", &stage]] {
+        docs.push(fx.run(&[args, &["--json"]].concat()).doc());
+    }
+    let absent = docs[docs.len() - 3]["machine"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|m| m["name"] == "sentinel" && m["present"] == false);
+    assert!(absent, "a declared tool that is absent: {}", docs[docs.len() - 3]);
+    let bare = Fx::bare("cli-4-bare", "published");
+    docs.push(bare.run(&["status", "--json"]).doc());
+    docs.push(bare.run(&["config", "--json"]).doc());
+    assert_eq!(
+        (docs[docs.len() - 1]["refusals"][0]["run"].clone(), docs[docs.len() - 2]["record"].as_str()),
+        (Value::Null, Some("absent"))
+    );
     if std::env::var_os("FABREWK_PRINT_SCHEMAS").is_some() {
         let mut seen: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
         for doc in &docs {
