@@ -279,7 +279,14 @@ fn walk(dir: &Path, out: &mut BTreeMap<PathBuf, (u32, Vec<u8>)>) {
     for entry in entries.flatten() {
         let path = entry.path();
         let meta = std::fs::symlink_metadata(&path).unwrap();
-        let bytes = if meta.is_file() { std::fs::read(&path).unwrap_or_default() } else { Vec::new() };
+        // A link's target, as written and never followed, so that a changed target is a change.
+        let bytes = if meta.is_file() {
+            std::fs::read(&path).unwrap_or_default()
+        } else if meta.file_type().is_symlink() {
+            std::fs::read_link(&path).map(|t| t.into_os_string().into_encoded_bytes()).unwrap_or_default()
+        } else {
+            Vec::new()
+        };
         out.insert(path.clone(), (meta.permissions().mode(), bytes));
         if meta.is_dir() {
             walk(&path, out);

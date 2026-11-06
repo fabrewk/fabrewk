@@ -255,3 +255,18 @@ fn refusal_record_id_collision_at_propose() {
     }
     assert_eq!(fx.run(&["check"]).status, 0);
 }
+
+#[test]
+fn a_rebuilt_record_commit_never_stands_on_a_rewound_branch() {
+    // While the command waits to commit, someone moves the branch back to an ancestor that lacks an event already
+    // committed, the working tree and index unchanged (P7D3A-19, PD-01 (b)): the commit is not rebuilt there.
+    let fx = ready("rewound");
+    let ancestor = fx.git(&["rev-parse", "HEAD~2"]);
+    let dir = tmp("rewound-steps");
+    let child = paused(&fx, &args(true), "before-commit", &dir);
+    fx.git(&["update-ref", "refs/heads/main", &ancestor]);
+    let ran = resume(child, "before-commit", &dir);
+    assert_eq!(ran.status, 1, "{ran:?}");
+    assert_eq!(ran.doc()["refusals"][0]["code"], "RECORD_ROLLBACK", "{ran:?}");
+    assert_eq!(fx.git(&["rev-parse", "HEAD"]), ancestor, "no record commit on it");
+}

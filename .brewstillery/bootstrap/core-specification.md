@@ -574,8 +574,9 @@ event made and signed in memory, an adoption's seal read just before it; then th
 (REQ-REG-12), so that a key that cannot sign is `TOOL_FAILED` with the private folder, a key literal's copy and its
 directory all as they were (P7D3A-1); the record commit of what an earlier command left uncommitted, taken only from
 the streams replay reads (P7D3A-9); the events, each written by compare-and-swap after the head the plan saw
-(`RECORD_HEAD_MOVED`); the replay before the record commit (PD-46), the commit (`RECORD_COMMIT_RACE`; rebuilt on a new head only once
-that head's history is walked as the first one was, `RECORD_ROLLBACK` otherwise, P7D3A-16) and, once it is made, the
+(`RECORD_HEAD_MOVED`); the replay before the record commit (PD-46), the commit (`RECORD_COMMIT_RACE`; rebuilt on a new head only when it
+descends from the command's first one and its history is walked as the first one was, `RECORD_ROLLBACK` otherwise,
+P7D3A-16, P7D3A-19) and, once it is made, the
 mark (P7D3A-10); then, still under the lock (P7D3A-3), the other caches: `allowed_signers` from the
 policy in force (REQ-ID-2) and `detected.json` with `git` and `ssh-keygen` verified by use (REQ-SET-8). A refusal decided before the session writes nothing; one decided after it,
 only when the record changed in between, may leave the empty `local/lock`. Two things are no write in this sense
