@@ -17,4 +17,4 @@ Sin propuestas ni pendientes al momento.
 
 ## Respuesta del integrador
 
-**Punto 1 (skills para los agentes).** Está hecho. Evalué las candidatas de Trail of Bits, OpenAI, Anthropic, Superpowers y las colecciones comunitarias de Rust, cada una con permisos, procedencia, versión, licencia y efectos, y adoptaste cinco: tres de Trail of Bits adaptadas (pruebas de propiedades, APIs resistentes al mal uso y revisión de un diff por riesgo) y dos escritas desde el registro (verificar una parte y lanzar la revisión de Codex). Viven solo en `.brewstillery/skills/`, `AGENTS.md` dice cuándo leer cada una, y el núcleo reserva el nombre `skills`. Codex aceptó en su tercera pasada. Puedes quitar este punto de tu entrada.
+Sin recomendaciones vigentes: tu entrada no tiene propuestas ni pendientes.
