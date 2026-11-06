@@ -8,19 +8,26 @@ use std::path::{Path, PathBuf};
 pub enum Code {
     AliasInvalid,
     AliasMismatch,
+    AttemptEnded,
+    CheckDuplicate,
     CheckUnknown,
+    CredentialSuspected,
     DomainNotIgnored,
     DomainUnknownEntry,
     GitignoreChanged,
     HeadDetached,
     KeyUnknown,
+    LimitUnobservable,
     LockHeld,
     MarkInvalid,
+    MoveNotAllowed,
     NotARepository,
     PolicyAbsent,
     PolicyPending,
     PolicyUncommitted,
     PrivateFolderPermissions,
+    ProtectedPath,
+    ProtectedPathWildcard,
     RecordAbsent,
     RecordBroken,
     RecordCommitRace,
@@ -37,50 +44,24 @@ pub enum Code {
     RoleNotEnforced,
     SettingsInvalid,
     SettingsKeyNotPersonal,
+    TaskChanged,
+    TaskInvalid,
     ToolFailed,
     ToolMissing,
     WideningUnnamed,
 }
 
-impl Code {
-    /// The code as the catalogue and `--json` name it.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Code::AliasInvalid => "ALIAS_INVALID",
-            Code::AliasMismatch => "ALIAS_MISMATCH",
-            Code::CheckUnknown => "CHECK_UNKNOWN",
-            Code::DomainNotIgnored => "DOMAIN_NOT_IGNORED",
-            Code::DomainUnknownEntry => "DOMAIN_UNKNOWN_ENTRY",
-            Code::GitignoreChanged => "GITIGNORE_CHANGED",
-            Code::HeadDetached => "HEAD_DETACHED",
-            Code::KeyUnknown => "KEY_UNKNOWN",
-            Code::LockHeld => "LOCK_HELD",
-            Code::MarkInvalid => "MARK_INVALID",
-            Code::NotARepository => "NOT_A_REPOSITORY",
-            Code::PolicyAbsent => "POLICY_ABSENT",
-            Code::PolicyPending => "POLICY_PENDING",
-            Code::PolicyUncommitted => "POLICY_UNCOMMITTED",
-            Code::PrivateFolderPermissions => "PRIVATE_FOLDER_PERMISSIONS",
-            Code::RecordAbsent => "RECORD_ABSENT",
-            Code::RecordBroken => "RECORD_BROKEN",
-            Code::RecordCommitRace => "RECORD_COMMIT_RACE",
-            Code::RecordDigestMismatch => "RECORD_DIGEST_MISMATCH",
-            Code::RecordFork => "RECORD_FORK",
-            Code::RecordHeadMoved => "RECORD_HEAD_MOVED",
-            Code::RecordIdCollision => "RECORD_ID_COLLISION",
-            Code::RecordNoncanonical => "RECORD_NONCANONICAL",
-            Code::RecordRollback => "RECORD_ROLLBACK",
-            Code::RecordSignatureInvalid => "RECORD_SIGNATURE_INVALID",
-            Code::RecordTransitionInvalid => "RECORD_TRANSITION_INVALID",
-            Code::RecordVersionUnknown => "RECORD_VERSION_UNKNOWN",
-            Code::RoleForbidden => "ROLE_FORBIDDEN",
-            Code::RoleNotEnforced => "ROLE_NOT_ENFORCED",
-            Code::SettingsInvalid => "SETTINGS_INVALID",
-            Code::SettingsKeyNotPersonal => "SETTINGS_KEY_NOT_PERSONAL",
-            Code::ToolFailed => "TOOL_FAILED",
-            Code::ToolMissing => "TOOL_MISSING",
-            Code::WideningUnnamed => "WIDENING_UNNAMED",
+/// The code as the catalogue and `--json` name it: the variant's name in upper snake case (`RecordFork` is
+/// `RECORD_FORK`); a test holds every name to section 7's list.
+impl std::fmt::Display for Code {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for (i, c) in format!("{self:?}").char_indices() {
+            if i > 0 && c.is_ascii_uppercase() {
+                f.write_str("_")?;
+            }
+            write!(f, "{}", c.to_ascii_uppercase())?;
         }
+        Ok(())
     }
 }
 
@@ -92,6 +73,14 @@ pub enum Error {
 }
 
 impl Error {
+    /// What the refusal says beyond its code, or the operating system's error.
+    pub fn detail(&self) -> String {
+        match self {
+            Error::Refused { detail, .. } => detail.clone(),
+            Error::Io { error, .. } => error.to_string(),
+        }
+    }
+
     /// The refusal's code; `None` for an operating-system error.
     pub fn code(&self) -> Option<Code> {
         match self {
@@ -122,19 +111,26 @@ mod tests {
         for code in [
             AliasInvalid,
             AliasMismatch,
+            AttemptEnded,
+            CheckDuplicate,
             CheckUnknown,
+            CredentialSuspected,
             DomainNotIgnored,
             DomainUnknownEntry,
             GitignoreChanged,
             HeadDetached,
             KeyUnknown,
+            LimitUnobservable,
             LockHeld,
             MarkInvalid,
+            MoveNotAllowed,
             NotARepository,
             PolicyAbsent,
             PolicyPending,
             PolicyUncommitted,
             PrivateFolderPermissions,
+            ProtectedPath,
+            ProtectedPathWildcard,
             RecordAbsent,
             RecordBroken,
             RecordCommitRace,
@@ -151,17 +147,14 @@ mod tests {
             RoleNotEnforced,
             SettingsInvalid,
             SettingsKeyNotPersonal,
+            TaskChanged,
+            TaskInvalid,
             ToolFailed,
             ToolMissing,
             WideningUnnamed,
         ] {
-            assert!(list.contains(&format!("`{}`", code.as_str())), "{code:?}");
-            let words: String = format!("{code:?}")
-                .chars()
-                .flat_map(|c| [c.is_uppercase().then_some('_'), Some(c)])
-                .flatten()
-                .collect();
-            assert_eq!(code.as_str(), words.trim_start_matches('_').to_uppercase());
+            assert!(list.contains(&format!("`{code}`")), "{code:?}");
+            assert!(code.to_string().bytes().all(|b| b.is_ascii_uppercase() || b == b'_'), "{code}");
         }
     }
 }

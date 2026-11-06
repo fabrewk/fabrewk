@@ -25,9 +25,9 @@ fn project(f: &Fixture, s: &mut Session) -> Head {
 
 /// A task created and authorized; gives its stream and head.
 fn task(f: &Fixture, s: &mut Session) -> (String, Head) {
-    let (stream, draft) = creation("task-proposed", json!({"goal": "x"}));
-    let h = s.append(&stream, None, &draft, None).unwrap();
-    let h = s.append(&stream, Some(&h), &person("task-authorized", "Autorizo.", json!({})), Some(&f.signer())).unwrap();
+    let (stream, h) = stage_and_task(s);
+    let draft = person("task-authorized", "Autorizo.", bound(f, &stream));
+    let h = s.append(&stream, Some(&h), &draft, Some(&f.signer())).unwrap();
     (stream, h)
 }
 
@@ -85,7 +85,7 @@ fn req_reg_1_names_streams_and_identifiers() {
 fn req_reg_1_append_refuses_a_creation_outside_its_stream() {
     let f = Fixture::new("creation-place", false);
     let mut s = begin(&f, None);
-    let (_, draft) = creation("task-proposed", json!({}));
+    let (_, draft) = creation("task-proposed", task_fields("stage-s-00000000"));
     let e = s.append("task-t-00000000", None, &draft, None).unwrap_err();
     assert_eq!(code(&e), Some(Code::RecordBroken));
     let e = s.append("task-x", None, &draft, None).unwrap_err();
@@ -99,7 +99,8 @@ fn refusal_record_id_collision() {
     let mut seen = std::collections::HashMap::new();
     let (a, b) = (0u64..)
         .find_map(|i| {
-            let payload = json!({"nonce": format!("{i:032x}")});
+            let mut payload = task_fields("stage-s-00000000");
+            payload["nonce"] = json!(format!("{i:032x}"));
             let stream = fabrewk_core::record::subject_stream("task-proposed", &payload).unwrap();
             seen.insert(stream, payload.clone()).map(|other| (other, payload))
         })
@@ -112,7 +113,9 @@ fn refusal_record_id_collision() {
     std::fs::remove_dir_all(f.stream_dir(&stream)).unwrap();
     // One creation and one event that is not the stream's own at `seq` 1: a fork, not a collision.
     f.forge(&stream, 1, None, &agent("task-proposed", a.clone()), None);
-    f.forge(&stream, 1, None, &agent("task-proposed", json!({"nonce": "f".repeat(32)})), None);
+    let mut other = a.clone();
+    other["nonce"] = json!("f".repeat(32));
+    f.forge(&stream, 1, None, &agent("task-proposed", other), None);
     assert_eq!(codes(replay(&f.domain, &f.verifier())), [Code::RecordFork]);
     std::fs::remove_dir_all(f.stream_dir(&stream)).unwrap();
     // Two creations deriving the stream's identifier, later than `seq` 1: a fork.
@@ -259,7 +262,11 @@ fn pd_04_unicode_text_is_stored_and_replayed_intact() {
         Some(&f.signer()),
     )
     .unwrap();
-    let (stream, draft) = creation("task-proposed", json!({"goal": text}));
+    let (stage, draft) = creation("stage-proposed", stage_fields());
+    s.append(&stage, None, &draft, None).unwrap();
+    let mut fields = task_fields(&stage);
+    fields["goal"] = json!(text);
+    let (stream, draft) = creation("task-proposed", fields);
     s.append(&stream, None, &draft, None).unwrap();
     s.finish(&f.verifier(), &[]).unwrap();
     let r = ok_replay(&f);
@@ -489,11 +496,7 @@ fn pd_06_an_approval_copied_into_another_stream_is_refused_for_its_place() {
     let f = Fixture::new("pd06", false);
     let mut s = begin(&f, None);
     let (a, _) = task(&f, &mut s);
-    let (b, b1) = {
-        let (stream, draft) = creation("task-proposed", json!({"goal": "x"}));
-        let h = s.append(&stream, None, &draft, None).unwrap();
-        (stream, h)
-    };
+    let (b, b1) = stage_and_task(&mut s);
     s.finish(&f.verifier(), &[]).unwrap();
     let approval = f.events(&a)[1].clone();
     let copy = f.stream_dir(&b).join(approval.file_name().unwrap());
@@ -545,14 +548,18 @@ fn refusal_record_transition_invalid() {
     silent.say = None;
     assert_eq!(check("project", &silent, true), invalid);
     // A second creation later in its own stream (P7B-4).
-    let (stream, draft) = creation("task-proposed", json!({"goal": "x"}));
+    let (stream, draft) = creation("task-proposed", task_fields("stage-s-00000000"));
     let first = f.forge(&stream, 1, None, &draft, None);
     let d1 = sha256_hex(&std::fs::read(&first).unwrap());
     f.forge(&stream, 2, Some(&d1), &draft, None);
     assert_eq!(codes(replay(&f.domain, &f.verifier())), invalid);
     std::fs::remove_dir_all(f.stream_dir(&stream)).unwrap();
     // A task stream that does not begin with its creation.
-    assert_eq!(check("task-t-00000000", &person("task-authorized", "Autorizo.", json!({})), true), invalid);
+    let bound = json!({
+        "task": "t-00000000", "digest": "0".repeat(64), "head": {"seq": 1, "digest": "0".repeat(64)},
+        "limits": {"rounds": 1, "dispatches": 1, "minutes": 1}, "widened": [],
+    });
+    assert_eq!(check("task-t-00000000", &person("task-authorized", "Autorizo.", bound), true), invalid);
 }
 
 #[test]

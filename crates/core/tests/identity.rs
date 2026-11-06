@@ -65,9 +65,8 @@ fn adopt(f: &Fixture, text: &str, widen: &[&str]) -> String {
 
 /// Opens a task stream with its creation (an agent's), giving the stream and its head.
 fn task(f: &Fixture) -> (String, Head) {
-    let (stream, draft) = creation("task-proposed", json!({}));
     let mut s = begin_with(f, None, &PolicyVerifier).unwrap();
-    let head = s.append(&stream, None, &draft, None).unwrap();
+    let (stream, head) = stage_and_task(&mut s);
     s.finish(&PolicyVerifier, &[]).unwrap();
     (stream, head)
 }
@@ -145,7 +144,7 @@ fn refusal_record_signature_invalid_against_the_policy() {
         got
     };
     let invalid = vec![Code::RecordSignatureInvalid];
-    let xel = moved("task-authorized", "xel", "maestro", &digest, json!({}));
+    let xel = moved("task-authorized", "xel", "maestro", &digest, bound(&f, &stream));
     // The maestro's move, signed by its key in the namespace `fabrewk`, verifies.
     let path = f.forge(&stream, 2, Some(&head.digest), &xel, Some(&f.signer()));
     ok(&f);
@@ -156,14 +155,14 @@ fn refusal_record_signature_invalid_against_the_policy() {
     assert_eq!(check(&xel, &f.signer(), "fabrewk", Some(b"other")), invalid);
     assert_eq!(check(&xel, &f.signer(), "git", None), invalid);
     // Citing a policy no adoption holds; an alias the policy does not list; a role the policy does not give.
-    let unknown = moved("task-authorized", "xel", "maestro", &"0".repeat(64), json!({}));
+    let unknown = moved("task-authorized", "xel", "maestro", &"0".repeat(64), bound(&f, &stream));
     assert_eq!(check(&unknown, &f.signer(), "fabrewk", None), invalid);
-    let nobody = moved("task-authorized", "eva", "maestro", &digest, json!({}));
+    let nobody = moved("task-authorized", "eva", "maestro", &digest, bound(&f, &stream));
     assert_eq!(check(&nobody, &f.signer(), "fabrewk", None), invalid);
-    let claimed = moved("task-authorized", "ana", "maestro", &digest, json!({}));
+    let claimed = moved("task-authorized", "ana", "maestro", &digest, bound(&f, &stream));
     assert_eq!(check(&claimed, &f.stranger(), "fabrewk", None), invalid);
     // A contributor's move, signed by the contributor's own key, is no move (REQ-ID-3).
-    let contributor = moved("task-authorized", "ana", "contributor", &digest, json!({}));
+    let contributor = moved("task-authorized", "ana", "contributor", &digest, bound(&f, &stream));
     assert_eq!(check(&contributor, &f.stranger(), "fabrewk", None), invalid);
     // A key added by hand to the derived allowed-signers file verifies nothing (REQ-ID-2).
     let policy = settings::in_force(&ok(&f)).unwrap().unwrap();
@@ -172,7 +171,7 @@ fn refusal_record_signature_invalid_against_the_policy() {
     let mut text = fs::read_to_string(&file).unwrap();
     text += &format!("eva namespaces=\"fabrewk\" {}\n", public(&f, "stranger"));
     fs::write(&file, text).unwrap();
-    let eva = moved("task-authorized", "eva", "maestro", &digest, json!({}));
+    let eva = moved("task-authorized", "eva", "maestro", &digest, bound(&f, &stream));
     assert_eq!(check(&eva, &f.stranger(), "fabrewk", None), invalid);
 }
 
@@ -181,8 +180,10 @@ fn req_reg_4_a_removed_maestro_signs_nothing_after_the_adoption() {
     let f = Fixture::new("revocation", false);
     let first = adopt(&f, &policy_text(&f, Some("maestro"), ""), &[]);
     let (stream, _) = task(&f);
-    let ana = moved("task-authorized", "ana", "maestro", &first, json!({}));
+    let ana = moved("task-authorized", "ana", "maestro", &first, bound(&f, &stream));
     let h2 = append(&f, &stream, &ana, &f.stranger());
+    // Later moves of the task: from `authorized`, a run starts.
+    let ana = moved("run-started", "ana", "maestro", &first, json!({}));
     // A second adoption removes `ana`; its seal holds the task's head.
     let second = adopt(&f, &policy_text(&f, None, ""), &["maintainers.ana"]);
     let last = ok(&f).streams["project"].last().unwrap().value.clone();
@@ -196,7 +197,7 @@ fn req_reg_4_a_removed_maestro_signs_nothing_after_the_adoption() {
     fs::remove_file(&forged).unwrap();
     // The concurrent work of a maestro who keeps their key and role is accepted, whichever policy it cites.
     for cites in [&first, &second] {
-        let xel = moved("task-authorized", "xel", "maestro", cites, json!({}));
+        let xel = moved("run-started", "xel", "maestro", cites, json!({}));
         let path = f.forge(&stream, 3, Some(&h2.digest), &xel, Some(&f.signer()));
         ok(&f);
         fs::remove_file(sig(&path)).unwrap();
@@ -204,6 +205,7 @@ fn req_reg_4_a_removed_maestro_signs_nothing_after_the_adoption() {
     }
     // A stream created after the adoption is beyond its seal too.
     let (other, oh) = task(&f);
+    let ana = moved("task-authorized", "ana", "maestro", &first, bound(&f, &other));
     let forged = f.forge(&other, 2, Some(&oh.digest), &ana, Some(&f.stranger()));
     assert_eq!(refused(&f), [Code::RecordSignatureInvalid]);
     fs::remove_file(sig(&forged)).unwrap();
@@ -213,13 +215,13 @@ fn req_reg_4_a_removed_maestro_signs_nothing_after_the_adoption() {
     text = text.replace(&public(&f, "xel"), &public(&f, "stranger"));
     let third_digest = sha256_hex(text.as_bytes());
     adopt(&f, &text, &["maintainers.xel.key"]);
-    let xel = moved("task-authorized", "xel", "maestro", &second, json!({}));
+    let xel = moved("run-started", "xel", "maestro", &second, json!({}));
     let h = ok(&f).streams[&stream].last().unwrap().digest.clone();
     let path = f.forge(&stream, 3, Some(&h), &xel, Some(&f.signer()));
     assert_eq!(refused(&f), [Code::RecordSignatureInvalid]);
     fs::remove_file(sig(&path)).unwrap();
     fs::remove_file(&path).unwrap();
-    let xel = moved("task-authorized", "xel", "maestro", &third_digest, json!({}));
+    let xel = moved("run-started", "xel", "maestro", &third_digest, json!({}));
     let path = f.forge(&stream, 3, Some(&h), &xel, Some(&f.stranger()));
     ok(&f);
     fs::remove_file(sig(&path)).unwrap();
@@ -231,7 +233,7 @@ fn req_reg_4_a_seal_its_stream_does_not_hold_is_a_rollback() {
     let f = Fixture::new("seal-rollback", false);
     let first = adopt(&f, &policy_text(&f, None, ""), &[]);
     let (stream, _) = task(&f);
-    let xel = moved("task-authorized", "xel", "maestro", &first, json!({}));
+    let xel = moved("task-authorized", "xel", "maestro", &first, bound(&f, &stream));
     let h2 = append(&f, &stream, &xel, &f.signer());
     adopt(&f, &policy_text(&f, None, "[limits]\nrounds = 2\n"), &[]);
     ok(&f);
@@ -242,7 +244,8 @@ fn req_reg_4_a_seal_its_stream_does_not_hold_is_a_rollback() {
     fs::remove_file(sig(&events[1])).unwrap();
     assert_eq!(refused(&f), [Code::RecordRollback]);
     // Rewritten at the sealed position, with another valid event.
-    let other = moved("task-authorized", "xel", "maestro", &first, json!({"other": 1}));
+    let mut other = moved("task-authorized", "xel", "maestro", &first, bound(&f, &stream));
+    other.say = Some(fabrewk_core::record::Say { text: "Otras palabras.".into(), lang: "es-MX".into() });
     let path = f.forge(&stream, 2, Some(&ok_head(&f, &stream, 1)), &other, Some(&f.signer()));
     assert_eq!(refused(&f), [Code::RecordRollback]);
     fs::remove_file(sig(&path)).unwrap();
@@ -294,7 +297,7 @@ fn req_id_2_allowed_signers_is_derived_from_the_policy_in_force() {
     assert_eq!(derived, line("ana", "stranger") + &line("xel", "xel"));
     // `ssh-keygen -Y verify` accepts the maestro's events with it, as Git would.
     let (stream, head) = task(&f);
-    append(&f, &stream, &moved("task-authorized", "xel", "maestro", &first, json!({})), &f.signer());
+    append(&f, &stream, &moved("task-authorized", "xel", "maestro", &first, bound(&f, &stream)), &f.signer());
     let event = &ok(&f).streams[&stream][1];
     let out = std::process::Command::new("ssh-keygen")
         .args(["-Y", "verify", "-n", "fabrewk", "-I", "xel", "-f"])
@@ -319,7 +322,7 @@ fn req_id_4_roles_come_only_from_the_policy() {
         let f = Fixture::new("roles-policy", false);
         let first = adopt(&f, &policy_text(&f, None, ""), &[]);
         let (stream, _) = task(&f);
-        append(&f, &stream, &moved("task-authorized", "xel", "maestro", &first, json!({})), &f.signer());
+        append(&f, &stream, &moved("task-authorized", "xel", "maestro", &first, bound(&f, &stream)), &f.signer());
         let before = ok(&f).streams[&stream][1].value.clone();
         assert_eq!(before["actor"], json!({"kind": "person", "alias": "xel", "role": "maestro"}));
         // The file on disk names `xel` a contributor, not adopted; a personal file and a private folder appear.
@@ -546,7 +549,8 @@ fn req_reg_4_a_maestro_made_contributor_signs_nothing_after_the_adoption() {
     let f = Fixture::new("demotion", false);
     let first = adopt(&f, &policy_text(&f, Some("maestro"), ""), &[]);
     let (stream, _) = task(&f);
-    let h2 = append(&f, &stream, &moved("task-authorized", "ana", "maestro", &first, json!({})), &f.stranger());
+    let h2 =
+        append(&f, &stream, &moved("task-authorized", "ana", "maestro", &first, bound(&f, &stream)), &f.stranger());
     adopt(&f, &policy_text(&f, Some("contributor"), ""), &["maintainers.ana.role"]);
     ok(&f);
     for role in ["maestro", "contributor"] {
@@ -554,7 +558,7 @@ fn req_reg_4_a_maestro_made_contributor_signs_nothing_after_the_adoption() {
             &stream,
             3,
             Some(&h2.digest),
-            &moved("task-authorized", "ana", role, &first, json!({})),
+            &moved("run-started", "ana", role, &first, json!({})),
             Some(&f.stranger()),
         );
         assert_eq!(refused(&f), [Code::RecordSignatureInvalid], "{role}");
@@ -570,14 +574,13 @@ fn req_reg_4_an_event_every_seal_holds_was_written_before_any_adoption() {
     fs::write(f.domain.join("settings.toml"), &text).unwrap();
     let digest = sha256_hex(text.as_bytes());
     // A task stream, and a maestro's move in it, written before the first adoption, whose seal then holds them.
-    let (stream, draft) = creation("task-proposed", json!({}));
-    let first = f.forge(&stream, 1, None, &draft, None);
+    let (stream, first) = forge_stage_and_task(&f);
     let h1 = sha256_hex(&fs::read(&first).unwrap());
     let moved_early = f.forge(
         &stream,
         2,
         Some(&h1),
-        &moved("task-authorized", "xel", "maestro", &digest, json!({})),
+        &moved("task-authorized", "xel", "maestro", &digest, bound(&f, &stream)),
         Some(&f.signer()),
     );
     let h2 = sha256_hex(&fs::read(&moved_early).unwrap());

@@ -1,0 +1,231 @@
+//! The transition table (REQ-TASK-1, REQ-SEC-5; core-specification section 4; part 7d1, D-053): every state, move,
+//! actor, guard, refusal and control label, declared once. Commands evaluate a move's guards in the order it lists
+//! them; the replay holds every stage and task stream to it. Proposals are held to it with the sweep (phase 8); the
+//! `project` stream's order is `apply`'s (phase 10).
+
+use crate::code::{Code, Error, refuse};
+use crate::record::{Event, Replay, StreamKind, stream_kind, subject_digest};
+use serde_json::json;
+use std::collections::BTreeSet;
+use std::sync::LazyLock;
+
+/// One row per line: subject | kinds | from | to | who | guards. A kind marked `+` is recorded after the row's move,
+/// from its target state; one marked `^` is another stream's move that makes this one. `-` is no state: the subject's
+/// creation. `say` marks a move that takes the person's words. A guard is a refusal code, or a requirement whose
+/// codes it stands for; one marked `~` is cooperative (a process of the same user could bypass it), the others
+/// effective (enforced by a signature, by code with confinement, or by the Git host).
+const TABLE: &str = "
+task | task-proposed | - | proposed | anyone | STAGE_CLOSED~ TASK_INVALID~ PROTECTED_PATH~ PROTECTED_PATH_WILDCARD~
+task | task-authorized ^stage-authorized | proposed halted verified accepted | authorized | maestro say | ROLE_FORBIDDEN WORDS_MISSING WORDS_COPIED~ TASK_CHANGED PROTECTED_PATH WIDENING_UNNAMED LIMIT_UNOBSERVABLE
+task | run-started +attempt-started | authorized verified | running | maestro | POLICY_ABSENT DEPENDENCY_OPEN BASE_MOVED LOCK_HELD~ REQ-RUN-2~ CONFINEMENT_UNAVAILABLE ALAMBIQUE_UNAPPROVED
+task | attempt-ended candidate-recorded check-recorded review-recorded | running | running | fabrewk | ATTEMPT_ENDED LANE_VIOLATION PROTECTED_PATH CREDENTIAL_SUSPECTED~ REVIEW_INVALID
+task | task-verified | running | verified | fabrewk | REQ-GATE-5
+task | task-halted | authorized running | halted | fabrewk | REQ-TASK-5
+task | task-accepted | authorized halted verified | accepted | maestro say | REQ-GATE-7 EVIDENCE_STALE ALAMBIQUE_UNAPPROVED
+task | task-integrated | accepted | integrated | fabrewk | REQ-GATE-8 BASE_MOVED WORKTREE_DIRTY EVIDENCE_STALE
+task | merge-failed | accepted | accepted | fabrewk |
+task | task-rejected | proposed authorized halted verified accepted | rejected | maestro say | MERGE_IN_PROGRESS
+stage | stage-proposed | - | proposed | anyone | TASK_INVALID~ CHECK_DUPLICATE~
+stage | stage-authorized | proposed | authorized | maestro say | ROLE_FORBIDDEN WORDS_MISSING WORDS_COPIED~ TASK_CHANGED CHECK_DUPLICATE PROTECTED_PATH WIDENING_UNNAMED LIMIT_UNOBSERVABLE
+stage | stage-closed | authorized | closed | maestro say | STAGE_OPEN_TASKS SWEEP_MISSING ALAMBIQUE_UNAPPROVED RECORD_UNCOMMITTED
+proposal | proposal-recorded | - | pending | agent | REQ-FER-3
+proposal | proposal-incorporated | pending | incorporated | maestro say | PROPOSAL_STALE ALAMBIQUE_CHANGED UNIT_AMBIGUOUS
+proposal | proposal-discarded | pending | discarded | maestro say |
+proposal | proposal-withdrawn | pending | withdrawn | fabrewk |
+";
+
+/// Whether a control is enforced or rests on cooperation (REQ-SEC-5).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Control {
+    Effective,
+    Cooperative,
+}
+
+/// A guard: a refusal code or a requirement, and its label.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Guard {
+    pub name: &'static str,
+    pub control: Control,
+}
+
+/// One row of the table.
+#[derive(Debug, Clone)]
+pub struct Move {
+    pub subject: &'static str,
+    pub kinds: Vec<&'static str>,
+    pub then: Vec<&'static str>,
+    pub covered: Vec<&'static str>,
+    pub from: Vec<&'static str>,
+    pub to: &'static str,
+    pub who: &'static str,
+    pub say: bool,
+    pub guards: Vec<Guard>,
+}
+
+static MOVES: LazyLock<Vec<Move>> = LazyLock::new(|| {
+    let row = |line: &'static str| {
+        let c: Vec<&str> = line.split('|').map(str::trim).collect();
+        let words = |i: usize| c[i].split_whitespace();
+        let guard = |g: &'static str| match g.strip_suffix('~') {
+            Some(name) => Guard { name, control: Control::Cooperative },
+            None => Guard { name: g, control: Control::Effective },
+        };
+        Move {
+            subject: c[0],
+            kinds: words(1).filter(|k| !k.starts_with(['+', '^'])).collect(),
+            then: words(1).filter_map(|k| k.strip_prefix('+')).collect(),
+            covered: words(1).filter_map(|k| k.strip_prefix('^')).collect(),
+            from: words(2).filter(|s| *s != "-").collect(),
+            to: c[3],
+            who: words(4).next().unwrap_or_default(),
+            say: words(4).any(|w| w == "say"),
+            guards: words(5).map(guard).collect(),
+        }
+    };
+    TABLE.lines().filter(|l| !l.is_empty()).map(row).collect()
+});
+
+/// Every row, in the table's order.
+pub fn moves() -> &'static [Move] {
+    &MOVES
+}
+
+/// The row that records `kind` for `subject`, as its own move or one recorded after it.
+pub fn find(subject: &str, kind: &str) -> Option<&'static Move> {
+    moves().iter().find(|m| m.subject == subject && (m.kinds.contains(&kind) || m.then.contains(&kind)))
+}
+
+/// Every state of `subject`.
+pub fn states(subject: &str) -> BTreeSet<&'static str> {
+    let rows = moves().iter().filter(|m| m.subject == subject);
+    rows.flat_map(|m| m.from.iter().copied().chain([m.to])).collect()
+}
+
+/// The kinds `subject` may record from `state` (`None` before its creation).
+pub fn allowed(subject: &str, state: Option<&str>) -> Vec<&'static str> {
+    let from = |m: &Move, k: &str| if m.then.contains(&k) { vec![m.to] } else { m.from.clone() };
+    let ok = |m: &Move, k: &str| state.map_or(from(m, k).is_empty(), |s| from(m, k).contains(&s));
+    let rows = moves().iter().filter(|m| m.subject == subject);
+    rows.flat_map(|m| m.kinds.iter().chain(&m.then).filter(move |k| ok(m, k)).copied()).collect()
+}
+
+/// The row of `kind` if the table allows it from `state`; `MOVE_NOT_ALLOWED` otherwise, naming the state and the
+/// moves it allows (REQ-TASK-1).
+pub fn step(subject: &str, state: Option<&str>, kind: &str) -> Result<&'static Move, Error> {
+    match find(subject, kind) {
+        Some(m) if allowed(subject, state).contains(&kind) => Ok(m),
+        _ => {
+            let (state, ok) = (state.unwrap_or("none"), allowed(subject, state).join(", "));
+            Err(refuse(Code::MoveNotAllowed, None, format!("{kind} from {state}; allowed: {ok}")))
+        }
+    }
+}
+
+/// Evaluates a move's guards in the order the table lists them; the first that fails is the refusal (REQ-TASK-1).
+pub fn evaluate<E>(m: &Move, guard: impl FnMut(&Guard) -> Result<(), E>) -> Result<(), E> {
+    m.guards.iter().try_for_each(guard)
+}
+
+fn invalid(e: &Event, why: impl Into<String>) -> Error {
+    refuse(Code::RecordTransitionInvalid, Some(&e.path), why)
+}
+
+/// The replay held to the table (REQ-REG-6; D-047, D-053). Each stage and task stream's moves are allowed from the
+/// state its earlier events left, with their payloads' content (REQ-TASK-2, REQ-TASK-3) and their bindings to their
+/// own subject's identifier, digest and previous head (PD-06); a stage's authorization makes each task it binds
+/// authorized after the head it names, which its stream must hold (`RECORD_ROLLBACK` otherwise). A second end of an
+/// attempt is `ATTEMPT_ENDED` (PD-10); every other failure is `RECORD_TRANSITION_INVALID`.
+pub fn validate(record: &Replay) -> Result<(), Vec<Error>> {
+    let mut covers = BTreeSet::new();
+    let of = |k| record.streams.iter().filter(move |(n, _)| stream_kind(n) == Some(k));
+    let mut errors: Vec<Error> = of(StreamKind::Stage).filter_map(|s| stage(record, s, &mut covers).err()).collect();
+    errors.extend(of(StreamKind::Task).filter_map(|t| task(record, t, &covers).err()));
+    if errors.is_empty() { Ok(()) } else { Err(errors) }
+}
+
+/// One event's move from `state`, its payload's content and, for a person's move bound to its subject, its binding.
+fn walk(subject: &str, state: Option<&str>, e: &Event, digest: &str) -> Result<&'static str, Error> {
+    let m = step(subject, state, &e.kind).map_err(|x| invalid(e, x.detail()))?;
+    let content = |x: Error| match x.code() {
+        Some(Code::TaskInvalid) => invalid(e, x.detail()),
+        _ => x,
+    };
+    crate::task::check(&e.kind, &e.value["payload"]).map_err(content)?;
+    if ["stage-authorized", "task-authorized", "task-accepted"].contains(&e.kind.as_str()) {
+        let p = &e.value["payload"];
+        let id = &e.stream[subject.len() + 1..];
+        let head = json!({"seq": e.seq - 1, "digest": e.value["prev"]});
+        if p[subject] != id || p["head"] != head || (e.kind != "task-accepted" && p["digest"] != digest) {
+            return Err(invalid(e, "bound to another subject, its digest or its head"));
+        }
+    }
+    Ok(m.to)
+}
+
+fn stage(
+    record: &Replay,
+    (name, events): (&String, &Vec<Event>),
+    covers: &mut BTreeSet<(String, u64)>,
+) -> Result<(), Error> {
+    let digest = subject_digest(&events[0].value["payload"]).unwrap_or_default();
+    let mut state = None;
+    for e in events {
+        state = Some(walk("stage", state, e, &digest)?);
+        for t in e.value["payload"]["tasks"].as_array().filter(|_| e.kind == "stage-authorized").into_iter().flatten() {
+            let stream = format!("task-{}", t["task"].as_str().unwrap_or_default());
+            let first = record.streams.get(&stream).and_then(|s| s.first());
+            let own = first.filter(|f| {
+                f.value["payload"]["stage"] == name[6..]
+                    && t["digest"] == subject_digest(&f.value["payload"]).unwrap_or_default()
+            });
+            if own.is_none() {
+                return Err(invalid(e, format!("{stream}: not a task of this stage, or not its digest")));
+            }
+            let seq = t["head"]["seq"].as_u64().unwrap_or_default();
+            let held = record.streams[&stream].get(seq as usize - 1).is_some_and(|h| t["head"]["digest"] == h.digest);
+            if !held {
+                return Err(refuse(
+                    Code::RecordRollback,
+                    Some(&e.path),
+                    format!("{stream}: a head its stream does not hold"),
+                ));
+            }
+            covers.insert((stream, seq));
+        }
+    }
+    Ok(())
+}
+
+fn task(
+    record: &Replay,
+    (name, events): (&String, &Vec<Event>),
+    covers: &BTreeSet<(String, u64)>,
+) -> Result<(), Error> {
+    let payload = &events[0].value["payload"];
+    let digest = subject_digest(payload).unwrap_or_default();
+    let stage = format!("stage-{}", payload["stage"].as_str().unwrap_or_default());
+    let deps = payload["dependencies"].as_array().into_iter().flatten();
+    if let Some(missing) = std::iter::once(stage)
+        .chain(deps.map(|d| format!("task-{}", d.as_str().unwrap_or_default())))
+        .find(|s| !record.streams.contains_key(s))
+    {
+        return Err(invalid(&events[0], format!("{missing}: no such stage or task")));
+    }
+    let authorize = find("task", "task-authorized").expect("the table holds task-authorized");
+    let (mut state, mut open) = (None, false);
+    for e in events {
+        let to = walk("task", state, e, &digest)?;
+        if e.kind == "attempt-ended" && !open {
+            return Err(refuse(Code::AttemptEnded, Some(&e.path), "an attempt ended twice, or never started"));
+        }
+        open = (open || e.kind == "attempt-started") && e.kind != "attempt-ended";
+        state = Some(to);
+        if covers.contains(&(name.clone(), e.seq)) {
+            if !authorize.from.contains(&to) {
+                return Err(invalid(e, "a stage's authorization binds a task that waits for none"));
+            }
+            state = Some(authorize.to);
+        }
+    }
+    Ok(())
+}

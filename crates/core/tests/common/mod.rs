@@ -288,3 +288,51 @@ pub fn creation(kind: &str, payload: Value) -> (String, Draft) {
     let stream = fabrewk_core::record::subject_stream(kind, &payload).unwrap();
     (stream, agent(kind, payload))
 }
+
+/// A stage's fields, valid for `stage-proposed` (part 7d1); [`creation`] adds the nonce.
+pub fn stage_fields() -> Value {
+    json!({"lang": "en", "goal": "Build it.", "budget": {"dispatches": 6, "minutes": 120}, "checks": {}, "settings": {}})
+}
+
+/// A task's fields in the stage `stage` (its stream's name), valid for `task-proposed` (part 7d1).
+pub fn task_fields(stage: &str) -> Value {
+    json!({
+        "stage": &stage["stage-".len()..], "lang": "en", "goal": "Make it.",
+        "requirements": [{"text": "It builds.", "criterion": "cargo build passes"}],
+        "base": "0".repeat(40), "dependencies": [], "allowed": ["src/**"],
+        "profiles": {"build": "build", "review": "review"}, "checks": [],
+        "limits": {"rounds": 3, "dispatches": 6, "minutes": 120}, "delegationLanguage": "en", "settings": {},
+    })
+}
+
+/// Appends a stage and one task in it, as an agent proposes them; gives the task's stream and head.
+pub fn stage_and_task(s: &mut Session) -> (String, fabrewk_core::record::Head) {
+    let (stage, draft) = creation("stage-proposed", stage_fields());
+    s.append(&stage, None, &draft, None).unwrap();
+    let (task, draft) = creation("task-proposed", task_fields(&stage));
+    let head = s.append(&task, None, &draft, None).unwrap();
+    (task, head)
+}
+
+/// Forges a stage and one task in it on disk; gives the task's stream and its first file.
+pub fn forge_stage_and_task(f: &Fixture) -> (String, PathBuf) {
+    let (stage, draft) = creation("stage-proposed", stage_fields());
+    f.forge(&stage, 1, None, &draft, None);
+    let (task, draft) = creation("task-proposed", task_fields(&stage));
+    let first = f.forge(&task, 1, None, &draft, None);
+    (task, first)
+}
+
+/// The payload of a person's move that binds the task of `stream` (`task-authorized`, or the binding of
+/// `task-accepted`) to the task's digest and to the head its stream has on disk now (part 7d1, PD-06).
+pub fn bound(f: &Fixture, stream: &str) -> Value {
+    let files = f.events(stream);
+    let first: Value = serde_json::from_slice(&std::fs::read(&files[0]).unwrap()).unwrap();
+    let last = std::fs::read(files.last().unwrap()).unwrap();
+    json!({
+        "task": &stream["task-".len()..],
+        "digest": fabrewk_core::record::subject_digest(&first["payload"]).unwrap(),
+        "head": {"seq": files.len(), "digest": sha256_hex(&last)},
+        "limits": first["payload"]["limits"], "widened": [],
+    })
+}

@@ -140,6 +140,7 @@ pub fn replay(domain: &Path, verifier: &dyn Verify) -> Result<Replay, Vec<Error>
     if out.streams.is_empty() {
         return Err(absent());
     }
+    crate::table::validate(&out)?;
     verifier.verify(&out)?;
     Ok(out)
 }

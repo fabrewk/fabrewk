@@ -2182,3 +2182,43 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   catalogue, `check`), phase 8 (the fermentos and views) and the core's part of phase 9 (RUN, GATE) remain inside the
   same 4,000.
 - Not done: part 7d.
+
+## D-053 — Part 7d split into 7d1, 7d2 and 7d3; the budget decided after measuring 7d1; commands declared by phase; `run` up to confinement
+
+- Status: decided
+- Decided: 2026-11-05
+- Origin: maintainer XEL in session 20's chat, answering the integrator's four questions before any code, after the
+  integrator showed the cut and an estimate of 7d's size by component (about 2,300 to 2,400 counted lines against
+  the 1,249 left of the core's 4,000; the whole specification of phases 7 to 9, at the density measured in 7b to
+  7c2b, about 7,000 to 8,000): "7d1, 7d2 y 7d3 (Recomendado)"; "Decidir tras medir 7d1 (Recomendado)"; "Crece por
+  fase (Recomendado)"; "Guardias hasta aislamiento (Recomendado)".
+- Decision:
+  1. Part 7d is split in three, each with its own Codex review. 7d1, the transition table and the payloads, as a
+     library: section 4's table with every state, move, actor, role, guard, refusal and control label (REQ-TASK-1,
+     REQ-SEC-5's labels); the replay validated by it (`RECORD_TRANSITION_INVALID`, `ATTEMPT_ENDED` on replay, PD-06's
+     binding, PD-31's replay half); the stage and task payloads (REQ-TASK-2, REQ-TASK-3); the allowed-file patterns
+     and their guard (REQ-TASK-7, PD-15, PD-17, `PROTECTED_PATH`, `PROTECTED_PATH_WILDCARD`); `CHECK_DUPLICATE`
+     (PD-24); `LIMIT_UNOBSERVABLE` through the modules' contract, with fake modules; the credential scan as a function
+     (REQ-SEC-3 at `check`). 7d2, the command surface and the reading commands: the declaration of commands (with
+     `lexopt`, D-040), the parser, help, the fish and POSIX completions, the reference documentation, the catalogue in
+     `en` and `es`, `--json`, the exit statuses, `status`, `config` and `check` (C1 to C4 and C8 to C11; C5, C6, C7
+     and C12 come with phase 8, as section 11.4 already assigns their codes). 7d3, the write commands: `adopt`,
+     `propose`, `authorize` (PD-37 for `authorize`), `reject`, `run` as point 4 says, `--say` (REQ-TASK-4, PD-30 to
+     PD-32), `AGENT_ENVIRONMENT`, the guards every write command applies, and the record's refusal tests through the
+     command line (D-047).
+  2. The core's ceiling is decided when 7d1 is measured, before 7d2 starts: 7d1 fits in what is left, and its closing
+     brings the measured figure and a corrected projection for 7d2, 7d3, phase 8 and the core's part of phase 9.
+  3. The declaration of commands grows phase by phase: help, completions and the reference documentation list only
+     the commands that exist. The tests of `MOVE_NOT_ALLOWED` that use a later phase's command move to that phase:
+     `accept` on a `running` task to phase 9; `approve` of a discarded proposal and `close` of a closed stage to
+     phase 8. `run` on a `proposed` task and `authorize` on an `integrated` one stay in phase 7.
+  4. Until phase 9 builds a confinement backend, `run` evaluates its guards in their listed order up to confinement,
+     which refuses `CONFINEMENT_UNAVAILABLE` (REQ-SEC-2) with nothing written; so the tests of `DEPENDENCY_OPEN` and
+     of `LOCK_HELD` through `run` stay in phase 7.
+- Consequences: `plan.md` shows 7d1, 7d2 and 7d3 instead of 7d. `core-specification.md` section 11.4 assigns
+  `MOVE_NOT_ALLOWED`'s test to phases 7, 8 and 9 as point 3 says. The size budget (D-042) is unchanged until the
+  maestro decides it after 7d1.
+- Sources: chat of session 20; `STATUS.md`'s "Next"; D-042, D-044, D-047, D-048; `plan.md` row 7;
+  `core-specification.md` sections 2 TASK, CLI, VIEW, SEC, 4 to 7, 11.2, 11.4, 12 TASK, VIEW, CLI, SEC, 13;
+  `tools/budget/src/budget.rs`.
+- Supersedes: none.

@@ -577,6 +577,11 @@ ignored. The exclude line is `/.brewstillery/`, added once to the file `git rev-
   `id_ecdsa`, `id_ed25519` (without `.pub`), and `*.pem`, `*.p12`, `*.pfx`, `*.key`. A pattern's description, as in
   this file, is no match. The match is a heuristic, a cooperative control, and Fabrewk says so; the patterns are
   matched by hand, with no regular-expression crate. (6.4, 6.9, 6.38, AD-8; P6-15)
+  As part 7d1 fixed it (D-053): a private key's line may end in a carriage return; the token patterns match anywhere
+  in a file, with no boundary before the prefix; the domain is walked whole, `local/` included, and a link or any file
+  that is not regular is matched by its name only, never followed or read; a maintainer's top directory is any
+  directory at the domain's top whose name is an alias; which files the fermento or the alambique cite is given to the
+  scan by `check` (part 7d2).
 - **REQ-SEC-4.** The private folder is created with access for its owner only, and Fabrewk refuses to read it if its
   permissions are wider (`PRIVATE_FOLDER_PERMISSIONS`). (6.51, AD-15)
 - **REQ-SEC-5.** Every control in the transition table and in `check` is labelled `effective` (enforced by code with
@@ -692,6 +697,33 @@ creating nonce are fixed by the part that first builds each kind.
 - `publication-decided`'s payload is exactly `mode` (`published`, `own-repository` or `unpublished`) and `warningShown`
   (a boolean: whether the publication warning was shown); the maintainers' words are the move's `say` (part 7c2b,
   D-051). Any other payload is `RECORD_VERSION_UNKNOWN`.
+- The stage and task payloads, as part 7d1 fixed them (D-053). `stage-proposed`: exactly `nonce`, `lang` (the tag
+  of its texts), `goal`, `budget` (`dispatches`, `minutes`, optionally `tokens`), `checks` (by name, each exactly
+  `command`, `network`, `minutes`, `tools`, its defaults filled) and `settings` (the stage's layer: key path to value).
+  `task-proposed`: exactly `nonce`, `stage` (its identifier), `lang`, `goal`, `requirements` (each `text` and
+  `criterion`), `base` (a commit of 40 or 64 hexadecimal digits, or `null`), `dependencies` (task identifiers),
+  `allowed` (patterns), `profiles` (`build`, `review`), `checks` (names), `limits` (`rounds`, `dispatches`,
+  `minutes`, optionally `tokens`), `delegationLanguage` and `settings` (the task's layer). A stage's or a task's
+  digest is the SHA-256 of its creating payload, canonical, without the final newline; its identifier is that
+  digest's first 8 digits. `task-authorized`: exactly `task`, `digest`, `head` (`seq`, `digest`: the stream's head
+  just before it), `limits` and `widened`. `stage-authorized`: exactly `stage`, `digest`, `head`, `tasks` (each
+  `task`, `digest`, `head`, `limits`) and `widened`. `task-accepted` holds at least `task` and `head`, bound the same
+  way; the rest of its payload is phase 9's.
+- A payload of one of these kinds missing a field, holding an unknown one or a field of the wrong JSON type is
+  `RECORD_VERSION_UNKNOWN`, as schema 1 says, and wins over any failure of content. Content (a blank text, a tag that
+  is not one, a count below 1, a malformed identifier or commit, no requirement or allowed file, a pattern REQ-TASK-7
+  refuses, a base commit together with dependencies or neither, a dependency named twice, a check with an empty
+  command, a layer key that level may not set or a value not of its type) is `TASK_INVALID` at a command and
+  `RECORD_TRANSITION_INVALID` on replay. The replay holds every stage and task stream to the transition table: a
+  move from a state the table does not allow, a task naming a stage or a dependency the record does not hold, an
+  authorization or acceptance whose `task` (or `stage`), `digest` or `head` is not its own stream's, and a stage's
+  authorization binding a task of another stage, another digest, or a task that waits for no authorization, are
+  `RECORD_TRANSITION_INVALID`; a bound head its task's stream does not hold is `RECORD_ROLLBACK`, as for the seal. A
+  stage's authorization makes each task it binds `authorized` right after the head it names. An `attempt-ended`
+  ends the last `attempt-started`; one with no open attempt is `ATTEMPT_ENDED` on replay (PD-10). The pattern guards
+  (`PROTECTED_PATH`, `PROTECTED_PATH_WILDCARD`), `STAGE_CLOSED`, `CHECK_DUPLICATE` and `LIMIT_UNOBSERVABLE` are
+  evaluated by the commands, not by the replay. Proposals are held to the table with the sweep (phase 8), the
+  `project` stream's order with `apply` (phase 10).
 - A person's event is checked, after the record is read field by field, against the policy it cites and the policy in
   force at its place (REQ-REG-4, D-050); every failure is `RECORD_SIGNATURE_INVALID`: a citation of a digest no
   adoption holds, an event of `project` citing another policy than the one in force at its place, an event outside
@@ -724,6 +756,19 @@ creating nonce are fixed by the part that first builds each kind.
 | `task-integrated` | `accepted` | `integrated` | fabrewk | REQ-GATE-8 (`BASE_MOVED`, `WORKTREE_DIRTY`, `EVIDENCE_STALE`) |
 | `merge-failed` | `accepted` | `accepted` | fabrewk | — |
 | `task-rejected` | `proposed`, `authorized`, `halted`, `verified`, `accepted` | `rejected` | maestro, `--say` | not while a `task-accepted` for the current candidate is on record and the branch is at it, whatever the state (`MERGE_IN_PROGRESS`) |
+
+**The table, as part 7d1 fixed it (D-053).** The code holds section 4 as one declarative table, in
+`crates/core/src/table.rs`, with the stage and proposal moves of the paragraphs below it: a stage is proposed by anyone (guards
+`TASK_INVALID`, `CHECK_DUPLICATE`), authorized by a maestro with words (the task authorization's guards and
+`CHECK_DUPLICATE` again) and closed by one (REQ-TASK-6's codes); a proposal is recorded by an agent (REQ-FER-3),
+incorporated (`PROPOSAL_STALE`, `ALAMBIQUE_CHANGED`, `UNIT_AMBIGUOUS`) or discarded by a maestro with words, and
+withdrawn by Fabrewk. Each guard is labelled (REQ-SEC-5): cooperative are the guards of a move that grants nothing
+(`task-proposed`, `stage-proposed`, whose events any process can write and whose fields the authorization checks
+again), `WORDS_COPIED` (the signer can always type the example), `LOCK_HELD` (an advisory lock), REQ-RUN-2 (the
+tools found on the machine) and `CREDENTIAL_SUSPECTED` (a heuristic); every other guard is effective, enforced by the
+replay, by the signature of the person who moves after it was checked, by the confinement that keeps agents from the
+domain, or by the Git host. `run-started`'s row takes no `--say` in section 4 while schema 1 gives every person's
+move words: how `run` records them is decided with 7d3.
 
 "Waiting state" is `authorized`, `halted` or `verified`. `run` on an `accepted` task finishes its merge. A `running`
 task with no live process is halted by the next write command (REQ-RUN-5). A command whose move this table does not
@@ -1127,7 +1172,7 @@ One test per code (11.2 rule 4), with the requirement that defines the code and 
 | `MARK_INVALID` | REQ-REG-8 | An empty `heads.json` (PD-02) | 7 |
 | `MERGE_IN_PROGRESS` | REQ-GATE-8 | `reject` on an accepted task with the branch at its candidate (PD-14) | 9 |
 | `MODE_NOT_AVAILABLE` | REQ-INS-3 | `apply` of a plan whose verdict is `review` | 10 |
-| `MOVE_NOT_ALLOWED` | REQ-TASK-1 | `run` on a `proposed` task, `accept` on a `running` one, `authorize` on an `integrated` one, `approve` of a discarded proposal, `close` of a closed stage | 7 |
+| `MOVE_NOT_ALLOWED` | REQ-TASK-1 | `run` on a `proposed` task, `accept` on a `running` one, `authorize` on an `integrated` one, `approve` of a discarded proposal, `close` of a closed stage; each with its command's phase (D-053) | 7, 8, 9 |
 | `NOT_A_REPOSITORY` | Section 7 | `assess` outside a Git working tree, and in a bare repository | 10 |
 | `NO_PROGRESS` | REQ-TASK-5 | Confirmed blocking findings 2, 2, 2 over three rounds; 2, 3, 1 does not halt | 9 |
 | `OUTCOME_UNKNOWN` | REQ-TASK-5, REQ-RUN-5 | The binary killed during an attempt (PD-08) | 9 |

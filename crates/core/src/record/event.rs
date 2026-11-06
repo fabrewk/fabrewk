@@ -97,9 +97,15 @@ pub fn subject_stream(kind: &str, payload: &Value) -> Option<String> {
         "task-proposed" => ("task", 't'),
         _ => return None,
     };
+    Some(format!("{prefix}-{letter}-{}", &subject_digest(payload)?[..8]))
+}
+
+/// A stage's or a task's digest (REQ-TASK-2): the SHA-256 of its creating payload, canonical, without the final
+/// newline; its identifier is the first 8 digits.
+pub fn subject_digest(payload: &Value) -> Option<String> {
     let mut bytes = encode(payload)?;
     bytes.pop();
-    Some(format!("{prefix}-{letter}-{}", &sha256_hex(&bytes)[..8]))
+    Some(sha256_hex(&bytes))
 }
 
 /// Whether a kind creates its subject, so it opens its stream (`stage-proposed`, `task-proposed`).
@@ -215,6 +221,9 @@ pub(crate) fn check(v: &Value, stream: &str, seq: u64) -> Result<Class, (Code, &
     if kind == "publication-decided" {
         publication_payload(&o["payload"])?;
     }
+    if !crate::task::shape(kind, &o["payload"]) {
+        return Err((Unknown, "payload"));
+    }
     Ok(class)
 }
 
@@ -305,7 +314,7 @@ pub(crate) fn is_name(s: &str) -> bool {
         && b.iter().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == b'-')
 }
 
-fn is_id(s: &str, letter: char) -> bool {
+pub(crate) fn is_id(s: &str, letter: char) -> bool {
     let mut chars = s.chars();
     chars.next() == Some(letter) && chars.next() == Some('-') && is_hex(chars.as_str(), 8)
 }

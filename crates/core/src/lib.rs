@@ -9,6 +9,9 @@ pub mod domain;
 pub mod identity;
 pub mod machine;
 pub mod record;
+pub mod scan;
 pub mod settings;
+pub mod table;
+pub mod task;
 
 pub use code::{Code, Error};

@@ -26,12 +26,14 @@ pub struct Program {
     /// The arguments that print its version on the first line of its standard output without calling any model;
     /// empty when it prints none.
     pub version: &'static [&'static str],
+    /// Whether the tool reports the tokens it used, so that a token limit can be observed (REQ-RUN-7).
+    pub tokens: bool,
 }
 
 /// The core's own programs (AD-4), found in `PATH` only, as the core runs them. `ssh-keygen` prints no version.
 pub const CORE: [Program; 2] = [
-    Program { adapter: None, executable: "git", version: &["--version"] },
-    Program { adapter: None, executable: "ssh-keygen", version: &[] },
+    Program { adapter: None, executable: "git", version: &["--version"], tokens: false },
+    Program { adapter: None, executable: "ssh-keygen", version: &[], tokens: false },
 ];
 
 /// How a present program was found: in `PATH`, or where `machine.toml` declares it.
@@ -88,7 +90,7 @@ struct Want<'a> {
     declarable: bool,
 }
 
-fn text<'a>(eff: &'a Effective, key: &str) -> Option<&'a str> {
+pub(crate) fn text<'a>(eff: &'a Effective, key: &str) -> Option<&'a str> {
     match eff.values.get(key) {
         Some((Val::Str(s), _)) => Some(s),
         _ => None,

@@ -32,10 +32,16 @@ fn scenario(f: &Fixture) {
 
     let mut s = Session::begin(&f.domain, f.repo(), &f.verifier()).unwrap();
     s.commit_uncommitted(&f.verifier()).unwrap();
-    let (stream, draft) = creation("task-proposed", json!({"goal": "x"}));
+    let (stage, draft) = creation("stage-proposed", stage_fields());
+    let h = s.append(&stage, None, &draft, None).unwrap();
+    say(format!("appended {stage} {}", h.digest));
+    let (stream, draft) = creation("task-proposed", task_fields(&stage));
     let h = s.append(&stream, None, &draft, None).unwrap();
     say(format!("appended {stream} {}", h.digest));
-    let h = s.append(&stream, Some(&h), &person("task-authorized", "Autorizo.", json!({})), Some(&f.signer())).unwrap();
+    let draft = person("task-authorized", "Autorizo.", bound(f, &stream));
+    let h = s.append(&stream, Some(&h), &draft, Some(&f.signer())).unwrap();
+    say(format!("appended {stream} {}", h.digest));
+    let h = s.append(&stream, Some(&h), &person("run-started", "Corre.", json!({})), Some(&f.signer())).unwrap();
     say(format!("appended {stream} {}", h.digest));
     std::fs::write(f.domain.join("STATUS.md"), "view\n").unwrap();
     say(format!("committed {}", s.finish(&f.verifier(), &[PathBuf::from("STATUS.md")]).unwrap().unwrap()));
@@ -58,7 +64,7 @@ fn crash_child() {
         let mut s = Session::begin(&f.domain, f.repo(), &f.verifier()).unwrap();
         s.append("project", None, &fabrewk("installed", json!({})), None).unwrap();
         let e = s.finish(&f.verifier(), &[]).unwrap_err();
-        println!("refused {}", e.code().unwrap().as_str());
+        println!("refused {}", e.code().unwrap());
         return;
     }
     scenario(&f);
