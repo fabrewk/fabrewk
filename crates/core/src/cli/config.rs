@@ -2,7 +2,7 @@
 //! source, the project file's changes not adopted, each maintainer's key, what is present on this machine, and every
 //! control with its label; with a key, that one value. It takes no lock and writes nothing (REQ-VIEW-4).
 
-use super::check::{CHECKS, label};
+use super::check::{CHECKS, control_of, label};
 use super::{Cx, Failed, Out};
 use crate::code::{Code, refuse};
 use crate::detect::{self, How};
@@ -147,22 +147,21 @@ pub(super) fn run(cx: &Cx, key: Option<&str>) -> Result<Out, Failed> {
     text += &format!("{}\n", cx.t("config.tools", &[("tools", &list)]));
     text += &format!("\n{}\n", cx.t("config.controls", &[]));
     let mut controls = Vec::new();
+    let mode = cx.record.as_ref().ok().and_then(crate::domain::publication);
+    let word = |key: String| cx.t(&key, &[]);
     for m in table::moves() {
+        let kinds = m.kinds.join(" ");
+        let at: Vec<String> = m.kinds.iter().map(|k| word(format!("kind.{k}"))).collect();
         for g in &m.guards {
             let control = label(g.control);
-            let kind = m.kinds.join(" ");
-            text += &format!("  {kind}: {} ({})\n", g.name, cx.t(&format!("control.{control}"), &[]));
-            controls.push(json!({"at": kind, "subject": m.subject, "guard": g.name, "control": control}));
+            let (guard, how) = (word(format!("guard.{}", g.name)), word(format!("control.{control}")));
+            text += &format!("  {} ({kinds}): {guard} ({}); {how}\n", at.join(", "), g.name);
+            controls.push(json!({"at": kinds, "subject": m.subject, "guard": g.name, "control": control}));
         }
     }
     for c in CHECKS {
-        let control = label(c.control);
-        text += &format!(
-            "  {} {}: {}\n",
-            c.id,
-            cx.t(&format!("check.{}", c.id), &[]),
-            cx.t(&format!("control.{control}"), &[])
-        );
+        let control = label(control_of(c, mode));
+        text += &format!("  {} {}: {}\n", c.id, word(format!("check.{}", c.id)), word(format!("control.{control}")));
         controls.push(json!({"at": "check", "subject": c.id, "guard": c.id, "control": control}));
     }
     let doc = json!({

@@ -60,45 +60,126 @@ pub fn label(c: Control) -> &'static str {
     }
 }
 
-/// A failure of the verification itself: a tool or a file it needed.
+/// A failure of the verification itself: a tool or a file it needed, or a repository it cannot walk.
 fn unknown(e: Error) -> Error {
     match e {
-        Error::Refused { code: ToolMissing | ToolFailed, path, detail } => {
-            Error::Refused { code: CheckUnknown, path, detail: format!("{detail}: the tool is missing or failed") }
+        Error::Refused { code: ToolMissing | ToolFailed | HeadDetached | NotARepository, path, detail } => {
+            let detail = format!("{detail}; so this verification could not run");
+            Error::Refused { code: CheckUnknown, path, detail }
         }
         Error::Io { path, .. } => refuse(CheckUnknown, Some(&path), "cannot be read"),
         other => other,
     }
 }
 
-/// What the fermentos and the alambique cite (D-055 point 2): the relative targets of their Markdown links and images,
-/// resolved from the citing file's directory.
+/// A check's label where the mode is `mode`: C4 is cooperative on one machine (section 6).
+pub(crate) fn control_of(c: &Check, mode: Option<Publication>) -> Control {
+    if c.id == "C4" && mode == Some(Publication::Unpublished) { Cooperative } else { c.control }
+}
+
+/// What the fermentos and the alambique cite (D-055 point 2): the relative targets of the Markdown links and images
+/// of each citing file that is a regular file in a directory that is not a link, resolved from its directory.
 pub(crate) fn cited(domain: &Path) -> BTreeSet<PathBuf> {
+    let regular = |p: &Path| std::fs::symlink_metadata(p).is_ok_and(|m| m.is_file());
     let mut citing = vec![domain.join("ALAMBIQUE.md")];
     for entry in std::fs::read_dir(domain).into_iter().flatten().flatten() {
-        if entry.file_name().to_str().is_some_and(is_alias) {
+        if entry.file_name().to_str().is_some_and(is_alias) && entry.file_type().is_ok_and(|t| t.is_dir()) {
             citing.push(entry.path().join("fermento.md"));
         }
     }
     let mut out = BTreeSet::new();
-    for file in citing {
+    for file in citing.into_iter().filter(|f| regular(f)) {
         let (Ok(text), Some(dir)) = (std::fs::read_to_string(&file), file.parent()) else { continue };
-        for target in text.split("](").skip(1).filter_map(|rest| link(rest.split(')').next()?)) {
+        for target in targets(&text).iter().filter_map(|t| link(t)) {
             out.insert(normal(&dir.join(target)));
         }
     }
     out
 }
 
-/// A link's target as a relative path, without its title, fragment or query; `None` for a scheme, an absolute path or
-/// only a fragment.
-fn link(raw: &str) -> Option<&str> {
-    let raw = raw.trim();
-    let raw = match raw.strip_prefix('<') {
-        Some(inner) => inner.split('>').next()?,
-        None => raw.split_whitespace().next()?,
-    };
-    let path = raw.split(['#', '?']).next()?;
+/// The destinations of the inline links and images of a Markdown text, `[text](destination "title")`, outside fenced
+/// blocks and code spans; a destination in `<…>` may hold spaces, one without them may hold balanced parentheses, and
+/// a backslash escapes the character after it. A link's text stays on one line.
+fn targets(text: &str) -> Vec<String> {
+    let (mut out, mut fence) = (Vec::new(), None::<&str>);
+    for line in text.lines() {
+        let t = line.trim_start_matches(' ');
+        if let Some(m) = ["```", "~~~"].into_iter().find(|m| line.len() - t.len() <= 3 && t.starts_with(m)) {
+            fence = match fence {
+                None => Some(m),
+                Some(f) if f == m => None,
+                other => other,
+            };
+            continue;
+        }
+        if fence.is_some() {
+            continue;
+        }
+        let b = line.as_bytes();
+        let run = |i: usize| b[i..].iter().take_while(|c| **c == b'`').count();
+        let (mut i, mut depth, mut close) = (0, 0usize, false);
+        while i < b.len() {
+            match b[i] {
+                b'\\' => i += 1,
+                b'`' => {
+                    let n = run(i);
+                    let end = (i + n..b.len()).find(|&j| run(j) == n && (j == 0 || b[j - 1] != b'`'));
+                    i = end.map_or(i + n, |j| j + n) - 1;
+                }
+                b'[' => depth += 1,
+                b']' if depth > 0 => {
+                    depth -= 1;
+                    close = b.get(i + 1) == Some(&b'(');
+                }
+                _ => {}
+            }
+            i += 1;
+            if std::mem::take(&mut close) {
+                let (dest, end) = destination(&b[i + 1..]);
+                out.extend(dest);
+                i += 1 + end;
+            }
+        }
+    }
+    out
+}
+
+/// A link's destination at the start of `b`, after its `(`, and how many bytes it took; `None` if it does not close.
+fn destination(b: &[u8]) -> (Option<String>, usize) {
+    let (mut out, mut i, mut depth) = (Vec::new(), 0, 0usize);
+    let angle = b.first() == Some(&b'<');
+    i += usize::from(angle);
+    while let Some(&c) = b.get(i) {
+        if c == b'\\' && b.get(i + 1).is_some_and(u8::is_ascii_punctuation) {
+            out.push(b[i + 1]);
+            i += 2;
+            continue;
+        }
+        match c {
+            b'>' if angle => break,
+            b'<' if angle => return (None, i),
+            b' ' | b'\t' if !angle => break,
+            b'(' if !angle => depth += 1,
+            b')' if !angle && depth == 0 => break,
+            b')' if !angle => depth -= 1,
+            _ => {}
+        }
+        out.push(c);
+        i += 1;
+    }
+    let rest = &b[(i + usize::from(angle)).min(b.len())..];
+    let closes = rest.iter().position(|c| *c == b')').is_some_and(|p| {
+        let title = rest[..p].trim_ascii();
+        title.is_empty()
+            || title.len() >= 2 && matches!((title[0], title[title.len() - 1]), (b'"', b'"') | (b'\'', b'\''))
+    });
+    (closes.then(|| String::from_utf8_lossy(&out).into_owned()), i)
+}
+
+/// A destination as a relative path, without its fragment or query; `None` for a scheme, an absolute path or only a
+/// fragment.
+fn link(dest: &str) -> Option<&str> {
+    let path = dest.split(['#', '?']).next()?;
     let scheme = path.split_once(':').is_some_and(|(s, _)| !s.is_empty() && !s.contains('/'));
     (!path.is_empty() && !path.starts_with('/') && !scheme).then_some(path)
 }
@@ -143,12 +224,14 @@ pub(super) fn run(cx: &Cx) -> Result<Out, Failed> {
     let record = cx.record.as_ref();
     let absent = record.as_ref().err().is_some_and(|e| e.iter().all(|e| e.code() == Some(RecordAbsent)));
     match (record, &cx.policy) {
-        (Ok(_), Some(p)) => {
-            if let Ok(Some(changes)) = settings::pending(p, d) {
+        (Ok(_), Some(p)) => match settings::pending(p, d) {
+            Ok(Some(changes)) => {
                 let places: Vec<String> = changes.iter().map(|c| c.place()).collect();
                 found.push(("C2", refuse(PolicyPending, Some(&d.join("settings.toml")), places.join(", "))));
             }
-        }
+            Ok(None) => {}
+            Err(_) => found.push(("C2", refuse(CheckUnknown, Some(&d.join("settings.toml")), "it does not read"))),
+        },
         (Ok(_), None) => found.push(("C2", refuse(PolicyAbsent, Some(d), "no policy is adopted"))),
         (Err(_), _) if absent => found.push(("C2", refuse(PolicyAbsent, Some(d), "no policy is adopted"))),
         (Err(_), _) => found.push(("C2", refuse(CheckUnknown, Some(d), "the record does not replay"))),
@@ -163,10 +246,13 @@ pub(super) fn run(cx: &Cx) -> Result<Out, Failed> {
     }
     let mode = record.ok().and_then(domain::publication);
     let repo = mode.and_then(|m| Repo::for_domain(d, m));
-    if record.is_ok() && mode.is_none() {
-        for id in ["C4", "C8", "C10"] {
-            found.push((id, refuse(CheckUnknown, Some(d), "no publication mode is recorded")));
-        }
+    // With no mode, what the mode decides is unknown; a record that does not replay has its C4 unknown already.
+    if mode.is_none() && !absent {
+        let (ids, why): (&[&str], _) = match record {
+            Ok(_) => (&["C4", "C8", "C10"], "no publication mode is recorded"),
+            Err(_) => (&["C8", "C10"], "the record does not replay, so its publication mode is unknown"),
+        };
+        found.extend(ids.iter().map(|id| (*id, refuse(CheckUnknown, Some(d), why))));
     }
     if let Some(repo) = &repo {
         let walk = record::record_branch(repo).and_then(|b| record::walk_history(repo, &b));
@@ -209,9 +295,8 @@ fn render(cx: &Cx, found: Vec<(&str, Error)>, mode: Option<Publication>) -> Out 
     let mut text = String::new();
     for (id, e) in &found {
         let warning = matches!(e.code(), Some(DomainUnknownEntry | PolicyPending));
-        let one_machine = *id == "C4" && mode == Some(Publication::Unpublished);
         let check = CHECKS.iter().find(|c| c.id == *id).expect("a finding names a declared check");
-        let control = if one_machine || e.code() == Some(CredentialSuspected) { Cooperative } else { check.control };
+        let control = control_of(check, mode);
         let mut v = cx.entry(e);
         v["check"] = json!(id);
         v["severity"] = json!(if warning { "warning" } else { "error" });
@@ -233,7 +318,8 @@ fn render(cx: &Cx, found: Vec<(&str, Error)>, mode: Option<Publication>) -> Out 
     let (e, w) = (errors.to_string(), warnings.to_string());
     text += &cx.t(if errors > 0 { "check.failed" } else { "check.passed" }, &[("errors", &e), ("warnings", &w)]);
     text.push('\n');
-    let checks: Vec<Value> = CHECKS.iter().map(|c| json!({"check": c.id, "control": label(c.control)})).collect();
+    let checks: Vec<Value> =
+        CHECKS.iter().map(|c| json!({"check": c.id, "control": label(control_of(c, mode))})).collect();
     let doc = json!({"schema": "fabrewk.check/1", "checks": checks, "findings": entries, "errors": errors, "warnings": warnings});
     Out { doc, text, error: false, exit: if errors > 0 { FOUND } else { super::DONE } }
 }

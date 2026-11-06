@@ -13,7 +13,7 @@ use serde_json::{Value, json};
 pub(super) fn run(cx: &Cx, id: Option<&str>) -> Result<Out, Failed> {
     match id {
         Some(id) => subject(cx, id),
-        None => Ok(overview(cx)),
+        None => overview(cx),
     }
 }
 
@@ -29,7 +29,7 @@ fn text_of<'a>(e: &'a Event, field: &str) -> &'a str {
     e.value["payload"][field].as_str().unwrap_or_default()
 }
 
-fn overview(cx: &Cx) -> Out {
+fn overview(cx: &Cx) -> Result<Out, Failed> {
     let mut doc = json!({
         "schema": "fabrewk.status/1", "record": "absent", "problems": [], "policy": null, "mode": null,
         "stages": [], "next": [],
@@ -40,6 +40,8 @@ fn overview(cx: &Cx) -> Out {
         Err(errors) if errors.iter().all(|e| e.code() == Some(Code::RecordAbsent)) => {
             text += &cx.t("status.absent", &[])
         }
+        // A record that cannot be read at all is an internal error, never a state.
+        Err(errors) if errors.iter().any(|e| e.code().is_none()) => return Err(Failed::Refused(errors.clone())),
         Err(errors) => {
             doc["record"] = json!("broken");
             let problems: Vec<Value> = errors.iter().map(|e| cx.entry(e)).collect();
@@ -59,7 +61,7 @@ fn overview(cx: &Cx) -> Out {
     text = text.trim_end().to_owned() + "\n";
     text += &cx.next(&next);
     doc["next"] = json!(next);
-    Out::new(doc, text)
+    Ok(Out::new(doc, text))
 }
 
 /// The lines of a record that replays; gives whether the project file has changes not adopted, if a policy is.

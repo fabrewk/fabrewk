@@ -67,10 +67,13 @@ pub fn check(key: &[u8], bytes: &[u8], sig: &Path) -> Result<(), Error> {
     let args = ["-Y", "check-novalidate", "-n", "fabrewk", "-s"];
     let mut all: Vec<&std::ffi::OsStr> = args.iter().map(|a| a.as_ref()).collect();
     all.push(sig.as_os_str());
-    if ssh_keygen(&all, bytes)?.status.success() {
-        Ok(())
-    } else {
-        Err(refuse(Code::RecordSignatureInvalid, Some(sig), "ssh-keygen -Y check-novalidate refused the signature"))
+    // `ssh-keygen` exits 255 when it refuses a signature; any other failure, a signal included, is the tool's own.
+    match ssh_keygen(&all, bytes)?.status.code() {
+        Some(0) => Ok(()),
+        Some(255) => {
+            Err(refuse(Code::RecordSignatureInvalid, Some(sig), "ssh-keygen -Y check-novalidate refused the signature"))
+        }
+        _ => Err(refuse(Code::ToolFailed, Some(sig), "ssh-keygen -Y check-novalidate failed")),
     }
 }
 

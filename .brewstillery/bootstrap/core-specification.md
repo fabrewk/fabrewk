@@ -611,7 +611,10 @@ their effect, each maintainer's key (REQ-ID-5), what detection finds, the effect
   As part 7d2 fixed it (D-055): the files cited are the targets of every Markdown inline link `[text](target)` and
   image `![text](target)` in `ALAMBIQUE.md` and in each `<alias>/fermento.md` that are relative paths (a target in
   `<…>` may hold spaces; the title, a fragment and a query are dropped), resolved from the citing file's directory
-  with `.` and `..` read as written; a target with a scheme, an absolute path or only a fragment cites nothing.
+  with `.` and `..` read as written; a target with a scheme, an absolute path or only a fragment cites nothing. A
+  destination without `<…>` may hold balanced parentheses, and a backslash escapes punctuation; links inside fenced
+  blocks and code spans are examples and cite nothing; a link's text stays on one line. A citing file is read only
+  when it is a regular file in a maintainer's directory that is not a link (P7D2-2).
 - **REQ-SEC-4.** The private folder is created with access for its owner only, and Fabrewk refuses to read it if its
   permissions are wider (`PRIVATE_FOLDER_PERMISSIONS`). (6.51, AD-15)
 - **REQ-SEC-5.** Every control in the transition table and in `check` is labelled `effective` (enforced by code with
@@ -876,9 +879,14 @@ phase 8, when views, separators and the alambique's approval exist. Warnings (`D
 and `machine.toml`; C2 compares the file with the policy in force; C3 reports each code the replay gives; C4 reports
 `RECORD_ABSENT`, the history walk where the mode commits, and the mark; C10 reports the record's files the record
 branch's tip does not hold. A tool missing or failing, or a file that does not read, is `CHECK_UNKNOWN` for the check
-that needed it; with a record that does not replay, C2 and the mark are `CHECK_UNKNOWN`; with a record and no
-`publication-decided`, C4's walk, C8's ignore rule and C10 are `CHECK_UNKNOWN`. With no domain at all, the one
-finding is `RECORD_ABSENT`. C4 is labelled cooperative in `unpublished` and effective otherwise; C9 is cooperative.
+that needed it, and so is a history that cannot be walked (`HEAD_DETACHED`, `NOT_A_REPOSITORY`) and a verifier that
+fails: `ssh-keygen -Y check-novalidate` refuses a signature only by exiting 255, and any other failure, a signal
+included, is the tool's (`TOOL_FAILED` in the library). With a record that does not replay, C2, the mark, C8's ignore
+rule and C10 are `CHECK_UNKNOWN`; with a record and no `publication-decided`, C4's walk, C8's ignore rule and C10.
+A project file that does not read leaves C2 `CHECK_UNKNOWN` besides C1's finding. With no domain at all, the one
+finding is `RECORD_ABSENT`. C4 is labelled cooperative in `unpublished` and effective otherwise, in `check`'s list
+and in `config`'s; C9 is cooperative. `config` words every guard of section 4 from the catalogue (`guard.<name>`).
+`status` and `config` give exit 70 when the record's files cannot be read at all.
 
 ## 7. Refusals
 

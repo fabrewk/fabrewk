@@ -96,14 +96,15 @@ impl Cx {
     /// One refusal or finding as a document's entry: its code, the catalogue's reason and next step, the command to
     /// run if any, where, and the core's detail.
     fn entry(&self, e: &Error) -> Value {
-        let (code, path) = match e {
-            Error::Refused { code, path, .. } => (*code, path.as_deref()),
-            Error::Io { path, .. } => (Code::CheckUnknown, Some(path.as_path())),
+        let (code, path, detail) = match e {
+            Error::Refused { code, path, detail } => (*code, path.as_deref(), detail.as_str()),
+            // The operating system's own text never reaches a person.
+            Error::Io { path, .. } => (Code::CheckUnknown, Some(path.as_path()), "cannot be read"),
         };
         let k = |field: &str| format!("code.{code}.{field}");
         json!({
             "code": code.to_string(), "reason": self.t(&k("reason"), &[]), "next": self.t(&k("next"), &[]),
-            "run": get(self.lang, &k("run")), "path": path.map(|p| self.show(p)), "detail": e.detail(),
+            "run": get(self.lang, &k("run")), "path": path.map(|p| self.show(p)), "detail": detail,
         })
     }
 

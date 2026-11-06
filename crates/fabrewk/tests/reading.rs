@@ -264,7 +264,7 @@ fn req_sec_5_config_lists_every_control_with_its_label() {
         assert!(listed.iter().any(|(s, g, _)| s == c.id && g == c.id), "{}", c.id);
     }
     let human = fx.run(&["config"]).stdout;
-    assert!(human.contains("CREDENTIAL_SUSPECTED (cooperativo)") && human.contains("C9 "), "{human}");
+    assert!(human.contains("(CREDENTIAL_SUSPECTED); cooperativo") && human.contains("C9 "), "{human}");
 }
 
 #[test]
@@ -497,61 +497,87 @@ fn pd_36_a_tool_that_fails_reaches_the_person_in_words() {
         whole(&out.all());
         assert_ne!(out.status, 70, "{args:?}: {out:?}");
     }
+    // `git` failing leaves the commit check unknown; `ssh-keygen` failing, the replay.
     let doc = fx.run_with(&["check", "--json"], Some(&path)).doc();
-    assert!(
-        doc["findings"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|f| f["code"] == "CHECK_UNKNOWN" || f["code"] == "RECORD_SIGNATURE_INVALID")
-    );
+    for check in ["C3", "C10"] {
+        assert_eq!(finding_of(&doc, check), ["CHECK_UNKNOWN"], "{check}: {doc}");
+    }
 }
 
-/// Each `(path, type)` a document holds, arrays as `[]`.
-fn shape(v: &Value, at: &str, out: &mut BTreeSet<String>) {
-    let ty = match v {
+fn type_of(v: &Value) -> &'static str {
+    match v {
         Value::Null => "null",
         Value::Bool(_) => "bool",
         Value::Number(_) => "number",
         Value::String(_) => "string",
-        Value::Array(a) => {
-            a.iter().for_each(|x| shape(x, &format!("{at}[]"), out));
-            "array"
-        }
-        Value::Object(o) => {
-            o.iter().for_each(|(k, x)| shape(x, &format!("{at}.{k}"), out));
-            "object"
-        }
-    };
-    out.insert(format!("{at}:{ty}"));
+        Value::Array(_) => "array",
+        Value::Object(_) => "object",
+    }
 }
 
-/// The pinned fields of each document (REQ-CLI-4): a change of fields needs a new `schema`.
+/// Each `path:type` a document holds, arrays' elements as `[]`.
+fn shape(v: &Value, at: &str, out: &mut BTreeSet<String>) {
+    match v {
+        Value::Array(a) => a.iter().for_each(|x| shape(x, &format!("{at}[]"), out)),
+        Value::Object(o) => o.iter().for_each(|(k, x)| shape(x, &format!("{at}.{k}"), out)),
+        _ => {}
+    }
+    out.insert(format!("{at}:{}", type_of(v)));
+}
+
+/// Whether one document holds to its pinned schema: every value of a type pinned at its path, and every object with
+/// exactly the fields pinned below its path.
+fn holds(v: &Value, pinned: &BTreeMap<&str, BTreeSet<&str>>, at: &str) -> Result<(), String> {
+    if !pinned.get(at).is_some_and(|t| t.contains(type_of(v))) {
+        return Err(format!("{at} is {}", type_of(v)));
+    }
+    match v {
+        Value::Object(o) => {
+            let want: BTreeSet<&str> = pinned
+                .keys()
+                .filter_map(|p| p.strip_prefix(at)?.strip_prefix('.'))
+                .filter(|k| !k.contains(['.', '[']))
+                .collect();
+            let got: BTreeSet<&str> = o.keys().map(String::as_str).collect();
+            if want != got {
+                return Err(format!("{at} has the fields {got:?}, pinned {want:?}"));
+            }
+            o.iter().try_for_each(|(k, x)| holds(x, pinned, &format!("{at}.{k}")))
+        }
+        Value::Array(a) => a.iter().try_for_each(|x| holds(x, pinned, &format!("{at}[]"))),
+        _ => Ok(()),
+    }
+}
+
+/// The pinned fields of each document and their types (REQ-CLI-4): a change of fields needs a new `schema`.
 const PINNED: &[(&str, &str)] = &[
     (
-        "fabrewk.status/1",
-        ".mode .next .next[] .policy .policy.digest .policy.pending .problems .problems[] .problems[].code .problems[].detail .problems[].next .problems[].path .problems[].reason .problems[].run .record .schema .stages .stages[] .stages[].goal .stages[].id .stages[].state .stages[].tasks .stages[].tasks[] .stages[].tasks[].goal .stages[].tasks[].id .stages[].tasks[].state",
-    ),
-    (
-        "fabrewk.subject/1",
-        ".allowed .allowed[] .events .events[] .events[].actor .events[].at .events[].kind .events[].seq .goal .id .lang .schema .stage .state .subject",
+        "fabrewk.check/1",
+        ":object .checks:array .checks[]:object .checks[].check:string .checks[].control:string .errors:number .findings:array .findings[]:object .findings[].check:string .findings[].code:string .findings[].control:string .findings[].detail:string .findings[].next:string .findings[].path:null|string .findings[].reason:string .findings[].run:null|string .findings[].severity:string .schema:string .warnings:number",
     ),
     (
         "fabrewk.config/1",
-        ".controls .controls[] .controls[].at .controls[].control .controls[].guard .controls[].subject .keys .keys[] .keys[].alias .keys[].kind .keys[].touch .machine .machine[] .machine[].how .machine[].name .machine[].path .machine[].present .machine[].space .machine[].verified .machine[].version .pending .pending[] .pending[].effect .pending[].key .pending[].place .person .policy .schema .tools .values .values[] .values[].about .values[].from .values[].key .values[].source .values[].value .values[].value[]",
+        ":object .controls:array .controls[]:object .controls[].at:string .controls[].control:string .controls[].guard:string .controls[].subject:string .keys:array .keys[]:object .keys[].alias:string .keys[].kind:string .keys[].touch:string .machine:array .machine[]:object .machine[].how:null|string .machine[].name:string .machine[].path:null|string .machine[].present:bool .machine[].space:string .machine[].verified:null|string .machine[].version:null|string .pending:array .pending[]:object .pending[].effect:string .pending[].key:string .pending[].place:string .person:null|string .policy:string .schema:string .tools:array .tools[]:string .values:array .values[]:object .values[].about:string .values[].from:null|string .values[].key:string .values[].source:string .values[].value:array|bool|number|string .values[].value[]:string",
     ),
-    ("fabrewk.value/1", ".about .from .key .schema .source .value"),
-    (
-        "fabrewk.check/1",
-        ".checks .checks[] .checks[].check .checks[].control .errors .findings .findings[] .findings[].check .findings[].code .findings[].control .findings[].detail .findings[].next .findings[].path .findings[].reason .findings[].run .findings[].severity .schema .warnings",
-    ),
+    ("fabrewk.internal/1", ":object .path:string .schema:string"),
     (
         "fabrewk.refused/1",
-        ".refusals .refusals[] .refusals[].code .refusals[].detail .refusals[].next .refusals[].path .refusals[].reason .refusals[].run .schema",
+        ":object .refusals:array .refusals[]:object .refusals[].code:string .refusals[].detail:string .refusals[].next:string .refusals[].path:null|string .refusals[].reason:string .refusals[].run:null|string .schema:string",
     ),
-    ("fabrewk.usage/1", ".message .run .schema"),
-    ("fabrewk.internal/1", ".path .schema"),
-    ("fabrewk.version/1", ".features .schema .version"),
+    (
+        "fabrewk.status/1",
+        ":object .mode:null|string .next:array .next[]:string .policy:null|object .policy.digest:string .policy.pending:bool|null .problems:array .problems[]:object .problems[].code:string .problems[].detail:string .problems[].next:string .problems[].path:null|string .problems[].reason:string .problems[].run:null|string .record:string .schema:string .stages:array .stages[]:object .stages[].goal:string .stages[].id:string .stages[].state:string .stages[].tasks:array .stages[].tasks[]:object .stages[].tasks[].goal:string .stages[].tasks[].id:string .stages[].tasks[].state:string",
+    ),
+    (
+        "fabrewk.subject/1",
+        ":object .allowed:array .allowed[]:string .events:array .events[]:object .events[].actor:string .events[].at:string .events[].kind:string .events[].seq:number .goal:string .id:string .lang:string .schema:string .stage:null|string .state:string .subject:string",
+    ),
+    ("fabrewk.usage/1", ":object .message:string .run:string .schema:string"),
+    (
+        "fabrewk.value/1",
+        ":object .about:string .from:null|string .key:string .schema:string .source:null|string .value:array|bool|null|number|string .value[]:string",
+    ),
+    ("fabrewk.version/1", ":object .features:array .features[]:string .schema:string .version:string"),
 ];
 
 #[test]
@@ -583,21 +609,188 @@ fn req_cli_4_every_document_holds_to_its_pinned_schema() {
     fs::remove_file(broken.domain.join("data/events/project/000009-0000000000000000.json")).unwrap();
     docs.push(broken.run(&["config", "--json"]).doc());
     docs.push(run_in(&fx.root, &fx.home, &["--version", "--json"], None).doc());
-    let mut seen: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    if std::env::var_os("FABREWK_PRINT_SCHEMAS").is_some() {
+        let mut seen: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+        for doc in &docs {
+            let mut s = BTreeSet::new();
+            shape(doc, "", &mut s);
+            seen.entry(doc["schema"].as_str().unwrap().to_owned()).or_default().extend(s);
+        }
+        for (schema, fields) in seen {
+            let mut by: BTreeMap<String, Vec<String>> = BTreeMap::new();
+            for f in fields {
+                let (p, t) = f.rsplit_once(':').unwrap();
+                by.entry(p.to_owned()).or_default().push(t.to_owned());
+            }
+            let line: Vec<String> = by.into_iter().map(|(p, t)| format!("{p}:{}", t.join("|"))).collect();
+            println!("(\"{schema}\", \"{}\"),", line.join(" "));
+        }
+    }
+    let pins: BTreeMap<&str, BTreeMap<&str, BTreeSet<&str>>> = PINNED
+        .iter()
+        .map(|(schema, fields)| {
+            let map = fields.split(' ').map(|f| f.rsplit_once(':').unwrap()).map(|(p, t)| (p, t.split('|').collect()));
+            (*schema, map.collect())
+        })
+        .collect();
+    let mut schemas = BTreeSet::new();
     for doc in &docs {
-        let schema = doc["schema"].as_str().unwrap_or_else(|| panic!("no schema: {doc}")).to_owned();
-        let mut s = BTreeSet::new();
-        shape(doc, "", &mut s);
-        seen.entry(schema).or_default().extend(s);
+        let schema = doc["schema"].as_str().unwrap_or_else(|| panic!("no schema: {doc}"));
+        let pinned = pins.get(schema).unwrap_or_else(|| panic!("{schema} is not pinned"));
+        holds(doc, pinned, "").unwrap_or_else(|e| panic!("{schema}: {e}; a change of fields needs a new schema"));
+        schemas.insert(schema);
     }
-    for (schema, fields) in PINNED {
-        let pinned: BTreeSet<&str> = fields.split(' ').collect();
-        let got = seen.get(*schema).unwrap_or_else(|| panic!("no document of {schema}"));
-        let paths: BTreeSet<&str> =
-            got.iter().filter_map(|f| f.rsplit_once(':')).map(|(p, _)| p).filter(|p| !p.is_empty()).collect();
-        assert_eq!(paths, pinned, "{schema}: its fields changed; give it a new schema");
-    }
-    assert_eq!(seen.len(), PINNED.len(), "{:?}", seen.keys());
+    assert_eq!(schemas.len(), PINNED.len(), "a document of every schema: {schemas:?}");
+    // A document that loses a field, or changes a field's type, no longer holds.
+    let mut lost = docs[4].clone();
+    lost.as_object_mut().unwrap().remove("source");
+    assert!(holds(&lost, &pins["fabrewk.value/1"], "").is_err());
+    let mut retyped = docs[3].clone();
+    retyped["value"] = serde_json::json!({"n": 3});
+    assert!(holds(&retyped, &pins["fabrewk.value/1"], "").is_err());
     // Each refusal's code is in its document.
     assert_eq!(docs[5]["refusals"][0]["code"], "KEY_UNKNOWN");
+}
+
+/// The finding of `check` for one file or for one check, with its code.
+fn finding_of(doc: &Value, check: &str) -> Vec<String> {
+    let list = doc["findings"].as_array().unwrap();
+    list.iter().filter(|f| f["check"] == check).map(|f| f["code"].as_str().unwrap().to_owned()).collect()
+}
+
+#[test]
+fn p7d2_1_a_record_that_cannot_be_read_is_an_internal_error_in_words() {
+    let fx = published("status-io");
+    let events = fx.domain.join("data/events");
+    fs::rename(&events, fx.domain.join("data/moved")).unwrap();
+    fs::write(&events, "not a directory\n").unwrap();
+    for args in [&["status"][..], &["status", "--json"]] {
+        let out = fx.run(args);
+        assert_eq!(out.status, 70, "{out:?}");
+        assert!(!out.all().contains("os error") && !out.all().contains("Not a directory"), "{out:?}");
+    }
+    let doc = fx.run(&["check", "--json"]).doc();
+    assert!(!doc.to_string().contains("os error"), "{doc}");
+}
+
+/// Runs `check --json` and fails if it does not end within ten seconds.
+fn check_within(fx: &Fx) -> Value {
+    let mut c = std::process::Command::new(env!("CARGO_BIN_EXE_fabrewk"));
+    isolate(&mut c, &fx.home, None);
+    let mut child =
+        c.current_dir(&fx.root).args(["check", "--json"]).stdout(std::process::Stdio::piped()).spawn().unwrap();
+    for _ in 0..1000 {
+        if child.try_wait().unwrap().is_some() {
+            let out = child.wait_with_output().unwrap();
+            return serde_json::from_slice(&out.stdout).unwrap();
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    child.kill().unwrap();
+    panic!("check did not end");
+}
+
+#[test]
+fn p7d2_2_a_citing_file_that_is_a_link_or_not_regular_is_never_read() {
+    let fx = published("cite-links");
+    let token = format!("gh{}_{}", "p", "a".repeat(36));
+    let x = fx.domain.join("xel");
+    fs::write(x.join("uncited.md"), "[notes](uncited.txt)\n").unwrap();
+    fs::write(x.join("uncited.txt"), format!("{token}\n")).unwrap();
+    std::os::unix::fs::symlink("uncited.md", x.join("fermento.md")).unwrap();
+    assert!(finding_of(&check_within(&fx), "C9").is_empty());
+    fs::remove_file(x.join("fermento.md")).unwrap();
+    assert!(std::process::Command::new("mkfifo").arg(x.join("fermento.md")).status().unwrap().success());
+    assert!(finding_of(&check_within(&fx), "C9").is_empty());
+}
+
+#[test]
+fn p7d2_3_only_markdown_links_cite_and_their_whole_destination() {
+    let fx = published("cite-syntax");
+    let token = format!("gh{}_{}", "p", "a".repeat(36));
+    let x = fx.domain.join("xel");
+    let cases = [
+        ("[notes](notes(1).txt)", true),
+        ("[notes](<notes(1).txt>)", true),
+        ("![a [nested] capture](notes(1).txt \"a title\")", true),
+        ("[notes](notes\\(1\\).txt)", true),
+        ("This is not a link: ](notes(1).txt)", false),
+        ("An example: `[notes](notes(1).txt)`", false),
+        ("```\n[notes](notes(1).txt)\n```", false),
+        ("[notes](notes(1).txt", false),
+        ("[notes](https://example.invalid/notes(1).txt)", false),
+    ];
+    fs::write(x.join("notes(1).txt"), format!("{token}\n")).unwrap();
+    for (text, cites) in cases {
+        fs::write(x.join("fermento.md"), format!("# Fermento\n\n{text}\n")).unwrap();
+        let found = finding_of(&check_within(&fx), "C9");
+        assert_eq!(found.len(), usize::from(cites), "{text}: {found:?}");
+    }
+}
+
+#[test]
+fn p7d2_4_c2_cannot_compare_a_project_file_that_does_not_read() {
+    let fx = published("c2-unreadable");
+    fs::remove_file(fx.domain.join("settings.toml")).unwrap();
+    fs::create_dir(fx.domain.join("settings.toml")).unwrap();
+    let doc = fx.run(&["check", "--json"]).doc();
+    assert_eq!(finding_of(&doc, "C2"), ["CHECK_UNKNOWN"], "{doc}");
+}
+
+#[test]
+fn p7d2_5_a_verifier_that_fails_is_unknown_not_a_bad_signature() {
+    let fx = published("ssh-failed");
+    let bin = tmp("ssh-failed-bin");
+    for (name, body) in [("killed", "kill -KILL $$"), ("one", "exit 1")] {
+        let dir = bin.join(name);
+        fs::create_dir_all(&dir).unwrap();
+        let script = dir.join("ssh-keygen");
+        fs::write(&script, format!("#!/bin/sh\n{body}\n")).unwrap();
+        fs::set_permissions(&script, fs::Permissions::from_mode(0o755)).unwrap();
+        let path = std::ffi::OsString::from(format!("{}:{}", dir.display(), std::env::var("PATH").unwrap()));
+        let doc = fx.run_with(&["check", "--json"], Some(&path)).doc();
+        assert_eq!(finding_of(&doc, "C3"), ["CHECK_UNKNOWN"], "{name}: {doc}");
+    }
+}
+
+#[test]
+fn p7d2_6_a_history_that_cannot_be_walked_is_unknown() {
+    let fx = published("detached");
+    fx.git(&["checkout", "--detach", "-q"]);
+    let doc = fx.run(&["check", "--json"]).doc();
+    assert_eq!(finding_of(&doc, "C4"), ["CHECK_UNKNOWN"], "{doc}");
+}
+
+#[test]
+fn p7d2_7_c4_is_cooperative_on_one_machine_wherever_it_is_listed() {
+    let fx = Fx::new("c4-label", "unpublished");
+    let check = fx.run(&["check", "--json"]).doc();
+    let c4 = check["checks"].as_array().unwrap().iter().find(|c| c["check"] == "C4").unwrap().clone();
+    assert_eq!(c4["control"], "cooperative");
+    let config = fx.run(&["config", "--json"]).doc();
+    assert!(
+        config["controls"].as_array().unwrap().iter().any(|c| c["subject"] == "C4" && c["control"] == "cooperative")
+    );
+    assert!(fx.run(&["config"]).stdout.contains(&format!("C4 {}: cooperativo", cli::say("es", "check.C4", &[]))));
+    let published = published("c4-label-published");
+    let check = published.run(&["check", "--json"]).doc();
+    assert!(check["checks"].as_array().unwrap().iter().any(|c| c["check"] == "C4" && c["control"] == "effective"));
+}
+
+#[test]
+fn p7d2_8_every_control_config_lists_is_in_words() {
+    let fx = published("control-words");
+    let human = fx.run(&["config"]).stdout;
+    for (lang, text) in cli::CATALOGUES {
+        let m = cli::messages(text);
+        for g in fabrewk_core::table::moves().iter().flat_map(|m| &m.guards) {
+            assert!(m.contains_key(&format!("guard.{}", g.name)), "{lang} lacks guard.{}", g.name);
+        }
+    }
+    let line = format!(
+        "{} (run-started): {} (REQ-RUN-2); cooperativo",
+        cli::say("es", "kind.run-started", &[]),
+        cli::say("es", "guard.REQ-RUN-2", &[])
+    );
+    assert!(human.contains(&line), "{human}");
 }
