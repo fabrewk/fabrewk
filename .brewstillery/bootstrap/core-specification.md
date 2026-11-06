@@ -896,7 +896,8 @@ record's `data/`, `data/events/` or a stream that is not a directory `RECORD_BRO
 not UTF-8 is read as far as it is (P7D2-15). A domain that is a link is `RECORD_BROKEN` (C3 in `check`); a private
 folder that is one is `PRIVATE_FOLDER_PERMISSIONS`; Git's signing key is read only from a regular file outside this
 repository and outside every Fabrewk domain, as written and as it resolves, and never when Git takes the setting itself from a file in a domain (P7D2-17,
-P7D2-22, P7D2-30), and `--version` reads nothing (P7D2-25). What cannot be
+P7D2-22, P7D2-30); what Git itself reads in order to run, its configuration and what it includes, is Git's and the
+person's, outside this boundary (D-058), and `--version` reads nothing (P7D2-25). What cannot be
 examined on the way to the private folder, `machine.toml` or the person's own file is an error, never an absence
 (P7D2-24, P7D2-26), and a domain that cannot be examined is `CHECK_UNKNOWN`, not absent (P7D2-27). A private
 folder inside this repository or inside any Fabrewk domain (a path with a `.brewstillery` component), written there or

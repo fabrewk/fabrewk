@@ -2352,3 +2352,35 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Sources: chat of session 21; Codex's three passes of 7d2; D-055; `core-specification.md` REQ-SEC-3.
 - Supersedes: the interpretation of D-055 point 2 recorded after Codex's first pass (fences and code spans cite
   nothing).
+
+## D-057 — Part 7d2: a tenth Codex pass after two retries without progress
+
+- Status: decided
+- Decided: 2026-11-06
+- Origin: maintainer XEL in session 21's chat, answering the integrator's question when Codex's seventh, eighth and
+  ninth passes of 7d2 each confirmed one blocking finding (two consecutive retries without progress by the measure of
+  the plan's rule, D-003): "Pasada 10 completa (Recomendado)".
+- Decision: one more full Codex pass of part 7d2 after P7D2-31 is corrected. With no confirmed blocking finding the
+  part is accepted; with one, the integrator corrects it and asks the maestro again before any further pass.
+- Consequences: R-029 records the passes; the alternatives offered were a scoped re-check of P7D2-31 and accepting
+  the part without another pass.
+- Sources: chat of session 21; `plan.md` (rule for every phase); Codex's passes 7 to 9 of 7d2.
+- Supersedes: none.
+
+## D-058 — Part 7d2: what Git reads to run is Git's; part 7d2 accepted
+
+- Status: decided
+- Decided: 2026-11-06
+- Origin: maintainer XEL in session 21's chat, answering the integrator's question on Codex's tenth-pass finding
+  P7D2-32 (Git opens the files its own configuration includes, `include.path`, even in another project's domain, and
+  a pipe there blocks Git itself): "Es de Git; aceptar 7d2 (Recomendado)".
+- Decision: Git's configuration is the person's tool configuration. What Git reads in order to run, its configuration
+  and the files it includes, is outside REQ-SEC-3's and REQ-FER-9's boundary, which governs what Fabrewk opens; no
+  command of Git can be told not to read its own local configuration. Fabrewk keeps refusing to use a value Git takes
+  from a file in a domain (D-055 point 1 read with this entry). P7D2-32 is a residual, and part 7d2 is accepted with
+  every other finding of Codex's ten passes closed.
+- Consequences: `core-specification.md` section 6's paragraph "As part 7d2 fixed it" says so; R-029 records the
+  residual. The alternatives offered were `git config --no-includes` for the signing key, or running Git without its
+  global and system configuration, each followed by an eleventh pass.
+- Sources: chat of session 21; Codex's tenth pass of 7d2; D-055, D-057; `core-specification.md` REQ-SEC-3.
+- Supersedes: none.
