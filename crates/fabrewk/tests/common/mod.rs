@@ -12,6 +12,7 @@ use std::process::Command;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 pub fn tmp(name: &str) -> PathBuf {
+    sweep_ended("cli-");
     static N: AtomicUsize = AtomicUsize::new(0);
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!(
         "cli-{name}-{}-{}",
@@ -261,4 +262,54 @@ pub fn path_with(base: &Path, programs: &[&str]) -> std::ffi::OsString {
         std::os::unix::fs::symlink(found.unwrap_or_else(|| panic!("{p} is needed by the test")), bin.join(p)).unwrap();
     }
     bin.into_os_string()
+}
+
+/// A test that fails between taking a permission away and giving it back leaves no directory its owner cannot
+/// remove: dropping a fixture gives the owner access to every directory under it.
+impl Drop for Fx {
+    fn drop(&mut self) {
+        fn open(dir: &Path) {
+            use std::os::unix::fs::PermissionsExt;
+            let Ok(meta) = std::fs::symlink_metadata(dir) else { return };
+            if meta.is_dir() {
+                let _ =
+                    std::fs::set_permissions(dir, std::fs::Permissions::from_mode(meta.permissions().mode() | 0o700));
+                for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+                    open(&entry.path());
+                }
+            }
+        }
+        if let Some(base) = self.root.parent() {
+            open(base);
+        }
+    }
+}
+
+/// Removes, once per test process, the fixtures of test processes that have ended (their names carry the process's
+/// identifier), opening every directory first; so that runs that repeat, as mutation testing does, do not fill the
+/// disk (session 21).
+fn sweep_ended(prefix: &str) {
+    static ONCE: std::sync::Once = std::sync::Once::new();
+    ONCE.call_once(|| {
+        fn open(dir: &Path) {
+            use std::os::unix::fs::PermissionsExt;
+            let Ok(meta) = std::fs::symlink_metadata(dir) else { return };
+            if meta.is_dir() {
+                let _ =
+                    std::fs::set_permissions(dir, std::fs::Permissions::from_mode(meta.permissions().mode() | 0o700));
+                for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+                    open(&entry.path());
+                }
+            }
+        }
+        for entry in std::fs::read_dir(env!("CARGO_TARGET_TMPDIR")).into_iter().flatten().flatten() {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            let pid =
+                name.strip_prefix(prefix).and_then(|rest| rest.rsplit('-').nth(1)).and_then(|p| p.parse::<u32>().ok());
+            if pid.is_some_and(|p| p != std::process::id() && !Path::new(&format!("/proc/{p}")).exists()) {
+                open(&entry.path());
+                let _ = std::fs::remove_dir_all(entry.path());
+            }
+        }
+    });
 }
