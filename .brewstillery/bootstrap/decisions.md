@@ -2707,3 +2707,95 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   accepting the part.
 - Sources: chat of session 23; Codex's fifth pass of 7d3a; D-063, D-064; `core-specification.md` REQ-REG-10.
 - Supersedes: none.
+
+## R-031 — Session 23, part 7d3a: the write path, adopt and propose
+
+- Status: recorded
+- Date: 2026-11-06
+- Who: integrator Claude Code, `claude-opus-5-5`, effort high. Reviewer: Codex `codex-cli 0.166.0`, `gpt-6.1-sol`,
+  effort high, launched as the `codex-review` skill says (`codex exec --json`, standard input closed, sandbox
+  `workspace-write`, no network, a user systemd scope capped at 3 GB, a disposable clone under `target/review-7d3a/`
+  with a copy of the Cargo registry). No subagent.
+- Start: HEAD `5838b38`, with the maestro's fermento edit (the open item removed) not committed. It went in its own
+  commit, `2577784`, with no AI co-author; the answer was then replaced (`15d6942`), the separator found exactly once
+  and the input byte-identical (everything above the answer, sha256 `8cf4493e…`, before and after): no current
+  recommendation.
+- Read: `STATUS.md`, `AGENTS.md`, `plan.md`, this file (D-047, D-053 to D-061, R-028 to R-030), `core-specification.md`
+  (sections 2 DOM, REG, SET, ID, TASK, RUN, CLI, SEC, GATE-7, GATE-9, 3 to 8, 10, 11.2 to 11.5, 12, 13), the skills
+  `verify-part` and `codex-review`, and the code of the record, settings, identity, the machine, detection, the domain,
+  the table, the payloads and the command surface, with their test fixtures; the strings of `codex-cli` 0.166.0's
+  binary for its sandbox variables.
+- Decided before any code (D-062): 7d3 split into 7d3a and 7d3b; `run` takes words; `authorize` takes `--seen`; the
+  binary declares the agents' markers. During the review: D-063 (after pass 3: two retries without progress; what a
+  write command cleans and keeps before it refuses; a fourth pass), D-064 (a fifth pass), D-065 (a failed record
+  commit leaves its events and says so; a sixth pass).
+- Written: `crates/core/src/cli/write.rs` (the write path: guards on the record read without the lock, the session,
+  the guards again under the lock, every event made and signed in memory, the machine key put in place after, the
+  leftovers' commit, the events by compare-and-swap, the record commit, the caches under the lock;
+  `AGENT_ENVIRONMENT`, the person by Git's signing key, the words), `cli/adopt.rs`, `cli/propose.rs` (the file read as
+  JSON, its format generated from the payloads in `task.rs`), the declaration's required argument and options with a
+  value (`decl.rs`), the write commands' documents, the internal error of a write command, four codes
+  (`AGENT_ENVIRONMENT`, `STAGE_CLOSED`, `WORDS_COPIED`, `WORDS_MISSING`) and their catalogue entries in `en` and `es`;
+  `GitKey`, `GitSigner`, `holder` and the signing key's files held to D-055 (`identity.rs`); `Session::prepare`,
+  `write`, `refresh`, `finish_held`, the mark after the commit, a rebuilt commit only on a head that descends and is
+  walked, the leftovers and the index repair restricted to the streams replay reads, `check_ident`, a Git lock as the
+  entry itself (`record/`); `machine::Pending` and `prepare_instance`; `resolved` for a path not made yet (`code.rs`);
+  a fault seam that pauses at a named step and one for a test nonce; the binary's markers and its feature
+  `fault-injection` with the test `faults` (which requires the core's feature); tests in
+  `crates/fabrewk/tests/writing.rs` (43) and `faults.rs` (8), the
+  shared `refused` helper moved to `tests/common/` and holding every write command's code to its declaration;
+  the generated completions and reference; `core-specification.md` (the paragraph "The write path, as part 7d3a fixed
+  it"), `plan.md`, `STATUS.md`, this entry.
+- Interpretations, given to the review and not re-opened by it: those of D-062 point 1; `--say` followed by an
+  argument that starts with `-` gives no words (found by the integrator's own tests: `--say --json` took `--json` as
+  the words); a record with a policy and no `publication-decided` is `RECORD_BROKEN`; the mark is compared before the
+  mode, so a cut record is `RECORD_ROLLBACK`; `adopt` may adopt a file equal to the policy in force; `propose`'s file
+  is at most 1 MiB, outside every domain.
+- Codex, six passes, confirmed blocking findings by pass: 5, 5, 5, 3, 2, 0. Pass 1 (`1d93a14`): P7D3A-1 (a signing
+  refusal had made the machine key and committed leftovers), P7D3A-2 (an invalid `machine.toml` read after the
+  commit), P7D3A-3 (caches written after the lock was released), P7D3A-4 (a key file `ssh-keygen` opens through the
+  `.pub` fallback, in a domain or a pipe), P7D3A-5 (a detached head accepted in `unpublished`); P7D3A-6 not blocking
+  (the fault tests' contract). Pass 2 (`28befaa`): P7D3A-1 again (a probe signature is no guarantee; a key literal's
+  directory left), P7D3A-7 (a Git lock checked after the machine key), P7D3A-8 (a private folder not made yet through a
+  link into a domain), P7D3A-9 (leftovers from a hidden directory committed), P7D3A-10 (the mark moved by a refused
+  commit). Pass 3 (`9d8f822`): P7D3A-1's remaining variants and P7D3A-11 (settled by D-063), P7D3A-7 (a dangling link
+  as a lock), P7D3A-8 (a `..` after a name not made), P7D3A-12 (staged files in a hidden directory reset); P7D3A-13
+  not blocking (a refusal missing from the declaration). Pass 4 (`972ebe5`): P7D3A-14 (no Git author, refused after
+  writing), P7D3A-15 (a generated identifier's collision written as a second creation), P7D3A-16 (a commit rebuilt on
+  a head that drops an event); P7D3A-17 not blocking. Pass 5 (`77257ae`): P7D3A-18 (settled by D-065), P7D3A-19 (a
+  commit rebuilt on a rewound branch); P7D3A-20 not blocking (snapshots blind to a link's target). Pass 6 (`a543909`):
+  **accept**; P7D3A-21 and P7D3A-22 not blocking, corrected after it (`8261a4e`: an index another Git holds after the
+  commit is left for the next command; the size limit at its boundary). Each pass checked that every new test fails
+  without its correction. Codex ran no command outside its clone; its sandbox cannot bind an SSH agent's socket, so
+  it skipped that one test, which passes here.
+- Clean clone of `9d91a59`, rustup 1.99.1: 300 tests green, and the fault suites (`crash` 3, `faults` 8) with
+  `-p fabrewk-core -p fabrewk --features fault-injection --test crash --test faults`; the musl release build, whose
+  `--version --json` lists no feature; `budget check --binary` exits 0: core 5,377 of 7,500 counted lines in 33 files,
+  4 direct runtime crates, 31 crates in the release build, the binary 1,642,856 bytes; `clippy --workspace
+  --all-targets -D warnings` with and without `fabrewk-core/fault-injection`, `fmt --check`, `cargo deny --offline
+  check licenses advisories` clean.
+- Mutation (`cargo mutants --in-diff` over the part, rustup 1.99.1, `-j 2`, `--test-workspace true`, in its own scope
+  as R-022 says, `TMPDIR` under `target/`): the first baseline failed, since under cargo-mutants' copy one test's SSH
+  agent socket passed a Unix socket's 108-byte limit (`a643eb2` gives it a short relative path). Then 259 mutants in
+  40 minutes: 163 caught, 85 unviable, no timeout, 11 missed, each killed by a new test or removed (`338e6ca`: the
+  internal error of a write command, a private folder through a link into the repository, a key literal's directory
+  there before, the format in `propose`'s help only, a task's own protected paths, the file's exact shape, a hidden
+  directory's temporary-named file, the record planned again under the lock through a fault pause before the lock;
+  the unused `Pending::fingerprint` removed). A second run over the functions concerned (34 mutants; with
+  `--features fabrewk-core/fault-injection`, after the binary's `faults` was made to require the core's feature,
+  since a run whose mutants are all in the core builds the core alone): 26 caught, 7 unviable, 1 missed, `!` in
+  `GitSigner::sign`'s test of the directory it made, which the shared refusal helper's two runs hid (the second
+  undoing the first); killed by assertions after a single run (`9d91a59`), checked by hand on the mutant. No
+  equivalent declared.
+- Residuals, not blocking: the SSH agent test cannot run in Codex's sandbox; D-063's two exceptions and D-065's
+  events left by a failed commit; the TOCTOU between a file's metadata and its read, as in 7d2; `--widen` naming a
+  key that is no widening is accepted and records nothing.
+- Size: the core grew from 4,540 to 5,377 counted lines (+837; R-029 projected 5,350 to 5,650 after the whole of 7d3,
+  of which 7d3a was planned as the larger half). Corrected projection: 7d3b about +450 to +650 (5,850 to 6,050), then
+  phase 8 and the core's part of phase 9 as R-029 estimated them (+800 to +1,100 and +1,000 to +1,400), about 7,650
+  to 8,550: the ceiling of 7,500 is likely not to hold through phase 9, which is the maestro's to decide when 7d3b is
+  measured.
+- Skills: the maestro approved in chat ("Aprobar (Recomendado)") two edits to `verify-part`: its fault-suite line runs
+  `-p fabrewk-core -p fabrewk --features fault-injection --test crash --test faults`, and its mutation paragraph says
+  that the core's feature builds `faults` too.
+- Not done: part 7d3b.

@@ -29,7 +29,7 @@ Fish, for a command the maintainer is asked to run (their shell, `AGENTS.md` "Sh
 With the prefix, from the repository's root:
 
     cargo +1.99.1 test --locked
-    cargo +1.99.1 test --locked -p fabrewk-core --features fault-injection --test crash
+    cargo +1.99.1 test --locked -p fabrewk-core -p fabrewk --features fault-injection --test crash --test faults
     cargo +1.99.1 build --release --locked --target aarch64-unknown-linux-musl -p fabrewk
     cargo run --locked -p budget -- check --binary target/aarch64-unknown-linux-musl/release/fabrewk
     cargo +1.99.1 clippy --workspace --all-targets --locked -- -D warnings
@@ -68,7 +68,8 @@ feature (it does not depend on the core):
 
 with the prefix exported first, and `target/<part>.diff` written by `git diff <start>..HEAD > target/<part>.diff`.
 `--features fabrewk-core/fault-injection` makes the crash suite judge every mutant too (R-024: mutants in the
-record's store, Git and fault code are caught only by it); without it the `crash` target is not built.
+record's store, Git and fault code are caught only by it), and builds the binary's fault test `faults` (part 7d3a,
+R-031); without it neither target is built.
 `--test-workspace true` runs every package's tests on each mutant (the binary's tests reach the core's command
 surface). The counter has its own run because cargo-mutants builds the baseline for the mutated packages alone, and
 `budget` refuses the core's feature (P7S-5). `--in-diff` limits a run to the part; a full run drops it. Keep `OOMPolicy=continue` (with `stop` the scope ends the

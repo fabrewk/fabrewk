@@ -6,16 +6,16 @@ view generated from that registry. Technical files are in English by default (D-
 ## Current state
 
 **Phases 0 to 6 are closed (D-037, D-040). Phase 7 (the first code) is split into parts 7a, 7b, 7c1, 7c2a, 7c2b,
-7d1, 7d2, 7s and 7d3 (D-041, D-047, D-048, D-050, D-053, D-059); parts 7a to 7s are closed, 7s the skills for the
-agents (D-060, R-030); 7d3, the write commands, is next.** The repository holds the first code at its root: a
+7d1, 7d2, 7s, 7d3a and 7d3b (D-041, D-047, D-048, D-050, D-053, D-059, D-062); parts 7a to 7d3a are closed, 7d3a the
+write path with `adopt` and `propose` (D-062 to D-065, R-031); 7d3b, the task commands, is next.** The repository holds the first code at its root: a
 Cargo workspace with one crate per ring (`crates/core`, `crates/fabrewk`, the binary, which runs the core's command
 surface) and the size counter `tools/budget`, the licence files, `deny.toml` and a root `.gitignore` with `/target`.
 The record is built in `crates/core/src/record/`, the settings in `crates/core/src/settings/`, identity in
 `identity.rs`, the private folder and the machine file in `machine.rs`, detection and profiles in `detect.rs`, the
 domain's layout in `domain.rs`, the transition table in `table.rs`, the payloads and pattern guards in `task.rs`, the
 credential scan in `scan.rs`, and the command surface in `crates/core/src/cli/` with its catalogue in
-`crates/core/catalogue/` (`en`, `es`); `fabrewk status`, `fabrewk config` and `fabrewk check` exist, and no command
-writes yet. The skills the maestro approved are in `.brewstillery/skills/`, listed in `AGENTS.md`. The core counts 4,540 of 7,500 lines, formatted at width 120 (D-049, D-054). No `data/` exists in this
+`crates/core/catalogue/` (`en`, `es`); `fabrewk status`, `fabrewk config` and `fabrewk check` read, and `fabrewk
+adopt` and `fabrewk propose` write, through one write path in `crates/core/src/cli/write.rs`. The skills the maestro approved are in `.brewstillery/skills/`, listed in `AGENTS.md`. The core counts 5,377 of 7,500 lines, formatted at width 120 (D-049, D-054). No `data/` exists in this
 repository, whose project file still holds bootstrap keys, so `fabrewk check` here reports them. The domain is
 `.brewstillery/`, hidden (D-032).
 
@@ -208,16 +208,36 @@ repository, is imported into the single registry at production and then stays re
   maintainer removed the five TickBrew copies from their user folders, added `skills` to `layout.reservedNames`, and
   approved a sentence in 6.38: Fabrewk reports skills loaded from outside the project and warns on a duplicate name
   or a contradiction, never touching them (D-061; a requirement is due when phase 8 or 10 starts). The disk had 4.9 GB free at the start; old clones under `target/` were removed.
-- **Next: part 7d3 (plan, "Phase 7").** The write commands: `adopt`, `propose`, `authorize` (PD-37 for `authorize`),
-  `reject`, `run` up to confinement (`CONFINEMENT_UNAVAILABLE`), `--say` and `--say-lang`, `AGENT_ENVIRONMENT`, the
-  guards every write command applies (REQ-RUN-5, REQ-DOM-7), signing with Git's signing key (D-055 point 1), and the
-  record's refusal tests through the command line (D-047); TASK-4, PD-30 to PD-32, PD-37. Open from R-028:
-  `run-started`'s words, and how `TASK_CHANGED` arises. The declaration, catalogue, completions and reference grow
-  with each command (D-053 point 3); next steps that today are words become commands.
-- **Start prompt:** `Eres el integrador de Fabrewk; fase 7, parte 7d3: los comandos de escritura (adopt, propose,
-  authorize, reject, run hasta el confinamiento); empieza por .brewstillery/STATUS.md`. Model and effort: Claude Code
-  on Opus 5.5, effort high; Codex GPT-6.1 Sol, effort high, reviews the code (plan row 7). Read the skills `verify-part`
-  and `codex-review` before the checks and the review.
+- **Part 7d3a closed (session 23, D-062 to D-065, R-031).** Before any code the maestro split 7d3 into 7d3a and 7d3b,
+  gave `run` the person's words, made `authorize` take `--seen <digest>` (the digest of what `status <id>` showed,
+  `TASK_CHANGED` otherwise, carried as `shown` in the authorizations' payloads), and had the binary declare the
+  agents' markers (D-062). 7d3a delivers the declaration's required argument and options with a value (`--say`,
+  `--say-lang`, `--widen`); one write path (guards on the record read without the lock, the session, the guards again
+  under the lock, every event made and signed in memory, the machine key put in place after, the leftovers' commit,
+  the events by compare-and-swap, the record commit, the caches under the lock); signing with Git's signing key;
+  `AGENT_ENVIRONMENT`, `WORDS_MISSING`, `WORDS_COPIED`, `STAGE_CLOSED`; `adopt` and `propose`; the record's refusals
+  through the command line and the fault tests (`crates/fabrewk/tests/faults.rs`). Codex reviewed six times
+  (confirmed blocking 5, 5, 5, 3, 2, 0): after three passes without progress the maestro settled two findings as the
+  design (D-063: what a write command cleans and keeps before it refuses), then asked a fifth pass (D-064) and settled
+  that a failed record commit leaves its events, saying so (D-065). Mutation: caught but none equivalent. Clean clone
+  of `9d91a59`: 300 tests, `crash` 3 and `faults` 8 green, musl build, `budget check`, clippy, fmt, `cargo deny` clean.
+  Measured at +837 lines; the projection in R-031 puts the core at about 7,650 to 8,550 after phase 9, so the ceiling
+  of 7,500 is the maestro's to decide when 7d3b is measured. The maestro approved two edits to `verify-part` (its fault
+  suites include `faults`). The maestro's fermento edit went in its own commit (`2577784`); the answer has no current
+  recommendation.
+- **Next: part 7d3b (plan, "Phase 7").** The task commands: `authorize <stage|task> --seen <digest> --say [--widen
+  <key>]… [--run]` (PD-37's rendering in `status <id>` with its digest, `TASK_CHANGED`, `LIMIT_UNOBSERVABLE`, the
+  layers' widenings, the lane guard again, `CHECK_DUPLICATE` for a stage, the `shown` field, D-062 point 3), `reject
+  <task> --say`, and `run <task|stage> --say` up to confinement (`CONFINEMENT_UNAVAILABLE`, D-053 point 4; its guards
+  in the table's order: `POLICY_ABSENT`, `DEPENDENCY_OPEN`, `BASE_MOVED`, `LOCK_HELD`, REQ-RUN-2), `run-started`'s
+  words (D-062 point 2, the table row gains `say`), `authorize --run` evaluating both moves' guards before writing;
+  `MOVE_NOT_ALLOWED` (`run` on a proposed task, `authorize` on an integrated one); PD-30 to PD-32 for every person's
+  move; the record's refusals through these commands. The write path of 7d3a (`cli/write.rs`) is what they use.
+  Then the maestro decides the core's ceiling with the measure (R-029, R-031).
+- **Start prompt:** `Eres el integrador de Fabrewk; fase 7, parte 7d3b: los comandos de tareas (authorize con --seen,
+  reject, run hasta el confinamiento); empieza por .brewstillery/STATUS.md`. Model and effort: Claude Code on Opus 5.5,
+  effort high; Codex GPT-6.1 Sol, effort high, reviews the code (plan row 7). Read the skills `verify-part` and
+  `codex-review` before the checks and the review.
 
 Carried without blocking, with destinations, in D-013. A phase that does not pass is corrected and retried; it
 never ends the project (D-003).
