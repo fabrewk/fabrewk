@@ -2818,3 +2818,28 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   starts). The drafted alambique text was given in chat for the maestro's approval.
 - Read: `ALAMBIQUE.md` sections 1 and 2, `architecture-decisions.md` AD-7, `core-specification.md` REQ-INS-1 to
   REQ-INS-7, REQ-FER-7 and section 3's `alambique-baseline`.
+
+## D-066 — The first alambique in the onboarding, applied on the maestro's approval
+
+- Status: decided
+- Decided: 2026-11-06
+- Origin: maintainer XEL in session 23's chat, after the sweep of R-032: "Está bien el texto, recuerda nada mas que la
+  explicación que se le dé al mantainer debe explicar muy pedagógicamente la analogía entre "Brewstillery",
+  "Alambique", "Fermento" y "Maestro" en el Alambique muestra para que este comprenda porque los nombres... Dicho
+  esto, si no hay mas dudas sobre este tema, apruebo la integración al alambique."
+- Decision: section 1 of the alambique gains, after the item on the two ways to install, the item drafted in R-032's
+  sweep with the maestro's addition: when a project has no alambique yet, the onboarding asks a few simple questions
+  (what the project should achieve, for whom, what it leaves out) and builds from the answers, as given, a first
+  `ALAMBIQUE.md` on a skeleton of stable titles and numbering, adding no ideas of its own; that first alambique opens
+  by explaining pedagogically the analogy that names everything (Brewstillery the distillery, Fabrewk's domain; each
+  maestro's fermento; the alambique where the fermentos are distilled into what the project must be; only maestros
+  approve what enters); it is part of the plan, read whole before confirming and approved with it; on the agent route
+  the agent asks the same questions in chat without drafting; an existing alambique is never touched. No status key,
+  like D-059's and D-061's sentences.
+- Consequences: `ALAMBIQUE.md` changes (sha256 `58774ab4…` before, `044bf04f…` after). The frozen specification has
+  no requirement for it yet; it is due with the installation (REQ-INS-2, REQ-INS-4, AD-7 step 2, the
+  `alambique-baseline` event), on phase 8's alambique machinery, a change to propose when phase 10 starts. The
+  fermento's answer says the proposal is applied and may be removed.
+- Sources: chat of session 23; `xel/fermento.md`'s proposal; R-032; `ALAMBIQUE.md` sections 1 and 2;
+  `architecture-decisions.md` AD-7; `core-specification.md` REQ-INS-1 to REQ-INS-7.
+- Supersedes: none.

@@ -223,8 +223,11 @@ repository, is imported into the single registry at production and then stays re
   of `9d91a59`: 300 tests, `crash` 3 and `faults` 8 green, musl build, `budget check`, clippy, fmt, `cargo deny` clean.
   Measured at +837 lines; the projection in R-031 puts the core at about 7,650 to 8,550 after phase 9, so the ceiling
   of 7,500 is the maestro's to decide when 7d3b is measured. The maestro approved two edits to `verify-part` (its fault
-  suites include `faults`). The maestro's fermento edit went in its own commit (`2577784`); the answer has no current
-  recommendation.
+  suites include `faults`). The maestro's fermento edit went in its own commit (`2577784`). After the close the maestro
+  proposed in their fermento that the onboarding guide a new maintainer to a first alambique; their edit was folded
+  into the integrator's commit `972ebe5` (R-032, the slip of R-021). After the sweep the maestro approved the item,
+  with a pedagogical explanation of the names' analogy, now in the alambique's section 1 (D-066; a requirement is due
+  when phase 10 starts). The fermento's answer says the proposal may be removed.
 - **Next: part 7d3b (plan, "Phase 7").** The task commands: `authorize <stage|task> --seen <digest> --say [--widen
   <key>]… [--run]` (PD-37's rendering in `status <id>` with its digest, `TASK_CHANGED`, `LIMIT_UNOBSERVABLE`, the
   layers' widenings, the lane guard again, `CHECK_DUPLICATE` for a stage, the `shown` field, D-062 point 3), `reject
