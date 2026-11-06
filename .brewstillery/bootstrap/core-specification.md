@@ -896,7 +896,8 @@ record's `data/`, `data/events/` or a stream that is not a directory `RECORD_BRO
 not UTF-8 is read as far as it is (P7D2-15). A domain that is a link is `RECORD_BROKEN` (C3 in `check`); a private
 folder that is one is `PRIVATE_FOLDER_PERMISSIONS`; Git's signing key is read only from a regular file outside the domain,
 written or reached there through a link (P7D2-17, P7D2-22), and `--version` reads nothing (P7D2-25). What cannot be
-examined on the way to the private folder or `machine.toml` is an error, never an absence (P7D2-24). A domain or a maintainer's directory that cannot be listed leaves C1 `CHECK_UNKNOWN`.
+examined on the way to the private folder, `machine.toml` or the person's own file is an error, never an absence
+(P7D2-24, P7D2-26). A domain or a maintainer's directory that cannot be listed leaves C1 `CHECK_UNKNOWN`.
 
 ## 7. Refusals
 

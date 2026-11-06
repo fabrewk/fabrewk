@@ -1062,3 +1062,16 @@ fn p7d2_25_the_version_reads_nothing() {
     fx.run_with(&["status"], Some(&path));
     assert!(marker.exists(), "the fake tools are on the way of a command that reads");
 }
+
+#[test]
+fn p7d2_26_config_never_takes_an_unreadable_personal_file_for_an_absent_one() {
+    let fx = published("personal-unreadable");
+    let x = fx.domain.join("xel");
+    fs::write(x.join("settings.toml"), "[maintainer]\nalias = \"xel\"\n\n[environment]\nshell = \"fish\"\n").unwrap();
+    assert_eq!(fx.run(&["config", "environment.shell", "--json"]).doc()["source"], "personal");
+    fs::set_permissions(&x, fs::Permissions::from_mode(0o000)).unwrap();
+    let (one, all) = (fx.run(&["config", "environment.shell", "--json"]), fx.run(&["config", "--json"]));
+    fs::set_permissions(&x, fs::Permissions::from_mode(0o755)).unwrap();
+    assert_eq!((one.status, all.status), (70, 70), "{one:?} {all:?}");
+    assert_eq!(one.doc()["schema"], "fabrewk.internal/1");
+}

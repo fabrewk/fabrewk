@@ -154,8 +154,11 @@ impl Cx {
     fn personal(&self) -> Result<Option<settings::Settings>, Vec<Error>> {
         let Some(alias) = &self.person else { return Ok(None) };
         let path = self.domain.join(alias).join("settings.toml");
-        if std::fs::symlink_metadata(&path).is_err() {
-            return Ok(None);
+        // Absent is only what does not exist; what cannot be examined is an error (P7D2-26).
+        match std::fs::symlink_metadata(&path) {
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(e) => return Err(vec![Error::Io { path, error: e }]),
+            Ok(_) => {}
         }
         if !crate::code::unlinked(&self.domain, &format!("{alias}/settings.toml")) {
             let why = "(document) (line 1): a link on its path; it is not followed";

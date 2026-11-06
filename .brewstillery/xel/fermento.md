@@ -6,7 +6,7 @@ Mi entrada es exclusivamente mía. Lo que cite desde aquí (capturas, PDF, otros
 
 ## Propuestas y pendientes
 
-Sin pendientes ni propuestas al momento.
+1. PREGUNTA:  ¿Tenemos definido el que busques, analices e implementes para el bootstrap de Fabrewk skills que puedan usar todos los agentes para eficientar el trabajo que se está haciendo..?
 
 
 ################################################################################
