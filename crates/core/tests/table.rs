@@ -248,13 +248,17 @@ fn pd_10_a_second_end_of_an_attempt_on_replay() {
     let second = t.next(&fabrewk("attempt-ended", json!({})));
     assert_eq!(t.replay().unwrap_err(), [Code::AttemptEnded]);
     fs::remove_file(second).unwrap();
-    // A new attempt may end; one that replaced an open one ends once too.
+    // A new attempt starts only once the last one ended, and the task leaves `running` with none open (REQ-RUN-1).
     t.next(&fabrewk("attempt-started", json!({})));
-    t.next(&fabrewk("attempt-started", json!({})));
+    let replacing = t.next(&fabrewk("attempt-started", json!({})));
+    assert_eq!(t.replay().unwrap_err(), [Code::RecordTransitionInvalid]);
+    fs::remove_file(replacing).unwrap();
+    let halted = t.next(&fabrewk("task-halted", json!({})));
+    assert_eq!(t.replay().unwrap_err(), [Code::RecordTransitionInvalid]);
+    fs::remove_file(halted).unwrap();
     t.next(&fabrewk("attempt-ended", json!({})));
+    t.next(&fabrewk("task-halted", json!({})));
     t.replay().unwrap();
-    t.next(&fabrewk("attempt-ended", json!({})));
-    assert_eq!(t.replay().unwrap_err(), [Code::AttemptEnded]);
 }
 
 #[test]
@@ -695,7 +699,19 @@ fn refusal_protected_path_wildcard() {
         let e = task::wildcards(&[p], &protected).unwrap_err();
         assert_eq!(code(&e), Some(Code::ProtectedPathWildcard), "{p}");
     };
-    for p in ["*.toml", "Cargo.*", "Cargo.tom?", "**", "**/Cargo.toml", ".github/**", ".git*/workflows/ci.yml", "*/x"] {
+    // `.githu?` matches the protected directory's own entry (a link, say), not only what is under it (P7D1-2).
+    for p in [
+        "*.toml",
+        "Cargo.*",
+        "Cargo.tom?",
+        "**",
+        "**/Cargo.toml",
+        ".github/**",
+        ".git*/workflows/ci.yml",
+        "*/x",
+        ".githu?",
+        "*",
+    ] {
         refused(p);
     }
     for p in ["Cargo.toml", ".github/workflows/ci.yml", "src/**", "*.md", "crates/*/Cargo.toml", ".githubx/*"] {
@@ -848,7 +864,37 @@ fn req_sec_3_unreadable_files() {
         fs::set_permissions(f.domain.join("xel/fermento.md"), fs::Permissions::from_mode(0o000)).unwrap();
         let got: Vec<_> = scan::domain(&f.domain, &none).iter().map(|e| e.code().unwrap()).collect();
         assert_eq!(got, [Code::CheckUnknown]);
+        // A file whose name is a credential's is still read; unreadable, it is unknown besides (P7D1-4).
+        fs::set_permissions(f.domain.join("xel/fermento.md"), fs::Permissions::from_mode(0o644)).unwrap();
+        let key = f.domain.join("id_rsa");
+        fs::write(&key, "x").unwrap();
+        fs::set_permissions(&key, fs::Permissions::from_mode(0o000)).unwrap();
+        let got: Vec<_> = scan::domain(&f.domain, &none).iter().map(|e| e.code().unwrap()).collect();
+        assert_eq!(got, [Code::CheckUnknown, Code::CredentialSuspected]);
     });
+}
+
+#[test]
+fn req_sec_3_links_are_matched_by_name_and_never_followed() {
+    let base = tmp("links");
+    let outside = base.join("outside");
+    fs::create_dir_all(&outside).unwrap();
+    let token = format!("ghp_{}", "a".repeat(20));
+    fs::write(outside.join("notes.txt"), &token).unwrap();
+    // A domain that is a link is not walked (P7D1-3).
+    let linked = base.join(".brewstillery");
+    std::os::unix::fs::symlink(&outside, &linked).unwrap();
+    let got: Vec<_> = scan::domain(&linked, &|_| true).iter().map(|e| e.code().unwrap()).collect();
+    assert_eq!(got, [Code::CheckUnknown]);
+    // Inside a domain, a link to a file or a directory is neither read nor walked; a link's name is matched.
+    let domain = base.join("domain");
+    fs::create_dir_all(&domain).unwrap();
+    std::os::unix::fs::symlink(outside.join("notes.txt"), domain.join("notes.txt")).unwrap();
+    std::os::unix::fs::symlink(&outside, domain.join("dir")).unwrap();
+    assert!(scan::domain(&domain, &|_| true).is_empty());
+    std::os::unix::fs::symlink(outside.join("notes.txt"), domain.join(".env")).unwrap();
+    let got: Vec<_> = scan::domain(&domain, &|_| true).iter().map(|e| e.code().unwrap()).collect();
+    assert_eq!(got, [Code::CredentialSuspected]);
 }
 
 #[test]

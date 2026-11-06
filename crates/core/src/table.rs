@@ -134,7 +134,8 @@ fn invalid(e: &Event, why: impl Into<String>) -> Error {
 /// state its earlier events left, with their payloads' content (REQ-TASK-2, REQ-TASK-3) and their bindings to their
 /// own subject's identifier, digest and previous head (PD-06); a stage's authorization makes each task it binds
 /// authorized after the head it names, which its stream must hold (`RECORD_ROLLBACK` otherwise). A second end of an
-/// attempt is `ATTEMPT_ENDED` (PD-10); every other failure is `RECORD_TRANSITION_INVALID`.
+/// attempt is `ATTEMPT_ENDED` (PD-10); an attempt that starts while another is open, or a move out of `running` with
+/// one open, is `RECORD_TRANSITION_INVALID`, as is every other failure: each attempt ends exactly once (REQ-RUN-1).
 pub fn validate(record: &Replay) -> Result<(), Vec<Error>> {
     let mut covers = BTreeSet::new();
     let of = |k| record.streams.iter().filter(move |(n, _)| stream_kind(n) == Some(k));
@@ -217,6 +218,9 @@ fn task(
         let to = walk("task", state, e, &digest)?;
         if e.kind == "attempt-ended" && !open {
             return Err(refuse(Code::AttemptEnded, Some(&e.path), "an attempt ended twice, or never started"));
+        }
+        if open && (e.kind == "attempt-started" || to != "running") {
+            return Err(invalid(e, "an attempt is open: it ends before another starts or the task leaves running"));
         }
         open = (open || e.kind == "attempt-started") && e.kind != "attempt-ended";
         state = Some(to);

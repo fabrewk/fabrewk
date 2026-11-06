@@ -62,8 +62,12 @@ pub fn suspect(bytes: &[u8]) -> Option<&'static str> {
 /// `check`'s C9: every file under `domain` that looks like a credential is `CREDENTIAL_SUSPECTED`, by its content, or
 /// by its name alone for a maintainer's uncited material (in `<alias>/`, anything but `fermento.md`, `settings.toml`
 /// and what `cited` accepts), so that only what is cited is read; links are matched by their names and never
-/// followed. A file it must read and cannot, or a directory it cannot list, is `CHECK_UNKNOWN`.
+/// followed. A file it must read and cannot, a directory it cannot list, or a domain that is not a directory (a link
+/// included), is `CHECK_UNKNOWN`.
 pub fn domain(domain: &Path, cited: &dyn Fn(&Path) -> bool) -> Vec<Error> {
+    if !fs::symlink_metadata(domain).is_ok_and(|m| m.is_dir()) {
+        return vec![refuse(Code::CheckUnknown, Some(domain), "the domain is not a directory; a link is not followed")];
+    }
     let (mut out, mut files, mut dirs) = (Vec::new(), Vec::new(), vec![domain.to_path_buf()]);
     while let Some(dir) = dirs.pop() {
         let entries = fs::read_dir(&dir).and_then(|e| e.map(|e| e.map(|e| e.path())).collect::<Result<Vec<_>, _>>());
@@ -88,19 +92,16 @@ pub fn domain(domain: &Path, cited: &dyn Fn(&Path) -> bool) -> Vec<Error> {
         let own = matches!(second, Some("fermento.md" | "settings.toml")) && rel.iter().count() == 2;
         let uncited = crate::settings::is_alias(top) && second.is_some() && !own && !cited(&path);
         let name = path.file_name().map(|n| n.to_string_lossy()).unwrap_or_default();
-        let why = if suspect_name(&name) {
-            Some("its name")
-        } else if regular && !uncited {
-            match fs::read(&path) {
-                Ok(bytes) => suspect(&bytes),
-                Err(e) => {
-                    out.push(refuse(Code::CheckUnknown, Some(&path), e.to_string()));
-                    None
-                }
+        // Read only what must be read: a regular file outside a maintainer's uncited material.
+        let content = match (regular && !uncited).then(|| fs::read(&path)) {
+            Some(Ok(bytes)) => suspect(&bytes),
+            Some(Err(e)) => {
+                out.push(refuse(Code::CheckUnknown, Some(&path), e.to_string()));
+                None
             }
-        } else {
-            None
+            None => None,
         };
+        let why = if suspect_name(&name) { Some("its name") } else { content };
         if let Some(why) = why {
             let detail = format!("looks like a credential ({why}); a heuristic, a cooperative control");
             out.push(refuse(Code::CredentialSuspected, Some(&path), detail));

@@ -270,9 +270,11 @@ pub fn wildcards(allowed: &[&str], protected: &[String]) -> Result<(), Error> {
     for p in allowed.iter().filter(|p| p.contains(['*', '?'])) {
         let segs = pattern(p)?;
         let reaches = |q: &String| match q.strip_suffix('/') {
-            // Some segments match the directory and some are left, or the last of those matched is a `**` that goes on.
-            Some(dir) => (0..segs.len())
-                .any(|i| matches(&segs[..i], dir, &mut 0) || (segs[i] == "**" && matches(&segs[..=i], dir, &mut 0))),
+            // The pattern matches the directory itself; or some of its segments match it and some are left, or the
+            // last of those is a `**` that goes on.
+            Some(dir) => (0..=segs.len()).any(|i| {
+                matches(&segs[..i], dir, &mut 0) || segs.get(i) == Some(&"**") && matches(&segs[..=i], dir, &mut 0)
+            }),
             None => matches(&segs, q, &mut 0),
         };
         if let Some(q) = protected.iter().find(|q| reaches(q)) {
