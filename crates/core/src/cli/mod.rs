@@ -145,9 +145,18 @@ impl Cx {
         Out { doc, text, error: true, exit: USAGE }
     }
 
-    /// The private folder, from this process's environment.
+    /// The private folder, from this process's environment; one inside the repository, written there or reached
+    /// through a link, is refused, since it lies outside every repository (AD-15, P7D2-28).
     fn folder(&self) -> Result<PathBuf, Error> {
-        crate::machine::private_folder(|k| std::env::var_os(k))
+        let folder = crate::machine::private_folder(|k| std::env::var_os(k))?;
+        let canonical = |p: &Path| p.canonicalize().ok();
+        let inside = crate::code::normal(&folder).starts_with(&self.root)
+            || canonical(&folder).zip(canonical(&self.root)).is_some_and(|(f, r)| f.starts_with(r));
+        if inside {
+            let why = "inside the repository; the private folder lies outside every repository";
+            return Err(crate::code::refuse(Code::PrivateFolderPermissions, Some(&folder), why));
+        }
+        Ok(folder)
     }
 
     /// The person's own file, when the policy knows who they are and they have one.

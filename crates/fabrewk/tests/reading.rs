@@ -1075,3 +1075,42 @@ fn p7d2_26_config_never_takes_an_unreadable_personal_file_for_an_absent_one() {
     assert_eq!((one.status, all.status), (70, 70), "{one:?} {all:?}");
     assert_eq!(one.doc()["schema"], "fabrewk.internal/1");
 }
+
+#[test]
+fn p7d2_27_a_domain_that_cannot_be_examined_is_not_absent() {
+    let fx = published("root-unsearchable");
+    // The command runs in the root, which it can no longer search once it is there.
+    let mut c = std::process::Command::new("sh");
+    isolate(&mut c, &fx.home, None);
+    let script = format!("chmod 000 . && exec '{}' check --json", env!("CARGO_BIN_EXE_fabrewk"));
+    let out = c.current_dir(&fx.root).args(["-c", &script]).output().unwrap();
+    fs::set_permissions(&fx.root, fs::Permissions::from_mode(0o755)).unwrap();
+    let doc: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!((out.status.code(), finding_of(&doc, "C4")), (Some(3), vec!["CHECK_UNKNOWN".to_owned()]), "{doc}");
+    // An absent domain stays absent.
+    fs::rename(&fx.domain, fx.root.join("elsewhere")).unwrap();
+    assert_eq!(finding_of(&fx.run(&["check", "--json"]).doc(), "C4"), ["RECORD_ABSENT"]);
+}
+
+#[test]
+fn p7d2_28_a_private_folder_in_the_repository_is_never_read() {
+    let fx = published("folder-inside");
+    let uncited = fx.domain.join("xel/uncited");
+    fs::create_dir_all(uncited.join("fabrewk")).unwrap();
+    fs::set_permissions(uncited.join("fabrewk"), fs::Permissions::from_mode(0o700)).unwrap();
+    fs::write(uncited.join("fabrewk/machine.toml"), "not valid TOML [\n").unwrap();
+    let run = |args: &[&str]| {
+        let mut c = std::process::Command::new(env!("CARGO_BIN_EXE_fabrewk"));
+        isolate(&mut c, &fx.home, None);
+        let out = c.current_dir(&fx.root).env("XDG_CONFIG_HOME", &uncited).args(args).output().unwrap();
+        (out.status.code().unwrap(), serde_json::from_slice::<Value>(&out.stdout).unwrap())
+    };
+    let (status, doc) = run(&["check", "--json"]);
+    assert_eq!(
+        (status, finding_of(&doc, "C1"), finding_of(&doc, "C11")),
+        (3, vec![], vec!["PRIVATE_FOLDER_PERMISSIONS".to_owned()]),
+        "{doc}"
+    );
+    let (status, doc) = run(&["config", "--json"]);
+    assert_eq!((status, doc["refusals"][0]["code"].as_str()), (1, Some("PRIVATE_FOLDER_PERMISSIONS")), "{doc}");
+}

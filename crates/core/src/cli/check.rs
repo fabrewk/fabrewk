@@ -154,8 +154,13 @@ pub(super) fn run(cx: &Cx) -> Result<Out, Failed> {
             found.push(("C3", refuse(RecordBroken, Some(d), "the domain is not a directory; a link is not followed")));
             return Ok(render(cx, found, None));
         }
-        Err(_) => {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
             found.push(("C4", refuse(RecordAbsent, Some(d), "there is no domain here")));
+            return Ok(render(cx, found, None));
+        }
+        // A domain that cannot be examined is not an absent one (P7D2-27).
+        Err(_) => {
+            found.push(("C4", refuse(CheckUnknown, Some(d), "cannot be examined")));
             return Ok(render(cx, found, None));
         }
     }
