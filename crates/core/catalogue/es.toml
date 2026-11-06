@@ -1,0 +1,438 @@
+# Los mensajes de Fabrewk en español (REQ-CLI-2; parte 7d2). Las descripciones de cada tabla están en el catálogo
+# canónico, en.toml. Los marcadores son {nombre}. Un comando aparece solo en un campo `run`, completo.
+
+[ui]
+where = "Dónde"
+detail = "Detalle"
+next = "Siguiente paso"
+next-steps = "Siguientes pasos"
+
+[usage]
+command = "No hay ningún comando llamado {word}."
+flag = "Este comando no acepta la opción {word}."
+value = "La opción {word} no lleva valor."
+extra = "El argumento {word} sobra: este comando no acepta tantos."
+none = "No se indicó ningún comando."
+utf8 = "Un argumento no es texto UTF-8 válido."
+id = "Ninguna etapa ni tarea del registro tiene el identificador {word}."
+next = "Consulta qué acepta el comando:"
+
+[internal]
+io = "Fabrewk se detuvo por un error interno: no pudo leer ni escribir {path}. Este comando no escribe nada, así que nada cambió."
+panic = "Fabrewk se detuvo por un error interno. Este comando no escribe nada, así que nada cambió."
+missing = "(un mensaje que falta en el catálogo)"
+
+[help]
+intro = "Fabrewk coordina el desarrollo de un proyecto a partir de su registro, guardado en .brewstillery/."
+usage = "Uso"
+commands = "Comandos"
+options = "Opciones"
+argument = "Argumento"
+refusals = "Rechazos"
+command-word = "comando"
+
+[flag]
+help = "Muestra esta ayuda."
+version = "Muestra la versión de Fabrewk."
+json = "Da la salida como un solo documento JSON con un campo schema."
+
+[command.status]
+summary = "Muestra la salud del registro, la política vigente y el estado de cada etapa y tarea."
+arg = "Una etapa o una tarea, por su identificador (s-… o t-…): la muestra con sus eventos."
+
+[command.config]
+summary = "Muestra cada ajuste efectivo con su origen, los cambios no adoptados, las llaves, lo que tiene este equipo y cada control."
+arg = "Un solo ajuste, por su ruta de clave: muestra solo su valor y su origen."
+
+[command.check]
+summary = "Verifica los ajustes, la política, el registro, el dominio, las credenciales y la carpeta privada."
+
+[reference]
+title = "fabrewk: referencia de comandos"
+intro = "Generada desde la declaración de comandos; lista exactamente los comandos que existen."
+moves = "Movimientos que puede causar:"
+none = "ninguno."
+documents = "Documentos con --json:"
+verifies = "Verifica"
+codes = "Códigos"
+control = "Control"
+program = "El programa solo"
+exits = "Estados de salida"
+
+[exit]
+0 = "hecho."
+1 = "rechazado: se imprimió un código y no se escribió nada."
+2 = "error de uso: no se aceptó la línea de comandos."
+3 = "la verificación encontró un problema."
+70 = "error interno."
+
+[check]
+C1 = "Los archivos de ajustes se leen y validan, y el de cada mantenedor tiene solo claves personales."
+C2 = "Hay una política adoptada, y el archivo del proyecto es igual a ella o su cambio está pendiente."
+C3 = "El registro se reproduce: versiones, resúmenes, forma canónica, cadenas, bifurcaciones, transiciones, firmas, identificadores."
+C4 = "El registro existe y no ha retrocedido: efectivo donde se recorre la historia de Git, cooperativo en un solo equipo."
+C8 = "Las entradas del dominio, los alias, su archivo de ignorados y la regla de ignorados del producto."
+C9 = "Ningún archivo parece una credencial: una heurística."
+C10 = "Los archivos del registro están confirmados donde el modo de publicación los confirma."
+C11 = "La carpeta privada da acceso solo a su dueño."
+finding = "{check} ({severity}, {control}): {about}"
+passed = "La verificación pasó sin errores; advertencias: {warnings}."
+failed = "La verificación encontró problemas; errores: {errors}, advertencias: {warnings}."
+
+[severity]
+error = "error"
+warning = "advertencia"
+
+[control]
+effective = "efectivo"
+cooperative = "cooperativo"
+
+[status]
+absent = "Aquí no hay registro: Fabrewk no está instalado en este repositorio, o esta no es su raíz."
+broken = "El registro no se reproduce, así que no se puede leer ningún estado de él:"
+replays = "El registro se reproduce: {streams} flujos, {events} eventos."
+no-policy = "Aún no hay una política adoptada."
+policy = "Política vigente: el archivo del proyecto adoptado, resumen {digest}."
+adopted = "El archivo del proyecto es el adoptado."
+pending = "El archivo del proyecto tiene cambios aún no adoptados."
+pending-unknown = "El archivo del proyecto no se lee, así que no se pueden comparar sus cambios."
+mode = "Modo de publicación: {mode}."
+no-mode = "No hay un modo de publicación registrado."
+no-stages = "No se ha propuesto ninguna etapa."
+stage = "Etapa {id}, {state}: {goal}"
+task = "Tarea {id}, {state}: {goal}"
+in-stage = "En la etapa {stage}."
+events = "Eventos, en orden:"
+event = "{what} ({kind}), por {by}, el {at}"
+allowed = "Movimientos que la tabla de transiciones permite desde aquí: {moves}."
+
+[mode]
+published = "publicado en el repositorio del producto"
+own-repository = "en un repositorio propio"
+unpublished = "sin publicar, solo en este equipo"
+
+[state]
+proposed = "propuesta"
+authorized = "autorizada"
+running = "en ejecución"
+verified = "verificada"
+halted = "detenida"
+accepted = "aceptada"
+integrated = "integrada"
+rejected = "rechazada"
+closed = "cerrada"
+pending = "pendiente"
+incorporated = "incorporada"
+discarded = "descartada"
+withdrawn = "retirada"
+
+[kind]
+assessed = "repositorio evaluado"
+publication-decided = "publicación decidida"
+policy-adopted = "política adoptada"
+installed = "instalado"
+alambique-baseline = "base del alambique"
+proposal-incorporated = "propuesta incorporada"
+direct-edit-approved = "edición directa aprobada"
+sweep-recorded = "barrido registrado"
+proposal-recorded = "propuesta registrada"
+proposal-withdrawn = "propuesta retirada"
+proposal-discarded = "propuesta descartada"
+stage-proposed = "etapa propuesta"
+stage-authorized = "etapa autorizada"
+stage-closed = "etapa cerrada"
+task-proposed = "tarea propuesta"
+task-authorized = "tarea autorizada"
+run-started = "ejecución iniciada"
+attempt-started = "intento iniciado"
+attempt-ended = "intento terminado"
+candidate-recorded = "candidato registrado"
+check-recorded = "comprobación registrada"
+review-recorded = "revisión registrada"
+task-verified = "tarea verificada"
+task-halted = "tarea detenida"
+task-accepted = "tarea aceptada"
+merge-failed = "integración fallida"
+task-integrated = "tarea integrada"
+task-rejected = "tarea rechazada"
+extension-note = "nota de una extensión"
+
+[role]
+maestro = "maestro"
+supervisor = "supervisor"
+contributor = "colaborador"
+
+[actor]
+person = "el mantenedor {alias} ({role})"
+agent = "un agente ({tool})"
+fabrewk = "Fabrewk"
+extension = "la extensión {name}"
+
+[config]
+heading = "Configuración efectiva, de la política vigente (resumen {digest}); no aplica el archivo de ningún mantenedor, pues la llave de firma de Git no nombra a ninguno:"
+heading-person = "Configuración efectiva, de la política vigente (resumen {digest}) y del archivo del mantenedor {alias}:"
+unset = "declarado, sin valor"
+pending = "Cambios en el archivo del proyecto aún no adoptados:"
+keys = "Llaves de los mantenedores:"
+key = "{alias}: una llave de tipo {kind}; toque obligatorio: {touch}"
+machine = "Lo que tiene este equipo:"
+absent = "ausente"
+no-version = "no imprime versión"
+never = "nunca"
+tools = "Herramientas permitidas y presentes a la vez: {tools}."
+none = "ninguna"
+controls = "Controles, cada uno efectivo o cooperativo:"
+
+[source]
+default = "el valor predeterminado"
+project = "la política vigente ({from})"
+personal = "el archivo del mantenedor {from}"
+stage = "la etapa {from}"
+task = "la tarea {from}"
+declared = "declarado en machine.toml"
+
+[effect]
+widening = "amplía la autoridad"
+narrowing = "reduce la autoridad"
+neutral = "ni amplía ni reduce"
+
+[touch]
+yes = "sí"
+unknown = "desconocido"
+
+[space]
+programs = "programa {name}"
+tools = "herramienta {name}"
+required = "herramienta requerida {name}"
+
+[how]
+observed = "{path}, {version}; encontrado en PATH; verificado por uso por última vez: {verified}"
+declared = "{path}, {version}; declarado en machine.toml; verificado por uso por última vez: {verified}"
+
+[setting]
+"project.name" = "El nombre del proyecto"
+"maintainers.*.role" = "El rol del mantenedor"
+"maintainers.*.key" = "La llave de firma del mantenedor"
+"maintainers.*.hostAccount" = "La cuenta del mantenedor en el servidor de Git"
+"maintainers.*.area" = "El área de un supervisor; si falta, todo el proyecto"
+"languages.canonicalDocumentationLanguage" = "El idioma de los archivos técnicos"
+"languages.documentationLanguages" = "Los idiomas de publicación de la documentación"
+"languages.codeLanguage" = "El idioma del código"
+"languages.evidenceLanguage" = "El idioma de la evidencia"
+"languages.delegationLanguage" = "El idioma de los paquetes delegados a agentes"
+"languages.agentInteraction" = "El idioma en que los agentes responden a este mantenedor"
+"languages.interfaceLanguage" = "El idioma de los mensajes de Fabrewk"
+"maintainer.alias" = "El mantenedor de este archivo"
+"environment.shell" = "La shell del mantenedor"
+"tools.*.adapter" = "Qué módulo maneja la herramienta"
+"tools.*.providers" = "Los proveedores que la herramienta puede usar"
+"tools.*.path" = "Dónde está la herramienta, cuando la detección no la encuentra"
+"providers.*.allowed" = "Si se puede enviar código al proveedor"
+"models.*.provider" = "El proveedor del modelo"
+"models.*.id" = "El nombre del modelo para su proveedor"
+"models.*.efforts" = "Los esfuerzos del modelo"
+"profiles.*.kind" = "El tipo de tarea del perfil"
+"profiles.*.tool" = "La herramienta del perfil"
+"profiles.*.model" = "El modelo del perfil"
+"profiles.*.effort" = "El esfuerzo del perfil"
+"profiles.*.checks" = "Las comprobaciones que corre el perfil"
+"profiles.*.requiredTools" = "Las herramientas verificadas al iniciar el perfil"
+"profiles.*.rounds" = "Las rondas de revisión del perfil"
+"profiles.*.dispatches" = "Los despachos del perfil"
+"profiles.*.minutes" = "Los minutos del perfil"
+"profiles.*.tokens" = "Los tokens del perfil; si falta, sin límite"
+"limits.rounds" = "Rondas de revisión predeterminadas"
+"limits.dispatches" = "Despachos predeterminados"
+"limits.minutes" = "Minutos predeterminados"
+"checks.*.command" = "El comando de la comprobación, sin shell"
+"checks.*.network" = "Si la comprobación tiene red"
+"checks.*.minutes" = "El límite de tiempo de la comprobación"
+"checks.*.tools" = "Las herramientas que necesita la comprobación"
+"review.differentProvider" = "Revisión por otro proveedor"
+"gate.protectedPaths" = "Rutas que ninguna tarea puede tocar"
+"git.signOff" = "Un sign-off en los commits de Fabrewk"
+"extensions.*.digest" = "El resumen de la extensión"
+"extensions.*.network" = "Si la extensión tiene red"
+
+[code.ALIAS_INVALID]
+reason = "Un nombre que no es un alias válido: minúsculas, dígitos y guiones sueltos, empezando con una letra, de 32 caracteres a lo más, y que no sea un nombre reservado."
+next = "Renómbralo a un alias válido."
+
+[code.ALIAS_MISMATCH]
+reason = "El archivo personal nombra a otro mantenedor que su directorio."
+next = "Haz que maintainer.alias sea igual al nombre del directorio del archivo."
+
+[code.ATTEMPT_ENDED]
+reason = "El registro termina un intento que no está abierto."
+next = "Una persona examina el evento indicado; Fabrewk nunca repara el registro."
+run = "fabrewk check"
+
+[code.CHECK_DUPLICATE]
+reason = "Una comprobación tiene dos definiciones distintas."
+next = "Deja una sola definición de la comprobación, en la etapa o en el proyecto."
+
+[code.CHECK_UNKNOWN]
+reason = "Una verificación no pudo correr, así que su resultado es desconocido, y un resultado desconocido nunca es un pase."
+next = "Instala o repara lo indicado y verifica de nuevo."
+run = "fabrewk check"
+
+[code.CREDENTIAL_SUSPECTED]
+reason = "Un archivo parece una credencial. La coincidencia es una heurística, un control cooperativo."
+next = "Quita la credencial del dominio, y reemplázala si alguna vez se confirmó o se compartió."
+
+[code.DOMAIN_NOT_IGNORED]
+reason = "El repositorio del producto no ignora .brewstillery/, así que un commit ahí lo publicaría."
+next = "Agrega la línea /.brewstillery/ al .git/info/exclude del producto."
+
+[code.DOMAIN_UNKNOWN_ENTRY]
+reason = "Una entrada en .brewstillery/ que no es parte del dominio de Fabrewk; se dejó como está."
+next = "Sácala de .brewstillery/ si no es de Fabrewk."
+
+[code.GITIGNORE_CHANGED]
+reason = "El archivo .brewstillery/.gitignore difiere de lo que Fabrewk escribe."
+next = "Restáuralo a la sola línea local/."
+
+[code.HEAD_DETACHED]
+reason = "El head de Git no nombra ninguna rama, así que no hay rama del registro."
+next = "Cambia a la rama que guarda el registro y corre el comando de nuevo."
+
+[code.KEY_UNKNOWN]
+reason = "Ningún ajuste está declarado en esta ruta de clave."
+next = "Consulta cada ajuste y su ruta de clave:"
+run = "fabrewk config"
+
+[code.LIMIT_UNOBSERVABLE]
+reason = "Hay un límite de tokens para una herramienta que no informa los tokens que usa, así que el límite no se podría cumplir."
+next = "Quita el límite de tokens, o usa un perfil cuya herramienta informe tokens."
+
+[code.LOCK_HELD]
+reason = "Otro comando de Fabrewk tiene el candado del registro de este repositorio."
+next = "Espera a que termine y corre tu comando de nuevo."
+
+[code.MARK_INVALID]
+reason = "La marca del registro de este equipo (local/cache/heads.json) está dañada o nombra un evento que el registro no tiene en ese lugar."
+next = "Una persona examina la marca y la quita si está dañada; Fabrewk nunca la quita."
+
+[code.MOVE_NOT_ALLOWED]
+reason = "La tabla de transiciones no permite este movimiento desde el estado del sujeto."
+next = "Consulta el estado del sujeto y los movimientos que permite:"
+run = "fabrewk status"
+
+[code.NOT_A_REPOSITORY]
+reason = "Esta no es la raíz del árbol de trabajo principal del repositorio."
+next = "Córrelo en la raíz del árbol de trabajo principal del repositorio."
+
+[code.POLICY_ABSENT]
+reason = "No hay una política adoptada, así que no hay configuración efectiva ni mantenedores."
+next = "Un maestro adopta el archivo del proyecto; instalar Fabrewk lo hace primero."
+
+[code.POLICY_PENDING]
+reason = "El archivo del proyecto tiene cambios que ningún maestro ha adoptado; la política vigente sigue siendo la adoptada."
+next = "Consulta los cambios y lo que cada uno hace a la autoridad:"
+run = "fabrewk config"
+
+[code.POLICY_UNCOMMITTED]
+reason = "El archivo del proyecto no está como se confirmó en el head de la rama del registro."
+next = "Confirma .brewstillery/settings.toml y luego adóptalo."
+
+[code.PRIVATE_FOLDER_PERMISSIONS]
+reason = "La carpeta privada da acceso a alguien más que su dueño, así que Fabrewk no la lee."
+next = "Deja la carpeta solo para su dueño (modo 0700)."
+
+[code.PROTECTED_PATH]
+reason = "Los archivos permitidos alcanzan una ruta protegida."
+next = "Reduce los archivos permitidos para que no alcancen ninguna ruta protegida."
+
+[code.PROTECTED_PATH_WILDCARD]
+reason = "Un comodín entre los archivos permitidos coincide con una ruta protegida."
+next = "Lista el archivo protegido literalmente, o reduce el comodín."
+
+[code.RECORD_ABSENT]
+reason = "Aquí no hay registro."
+next = "Córrelo en la raíz de un repositorio donde Fabrewk esté instalado."
+
+[code.RECORD_BROKEN]
+reason = "El registro está roto: sus archivos no forman una sola cadena sin cortes."
+next = "Una persona examina el archivo indicado y lo restaura desde la historia; Fabrewk nunca repara el registro."
+
+[code.RECORD_COMMIT_RACE]
+reason = "La rama se movió mientras Fabrewk confirmaba el registro; sus eventos están escritos pero no confirmados."
+next = "El siguiente comando que escribe los confirma."
+
+[code.RECORD_DIGEST_MISMATCH]
+reason = "El contenido de un archivo de evento no es el que su nombre registra."
+next = "Una persona examina el archivo indicado y lo restaura desde la historia."
+
+[code.RECORD_FORK]
+reason = "Dos eventos ocupan el mismo lugar de un flujo: dos clones escribieron ahí."
+next = "Una persona decide qué línea de eventos se queda y la restaura desde la historia."
+
+[code.RECORD_HEAD_MOVED]
+reason = "Algo escribió en el registro sin su candado mientras corría este comando; este comando no escribió nada."
+next = "Corre el comando de nuevo."
+
+[code.RECORD_ID_COLLISION]
+reason = "Dos etapas o dos tareas recibieron el mismo identificador."
+next = "Una persona examina el flujo indicado."
+
+[code.RECORD_NONCANONICAL]
+reason = "Un archivo de evento no está en forma canónica, así que no se puede confiar en su resumen."
+next = "Una persona examina el archivo indicado y lo restaura desde la historia."
+
+[code.RECORD_ROLLBACK]
+reason = "El registro perdió eventos que tenía antes: un retroceso."
+next = "Una persona restaura los eventos perdidos desde la historia o desde otro clon."
+
+[code.RECORD_SIGNATURE_INVALID]
+reason = "El evento de una persona no está firmado con la llave y el rol que la política da a quien firma."
+next = "Una persona examina el evento indicado; un evento que nadie firmó no es de nadie."
+
+[code.RECORD_TRANSITION_INVALID]
+reason = "Un evento está donde la tabla de transiciones no lo permite."
+next = "Una persona examina el evento indicado."
+run = "fabrewk check"
+
+[code.RECORD_UNCOMMITTED]
+reason = "Algunos archivos del registro no están confirmados en la rama del registro."
+next = "El siguiente comando que escribe los confirma."
+
+[code.RECORD_VERSION_UNKNOWN]
+reason = "Un evento no es de un esquema que esta versión de Fabrewk conozca."
+next = "Usa una versión de Fabrewk que lo conozca, o examina el archivo indicado."
+
+[code.ROLE_FORBIDDEN]
+reason = "La llave que firma este movimiento no tiene en la política ningún rol que pueda hacerlo."
+next = "Un maestro hace este movimiento con su propia llave."
+
+[code.ROLE_NOT_ENFORCED]
+reason = "La política lista un supervisor, un rol que Fabrewk aún no hace cumplir."
+next = "Dale a ese mantenedor el rol de maestro o de colaborador."
+
+[code.SETTINGS_INVALID]
+reason = "Un archivo de ajustes no se lee o no valida."
+next = "Corrige el archivo en la ruta de clave y la línea indicadas."
+
+[code.SETTINGS_KEY_NOT_PERSONAL]
+reason = "Un archivo personal tiene una clave que solo el archivo del proyecto puede fijar."
+next = "Mueve la clave al archivo del proyecto, donde un maestro la adopta."
+
+[code.TASK_CHANGED]
+reason = "La tarea, o el head de su flujo, cambió después de mostrarse."
+next = "Consulta la tarea como está ahora:"
+run = "fabrewk status"
+
+[code.TASK_INVALID]
+reason = "Los campos de una etapa o de una tarea no son válidos."
+next = "Corrige el campo indicado."
+
+[code.TOOL_FAILED]
+reason = "Una herramienta externa falló; lo que imprimió se guarda como evidencia y nunca se muestra aquí."
+next = "Repara lo indicado y corre el comando de nuevo."
+
+[code.TOOL_MISSING]
+reason = "Una herramienta que esto necesita no está en este equipo."
+next = "Instala la herramienta indicada, o declara dónde está."
+
+[code.WIDENING_UNNAMED]
+reason = "Un cambio amplía la autoridad sin nombrarse."
+next = "Un maestro nombra cada ampliación, por su ruta de clave, al hacer el movimiento."

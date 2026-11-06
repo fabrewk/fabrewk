@@ -1,0 +1,511 @@
+# Fabrewk's messages in English, the canonical catalogue (REQ-CLI-2; part 7d2). Every table of messages has its
+# description in `about`. Placeholders are {name}. A command appears only in a `run` field, whole; no other text
+# holds one, so that every command printed is one a test parses and checks in fish and in a POSIX shell.
+
+[ui]
+about = "Labels of the lines that a refusal, a finding or a reading command prints"
+where = "Where"
+detail = "Detail"
+next = "Next step"
+next-steps = "Next steps"
+
+[usage]
+about = "Usage errors: a command line the declaration of commands does not accept (exit 2)"
+command = "There is no command named {word}."
+flag = "The option {word} is not one this command takes."
+value = "The option {word} takes no value."
+extra = "The argument {word} is one more than this command takes."
+none = "No command was given."
+utf8 = "An argument is not valid UTF-8 text."
+id = "No stage or task in the record has the identifier {word}."
+next = "See what the command takes:"
+
+[internal]
+about = "Internal errors (exit 70): something failed that no refusal names"
+io = "Fabrewk stopped on an internal error: it could not read or write {path}. This command writes nothing, so nothing changed."
+panic = "Fabrewk stopped on an internal error. This command writes nothing, so nothing changed."
+missing = "(a message the catalogue lacks)"
+
+[help]
+about = "Words of the help that --help prints"
+intro = "Fabrewk coordinates the development of a project from its record, kept in .brewstillery/."
+usage = "Usage"
+commands = "Commands"
+options = "Options"
+argument = "Argument"
+refusals = "Refusals"
+command-word = "command"
+
+[flag]
+about = "What each option does"
+help = "Shows this help."
+version = "Shows Fabrewk's version."
+json = "Gives the output as one JSON document with a schema field."
+
+[command.status]
+about = "The command that shows the state"
+summary = "Shows the record's health, the policy in force and the state of each stage and task."
+arg = "A stage or a task, by its identifier (s-… or t-…): shows it with its events."
+
+[command.config]
+about = "The command that shows the effective configuration"
+summary = "Shows every effective setting with its source, the changes not adopted, the keys, what this machine has and every control."
+arg = "One setting, by its key path: shows only its value and source."
+
+[command.check]
+about = "The command that verifies the repository"
+summary = "Verifies the settings, the policy, the record, the domain, the credentials and the private folder."
+
+[reference]
+about = "Words of the generated reference documentation"
+title = "fabrewk: command reference"
+intro = "Generated from the declaration of commands; it lists exactly the commands that exist."
+moves = "Moves it may cause:"
+none = "none."
+documents = "Documents with --json:"
+verifies = "Verifies"
+codes = "Codes"
+control = "Control"
+program = "The program alone"
+exits = "Exit statuses"
+
+[exit]
+about = "What each exit status means"
+0 = "done."
+1 = "refused: a code was printed, and nothing was written."
+2 = "usage error: the command line was not accepted."
+3 = "the check found a problem."
+70 = "internal error."
+
+[check]
+about = "Words of fabrewk check and of each verification"
+C1 = "The settings files read and validate, and each maintainer's file holds only personal keys."
+C2 = "A policy is adopted, and the project file equals it or its change is pending."
+C3 = "The record replays: versions, digests, canonical form, chains, forks, transitions, signatures, identifiers."
+C4 = "The record is present and has not rolled back: effective where Git's history is walked, cooperative on one machine."
+C8 = "The domain's entries, the aliases, its ignore file, and the product's ignore rule."
+C9 = "No file looks like a credential: a heuristic."
+C10 = "The record's files are committed where the publication mode commits them."
+C11 = "The private folder gives access to its owner only."
+finding = "{check} ({severity}, {control}): {about}"
+passed = "The check passed with no error; warnings: {warnings}."
+failed = "The check found problems; errors: {errors}, warnings: {warnings}."
+
+[severity]
+about = "How grave a finding is"
+error = "error"
+warning = "warning"
+
+[control]
+about = "Whether a control is enforced or rests on cooperation (REQ-SEC-5)"
+effective = "effective"
+cooperative = "cooperative"
+
+[status]
+about = "Lines of fabrewk status"
+absent = "There is no record here: Fabrewk is not installed in this repository, or this is not its root."
+broken = "The record does not replay, so no state can be read from it:"
+replays = "The record replays: {streams} streams, {events} events."
+no-policy = "No policy is adopted yet."
+policy = "Policy in force: the adopted project file, digest {digest}."
+adopted = "The project file is the adopted one."
+pending = "The project file has changes not adopted yet."
+pending-unknown = "The project file does not read, so its changes cannot be compared."
+mode = "Publication mode: {mode}."
+no-mode = "No publication mode is recorded."
+no-stages = "No stage has been proposed."
+stage = "Stage {id}, {state}: {goal}"
+task = "Task {id}, {state}: {goal}"
+in-stage = "In the stage {stage}."
+events = "Events, in order:"
+event = "{what} ({kind}), by {by}, at {at}"
+allowed = "Moves the transition table allows from here: {moves}."
+
+[mode]
+about = "The publication modes"
+published = "published in the product's repository"
+own-repository = "in a repository of its own"
+unpublished = "unpublished, on this machine only"
+
+[state]
+about = "Words for each state of the transition table"
+proposed = "proposed"
+authorized = "authorized"
+running = "running"
+verified = "verified"
+halted = "halted"
+accepted = "accepted"
+integrated = "integrated"
+rejected = "rejected"
+closed = "closed"
+pending = "pending"
+incorporated = "incorporated"
+discarded = "discarded"
+withdrawn = "withdrawn"
+
+[kind]
+about = "Words for each kind of event"
+assessed = "repository assessed"
+publication-decided = "publication decided"
+policy-adopted = "policy adopted"
+installed = "installed"
+alambique-baseline = "alambique's baseline"
+proposal-incorporated = "proposal incorporated"
+direct-edit-approved = "direct edit approved"
+sweep-recorded = "sweep recorded"
+proposal-recorded = "proposal recorded"
+proposal-withdrawn = "proposal withdrawn"
+proposal-discarded = "proposal discarded"
+stage-proposed = "stage proposed"
+stage-authorized = "stage authorized"
+stage-closed = "stage closed"
+task-proposed = "task proposed"
+task-authorized = "task authorized"
+run-started = "run started"
+attempt-started = "attempt started"
+attempt-ended = "attempt ended"
+candidate-recorded = "candidate recorded"
+check-recorded = "check recorded"
+review-recorded = "review recorded"
+task-verified = "task verified"
+task-halted = "task halted"
+task-accepted = "task accepted"
+merge-failed = "integration failed"
+task-integrated = "task integrated"
+task-rejected = "task rejected"
+extension-note = "extension's note"
+
+[role]
+about = "The maintainers' roles"
+maestro = "maestro"
+supervisor = "supervisor"
+contributor = "contributor"
+
+[actor]
+about = "Who recorded an event"
+person = "the maintainer {alias} ({role})"
+agent = "an agent ({tool})"
+fabrewk = "Fabrewk"
+extension = "the extension {name}"
+
+[config]
+about = "Lines of fabrewk config"
+heading = "Effective configuration, from the policy in force (digest {digest}); no maintainer's file applies, since Git's signing key names none:"
+heading-person = "Effective configuration, from the policy in force (digest {digest}) and the file of the maintainer {alias}:"
+unset = "declared, with no value"
+pending = "Changes in the project file not adopted yet:"
+keys = "Maintainers' keys:"
+key = "{alias}: a key of type {kind}; a touch enforced: {touch}"
+machine = "What this machine has:"
+absent = "absent"
+no-version = "no version printed"
+never = "never"
+tools = "Tools both permitted and present: {tools}."
+none = "none"
+controls = "Controls, each effective or cooperative:"
+
+[source]
+about = "Where an effective value comes from (REQ-SET-7)"
+default = "the default"
+project = "the policy in force ({from})"
+personal = "the file of the maintainer {from}"
+stage = "the stage {from}"
+task = "the task {from}"
+declared = "declared in machine.toml"
+
+[effect]
+about = "What a change does to authority (REQ-SET-5)"
+widening = "widens authority"
+narrowing = "narrows authority"
+neutral = "neither widens nor narrows"
+
+[touch]
+about = "Whether a key's verification requires a touch (REQ-ID-5)"
+yes = "yes"
+unknown = "unknown"
+
+[space]
+about = "Where a name is looked for on this machine"
+programs = "program {name}"
+tools = "tool {name}"
+required = "required tool {name}"
+
+[how]
+about = "How a present program was found"
+observed = "{path}, {version}; found in PATH; last verified by use: {verified}"
+declared = "{path}, {version}; declared in machine.toml; last verified by use: {verified}"
+
+[setting]
+about = "What each settings key means"
+"project.name" = "The project's name"
+"maintainers.*.role" = "The maintainer's role"
+"maintainers.*.key" = "The maintainer's signing key"
+"maintainers.*.hostAccount" = "The maintainer's account on the Git host"
+"maintainers.*.area" = "A supervisor's area; absent, the whole project"
+"languages.canonicalDocumentationLanguage" = "The language of technical files"
+"languages.documentationLanguages" = "The documentation's publication languages"
+"languages.codeLanguage" = "The language of code"
+"languages.evidenceLanguage" = "The language of evidence"
+"languages.delegationLanguage" = "The language of packets delegated to agents"
+"languages.agentInteraction" = "The language agents answer this maintainer in"
+"languages.interfaceLanguage" = "The language of Fabrewk's messages"
+"maintainer.alias" = "This file's maintainer"
+"environment.shell" = "The maintainer's shell"
+"tools.*.adapter" = "Which module drives the tool"
+"tools.*.providers" = "Providers the tool may use"
+"tools.*.path" = "Where the tool is, when detection cannot find it"
+"providers.*.allowed" = "Whether code may be sent to the provider"
+"models.*.provider" = "The model's provider"
+"models.*.id" = "The provider's name for the model"
+"models.*.efforts" = "The model's efforts"
+"profiles.*.kind" = "The profile's task kind"
+"profiles.*.tool" = "The profile's tool"
+"profiles.*.model" = "The profile's model"
+"profiles.*.effort" = "The profile's effort"
+"profiles.*.checks" = "Checks the profile runs"
+"profiles.*.requiredTools" = "Tools verified when the profile starts"
+"profiles.*.rounds" = "The profile's review rounds"
+"profiles.*.dispatches" = "The profile's dispatches"
+"profiles.*.minutes" = "The profile's minutes"
+"profiles.*.tokens" = "The profile's tokens; absent, unlimited"
+"limits.rounds" = "Review rounds by default"
+"limits.dispatches" = "Dispatches by default"
+"limits.minutes" = "Minutes by default"
+"checks.*.command" = "The check's command, without a shell"
+"checks.*.network" = "Whether the check has network"
+"checks.*.minutes" = "The check's time limit"
+"checks.*.tools" = "Tools the check needs"
+"review.differentProvider" = "Review by another provider"
+"gate.protectedPaths" = "Paths no task may touch"
+"git.signOff" = "A sign-off on Fabrewk's commits"
+"extensions.*.digest" = "The extension's digest"
+"extensions.*.network" = "Whether the extension has network"
+
+# The refusal codes the core raises (section 7): what each means, its reason and its next step.
+
+[code.ALIAS_INVALID]
+about = "A maintainer's alias, or a directory at the domain's top, that is not a valid alias"
+reason = "A name that is not a valid alias: lowercase letters, digits and single hyphens, starting with a letter, at most 32 characters, and not a reserved name."
+next = "Rename it to a valid alias."
+
+[code.ALIAS_MISMATCH]
+about = "A personal file whose maintainer.alias is not its directory's name"
+reason = "The personal file names another maintainer than its directory."
+next = "Make maintainer.alias equal to the name of the file's directory."
+
+[code.ATTEMPT_ENDED]
+about = "An attempt ended twice, or ended without starting"
+reason = "The record ends an attempt that is not open."
+next = "A person examines the event named; Fabrewk never repairs the record."
+run = "fabrewk check"
+
+[code.CHECK_DUPLICATE]
+about = "A check defined differently by a stage and by the project"
+reason = "One check has two different definitions."
+next = "Keep one definition of the check, in the stage or in the project."
+
+[code.CHECK_UNKNOWN]
+about = "A verification that could not run"
+reason = "A verification could not run, so its result is unknown, and an unknown result is never a pass."
+next = "Install or repair what is named, then verify again."
+run = "fabrewk check"
+
+[code.CREDENTIAL_SUSPECTED]
+about = "A file that looks like a credential"
+reason = "A file looks like a credential. The match is a heuristic, a cooperative control."
+next = "Remove the credential from the domain, and replace it if it was ever committed or shared."
+
+[code.DOMAIN_NOT_IGNORED]
+about = "A domain that the product's repository would publish, in a mode that must not publish it"
+reason = "The product's repository does not ignore .brewstillery/, so a commit there would publish it."
+next = "Add the line /.brewstillery/ to the product's .git/info/exclude."
+
+[code.DOMAIN_UNKNOWN_ENTRY]
+about = "An entry at the domain's top that is not part of it (a warning)"
+reason = "An entry in .brewstillery/ that is not part of Fabrewk's domain; it was left as it is."
+next = "Move it out of .brewstillery/ if it is not Fabrewk's."
+
+[code.GITIGNORE_CHANGED]
+about = "The domain's ignore file differs from what Fabrewk writes"
+reason = "The file .brewstillery/.gitignore differs from what Fabrewk writes."
+next = "Restore it to the single line local/."
+
+[code.HEAD_DETACHED]
+about = "A repository whose checked-out head is not a branch"
+reason = "Git's head names no branch, so there is no record branch."
+next = "Check out the branch that holds the record, then run the command again."
+
+[code.KEY_UNKNOWN]
+about = "fabrewk config was given a key path that no setting declares"
+reason = "No setting is declared at this key path."
+next = "See every setting and its key path:"
+run = "fabrewk config"
+
+[code.LIMIT_UNOBSERVABLE]
+about = "A token limit on a profile whose tool reports no tokens"
+reason = "A token limit is set for a tool that does not report the tokens it uses, so the limit could not be kept."
+next = "Remove the token limit, or use a profile whose tool reports tokens."
+
+[code.LOCK_HELD]
+about = "Another Fabrewk command is writing in this repository"
+reason = "Another Fabrewk command holds the lock of this repository's record."
+next = "Wait until it ends, then run your command again."
+
+[code.MARK_INVALID]
+about = "This machine's mark of the record's heads is damaged"
+reason = "This machine's mark of the record (local/cache/heads.json) is damaged or names an event the record does not hold there."
+next = "A person examines the mark and removes it if it is damaged; Fabrewk never removes it."
+
+[code.MOVE_NOT_ALLOWED]
+about = "A move the transition table does not allow from the subject's state"
+reason = "The transition table does not allow this move from the subject's state."
+next = "See the subject's state and the moves it allows:"
+run = "fabrewk status"
+
+[code.NOT_A_REPOSITORY]
+about = "A command run outside the root of a repository's main working tree"
+reason = "This is not the root of the repository's main working tree."
+next = "Run it at the root of the repository's main working tree."
+
+[code.POLICY_ABSENT]
+about = "No policy is adopted"
+reason = "No policy is adopted, so there is no effective configuration and no maintainer."
+next = "A maestro adopts the project file; installing Fabrewk does it first."
+
+[code.POLICY_PENDING]
+about = "The project file differs from the adopted policy (a warning)"
+reason = "The project file has changes that no maestro has adopted; the policy in force is still the adopted one."
+next = "See the changes and what each does to authority:"
+run = "fabrewk config"
+
+[code.POLICY_UNCOMMITTED]
+about = "A project file adopted while not committed, in a mode that commits"
+reason = "The project file is not as committed at the record branch's head."
+next = "Commit .brewstillery/settings.toml, then adopt it."
+
+[code.PRIVATE_FOLDER_PERMISSIONS]
+about = "A private folder whose permissions give access to others"
+reason = "The private folder gives access to someone other than its owner, so Fabrewk does not read it."
+next = "Give the folder to its owner only (mode 0700)."
+
+[code.PROTECTED_PATH]
+about = "A task's allowed files that reach a protected path"
+reason = "The allowed files reach a protected path."
+next = "Narrow the allowed files so that they reach no protected path."
+
+[code.PROTECTED_PATH_WILDCARD]
+about = "A wildcard among the allowed files that matches a protected path"
+reason = "A wildcard among the allowed files matches a protected path."
+next = "List the protected file literally, or narrow the wildcard."
+
+[code.RECORD_ABSENT]
+about = "No record: Fabrewk is not installed here"
+reason = "There is no record here."
+next = "Run it at the root of a repository where Fabrewk is installed."
+
+[code.RECORD_BROKEN]
+about = "The record's files are not a chain: a gap, a wrong link, a file out of place"
+reason = "The record is broken: its files are not one unbroken chain."
+next = "A person examines the file named and restores it from the history; Fabrewk never repairs the record."
+
+[code.RECORD_COMMIT_RACE]
+about = "The branch moved during a write command and changed a file of its commit"
+reason = "The branch moved while Fabrewk committed the record; its events are written but not committed."
+next = "The next write command commits them."
+
+[code.RECORD_DIGEST_MISMATCH]
+about = "An event file whose name and content differ"
+reason = "An event file's content is not the one its name records."
+next = "A person examines the file named and restores it from the history."
+
+[code.RECORD_FORK]
+about = "Two events at one place of a stream, from two clones"
+reason = "Two events stand at the same place of one stream: two clones wrote there."
+next = "A person decides which line of events stays, and restores it from the history."
+
+[code.RECORD_HEAD_MOVED]
+about = "A stream's head moved under the lock; nothing was written"
+reason = "Something wrote in the record without its lock while this command ran; this command wrote nothing."
+next = "Run the command again."
+
+[code.RECORD_ID_COLLISION]
+about = "Two stages or tasks share an identifier"
+reason = "Two stages or two tasks were given the same identifier."
+next = "A person examines the stream named."
+
+[code.RECORD_NONCANONICAL]
+about = "An event file not in canonical form"
+reason = "An event file is not in canonical form, so its digest cannot be trusted."
+next = "A person examines the file named and restores it from the history."
+
+[code.RECORD_ROLLBACK]
+about = "The record lost events it held before"
+reason = "The record lost events it held before: a rollback."
+next = "A person restores the lost events from the history or from another clone."
+
+[code.RECORD_SIGNATURE_INVALID]
+about = "A person's event whose signature does not verify against the policy"
+reason = "A person's event is not signed by the key and role the policy gives its signer."
+next = "A person examines the event named; an event nobody signed is not theirs."
+
+[code.RECORD_TRANSITION_INVALID]
+about = "An event the transition table does not allow where it stands"
+reason = "An event stands where the transition table does not allow it."
+next = "A person examines the event named."
+run = "fabrewk check"
+
+[code.RECORD_UNCOMMITTED]
+about = "The record's files are written but not committed"
+reason = "Some of the record's files are not committed on the record branch."
+next = "The next write command commits them."
+
+[code.RECORD_VERSION_UNKNOWN]
+about = "An event of a schema this Fabrewk does not know"
+reason = "An event is not of a schema this version of Fabrewk knows."
+next = "Use a version of Fabrewk that knows it, or examine the file named."
+
+[code.ROLE_FORBIDDEN]
+about = "A move by a key with no role, or with a role that may not make it"
+reason = "The key signing this move holds no role in the policy that may make it."
+next = "A maestro makes this move with their own key."
+
+[code.ROLE_NOT_ENFORCED]
+about = "A policy that lists a supervisor, a role not enforced yet"
+reason = "The policy lists a supervisor, a role Fabrewk does not enforce yet."
+next = "Give that maintainer the role of maestro or contributor."
+
+[code.SETTINGS_INVALID]
+about = "A settings file that does not read or validate"
+reason = "A settings file does not read or validate."
+next = "Correct the file at the key path and line named."
+
+[code.SETTINGS_KEY_NOT_PERSONAL]
+about = "A personal file holding a key that is not personal"
+reason = "A personal file holds a key that only the project file may set."
+next = "Move the key to the project file, where a maestro adopts it."
+
+[code.TASK_CHANGED]
+about = "A task changed after it was shown for authorization"
+reason = "The task, or its stream's head, changed after it was shown."
+next = "See the task as it is now:"
+run = "fabrewk status"
+
+[code.TASK_INVALID]
+about = "A stage or task whose fields are not valid"
+reason = "A stage's or a task's fields are not valid."
+next = "Correct the field named."
+
+[code.TOOL_FAILED]
+about = "An external tool failed"
+reason = "An external tool failed; what it printed is kept as evidence, never shown here."
+next = "Repair what is named, then run the command again."
+
+[code.TOOL_MISSING]
+about = "An external tool is not on this machine"
+reason = "A tool this needs is not on this machine."
+next = "Install the tool named, or declare where it is."
+
+[code.WIDENING_UNNAMED]
+about = "A change that widens authority, not named with --widen"
+reason = "A change widens authority without being named."
+next = "A maestro names each widening, by its key path, when making the move."

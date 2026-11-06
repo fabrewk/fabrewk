@@ -115,6 +115,14 @@ pub(crate) fn ignores(repo: &Repo, path: &Path) -> Result<bool, Error> {
     }
 }
 
+/// Git's `user.signingkey` in the repository at `root`, a path or a `key::` literal (D-055); `None` when it is unset or
+/// Git cannot say.
+pub(crate) fn signing_key(root: &Path) -> Option<String> {
+    let repo = Repo { root: root.to_path_buf(), prefix: PathBuf::new() };
+    let out = run(command(&repo, &os(&["config", "--type=path", "--get", "user.signingkey"])), b"").ok()?;
+    Some(line(out.stdout)).filter(|s| out.status.success() && !s.is_empty())
+}
+
 /// The repository's exclude file, `info/exclude` in its Git directory, as an absolute path.
 pub(crate) fn exclude_file(repo: &Repo) -> Result<PathBuf, Error> {
     let out = git(repo, &os(&["rev-parse", "--path-format=absolute", "--git-path", "info/exclude"]), b"", None)?;

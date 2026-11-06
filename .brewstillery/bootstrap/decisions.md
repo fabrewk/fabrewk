@@ -2298,3 +2298,37 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   how `TASK_CHANGED` arises when a task's fields cannot change in the record (the binding is held on replay).
 - Size: the core grew from 2,751 to 3,299 counted lines (+548; estimated about 750). Projection in D-054.
 - Not done: parts 7d2 and 7d3.
+
+## D-055 — Part 7d2: the person is Git's signing key; citations are Markdown links; completions are generated files; the scope
+
+- Status: decided
+- Decided: 2026-11-05
+- Origin: maintainer XEL in session 21's chat, answering the integrator's four questions before any code: "Llave de
+  firma de Git (Recomendado)"; "Solo enlaces Markdown (Recomendado)"; "Archivos generados (Recomendado)"; "Aprobar
+  (Recomendado)". In the same chat, before the questions, the maestro gave network for Cargo to fetch `lexopt` from
+  crates.io.
+- Decision:
+  1. A command knows who runs it by Git's signing key: the person is the maintainer of the policy in force whose `key`
+     is the public key that `user.signingkey` names in that repository, as `git config` gives it (a `key::` literal,
+     a public key file, or a private key file with its `.pub` beside it). That maintainer's personal file gives the
+     interface language. When no maintainer matches, or no policy is adopted, the messages are in the policy's
+     canonical documentation language, else `en`. Part 7d3 signs with the same key.
+  2. What the fermento or the alambique cites (REQ-SEC-3 at `check`) is the target of every Markdown inline link
+     `[text](target)` and image `![text](target)` in `ALAMBIQUE.md` and in each `<alias>/fermento.md` that is a
+     relative path, resolved from the citing file's directory; a target with a scheme (`https:`, `mailto:`), an
+     absolute path or only a fragment cites nothing, and a fragment or a query after the path is dropped. Only a cited
+     file inside a maintainer's directory changes the scan.
+  3. The fish and POSIX completions and the reference documentation are files generated from the declaration of
+     commands, kept in `crates/fabrewk/`, and a test fails when one differs from a fresh generation; no command is
+     added. The POSIX file is POSIX `sh` syntax that registers a completion with bash's `complete` (and zsh's through
+     `bashcompinit`), and passes `dash -n`. Phase 10's installer places them.
+  4. The scope of 7d2: the commands `status`, `config` and `check`; `check` verifies C1 to C4 and C8 to C11, and C5,
+     C6, C7 and C12 are declared with phase 8; `status` shows each stage's and task's state and the record's health,
+     the whole view being phase 8's and PD-37's rendering 7d3's; an identifier `status <id>` does not find is a usage
+     error (exit 2); the catalogue covers, in `en` and `es`, every code the core raises today, every state, event
+     kind and role, and its next steps name only commands that exist; exit 70 for an internal error.
+- Consequences: `core-specification.md` records the interpretations of points 1 to 4 where they apply (sections 2
+  CLI and SEC, 5, 6); the work affected is part 7d2, and 7d3's signing (point 1).
+- Sources: chat of session 21; `STATUS.md`'s "Next"; D-040 (`lexopt`), D-053; `core-specification.md` REQ-CLI-1 to
+  REQ-CLI-4, REQ-SEC-3, REQ-SEC-5, REQ-VIEW-4, sections 5, 6, 7, 11.2, 12 CLI and SEC.
+- Supersedes: none.

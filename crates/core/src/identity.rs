@@ -147,6 +147,25 @@ pub fn actor(policy: &Settings, alias: &str, signer: &dyn Sign, kind: &str) -> R
     Ok(serde_json::json!({"kind": "person", "alias": m.alias, "role": m.role}))
 }
 
+/// The maintainer of `policy` who runs this command (D-055): the one whose key is the public key Git's
+/// `user.signingkey` names in the repository at `root`, a `key::` literal, a public key file, or a private key file
+/// with its `.pub` beside it. `None` when Git names none or no maintainer holds it.
+pub fn person(policy: &Settings, root: &Path) -> Option<String> {
+    let named = record::signing_key(root)?;
+    let public = match named.strip_prefix("key::") {
+        Some(literal) => literal.to_owned(),
+        None => {
+            let read = |p: &Path| std::fs::read_to_string(p).ok().filter(|t| key_blob(t.trim()).is_some());
+            let path = root.join(&named);
+            let mut public = path.clone().into_os_string();
+            public.push(".pub");
+            read(&path).or_else(|| read(Path::new(&public)))?
+        }
+    };
+    let blob = key_blob(public.trim());
+    maintainers(policy).into_iter().find(|m| blob.is_some() && key_blob(&m.key) == blob).map(|m| m.alias)
+}
+
 /// The allowed-signers file derived from a policy (REQ-ID-2), one line per maintainer, for `ssh-keygen` and Git. It is
 /// a cache: Fabrewk never verifies with it (D-048), so a line added by hand verifies nothing.
 pub fn allowed_signers(policy: &Settings) -> String {

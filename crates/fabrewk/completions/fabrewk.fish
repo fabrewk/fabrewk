@@ -1,0 +1,15 @@
+# fabrewk completion for fish, generated from the declaration of commands.
+complete -c fabrewk -f
+complete -c fabrewk -n __fish_use_subcommand -l help -d 'Shows this help.'
+complete -c fabrewk -n __fish_use_subcommand -l version -d 'Shows Fabrewk'\''s version.'
+complete -c fabrewk -n '__fish_seen_argument -l version' -l json -d 'Gives the output as one JSON document with a schema field.'
+complete -c fabrewk -n __fish_use_subcommand -a status -d 'Shows the record'\''s health, the policy in force and the state of each stage and task.'
+complete -c fabrewk -n '__fish_seen_subcommand_from status' -l json -d 'Gives the output as one JSON document with a schema field.'
+complete -c fabrewk -n '__fish_seen_subcommand_from status' -l help -d 'Shows this help.'
+complete -c fabrewk -n __fish_use_subcommand -a config -d 'Shows every effective setting with its source, the changes not adopted, the keys, what this machine has and every control.'
+complete -c fabrewk -n '__fish_seen_subcommand_from config' -l json -d 'Gives the output as one JSON document with a schema field.'
+complete -c fabrewk -n '__fish_seen_subcommand_from config' -l help -d 'Shows this help.'
+complete -c fabrewk -n __fish_use_subcommand -a check -d 'Verifies the settings, the policy, the record, the domain, the credentials and the private folder.'
+complete -c fabrewk -n '__fish_seen_subcommand_from check' -l json -d 'Gives the output as one JSON document with a schema field.'
+complete -c fabrewk -n '__fish_seen_subcommand_from check' -l help -d 'Shows this help.'
+complete -c fabrewk -n '__fish_seen_subcommand_from config' -a 'project.name languages.canonicalDocumentationLanguage languages.documentationLanguages languages.codeLanguage languages.evidenceLanguage languages.delegationLanguage languages.agentInteraction languages.interfaceLanguage maintainer.alias environment.shell limits.rounds limits.dispatches limits.minutes review.differentProvider gate.protectedPaths git.signOff'

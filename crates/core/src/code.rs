@@ -39,6 +39,7 @@ pub enum Code {
     RecordRollback,
     RecordSignatureInvalid,
     RecordTransitionInvalid,
+    RecordUncommitted,
     RecordVersionUnknown,
     RoleForbidden,
     RoleNotEnforced,
@@ -70,6 +71,18 @@ impl std::fmt::Display for Code {
 pub enum Error {
     Refused { code: Code, path: Option<PathBuf>, detail: String },
     Io { path: PathBuf, error: std::io::Error },
+}
+
+/// A copy; an operating-system error keeps its kind, which is all the command surface words.
+impl Clone for Error {
+    fn clone(&self) -> Error {
+        match self {
+            Error::Refused { code, path, detail } => {
+                Error::Refused { code: *code, path: path.clone(), detail: detail.clone() }
+            }
+            Error::Io { path, error } => Error::Io { path: path.clone(), error: error.kind().into() },
+        }
+    }
 }
 
 impl Error {
@@ -142,6 +155,7 @@ mod tests {
             RecordRollback,
             RecordSignatureInvalid,
             RecordTransitionInvalid,
+            RecordUncommitted,
             RecordVersionUnknown,
             RoleForbidden,
             RoleNotEnforced,

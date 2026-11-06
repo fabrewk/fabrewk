@@ -80,11 +80,11 @@ pub fn domain(domain: &Path, cited: &dyn Fn(&Path) -> bool) -> Vec<Error> {
                     match fs::symlink_metadata(&path) {
                         Ok(m) if m.is_dir() => dirs.push(path),
                         Ok(m) => files.push((path, m.is_file())),
-                        Err(e) => out.push(refuse(Code::CheckUnknown, Some(&path), e.to_string())),
+                        Err(_) => out.push(refuse(Code::CheckUnknown, Some(&path), "cannot be examined")),
                     }
                 }
             }
-            Err(e) => out.push(refuse(Code::CheckUnknown, Some(&dir), e.to_string())),
+            Err(_) => out.push(refuse(Code::CheckUnknown, Some(&dir), "cannot be listed")),
         }
     }
     files.sort();
@@ -98,8 +98,8 @@ pub fn domain(domain: &Path, cited: &dyn Fn(&Path) -> bool) -> Vec<Error> {
         // Read only what must be read: a regular file outside a maintainer's uncited material.
         let content = match (regular && !uncited).then(|| fs::read(&path)) {
             Some(Ok(bytes)) => suspect(&bytes),
-            Some(Err(e)) => {
-                out.push(refuse(Code::CheckUnknown, Some(&path), e.to_string()));
+            Some(Err(_)) => {
+                out.push(refuse(Code::CheckUnknown, Some(&path), "cannot be read"));
                 None
             }
             None => None,

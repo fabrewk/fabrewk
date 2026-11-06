@@ -526,6 +526,32 @@ ignored. The exclude line is `/.brewstillery/`, added once to the file `git rev-
 - **REQ-CLI-4.** `--json` gives every command's output as a stable document with a `schema` field; the refusal's code
   is in it. (AD-6)
 
+**The command surface, as part 7d2 fixed it (D-053, D-055).** The declaration lists the commands of each phase only
+(in 7d2 `status`, `config` and `check`); every command takes `--help`, the reading commands `--json`, and the program
+alone `--help` and `--version [--json]`; anything else (an unknown command or option, a value given to an option, a
+second argument, bytes that are not UTF-8, no command) is a usage error, exit 2, whose next step is the command's
+help. The person is the maintainer of the policy in force whose key is the public key Git's `user.signingkey` names
+in the repository (a `key::` literal, a public key file, or a private key file with its `.pub` beside it); that
+maintainer's `languages.interfaceLanguage` chooses the catalogue, else the policy's canonical documentation language,
+else `en`; a personal file that does not read is not used for the language. The catalogue is one TOML file per
+language in `crates/core/catalogue/` (`en`, the canonical one, holds every table's description in `about`; `es`); a
+command appears in it only in a `run` field, whole. A refusal prints its code and the catalogue's reason, where (a
+path relative to where the command ran), the core's detail (its technical note: a key path and line, a count; never
+a tool's own output) and the next step, with the command to run when there is one. Documents: `fabrewk.status/1`,
+`fabrewk.subject/1`, `fabrewk.config/1`, `fabrewk.value/1`, `fabrewk.check/1`, `fabrewk.refused/1`,
+`fabrewk.usage/1`, `fabrewk.internal/1`, `fabrewk.version/1`; their fields are pinned by a test. An error no refusal
+names (a file that does not read where a command needs it, a panic) is exit 70 with the catalogue's words. Help,
+`crates/fabrewk/completions/fabrewk.fish`, `crates/fabrewk/completions/fabrewk.sh` (POSIX `sh` syntax registering
+bash's completion, zsh's through `bashcompinit`) and `crates/fabrewk/doc/reference.<lang>.md` are generated from the
+declaration and the catalogue, and a test holds each file to a fresh generation. `status` shows the record's health
+(it replays, it does not, with each code, or it is absent, which is a statement and exit 0), the policy in force and
+whether the file has pending changes, the publication mode, and each stage and task with its state; `status <id>`
+takes `s-…`, `t-…`, `stage-s-…` or `task-t-…`, shows the subject's events and the moves the table allows next, and an
+identifier the record does not hold is a usage error. `config` refuses `POLICY_ABSENT` when no policy is adopted and
+a record's own code when it does not replay; it lists each effective value with its source, the pending changes with
+their effect, each maintainer's key (REQ-ID-5), what detection finds, the effective tools and every guard of section
+4 and every check of section 6 with its label (REQ-SEC-5).
+
 ### INS: assessment, installation and onboarding
 
 - **REQ-INS-1.** `fabrewk assess` reads only Git's state, the root files, an existing `AGENTS.md`, the licence, another
@@ -582,6 +608,10 @@ ignored. The exclude line is `/.brewstillery/`, added once to the file `git rev-
   that is not regular is matched by its name only, never followed or read; a maintainer's top directory is any
   directory at the domain's top whose name is an alias; which files the fermento or the alambique cite is given to the
   scan by `check` (part 7d2).
+  As part 7d2 fixed it (D-055): the files cited are the targets of every Markdown inline link `[text](target)` and
+  image `![text](target)` in `ALAMBIQUE.md` and in each `<alias>/fermento.md` that are relative paths (a target in
+  `<…>` may hold spaces; the title, a fragment and a query are dropped), resolved from the citing file's directory
+  with `.` and `..` read as written; a target with a scheme, an absolute path or only a fragment cites nothing.
 - **REQ-SEC-4.** The private folder is created with access for its owner only, and Fabrewk refuses to read it if its
   permissions are wider (`PRIVATE_FOLDER_PERMISSIONS`). (6.51, AD-15)
 - **REQ-SEC-5.** Every control in the transition table and in `check` is labelled `effective` (enforced by code with
@@ -839,6 +869,16 @@ Read-only; prints every finding with its code and severity, and exits 3 if any i
 
 A check that cannot run (a tool missing, Git history unreadable) reports `CHECK_UNKNOWN` as an error; an unknown
 result is never a pass (6.43).
+
+As part 7d2 fixed it (D-053, D-055): `check` verifies C1 to C4 and C8 to C11; C5, C6, C7 and C12 are declared with
+phase 8, when views, separators and the alambique's approval exist. Warnings (`DOMAIN_UNKNOWN_ENTRY`,
+`POLICY_PENDING`) exit 0 when they are the only findings. C1 reads the project file, every `<alias>/settings.toml`
+and `machine.toml`; C2 compares the file with the policy in force; C3 reports each code the replay gives; C4 reports
+`RECORD_ABSENT`, the history walk where the mode commits, and the mark; C10 reports the record's files the record
+branch's tip does not hold. A tool missing or failing, or a file that does not read, is `CHECK_UNKNOWN` for the check
+that needed it; with a record that does not replay, C2 and the mark are `CHECK_UNKNOWN`; with a record and no
+`publication-decided`, C4's walk, C8's ignore rule and C10 are `CHECK_UNKNOWN`. With no domain at all, the one
+finding is `RECORD_ABSENT`. C4 is labelled cooperative in `unpublished` and effective otherwise; C9 is cooperative.
 
 ## 7. Refusals
 

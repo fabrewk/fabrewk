@@ -6,7 +6,7 @@
 use crate::code::{Code, Error, refuse};
 use crate::record::{Event, Replay, StreamKind, stream_kind, subject_digest};
 use serde_json::json;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::LazyLock;
 
 /// One row per line: subject | kinds | from | to | who | guards. A kind marked `+` is recorded after the row's move,
@@ -137,11 +137,26 @@ fn invalid(e: &Event, why: impl Into<String>) -> Error {
 /// attempt is `ATTEMPT_ENDED` (PD-10); an attempt that starts while another is open, or a move out of `running` with
 /// one open, is `RECORD_TRANSITION_INVALID`, as is every other failure: each attempt ends exactly once (REQ-RUN-1).
 pub fn validate(record: &Replay) -> Result<(), Vec<Error>> {
-    let mut covers = BTreeSet::new();
+    current(record).map(drop)
+}
+
+/// The state of every stage and task stream after its events, held to the table as [`validate`] holds them.
+pub fn current(record: &Replay) -> Result<BTreeMap<String, &'static str>, Vec<Error>> {
+    let (mut covers, mut out, mut errors) = (BTreeSet::new(), BTreeMap::new(), Vec::new());
     let of = |k| record.streams.iter().filter(move |(n, _)| stream_kind(n) == Some(k));
-    let mut errors: Vec<Error> = of(StreamKind::Stage).filter_map(|s| stage(record, s, &mut covers).err()).collect();
-    errors.extend(of(StreamKind::Task).filter_map(|t| task(record, t, &covers).err()));
-    if errors.is_empty() { Ok(()) } else { Err(errors) }
+    for s in of(StreamKind::Stage) {
+        match stage(record, s, &mut covers) {
+            Ok(state) => _ = out.insert(s.0.clone(), state),
+            Err(e) => errors.push(e),
+        }
+    }
+    for t in of(StreamKind::Task) {
+        match task(record, t, &covers) {
+            Ok(state) => _ = out.insert(t.0.clone(), state),
+            Err(e) => errors.push(e),
+        }
+    }
+    if errors.is_empty() { Ok(out) } else { Err(errors) }
 }
 
 /// One event's move from `state`, its payload's content and, for a person's move bound to its subject, its binding.
@@ -167,7 +182,7 @@ fn stage(
     record: &Replay,
     (name, events): (&String, &Vec<Event>),
     covers: &mut BTreeSet<(String, u64)>,
-) -> Result<(), Error> {
+) -> Result<&'static str, Error> {
     let digest = subject_digest(&events[0].value["payload"]).unwrap_or_default();
     let mut state = None;
     for e in events {
@@ -194,14 +209,14 @@ fn stage(
             covers.insert((stream, seq));
         }
     }
-    Ok(())
+    Ok(state.unwrap_or_default())
 }
 
 fn task(
     record: &Replay,
     (name, events): (&String, &Vec<Event>),
     covers: &BTreeSet<(String, u64)>,
-) -> Result<(), Error> {
+) -> Result<&'static str, Error> {
     let payload = &events[0].value["payload"];
     let digest = subject_digest(payload).unwrap_or_default();
     let stage = format!("stage-{}", payload["stage"].as_str().unwrap_or_default());
@@ -231,5 +246,5 @@ fn task(
             state = Some(authorize.to);
         }
     }
-    Ok(())
+    Ok(state.unwrap_or_default())
 }

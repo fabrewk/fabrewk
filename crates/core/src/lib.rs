@@ -3,6 +3,7 @@
 /// The version of this build, as Cargo records it.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+pub mod cli;
 mod code;
 pub mod detect;
 pub mod domain;
