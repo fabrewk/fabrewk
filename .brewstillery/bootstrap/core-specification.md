@@ -563,19 +563,24 @@ empty after trimming or not UTF-8 is `WORDS_MISSING`. Write commands take `--jso
 write command's own refusals, those of the write path. Every write command runs in this order: for a person's move,
 `AGENT_ENVIRONMENT`; the record read without the lock (`RECORD_ABSENT` and the replay's codes); this machine's mark
 (`RECORD_ROLLBACK`, `MARK_INVALID`); the policy in force (`POLICY_ABSENT`); the publication mode (a record with a
-policy and no `publication-decided` is `RECORD_BROKEN`: `apply` writes both); `DOMAIN_NOT_IGNORED`; the private
-folder's permissions; the command's own guards on that record; then the session (`NOT_A_REPOSITORY`,
-`HEAD_DETACHED`, the history walk, `LOCK_HELD`), the record replayed again under the lock and the command's guards
-again on it; the record commit of what an earlier command left uncommitted; the machine key (REQ-REG-12); the events,
-each appended by compare-and-swap after the head the plan saw (`RECORD_HEAD_MOVED`), an adoption's seal read just
-before it; the replay before the record commit (PD-46) and the commit (`RECORD_COMMIT_RACE`); then the caches: the
-mark, `allowed_signers` from the policy in force (REQ-ID-2) and `detected.json` with `git` and `ssh-keygen` verified
-by use (REQ-SET-8). A refusal decided before the session writes nothing; one decided after it, only when the record
-changed in between, may leave the empty `local/lock`. A person is the maintainer whose key Git's `user.signingkey`
+policy and no `publication-decided` is `RECORD_BROKEN`: `apply` writes both); `DOMAIN_NOT_IGNORED`; the product's
+checked-out branch in every mode (`HEAD_DETACHED`, P7D3A-5); the private folder's permissions and the machine file
+(`SETTINGS_INVALID`, P7D3A-2); the command's own guards on that record; then the session (`NOT_A_REPOSITORY`, the
+record branch where the mode commits, the history walk, `LOCK_HELD`), the record replayed again under the lock and
+the command's guards again on it; every event made and signed in memory, an adoption's seal read just before it, so
+that a key that cannot sign is `TOOL_FAILED` with nothing written (P7D3A-1); on a machine with no machine key yet, a
+probe signature first, then the machine key (REQ-REG-12); the record commit of what an earlier command left
+uncommitted; the events, each written by compare-and-swap after the head the plan saw (`RECORD_HEAD_MOVED`); the
+replay before the record commit (PD-46) and the commit (`RECORD_COMMIT_RACE`); then, still under the lock (P7D3A-3),
+the caches: the mark, `allowed_signers` from the policy in force (REQ-ID-2) and `detected.json` with `git` and
+`ssh-keygen` verified by use (REQ-SET-8). A refusal decided before the session writes nothing; one decided after it,
+only when the record changed in between, may leave the empty `local/lock`. A person is the maintainer whose key Git's `user.signingkey`
 names (D-055), refused `ROLE_FORBIDDEN` when Git names none, the key is no maintainer's, or the role may not make the
 move; the signature is `ssh-keygen -Y sign -n fabrewk -f` over the private key file, the public key file (its
 private key beside it or in the SSH agent) or, for a `key::` literal, a copy of it in `local/tmp/` removed after
-(the agent). The words are not an example any catalogue prints (`words.example`, which `--say`'s help shows),
+(the agent). Every file `ssh-keygen` may open is held to D-055's rule, a regular file outside this repository and
+every domain, as written and as it resolves: the file named, and, for a public key file, the private key beside it
+when one exists; otherwise the key names nobody (P7D3A-4). The words are not an example any catalogue prints (`words.example`, which `--say`'s help shows),
 compared after trimming (`WORDS_COPIED`); their tag is `--say-lang`, else the person's `languages.agentInteraction`.
 `AGENT_ENVIRONMENT` is refused when any marker is set in the environment, whatever its value: those the binary
 declares on each adapter's behalf (`CLAUDECODE`; `CODEX_SANDBOX`, `CODEX_SANDBOX_NETWORK_DISABLED`) and the core's

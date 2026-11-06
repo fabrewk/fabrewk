@@ -498,13 +498,53 @@ fn signing_with_a_key_literal_in_the_agent() {
 
 #[test]
 fn refusal_tool_failed_when_the_key_cannot_sign() {
+    // On a machine with no machine key yet (P7D3A-1): the refusal makes none.
     let fx = published("cannot-sign");
-    // A first write makes the machine key, so that the refusal below writes nothing.
-    ok(&fx.run(&["propose", &proposal(&fx, "plan.json", &file(json!({})))]));
     fs::rename(fx.keys.join("xel"), fx.keys.join("moved")).unwrap();
     fx.edit_policy(&policy_with(&fx, "\n[limits]\nminutes = 60\n"));
     let e = refused(&fx, &["adopt", "--say", SAY], "TOOL_FAILED", 1, "es");
     assert_eq!(e["detail"], "ssh-keygen -Y sign failed");
+    assert!(!fx.folder().exists());
+    // With a machine key and events an earlier command left uncommitted: neither committed by the refusal.
+    fs::rename(fx.keys.join("moved"), fx.keys.join("xel")).unwrap();
+    ok(&fx.run(&["propose", &proposal(&fx, "plan.json", &file(json!({})))]));
+    fx.stage_and_task();
+    fs::rename(fx.keys.join("xel"), fx.keys.join("moved")).unwrap();
+    refused(&fx, &["adopt", "--say", SAY], "TOOL_FAILED", 1, "es");
+}
+
+#[test]
+fn refusal_settings_invalid_in_the_machine_file_writes_nothing() {
+    let fx = published("machine-file");
+    use std::os::unix::fs::PermissionsExt;
+    fs::create_dir_all(fx.folder()).unwrap();
+    fs::set_permissions(fx.folder(), fs::Permissions::from_mode(0o700)).unwrap();
+    fs::write(fx.folder().join("machine.toml"), "unknown = 1\n").unwrap();
+    let name = proposal(&fx, "plan.json", &file(json!({})));
+    refused(&fx, &["propose", &name], "SETTINGS_INVALID", 1, "es");
+}
+
+#[test]
+fn a_signing_key_is_never_read_from_a_domain_or_a_pipe() {
+    // Outside the repository, `signing` is a link to the maestro's private key put in a maintainer's directory, and
+    // `signing.pub` a regular copy of the public key (P7D3A-4): `ssh-keygen` would open the domain's file.
+    let fx = published("domain-key");
+    fs::copy(fx.keys.join("xel"), fx.domain.join("xel/uncited-key")).unwrap();
+    let outside = fx.keys.join("signing");
+    std::os::unix::fs::symlink(fx.domain.join("xel/uncited-key"), &outside).unwrap();
+    fs::copy(fx.keys.join("xel.pub"), fx.keys.join("signing.pub")).unwrap();
+    fx.git(&["config", "user.signingkey", outside.to_str().unwrap()]);
+    fx.edit_policy(&policy_with(&fx, "\n[limits]\nminutes = 60\n"));
+    refused(&fx, &["adopt", "--say", SAY], "ROLE_FORBIDDEN", 1, "en");
+    // The public key file named, with a link into the domain as its private key beside it.
+    let public = fx.keys.join("signing.pub");
+    fx.git(&["config", "user.signingkey", public.to_str().unwrap()]);
+    refused(&fx, &["adopt", "--say", SAY], "ROLE_FORBIDDEN", 1, "en");
+    // A pipe as the key, with its public key beside it: refused at once, never opened.
+    fs::remove_file(&outside).unwrap();
+    fx.program("mkfifo", &[outside.to_str().unwrap()]);
+    fx.git(&["config", "user.signingkey", outside.to_str().unwrap()]);
+    refused(&fx, &["adopt", "--say", SAY], "ROLE_FORBIDDEN", 1, "en");
 }
 
 /// The record's codes through a write command (D-047, 11.2 rule 4): each damage refused by its code, nothing written.
@@ -711,6 +751,17 @@ fn refusal_not_a_repository_from_a_linked_working_tree() {
     let ran = run_in(&linked, &fx.home, &["propose", &name, "--json"], None);
     assert_eq!(fx.snapshot(), before);
     assert_eq!((ran.status, ran.doc()["refusals"][0]["code"].as_str()), (1, Some("NOT_A_REPOSITORY")), "{ran:?}");
+}
+
+#[test]
+fn refusal_head_detached_in_every_mode() {
+    for mode in ["unpublished", "published"] {
+        let fx = Fx::new(&format!("detached-{mode}"), mode);
+        let name = proposal(&fx, "plan.json", &file(json!({})));
+        fx.git(&["checkout", "-q", "--detach"]);
+        refused(&fx, &["propose", &name], "HEAD_DETACHED", 1, "es");
+        refused(&fx, &["adopt", "--say", SAY], "HEAD_DETACHED", 1, "es");
+    }
 }
 
 #[test]

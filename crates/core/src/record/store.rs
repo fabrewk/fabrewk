@@ -16,6 +16,23 @@ pub struct Head {
     pub digest: String,
 }
 
+/// An event made and signed by [`Session::prepare`], not yet written.
+pub struct Prepared {
+    stream: String,
+    expected: Option<Head>,
+    bytes: Vec<u8>,
+    path: PathBuf,
+    head: Head,
+    signature: Option<(Vec<u8>, Vec<u8>)>,
+}
+
+impl Prepared {
+    /// The head the stream will have once it is written.
+    pub fn head(&self) -> &Head {
+        &self.head
+    }
+}
+
 /// A write command's hold on the record, from the lock to the record commit.
 pub struct Session {
     domain: PathBuf,
@@ -132,19 +149,28 @@ impl Session {
         draft: &Draft,
         signer: Option<&dyn super::Sign>,
     ) -> Result<Head, Error> {
+        let prepared = self.prepare(stream, expected, draft, signer)?;
+        self.write(prepared)
+    }
+
+    /// Makes one event of `stream` after `expected` and signs it, writing nothing (part 7d3a): a command prepares
+    /// every event it will write, so that a signature that cannot be made refuses before any write.
+    pub fn prepare(
+        &self,
+        stream: &str,
+        expected: Option<&Head>,
+        draft: &Draft,
+        signer: Option<&dyn super::Sign>,
+    ) -> Result<Prepared, Error> {
         let dir = self.domain.join("data/events").join(stream);
         if event::stream_kind(stream).is_none() {
             return Err(refuse(Code::RecordBroken, Some(&dir), "stream name"));
         }
-        let head = self.head(stream)?;
-        if head.as_ref() != expected {
-            return Err(refuse(Code::RecordHeadMoved, Some(&dir), "the head moved"));
-        }
-        let seq = head.as_ref().map_or(1, |h| h.seq + 1);
+        let seq = expected.map_or(1, |h| h.seq + 1);
         if seq > 999_999 {
             return Err(refuse(Code::RecordBroken, Some(&dir), "stream full"));
         }
-        let value = draft.build(stream, seq, head.as_ref().map(|h| h.digest.as_str()));
+        let value = draft.build(stream, seq, expected.map(|h| h.digest.as_str()));
         let class = event::check(&value, stream, seq).map_err(|(code, why)| refuse(code, Some(&dir), why))?;
         if seq == 1
             && event::is_creation(&draft.kind)
@@ -167,33 +193,51 @@ impl Session {
             }
             (_, _) => None,
         };
+        let expected = expected.cloned();
+        Ok(Prepared { stream: stream.to_owned(), expected, bytes, path, head: Head { seq, digest }, signature })
+    }
+
+    /// Writes a prepared event if its stream's head on disk is still the one it was made after (`RECORD_HEAD_MOVED`
+    /// otherwise, nothing written); a signature is checked in place before the event exists.
+    pub fn write(&mut self, p: Prepared) -> Result<Head, Error> {
+        let dir = self.domain.join("data/events").join(&p.stream);
+        if self.head(&p.stream)? != p.expected {
+            return Err(refuse(Code::RecordHeadMoved, Some(&dir), "the head moved"));
+        }
         create_dir(&dir)?;
-        if let Some((sig, key)) = signature {
+        if let Some((sig, key)) = &p.signature {
             // Checked in place before the event exists, so a signature that would not verify writes no event: the
             // `.sig` alone is an interrupted write's leftover, removed here or by the next writer.
-            let sig_path = replay::signature_of(&path);
-            write_atomic(&sig_path, &sig)?;
-            if let Err(e) = super::sign::check(&key, &bytes, &sig_path) {
+            let sig_path = replay::signature_of(&p.path);
+            write_atomic(&sig_path, sig)?;
+            if let Err(e) = super::sign::check(key, &p.bytes, &sig_path) {
                 fs::remove_file(&sig_path).map_err(io_at(&sig_path))?;
                 return Err(e);
             }
-            self.appended.push((digest.clone(), sig_path));
+            self.appended.push((p.head.digest.clone(), sig_path));
         }
-        write_atomic(&path, &bytes)?;
-        self.appended.push((digest.clone(), path));
-        Ok(Head { seq, digest })
+        write_atomic(&p.path, &p.bytes)?;
+        self.appended.push((p.head.digest.clone(), p.path));
+        Ok(p.head)
     }
 
     /// Ends the write: replays the whole record (PD-46: if it fails, nothing is committed), checks the mark and
     /// replaces it with the new heads, then, in the modes that commit, makes the record commit of the files appended
-    /// and of `views` (paths relative to the domain). Gives the commit, if one was made.
-    pub fn finish(self, verifier: &dyn Verify, views: &[PathBuf]) -> Result<Option<String>, Error> {
+    /// and of `views` (paths relative to the domain). Gives the commit, if one was made, and releases the lock.
+    pub fn finish(mut self, verifier: &dyn Verify, views: &[PathBuf]) -> Result<Option<String>, Error> {
+        self.finish_held(verifier, views)
+    }
+
+    /// As [`Session::finish`], keeping the lock until the session is dropped, so that a command holds it while it
+    /// writes its caches (REQ-REG-5); [`Session::record`] is then the record as this replay read it.
+    pub fn finish_held(&mut self, verifier: &dyn Verify, views: &[PathBuf]) -> Result<Option<String>, Error> {
         let replay = replay::replay(&self.domain, verifier).map_err(|mut errors| errors.remove(0))?;
         if fault::fails("replay-before-commit") {
             return Err(refuse(Code::RecordBroken, None, "replay failed (fault injection)"));
         }
         mark::check_mark(&self.domain, &replay)?;
         mark::write(&self.domain, &replay)?;
+        self.record = Some(replay);
         let Some((repo, branch, start)) = &self.git else {
             return Ok(None);
         };

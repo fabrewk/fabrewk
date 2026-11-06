@@ -163,16 +163,34 @@ pub fn signing(root: &Path) -> Option<GitKey> {
         return key_blob(literal.trim()).is_some().then(|| GitKey { public: literal.trim().to_owned(), file: None });
     }
     // Only a regular file is opened, so that a pipe never blocks a command (P7D2-17), and never one in a domain or in
-    // this repository, however it is reached: a key is no maintainer's cited material.
+    // this repository, however it is reached: a key is no maintainer's cited material. That holds for every file
+    // `ssh-keygen -Y sign` may open too (P7D3A-4): the file named, and, for a public key file, the private key it
+    // looks for beside it, its name without `.pub`.
     let inside = |p: &Path| crate::code::in_domain(p, root);
-    let regular = |p: &Path| !inside(p) && std::fs::metadata(p).is_ok_and(|m| m.is_file());
-    let read = |p: &Path| {
-        regular(p).then(|| std::fs::read_to_string(p).ok()).flatten().filter(|t| key_blob(t.trim()).is_some())
+    let acceptable = |p: &Path| !inside(p) && std::fs::metadata(p).is_ok_and(|m| m.is_file());
+    let absent = |p: &Path| std::fs::symlink_metadata(p).is_err_and(|e| e.kind() == std::io::ErrorKind::NotFound);
+    let public_in = |p: &Path| {
+        acceptable(p).then(|| std::fs::read_to_string(p).ok()).flatten().filter(|t| key_blob(t.trim()).is_some())
     };
     let path = root.join(&named);
-    let mut public = path.clone().into_os_string();
-    public.push(".pub");
-    let public = read(&path).or_else(|| read(Path::new(&public)))?;
+    let with_pub = |p: &Path| {
+        let mut s = p.as_os_str().to_owned();
+        s.push(".pub");
+        std::path::PathBuf::from(s)
+    };
+    let public = match public_in(&path) {
+        // The public key file: its private key, if beside it, must be acceptable too, or absent (in the agent).
+        Some(public) => {
+            let private = path.to_str().and_then(|p| p.strip_suffix(".pub")).map(Path::new);
+            if private.is_some_and(|p| !absent(p) && !acceptable(p)) {
+                return None;
+            }
+            public
+        }
+        // The private key file, acceptable, with its public key beside it.
+        None if acceptable(&path) => public_in(&with_pub(&path))?,
+        None => return None,
+    };
     Some(GitKey { public: public.trim().to_owned(), file: Some(path) })
 }
 

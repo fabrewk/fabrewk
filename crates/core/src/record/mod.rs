@@ -22,7 +22,7 @@ pub use git::{Publication, Repo, record_branch, uncommitted, walk_history};
 pub use mark::check_mark;
 pub use replay::{Event, Replay, replay};
 pub use sign::{KeySigner, Sign, Verify, carried_key, check};
-pub use store::{Head, Session};
+pub use store::{Head, Prepared, Session};
 pub use time::{is_utc_timestamp, now_utc};
 
 pub use crate::code::{Code, Error};

@@ -107,17 +107,28 @@ fn head_in(record: &Replay, stream: &str) -> Option<Head> {
     Some(Head { seq: last.seq, digest: last.digest.clone() })
 }
 
-/// Runs a write command whose guards and events `plan` gives from a record (see the module's description).
+/// Runs a write command whose guards and events `plan` gives from a record (see the module's description). Nothing
+/// is written before every guard has passed and every event is made and signed: the record commit of what an earlier
+/// command left, the machine key and the events come after, so that a key that cannot sign refuses with nothing
+/// written. On a machine with no machine key yet, the signer first signs a probe, so that the key is made only when the
+/// person's key signs. The lock is held until the last cache is written.
 pub(super) fn run<T>(cx: &Cx, plan: impl Fn(&Replay) -> Result<Plan<T>, Failed>) -> Result<(T, Written), Failed> {
     let record = cx.record.as_ref().map_err(|e| Failed::from(e.clone()))?;
     // A record cut below this machine's mark is a rollback before anything it lacks is missed.
     crate::record::check_mark(&cx.domain, record)?;
     let mode = state(cx, record)?.mode;
     domain::check_ignored(&cx.domain, mode)?;
-    let folder = cx.folder()?;
-    if std::fs::symlink_metadata(&folder).is_ok() {
-        machine::check_permissions(&folder)?;
+    // The record branch is the product's checked-out branch in every mode (REQ-REG-11); the session checks it where
+    // it commits.
+    if mode != Publication::Published
+        && let Some(root) = cx.domain.parent()
+    {
+        let product = Repo { root: root.to_path_buf(), prefix: std::path::PathBuf::from(".brewstillery") };
+        crate::record::record_branch(&product)?;
     }
+    let folder = cx.folder()?;
+    // The private folder and the machine file are read before anything is written, as every write uses them.
+    let machine = machine::machine_file(&folder)?;
     plan(record)?;
     let mut session = Session::begin(&cx.domain, Repo::for_domain(&cx.domain, mode), &PolicyVerifier)?;
     session.refresh(&PolicyVerifier)?;
@@ -125,11 +136,16 @@ pub(super) fn run<T>(cx: &Cx, plan: impl Fn(&Replay) -> Result<Plan<T>, Failed>)
     let planned = plan(record)?;
     let mut heads: BTreeMap<String, Option<Head>> =
         planned.events.iter().map(|(s, _)| (s.clone(), head_in(record, s))).collect();
-    let policy = state(cx, record)?.policy;
-    session.commit_uncommitted(&PolicyVerifier)?;
-    let instance = machine::ensure_instance(&folder)?;
-    let mut written = Vec::new();
-    crate::record::fault::pause("before-append");
+    let instance = match machine::instance(&folder)? {
+        Some(fp) => fp,
+        None => {
+            if let Some(signer) = &planned.signer {
+                crate::record::Sign::sign(signer, b"fabrewk: a probe before the machine key is made")?;
+            }
+            machine::ensure_instance(&folder)?
+        }
+    };
+    let mut prepared = Vec::new();
     for (i, (stream, mut draft)) in planned.events.into_iter().enumerate() {
         draft.instance = instance.clone();
         if planned.sealed && i == 0 {
@@ -140,21 +156,28 @@ pub(super) fn run<T>(cx: &Cx, plan: impl Fn(&Replay) -> Result<Plan<T>, Failed>)
         }
         let signer = draft.say.as_ref().and(planned.signer.as_ref()).map(|s| s as &dyn crate::record::Sign);
         let expected = heads.get(&stream).cloned().flatten();
-        let head = session.append(&stream, expected.as_ref(), &draft, signer)?;
-        heads.insert(stream.clone(), Some(head.clone()));
-        written.push((stream, head));
+        let p = session.prepare(&stream, expected.as_ref(), &draft, signer)?;
+        heads.insert(stream.clone(), Some(p.head().clone()));
+        prepared.push((stream, p));
     }
-    let commit = session.finish(&PolicyVerifier, &[])?;
-    // The caches a write command keeps, from the policy in force once it wrote (REQ-ID-2, REQ-SET-8).
-    let after = crate::record::replay(&cx.domain, &PolicyVerifier)?;
-    let policy = settings::in_force(&after)?.unwrap_or(policy);
+    session.commit_uncommitted(&PolicyVerifier)?;
+    crate::record::fault::pause("before-append");
+    let mut written = Vec::new();
+    for (stream, p) in prepared {
+        written.push((stream, session.write(p)?));
+    }
+    let commit = session.finish_held(&PolicyVerifier, &[])?;
+    crate::record::fault::pause("before-caches");
+    // The caches a write command keeps, from the policy in force once it wrote, under the lock (REQ-ID-2, REQ-SET-8).
+    let after = session.record().ok_or_else(|| refuse(Code::RecordAbsent, Some(&cx.domain), "no event"))?;
+    let policy = settings::in_force(after)?.ok_or_else(|| refuse(Code::PolicyAbsent, Some(&cx.domain), "none"))?;
     identity::write_allowed_signers(&cx.domain, &policy.settings)?;
-    let machine = machine::machine_file(&folder)?;
     let eff = settings::effective(&policy, None, machine.as_ref(), &[], &[])?;
     let mut detection = detect::detect(&cx.domain, &eff, cx.modules, std::env::var_os("PATH").as_deref());
     // Every write command ran both: Git for the mode's checks or the commit, `ssh-keygen` for the machine key.
     detection.used(Space::Program, "ssh-keygen");
     detection.used(Space::Program, "git");
     detection.keep(&cx.domain)?;
+    drop(session);
     Ok((planned.out, Written { events: written, commit }))
 }
