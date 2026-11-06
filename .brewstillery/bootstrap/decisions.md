@@ -2672,3 +2672,17 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   accepting the part without another pass.
 - Sources: chat of session 23; Codex's passes 1 to 3 of 7d3a; D-057, D-062; `core-specification.md` 11.2 rule 4.
 - Supersedes: none.
+
+## D-064 — Part 7d3a: a fifth Codex pass
+
+- Status: decided
+- Decided: 2026-11-06
+- Origin: maintainer XEL in session 23's chat, answering the integrator's question after Codex's fourth pass of 7d3a
+  confirmed three blocking findings (P7D3A-14 to P7D3A-16, corrected in `77257ae`), as D-063 asked: "Pasada 5
+  completa (Recomendado)".
+- Decision: one more full Codex pass of part 7d3a. With no confirmed blocking finding the part is accepted and
+  closed; with one, the integrator corrects it and asks the maestro again before any further pass.
+- Consequences: R-031 records the passes. The alternatives offered were a scoped re-check of P7D3A-14 to P7D3A-17
+  and accepting the part without another pass.
+- Sources: chat of session 23; Codex's fourth pass of 7d3a; D-057, D-063.
+- Supersedes: none.
