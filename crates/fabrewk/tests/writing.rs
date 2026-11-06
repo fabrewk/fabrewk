@@ -589,6 +589,31 @@ fn refusal_check_unknown_for_a_shallow_history() {
 }
 
 #[test]
+fn a_record_commit_git_refuses_leaves_the_events_written_and_says_so() {
+    // A hook that refuses every ref update (P7D3A-18, D-065): the events stay written and not committed, as after a
+    // race, the refusal says so, and the next write command commits them first.
+    let fx = published("hook");
+    fx.edit_policy(&policy_with(&fx, "\n[limits]\nminutes = 60\n"));
+    let hook = fx.root.join(".git/hooks/reference-transaction");
+    fs::write(&hook, "#!/bin/sh\nexit 1\n").unwrap();
+    use std::os::unix::fs::PermissionsExt;
+    fs::set_permissions(&hook, fs::Permissions::from_mode(0o755)).unwrap();
+    let head = fx.git(&["rev-parse", "HEAD"]);
+    let doc = fx.run(&["adopt", "--say", SAY, "--json"]).doc();
+    let e = &doc["refusals"][0];
+    assert_eq!(e["code"], "TOOL_FAILED", "{doc}");
+    assert!(e["detail"].as_str().unwrap().contains("written and not committed"), "{doc}");
+    assert_eq!(fx.git(&["rev-parse", "HEAD"]), head);
+    let check = fx.run(&["check", "--json"]).doc();
+    assert!(check["findings"].as_array().unwrap().iter().any(|f| f["code"] == "RECORD_UNCOMMITTED"), "{check}");
+    fs::remove_file(&hook).unwrap();
+    ok(&fx.run(&["propose", &proposal(&fx, "plan.json", &file(json!({})))]));
+    let first = fx.git(&["log", "-1", "--format=%B", "HEAD~1"]);
+    assert_eq!(first.matches("Fabrewk-Event: ").count(), 1, "the adoption in a commit of its own: {first}");
+    assert_eq!(fx.run(&["check"]).status, 0, "{:?}", fx.run(&["check"]));
+}
+
+#[test]
 fn a_dangling_link_as_a_git_lock_is_a_lock() {
     let fx = published("dangling-lock");
     std::os::unix::fs::symlink("missing-lock-target", fx.root.join(".git/index.lock")).unwrap();

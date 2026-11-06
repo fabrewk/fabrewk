@@ -253,7 +253,20 @@ impl Session {
         } else {
             let json = |p: &PathBuf| p.extension().is_some_and(|e| e == "json");
             let digests: Vec<String> = self.appended.iter().filter(|a| json(&a.1)).map(|a| a.0.clone()).collect();
-            Some(git::commit_record(repo, &self.domain, branch, start.as_deref(), &files, &digests)?)
+            // A record commit that fails leaves the events written and not committed, whatever the cause, and the
+            // refusal says so (D-065); the next write command commits them first (REQ-REG-10).
+            let commit = git::commit_record(repo, &self.domain, branch, start.as_deref(), &files, &digests);
+            Some(commit.map_err(|e| match e {
+                Error::Refused { code, path, detail } => Error::Refused {
+                    code,
+                    path,
+                    detail: format!(
+                        "{detail}; this command's events are written and not committed, and the next write command \
+                         commits them"
+                    ),
+                },
+                other => other,
+            })?)
         };
         mark::write(&self.domain, &replay)?;
         self.record = Some(replay);

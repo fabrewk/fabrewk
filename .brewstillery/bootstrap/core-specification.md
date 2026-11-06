@@ -583,7 +583,9 @@ only when the record changed in between, may leave the empty `local/lock`. Two t
 (D-063): cleaning what an interrupted write left (temporary files, signatures whose event never reached its place,
 the record commit's temporary index, a machine key that does not read), which every write command does even when it
 then refuses; and, after a race with a writer that ignores the lock (`RECORD_HEAD_MOVED`, `RECORD_COMMIT_RACE`), the
-machine key the refused command made, which the next command uses. A person is the maintainer whose key Git's `user.signingkey`
+machine key the refused command made, which the next command uses. A record commit that fails, whatever the cause
+(a race, a Git that refuses the ref's update), leaves the command's events written and not committed, as REQ-REG-10
+says of a race; the refusal says so, `check` reports them, and the next write command commits them first (D-065). A person is the maintainer whose key Git's `user.signingkey`
 names (D-055), refused `ROLE_FORBIDDEN` when Git names none, the key is no maintainer's, or the role may not make the
 move; the signature is `ssh-keygen -Y sign -n fabrewk -f` over the private key file, the public key file (its
 private key beside it or in the SSH agent) or, for a `key::` literal, a copy of it in `local/tmp/` removed after

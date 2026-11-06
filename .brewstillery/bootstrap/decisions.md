@@ -2686,3 +2686,24 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   and accepting the part without another pass.
 - Sources: chat of session 23; Codex's fourth pass of 7d3a; D-057, D-063.
 - Supersedes: none.
+
+## D-065 — Part 7d3a: a record commit that fails leaves its events, and says so; a sixth Codex pass
+
+- Status: decided
+- Decided: 2026-11-06
+- Origin: maintainer XEL in session 23's chat, answering the integrator's two questions after Codex's fifth pass of
+  7d3a confirmed two blocking findings (P7D3A-18, P7D3A-19; the latter corrected in `3a2f375`), as D-064 asked:
+  "Diseño, con aviso (Recomendado)"; "Pasada 6 completa (Recomendado)".
+- Decision:
+  1. A record commit that fails after the command wrote its events, whatever the cause (a race, a Git that refuses
+     the ref's update, as a `reference-transaction` hook may), leaves those events written and not committed, as
+     REQ-REG-10 already says of a race and of a command stopped between its commits; the refusal's detail says that
+     the events are written and that the next write command commits them, `check` reports them
+     (`RECORD_UNCOMMITTED`), and the next write command commits them first. This settles P7D3A-18.
+  2. One more full Codex pass of part 7d3a; with no confirmed blocking finding the part is accepted and closed; with
+     one, the integrator corrects it and asks the maestro again.
+- Consequences: `core-specification.md`'s paragraph "The write path, as part 7d3a fixed it" says point 1. The
+  alternatives offered were removing the events a failed commit leaves, and, for the pass, a scoped re-check or
+  accepting the part.
+- Sources: chat of session 23; Codex's fifth pass of 7d3a; D-063, D-064; `core-specification.md` REQ-REG-10.
+- Supersedes: none.
