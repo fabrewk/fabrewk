@@ -614,6 +614,41 @@ fn a_record_commit_git_refuses_leaves_the_events_written_and_says_so() {
 }
 
 #[test]
+fn a_record_commit_made_is_reported_made_when_the_index_is_held_after_it() {
+    // A hook that takes the index's lock once the ref is updated (P7D3A-21): the commit is made, the command says so,
+    // and the next write command brings the index to it.
+    let fx = published("late-index");
+    fx.edit_policy(&policy_with(&fx, "\n[limits]\nminutes = 60\n"));
+    let hook = fx.root.join(".git/hooks/reference-transaction");
+    fs::write(&hook, "#!/bin/sh\nif [ \"$1\" = committed ]; then touch .git/index.lock; fi\nexit 0\n").unwrap();
+    use std::os::unix::fs::PermissionsExt;
+    fs::set_permissions(&hook, fs::Permissions::from_mode(0o755)).unwrap();
+    let head = fx.git(&["rev-parse", "HEAD"]);
+    ok(&fx.run(&["adopt", "--say", SAY]));
+    assert_eq!(fx.git(&["rev-parse", "HEAD~1"]), head);
+    fs::remove_file(&hook).unwrap();
+    fs::remove_file(fx.root.join(".git/index.lock")).unwrap();
+    assert_eq!(fx.run(&["check"]).status, 0, "{:?}", fx.run(&["check"]));
+    ok(&fx.run(&["propose", &proposal(&fx, "plan.json", &file(json!({})))]));
+    assert_eq!(fx.git(&["diff", "--cached", "--name-only"]), "", "the index follows the record");
+}
+
+#[test]
+fn propose_reads_a_file_of_one_mebibyte_and_refuses_one_byte_more() {
+    let fx = published("size");
+    let body = serde_json::to_vec(&file(json!({}))).unwrap();
+    let padded = |len: usize| {
+        let mut b = body.clone();
+        b.resize(len, b' ');
+        b
+    };
+    fs::write(fx.root.join("over.json"), padded((1 << 20) + 1)).unwrap();
+    refused(&fx, &["propose", "over.json"], "TASK_INVALID", 1, "es");
+    fs::write(fx.root.join("limit.json"), padded(1 << 20)).unwrap();
+    ok(&fx.run(&["propose", "limit.json"]));
+}
+
+#[test]
 fn a_dangling_link_as_a_git_lock_is_a_lock() {
     let fx = published("dangling-lock");
     std::os::unix::fs::symlink("missing-lock-target", fx.root.join(".git/index.lock")).unwrap();

@@ -381,7 +381,10 @@ fn attempt(
         let moved = run(command(repo, &os(&["update-ref", "-m", "fabrewk: record", branch, &commit, &old])), b"")?;
         if moved.status.success() {
             fault::point();
-            git(repo, &os(&["update-index", "-z", "--index-info"]), entries.as_bytes(), None)?;
+            // The commit is made and the branch moved: the person's index is brought to it, and if another Git holds
+            // the index now, the next write command does it (`sync_index`), so the commit is never reported as not
+            // made (P7D3A-21).
+            let _ = git(repo, &os(&["update-index", "-z", "--index-info"]), entries.as_bytes(), None);
             fault::point();
             return Ok(commit);
         }
