@@ -884,14 +884,22 @@ fn req_sec_3_links_are_matched_by_name_and_never_followed() {
     // A domain that is a link is not walked (P7D1-3).
     let linked = base.join(".brewstillery");
     std::os::unix::fs::symlink(&outside, &linked).unwrap();
-    let got: Vec<_> = scan::domain(&linked, &|_| true).iter().map(|e| e.code().unwrap()).collect();
-    assert_eq!(got, [Code::CheckUnknown]);
+    // However the path is written: a final `/` or `/.` resolves the link before its entry is examined (P7D1-5).
+    let named = linked.to_str().unwrap();
+    for path in
+        [named.to_owned(), format!("{named}/"), format!("{named}/."), format!("{named}/./"), format!("{named}/..")]
+    {
+        let got: Vec<_> = scan::domain(Path::new(&path), &|_| true).iter().map(|e| e.code().unwrap()).collect();
+        assert_eq!(got, [Code::CheckUnknown], "{path}");
+    }
     // Inside a domain, a link to a file or a directory is neither read nor walked; a link's name is matched.
     let domain = base.join("domain");
     fs::create_dir_all(&domain).unwrap();
     std::os::unix::fs::symlink(outside.join("notes.txt"), domain.join("notes.txt")).unwrap();
     std::os::unix::fs::symlink(&outside, domain.join("dir")).unwrap();
     assert!(scan::domain(&domain, &|_| true).is_empty());
+    let trailing = format!("{}/.", domain.display());
+    assert!(scan::domain(Path::new(&trailing), &|_| true).is_empty());
     std::os::unix::fs::symlink(outside.join("notes.txt"), domain.join(".env")).unwrap();
     let got: Vec<_> = scan::domain(&domain, &|_| true).iter().map(|e| e.code().unwrap()).collect();
     assert_eq!(got, [Code::CredentialSuspected]);

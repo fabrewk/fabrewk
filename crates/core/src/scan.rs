@@ -65,7 +65,10 @@ pub fn suspect(bytes: &[u8]) -> Option<&'static str> {
 /// followed. A file it must read and cannot, a directory it cannot list, or a domain that is not a directory (a link
 /// included), is `CHECK_UNKNOWN`.
 pub fn domain(domain: &Path, cited: &dyn Fn(&Path) -> bool) -> Vec<Error> {
-    if !fs::symlink_metadata(domain).is_ok_and(|m| m.is_dir()) {
+    // Without a final `/` or `.`, which would resolve a link before its entry is examined (P7D1-5).
+    let domain: &Path = &domain.components().collect::<std::path::PathBuf>();
+    let named = domain.file_name().is_some();
+    if !named || !fs::symlink_metadata(domain).is_ok_and(|m| m.is_dir()) {
         return vec![refuse(Code::CheckUnknown, Some(domain), "the domain is not a directory; a link is not followed")];
     }
     let (mut out, mut files, mut dirs) = (Vec::new(), Vec::new(), vec![domain.to_path_buf()]);
