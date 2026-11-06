@@ -474,12 +474,14 @@ fn refusal_stage_closed() {
 #[test]
 fn signing_with_a_key_literal_in_the_agent() {
     let fx = published("agent-key");
-    let sock = fx.home.join("agent.sock");
+    // Relative to the repository's root, where the binary and its tools run, so that the socket's path stays within
+    // a Unix socket's limit wherever the fixtures live; outside the repository.
+    let sock = std::path::Path::new("../agent.sock");
     let agent = fx.program("ssh-agent", &["-a", sock.to_str().unwrap(), "-s"]);
     let pid = agent.split("SSH_AGENT_PID=").nth(1).unwrap().split(';').next().unwrap().to_owned();
     let env = [("SSH_AUTH_SOCK", sock.as_os_str())];
     let mut add = std::process::Command::new("ssh-add");
-    add.env("SSH_AUTH_SOCK", &sock).arg("-q").arg(fx.keys.join("xel"));
+    add.current_dir(&fx.root).env("SSH_AUTH_SOCK", sock).arg("-q").arg(fx.keys.join("xel"));
     assert!(add.output().unwrap().status.success());
     let literal = format!("key::{}", public(&fx.keys, "xel"));
     fx.git(&["config", "user.signingkey", &literal]);
