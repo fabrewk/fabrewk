@@ -6,7 +6,7 @@ Mi entrada es exclusivamente mía. Lo que cite desde aquí (capturas, PDF, otros
 
 ## Propuestas y pendientes
 
-PENDIENTE: (edición/corrección):  Derivado de la addición y manejo de skills, me has sugerido en chat lo siguiente:  "Este caso muestra algo que Fabrewk debería revisar al evaluar un repositorio: qué skills de usuario conviven con las del proyecto, y avisar cuando se duplican o contradicen. Si lo quieres en el alambique, anótalo en tu fermento y te redacto la edición."   Dicho esto, te autorizo a realizar la edición y adecuación necesaria para que quede en el ALAMBIQUE.
+Sin propuestas ni pendientes vigentes.
 
 
 
