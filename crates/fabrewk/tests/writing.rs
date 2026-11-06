@@ -514,6 +514,78 @@ fn refusal_tool_failed_when_the_key_cannot_sign() {
 }
 
 #[test]
+fn refusal_tool_failed_for_a_key_literal_without_its_agent_writes_nothing() {
+    // The first write on the machine, with no `local/tmp/` yet: the literal's copy and its directory are removed.
+    let fx = published("literal-first");
+    fx.git(&["config", "user.signingkey", &format!("key::{}", public(&fx.keys, "xel"))]);
+    fx.edit_policy(&policy_with(&fx, "\n[limits]\nminutes = 60\n"));
+    assert!(!fx.domain.join("local/tmp").exists());
+    refused(&fx, &["adopt", "--say", SAY], "TOOL_FAILED", 1, "es");
+    assert!(!fx.folder().exists());
+}
+
+#[test]
+fn a_person_s_move_is_signed_once_before_anything_is_written() {
+    // An `ssh-keygen` that signs once and fails after (P7D3A-1): the event's own signature is the only one, made before
+    // the machine key is in place, so the move succeeds; a second signature would be refused with the key made.
+    let fx = published("sign-once");
+    let real = fx.program("sh", &["-c", "command -v ssh-keygen"]).trim().to_owned();
+    let bin = fx.home.join("bin");
+    fs::create_dir_all(&bin).unwrap();
+    let count = fx.home.join("signs");
+    let script = format!(
+        "#!/bin/sh\nif [ \"$1\" = -Y ] && [ \"$2\" = sign ]; then\n  n=$(cat '{c}' 2>/dev/null || echo 0); n=$((n + 1)); echo $n > '{c}'\n  [ $n -ge 2 ] && exit 1\nfi\nexec '{real}' \"$@\"\n",
+        c = count.display()
+    );
+    fs::write(bin.join("ssh-keygen"), script).unwrap();
+    use std::os::unix::fs::PermissionsExt;
+    fs::set_permissions(bin.join("ssh-keygen"), fs::Permissions::from_mode(0o755)).unwrap();
+    let path = format!("{}:{}", bin.display(), std::env::var("PATH").unwrap());
+    fx.edit_policy(&policy_with(&fx, "\n[limits]\nminutes = 60\n"));
+    let ran = fx.run_with(&["adopt", "--say", SAY], Some(std::ffi::OsStr::new(&path)));
+    assert_eq!(ran.status, 0, "{ran:?}");
+    assert_eq!(fs::read_to_string(&count).unwrap().trim(), "1");
+    assert!(fx.folder().join("instance").exists());
+}
+
+#[test]
+fn a_git_lock_is_refused_before_anything_is_written() {
+    let fx = published("git-lock");
+    fs::write(fx.root.join(".git/index.lock"), "").unwrap();
+    let name = proposal(&fx, "plan.json", &file(json!({})));
+    refused(&fx, &["propose", &name], "TOOL_FAILED", 1, "es");
+    assert!(!fx.folder().exists());
+}
+
+#[test]
+fn a_private_folder_reached_through_a_link_into_a_domain_is_refused() {
+    // `XDG_CONFIG_HOME` is a link to a maintainer's directory, where `fabrewk/` does not exist yet (P7D3A-8).
+    let fx = published("folder-link");
+    let link = fx.home.join("config-link");
+    std::os::unix::fs::symlink(fx.domain.join("xel"), &link).unwrap();
+    let name = proposal(&fx, "plan.json", &file(json!({})));
+    let before = fx.snapshot();
+    let args: Vec<OsString> = ["propose", &name, "--json"].iter().map(Into::into).collect();
+    let ran = fx.run_os(&args, &[("XDG_CONFIG_HOME", link.as_os_str())]);
+    assert_eq!(fx.snapshot(), before);
+    assert_eq!((ran.status, ran.doc()["refusals"][0]["code"].as_str()), (1, Some("PRIVATE_FOLDER_PERMISSIONS")));
+}
+
+#[test]
+fn what_is_no_stream_is_never_committed() {
+    // A hidden directory under `data/events/` holds no event: replay skips it, and no record commit takes it (P7D3A-9).
+    let fx = published("hidden");
+    let hidden = fx.domain.join("data/events/.personal");
+    fs::create_dir_all(&hidden).unwrap();
+    let file_in = hidden.join("000001-0000000000000000.json");
+    fs::write(&file_in, "person material, not an event\n").unwrap();
+    ok(&fx.run(&["propose", &proposal(&fx, "plan.json", &file(json!({})))]));
+    let committed = fx.git(&["log", "--name-only", "--format="]);
+    assert!(!committed.contains(".personal"), "{committed}");
+    assert_eq!(fs::read_to_string(&file_in).unwrap(), "person material, not an event\n");
+}
+
+#[test]
 fn refusal_settings_invalid_in_the_machine_file_writes_nothing() {
     let fx = published("machine-file");
     use std::os::unix::fs::PermissionsExt;

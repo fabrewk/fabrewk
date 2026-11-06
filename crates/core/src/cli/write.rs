@@ -126,6 +126,10 @@ pub(super) fn run<T>(cx: &Cx, plan: impl Fn(&Replay) -> Result<Plan<T>, Failed>)
         let product = Repo { root: root.to_path_buf(), prefix: std::path::PathBuf::from(".brewstillery") };
         crate::record::record_branch(&product)?;
     }
+    // A lock a stopped Git left is refused before anything is written (P7D3A-7); the commit checks it again.
+    if let Some(repo) = Repo::for_domain(&cx.domain, mode) {
+        crate::record::check_git_locks(&repo, &crate::record::record_branch(&repo)?)?;
+    }
     let folder = cx.folder()?;
     // The private folder and the machine file are read before anything is written, as every write uses them.
     let machine = machine::machine_file(&folder)?;
@@ -136,15 +140,9 @@ pub(super) fn run<T>(cx: &Cx, plan: impl Fn(&Replay) -> Result<Plan<T>, Failed>)
     let planned = plan(record)?;
     let mut heads: BTreeMap<String, Option<Head>> =
         planned.events.iter().map(|(s, _)| (s.clone(), head_in(record, s))).collect();
-    let instance = match machine::instance(&folder)? {
-        Some(fp) => fp,
-        None => {
-            if let Some(signer) = &planned.signer {
-                crate::record::Sign::sign(signer, b"fabrewk: a probe before the machine key is made")?;
-            }
-            machine::ensure_instance(&folder)?
-        }
-    };
+    // The machine key is made under a temporary name and put in place only once every event is signed, so that a key
+    // that cannot sign leaves the private folder as it was (P7D3A-1).
+    let (instance, pending) = machine::prepare_instance(&folder)?;
     let mut prepared = Vec::new();
     for (i, (stream, mut draft)) in planned.events.into_iter().enumerate() {
         draft.instance = instance.clone();
@@ -159,6 +157,9 @@ pub(super) fn run<T>(cx: &Cx, plan: impl Fn(&Replay) -> Result<Plan<T>, Failed>)
         let p = session.prepare(&stream, expected.as_ref(), &draft, signer)?;
         heads.insert(stream.clone(), Some(p.head().clone()));
         prepared.push((stream, p));
+    }
+    if let Some(pending) = pending {
+        pending.install()?;
     }
     session.commit_uncommitted(&PolicyVerifier)?;
     crate::record::fault::pause("before-append");

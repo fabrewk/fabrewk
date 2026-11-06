@@ -564,16 +564,19 @@ write command's own refusals, those of the write path. Every write command runs 
 `AGENT_ENVIRONMENT`; the record read without the lock (`RECORD_ABSENT` and the replay's codes); this machine's mark
 (`RECORD_ROLLBACK`, `MARK_INVALID`); the policy in force (`POLICY_ABSENT`); the publication mode (a record with a
 policy and no `publication-decided` is `RECORD_BROKEN`: `apply` writes both); `DOMAIN_NOT_IGNORED`; the product's
-checked-out branch in every mode (`HEAD_DETACHED`, P7D3A-5); the private folder's permissions and the machine file
-(`SETTINGS_INVALID`, P7D3A-2); the command's own guards on that record; then the session (`NOT_A_REPOSITORY`, the
+checked-out branch in every mode (`HEAD_DETACHED`, P7D3A-5); where the mode commits, a lock a stopped Git left
+(`TOOL_FAILED`, P7D3A-7); the private folder's place and permissions, a folder not made yet placed where the links of
+its existing ancestors lead (P7D3A-8), and the machine file (`SETTINGS_INVALID`, P7D3A-2); the command's own guards
+on that record; then the session (`NOT_A_REPOSITORY`, the
 record branch where the mode commits, the history walk, `LOCK_HELD`), the record replayed again under the lock and
-the command's guards again on it; every event made and signed in memory, an adoption's seal read just before it, so
-that a key that cannot sign is `TOOL_FAILED` with nothing written (P7D3A-1); on a machine with no machine key yet, a
-probe signature first, then the machine key (REQ-REG-12); the record commit of what an earlier command left
-uncommitted; the events, each written by compare-and-swap after the head the plan saw (`RECORD_HEAD_MOVED`); the
-replay before the record commit (PD-46) and the commit (`RECORD_COMMIT_RACE`); then, still under the lock (P7D3A-3),
-the caches: the mark, `allowed_signers` from the policy in force (REQ-ID-2) and `detected.json` with `git` and
-`ssh-keygen` verified by use (REQ-SET-8). A refusal decided before the session writes nothing; one decided after it,
+the command's guards again on it; on a machine with no machine key yet, the key made under a temporary name; every
+event made and signed in memory, an adoption's seal read just before it; then the machine key put in place
+(REQ-REG-12), so that a key that cannot sign is `TOOL_FAILED` with the private folder, a key literal's copy and its
+directory all as they were (P7D3A-1); the record commit of what an earlier command left uncommitted, taken only from
+the streams replay reads (P7D3A-9); the events, each written by compare-and-swap after the head the plan saw
+(`RECORD_HEAD_MOVED`); the replay before the record commit (PD-46), the commit (`RECORD_COMMIT_RACE`) and, once it
+is made, the mark (P7D3A-10); then, still under the lock (P7D3A-3), the other caches: `allowed_signers` from the
+policy in force (REQ-ID-2) and `detected.json` with `git` and `ssh-keygen` verified by use (REQ-SET-8). A refusal decided before the session writes nothing; one decided after it,
 only when the record changed in between, may leave the empty `local/lock`. A person is the maintainer whose key Git's `user.signingkey`
 names (D-055), refused `ROLE_FORBIDDEN` when Git names none, the key is no maintainer's, or the role may not make the
 move; the signature is `ssh-keygen -Y sign -n fabrewk -f` over the private key file, the public key file (its

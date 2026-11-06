@@ -87,31 +87,109 @@ pub fn instance(folder: &Path) -> Result<Option<String>, Error> {
 /// the machine gets one key. The private key is renamed into place last, so a key half made by a stopped command is
 /// none, and is made again.
 pub fn ensure_instance(folder: &Path) -> Result<String, Error> {
+    match prepare_instance(folder)? {
+        (fp, None) => Ok(fp),
+        (_, Some(pending)) => pending.install(),
+    }
+}
+
+/// A machine key made under a temporary name and not yet in place (part 7d3a, P7D3A-1): [`Pending::install`] puts it
+/// in place; dropped instead, it removes everything it made, the folders it created included, so that a write command
+/// refused after making it leaves the private folder as it was.
+pub struct Pending {
+    folder: PathBuf,
+    dirs: Vec<PathBuf>,
+    files: Vec<PathBuf>,
+    fingerprint: String,
+    _lock: Option<fs::File>,
+    keep: bool,
+}
+
+impl Pending {
+    /// The fingerprint the key will have in place.
+    pub fn fingerprint(&self) -> &str {
+        &self.fingerprint
+    }
+
+    /// Renames the key into place, its public half first, and gives its fingerprint.
+    pub fn install(mut self) -> Result<String, Error> {
+        let folder = self.folder.clone();
+        fs::rename(folder.join(".instance-new.pub"), folder.join("instance.pub")).map_err(io_at(&folder))?;
+        fs::rename(folder.join(".instance-new"), folder.join("instance")).map_err(io_at(&folder))?;
+        self.keep = true;
+        let fp =
+            instance(&folder)?.ok_or_else(|| refuse(Code::ToolFailed, Some(&folder), "no machine key in place"))?;
+        if fp != self.fingerprint {
+            return Err(refuse(Code::ToolFailed, Some(&folder), "the machine key in place is another"));
+        }
+        Ok(fp)
+    }
+}
+
+impl Drop for Pending {
+    fn drop(&mut self) {
+        if self.keep {
+            return;
+        }
+        for f in self.files.iter().rev() {
+            let _ = fs::remove_file(f);
+        }
+        for d in self.dirs.iter().rev() {
+            let _ = fs::remove_dir(d);
+        }
+    }
+}
+
+/// The machine key's fingerprint if it is in place (`None` for the pending key), or the key made under a temporary
+/// name, with the private folder and its lock, when there is none.
+pub fn prepare_instance(folder: &Path) -> Result<(String, Option<Pending>), Error> {
+    if let Some(fp) = instance(folder)? {
+        return Ok((fp, None));
+    }
+    let absent = |p: &Path| fs::symlink_metadata(p).is_err_and(|e| e.kind() == std::io::ErrorKind::NotFound);
+    let dirs: Vec<PathBuf> = folder.ancestors().take_while(|p| absent(p)).map(Path::to_path_buf).collect();
+    let mut pending = Pending {
+        folder: folder.to_path_buf(),
+        dirs: dirs.into_iter().rev().collect(),
+        files: Vec::new(),
+        fingerprint: String::new(),
+        _lock: None,
+        keep: false,
+    };
     // Every directory it makes is its owner's only, the folder's parents included; one that exists is kept as it is.
     fs::DirBuilder::new().mode(0o700).recursive(true).create(folder).map_err(io_at(folder))?;
-    if let Some(fp) = instance(folder)? {
-        return Ok(fp);
-    }
     let path = folder.join("lock");
+    if absent(&path) {
+        pending.files.push(path.clone());
+    }
     let lock = fs::File::options().create(true).truncate(false).write(true).open(&path).map_err(io_at(&path))?;
     lock.lock().map_err(io_at(&path))?;
+    pending._lock = Some(lock);
     if let Some(fp) = instance(folder)? {
-        return Ok(fp);
+        // Another command put one in place meanwhile; what it uses stays.
+        pending.keep = true;
+        return Ok((fp, None));
     }
     let new = folder.join(".instance-new");
     let names = [folder.join("instance"), folder.join("instance.pub"), new.clone(), folder.join(".instance-new.pub")];
     for leftover in names.iter().filter(|p| p.exists()) {
         fs::remove_file(leftover).map_err(io_at(leftover))?;
     }
+    pending.files.extend([names[2].clone(), names[3].clone()]);
     let mut args: Vec<&std::ffi::OsStr> =
         ["-q", "-t", "ed25519", "-N", "", "-C", "fabrewk-instance", "-f"].iter().map(|a| a.as_ref()).collect();
     args.push(new.as_os_str());
     if !ssh_keygen(&args, b"")?.status.success() {
         return Err(refuse(Code::ToolFailed, Some(folder), "ssh-keygen -t ed25519 failed"));
     }
-    fs::rename(&names[3], &names[1]).map_err(io_at(folder))?;
-    fs::rename(&new, &names[0]).map_err(io_at(folder))?;
-    instance(folder)?.ok_or_else(|| refuse(Code::ToolFailed, Some(folder), "the machine key is not in place"))
+    let args: Vec<&std::ffi::OsStr> =
+        ["-y".as_ref(), "-P".as_ref(), "".as_ref(), "-f".as_ref(), new.as_os_str()].into();
+    let out = ssh_keygen(&args, b"")?;
+    let public = String::from_utf8_lossy(&out.stdout).trim_end().to_owned();
+    pending.fingerprint = fingerprint(&public)
+        .filter(|_| out.status.success())
+        .ok_or_else(|| refuse(Code::ToolFailed, Some(folder), "ssh-keygen -y failed"))?;
+    Ok((pending.fingerprint.clone(), Some(pending)))
 }
 
 /// A public key's fingerprint as `ssh-keygen -l` prints it: `SHA256:` and the unpadded base64 of the key blob's digest.

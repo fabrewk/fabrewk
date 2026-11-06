@@ -120,6 +120,8 @@ fn refusal_record_commit_race() {
     for json in [false, true] {
         let fx = ready(&format!("race-{json}"));
         let head = fx.git(&["rev-parse", "HEAD"]);
+        // The mark as the command found it: the race does not change it, so neither may the refusal (P7D3A-10).
+        let mark = fs::read(fx.domain.join("local/cache/heads.json")).unwrap();
         let dir = tmp("race-steps");
         let child = paused(&fx, &args(json), "before-commit", &dir);
         // Someone commits, on the record branch, the very file the record commit holds, and only it.
@@ -143,6 +145,7 @@ fn refusal_record_commit_race() {
         assert_eq!((fx.git(&["rev-parse", "HEAD"]), fx.git(&["rev-parse", "HEAD~1"])), (theirs, head));
         assert_eq!(fx.git(&["show", ":README.md"]), "staged");
         assert!(new.exists());
+        assert_eq!(fs::read(fx.domain.join("local/cache/heads.json")).unwrap(), mark);
     }
 }
 
@@ -158,11 +161,15 @@ fn pd_46_a_replay_that_fails_before_the_commit_commits_nothing() {
         says(&ran, "RECORD_BROKEN", json);
         assert!(ran.all().contains("fault injection"), "{ran:?}");
         assert_eq!(fx.git(&["rev-parse", "HEAD"]), head, "nothing committed");
-        // Only the event and its signature were written; the person's edits stay.
-        let after = fx.snapshot();
-        let added: Vec<&PathBuf> = after.keys().filter(|k| !before.contains_key(*k)).collect();
+        // Only the event and its signature were added; every file there before, the index with the person's staged
+        // edit among them, is as it was.
+        let mut after = fx.snapshot();
+        let added: Vec<PathBuf> = after.keys().filter(|k| !before.contains_key(*k)).cloned().collect();
         assert_eq!(added.len(), 2, "{added:?}");
         assert!(added.iter().all(|p| p.starts_with(&events)), "{added:?}");
+        after.retain(|k, _| before.contains_key(k));
+        assert_eq!(after, before);
+        assert_eq!(fx.git(&["show", ":README.md"]), "staged");
         assert_eq!(files(&events).len(), count + 2);
         assert_eq!(fs::read_to_string(fx.root.join("README.md")).unwrap(), "unstaged\n");
         let doc = fx.run(&["check", "--json"]).doc();

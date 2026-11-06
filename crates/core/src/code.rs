@@ -137,13 +137,28 @@ pub(crate) fn normal(path: &Path) -> PathBuf {
 /// `root`: what Fabrewk reads from a place the person names must lie in neither (P7D2-22, P7D2-28 to P7D2-30).
 pub(crate) fn in_domain(path: &Path, root: &Path) -> bool {
     // `root` is where the command runs, which the operating system gives resolved.
-    in_a_domain(path) || [Some(normal(path)), path.canonicalize().ok()].iter().flatten().any(|p| p.starts_with(root))
+    in_a_domain(path) || [Some(normal(path)), resolved(path)].iter().flatten().any(|p| p.starts_with(root))
 }
 
 /// Whether `path`, as written or as it resolves, has a `.brewstillery` component.
 pub(crate) fn in_a_domain(path: &Path) -> bool {
     let domain = |p: &Path| p.components().any(|c| c.as_os_str() == ".brewstillery");
-    domain(&normal(path)) || path.canonicalize().is_ok_and(|p| domain(&p))
+    domain(&normal(path)) || resolved(path).is_some_and(|p| domain(&p))
+}
+
+/// `path` resolved as far as it exists: its deepest existing ancestor canonicalized, the rest of it appended as
+/// written, so that a folder not made yet is placed where its links lead (P7D3A-8); `None` when a part of the rest
+/// is not a plain name.
+fn resolved(path: &Path) -> Option<PathBuf> {
+    let mut rest = Vec::new();
+    let mut p = path;
+    loop {
+        if let Ok(c) = p.canonicalize() {
+            return Some(rest.iter().rev().fold(c, |acc: PathBuf, r| acc.join(r)));
+        }
+        rest.push(p.file_name()?);
+        p = p.parent().filter(|q| !q.as_os_str().is_empty()).unwrap_or(Path::new("."));
+    }
 }
 
 pub(crate) fn refuse(code: Code, path: Option<&Path>, detail: impl Into<String>) -> Error {

@@ -83,7 +83,10 @@ impl Session {
         let mut leftovers = vec![local.join("tmp/record-index"), local.join("tmp/record-index.lock")];
         leftovers.retain(|p| p.is_file());
         let events = domain.join("data/events");
-        for dir in fs::read_dir(&events).into_iter().flatten().flatten().map(|e| e.path()).filter(|p| p.is_dir()) {
+        let stream = |p: &PathBuf| p.file_name().and_then(|n| n.to_str()).and_then(event::stream_kind).is_some();
+        for dir in
+            fs::read_dir(&events).into_iter().flatten().flatten().map(|e| e.path()).filter(|p| p.is_dir() && stream(p))
+        {
             let listing = list_stream(&dir)?;
             leftovers.extend(listing.temporary.into_iter().chain(listing.orphan_signatures));
         }
@@ -236,20 +239,25 @@ impl Session {
             return Err(refuse(Code::RecordBroken, None, "replay failed (fault injection)"));
         }
         mark::check_mark(&self.domain, &replay)?;
-        mark::write(&self.domain, &replay)?;
-        self.record = Some(replay);
+        // The mark moves only once the record commit is made, where the mode commits (P7D3A-10).
         let Some((repo, branch, start)) = &self.git else {
+            mark::write(&self.domain, &replay)?;
+            self.record = Some(replay);
             return Ok(None);
         };
         fault::pause("before-commit");
         let mut files: Vec<PathBuf> = self.appended.iter().map(|a| a.1.clone()).collect();
         files.extend(views.iter().map(|v| self.domain.join(v)));
-        if files.is_empty() {
-            return Ok(None);
-        }
-        let json = |p: &PathBuf| p.extension().is_some_and(|e| e == "json");
-        let digests: Vec<String> = self.appended.iter().filter(|a| json(&a.1)).map(|a| a.0.clone()).collect();
-        git::commit_record(repo, &self.domain, branch, start.as_deref(), &files, &digests).map(Some)
+        let commit = if files.is_empty() {
+            None
+        } else {
+            let json = |p: &PathBuf| p.extension().is_some_and(|e| e == "json");
+            let digests: Vec<String> = self.appended.iter().filter(|a| json(&a.1)).map(|a| a.0.clone()).collect();
+            Some(git::commit_record(repo, &self.domain, branch, start.as_deref(), &files, &digests)?)
+        };
+        mark::write(&self.domain, &replay)?;
+        self.record = Some(replay);
+        Ok(commit)
     }
 
     /// Commits, in a record commit of their own, the event files a stopped or raced command left uncommitted

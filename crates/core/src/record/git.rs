@@ -244,6 +244,8 @@ pub fn uncommitted(repo: &Repo) -> Result<Vec<PathBuf>, Error> {
         .flatten()
         .map(|e| e.path())
         .filter(|p| p.symlink_metadata().is_ok_and(|m| m.is_dir()))
+        // Only the streams replay reads: a directory whose name is no stream's holds no event (P7D3A-9).
+        .filter(|p| p.file_name().and_then(|n| n.to_str()).and_then(super::stream_kind).is_some())
     {
         let listing = list_stream(&dir)?;
         let files = listing.events.into_values().flatten().chain(listing.signatures);

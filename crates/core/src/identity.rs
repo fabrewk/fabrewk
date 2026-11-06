@@ -216,6 +216,7 @@ pub struct GitSigner {
 
 impl Sign for GitSigner {
     fn sign(&self, bytes: &[u8]) -> Result<Vec<u8>, Error> {
+        let made = self.key.file.is_none() && self.tmp.parent().is_some_and(|d| !d.exists());
         let file = match &self.key.file {
             Some(f) => f.clone(),
             None => {
@@ -228,6 +229,10 @@ impl Sign for GitSigner {
         let signed = record::sign_with(&file, bytes);
         if self.key.file.is_none() {
             let _ = std::fs::remove_file(&self.tmp);
+            // The directory too, when this made it: a refused command leaves the domain as it was (P7D3A-1).
+            if made {
+                let _ = std::fs::remove_dir(self.tmp.parent().unwrap_or(&self.tmp));
+            }
         }
         signed
     }
