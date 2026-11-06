@@ -370,6 +370,14 @@ fn refusal_task_invalid() {
         let name = proposal(&fx, &format!("bad-{i}.json"), case);
         refused(&fx, &["propose", &name], "TASK_INVALID", 1, "es");
     }
+    // The file holds exactly `stage` and `tasks`.
+    let mut extra = file(json!({}));
+    extra["more"] = json!(1);
+    let only_tasks = json!({"tasks": file(json!({}))["tasks"].clone()});
+    for (i, case) in [extra, only_tasks].iter().enumerate() {
+        let e = refused(&fx, &["propose", &proposal(&fx, &format!("shape-{i}.json"), case)], "TASK_INVALID", 1, "es");
+        assert!(e["detail"].as_str().unwrap().contains("exactly stage and tasks"), "{e}");
+    }
     // A file that is not JSON, one that does not exist, and one in a domain.
     fs::write(fx.root.join("not.json"), "{").unwrap();
     refused(&fx, &["propose", "not.json"], "TASK_INVALID", 1, "es");
@@ -420,6 +428,10 @@ fn pd_15_refusal_protected_path_at_propose() {
 #[test]
 fn refusal_protected_path_wildcard() {
     let fx = published("wildcard");
+    // A path the task's own layer protects is held to it as the policy's are.
+    let protected = json!(["Cargo.toml", "Cargo.lock", ".github/", "src/lib.rs"]);
+    let layered = file(json!({"allowed": ["src/*.rs"], "settings": {"gate.protectedPaths": protected}}));
+    refused(&fx, &["propose", &proposal(&fx, "layer.json", &layered)], "PROTECTED_PATH_WILDCARD", 1, "es");
     let name = proposal(&fx, "w.json", &file(json!({"allowed": ["*.toml"]})));
     refused(&fx, &["propose", &name], "PROTECTED_PATH_WILDCARD", 1, "es");
     let name = proposal(&fx, "l.json", &file(json!({"allowed": ["Cargo.toml", "src/**"]})));
@@ -524,6 +536,10 @@ fn refusal_tool_failed_for_a_key_literal_without_its_agent_writes_nothing() {
     assert!(!fx.domain.join("local/tmp").exists());
     refused(&fx, &["adopt", "--say", SAY], "TOOL_FAILED", 1, "es");
     assert!(!fx.folder().exists());
+    // With `local/tmp/` there before, it stays.
+    fs::create_dir_all(fx.domain.join("local/tmp")).unwrap();
+    refused(&fx, &["adopt", "--say", SAY], "TOOL_FAILED", 1, "es");
+    assert!(fx.domain.join("local/tmp").is_dir());
 }
 
 #[test]
@@ -659,6 +675,39 @@ fn a_dangling_link_as_a_git_lock_is_a_lock() {
 }
 
 #[test]
+fn a_private_folder_reached_through_a_link_into_the_repository_is_refused() {
+    // Outside any domain, but inside this repository, through a link from outside it.
+    let fx = published("folder-repo-link");
+    let link = fx.home.join("config-repo");
+    std::os::unix::fs::symlink(&fx.root, &link).unwrap();
+    let config = link.join("conf");
+    let name = proposal(&fx, "plan.json", &file(json!({})));
+    let before = fx.snapshot();
+    let args: Vec<OsString> = ["propose", &name, "--json"].iter().map(Into::into).collect();
+    let ran = fx.run_os(&args, &[("XDG_CONFIG_HOME", config.as_os_str())]);
+    assert_eq!(fx.snapshot(), before);
+    assert_eq!((ran.status, ran.doc()["refusals"][0]["code"].as_str()), (1, Some("PRIVATE_FOLDER_PERMISSIONS")));
+}
+
+#[test]
+fn an_internal_error_of_a_write_command_says_what_it_may_have_written() {
+    let fx = published("internal-write");
+    use std::os::unix::fs::PermissionsExt;
+    let project = fx.domain.join("data/events/project");
+    let name = proposal(&fx, "plan.json", &file(json!({})));
+    fs::set_permissions(&project, fs::Permissions::from_mode(0o000)).unwrap();
+    let write = fx.run(&["propose", &name]);
+    let read = fx.run(&["status"]);
+    fs::set_permissions(&project, fs::Permissions::from_mode(0o755)).unwrap();
+    let path = [("path", ".brewstillery/data/events/project")];
+    assert_eq!(write.status, 70, "{write:?}");
+    // A record that cannot be read names nobody, so the words are in the canonical language.
+    assert!(write.stderr.contains(&cli::say("en", "internal.io-write", &path)), "{write:?}");
+    // A reading command's says that it writes nothing.
+    assert!(read.stderr.contains(&cli::say("en", "internal.io", &path)), "{read:?}");
+}
+
+#[test]
 fn a_private_folder_whose_place_cannot_be_told_is_refused() {
     // `<link>/unmade/../confignew`, the link leading into a maintainer's directory (P7D3A-8).
     let fx = published("folder-dotdot");
@@ -697,7 +746,11 @@ fn what_is_no_stream_is_never_committed() {
     fs::create_dir_all(&hidden).unwrap();
     let file_in = hidden.join("000001-0000000000000000.json");
     fs::write(&file_in, "person material, not an event\n").unwrap();
+    // Named as the record's temporary files are, it is still no stream's: no writer removes it.
+    let temporary = hidden.join(".000001-0000000000000000.json.tmp");
+    fs::write(&temporary, "person material\n").unwrap();
     ok(&fx.run(&["propose", &proposal(&fx, "plan.json", &file(json!({})))]));
+    assert!(temporary.exists());
     let committed = fx.git(&["log", "--name-only", "--format="]);
     assert!(!committed.contains(".personal"), "{committed}");
     assert_eq!(fs::read_to_string(&file_in).unwrap(), "person material, not an event\n");

@@ -402,5 +402,9 @@ fn usage_errors_say_what_is_wrong() {
     let status = COMMANDS.iter().find(|c| c.name == "status").unwrap();
     let config = COMMANDS.iter().find(|c| c.name == "config").unwrap();
     assert!(!cli::help("en", Some(status)).contains(&refusals));
+    // Only `propose`'s help prints its file's format.
+    let format = format!("{}:", cli::say("en", "help.format", &[]));
+    let propose = COMMANDS.iter().find(|c| c.name == "propose").unwrap();
+    assert!(cli::help("en", Some(propose)).contains(&format) && !cli::help("en", Some(status)).contains(&format));
     assert!(cli::help("en", Some(config)).contains(&refusals) && cli::help("en", Some(config)).contains("KEY_UNKNOWN"));
 }

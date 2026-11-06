@@ -70,6 +70,7 @@ impl Session {
         mark::check_mark(domain, record.as_ref().unwrap_or(&Replay::default()))?;
         let local = domain.join("local");
         fs::create_dir_all(&local).map_err(io_at(&local))?;
+        fault::pause("before-lock");
         let path = local.join("lock");
         let lock = File::options().create(true).truncate(false).write(true).open(&path).map_err(io_at(&path))?;
         match lock.try_lock() {

@@ -270,3 +270,50 @@ fn a_rebuilt_record_commit_never_stands_on_a_rewound_branch() {
     assert_eq!(ran.doc()["refusals"][0]["code"], "RECORD_ROLLBACK", "{ran:?}");
     assert_eq!(fx.git(&["rev-parse", "HEAD"]), ancestor, "no record commit on it");
 }
+
+#[test]
+fn a_command_plans_from_the_record_as_it_is_once_it_holds_the_lock() {
+    // Between the command's first replay and its lock, the maestro closes the stage (written by the library, which
+    // takes the lock and leaves it): the command plans again from the record under the lock and refuses.
+    let fx = Fx::new("refresh", "published");
+    let (stage, _) = fx.stage_and_task();
+    fx.commit("stage");
+    let plan = json!({"stage": stage, "tasks": [{
+        "lang": "en", "goal": "More.", "requirements": [{"text": "It builds.", "criterion": "cargo build passes"}],
+        "base": "0".repeat(40), "dependencies": [], "allowed": ["src/**"],
+        "profiles": {"build": "build", "review": "review"}, "checks": [],
+        "limits": {"rounds": 3, "dispatches": 6, "minutes": 120}, "delegationLanguage": "en", "settings": {},
+    }]});
+    fs::write(fx.root.join("more.json"), serde_json::to_vec(&plan).unwrap()).unwrap();
+    let dir = tmp("refresh-steps");
+    let child = paused(&fx, &["propose", "more.json", "--json"], "before-lock", &dir);
+    close_stage(&fx, &stage);
+    let ran = resume(child, "before-lock", &dir);
+    assert_eq!(ran.status, 1, "{ran:?}");
+    assert_eq!(ran.doc()["refusals"][0]["code"], "STAGE_CLOSED", "{ran:?}");
+}
+
+/// The maestro authorizes the stage `stage` (it binds no task) and closes it, as phase 8's commands will record it.
+fn close_stage(fx: &Fx, stage: &str) {
+    use fabrewk_core::record::{KeySigner, Say, Session};
+    let signer = KeySigner(fx.keys.join("xel"));
+    let mut s = Session::begin(&fx.domain, None, &fabrewk_core::identity::PolicyVerifier).unwrap();
+    let stream = format!("stage-{stage}");
+    let head = s.head(&stream).unwrap().unwrap();
+    let policy = fx.events("project")[0]["payload"]["digest"].as_str().unwrap().to_owned();
+    let draft = |kind: &str, payload: Value| Draft {
+        kind: kind.into(),
+        actor: json!({"kind": "person", "alias": "xel", "role": "maestro"}),
+        policy: policy.clone(),
+        instance: "SHA256:fixture".into(),
+        say: Some(Say { text: "Lo decido.".into(), lang: "es".into() }),
+        payload,
+    };
+    let mut bytes = encode(&fx.events(&stream)[0]["payload"]).unwrap();
+    bytes.pop();
+    let head_json = json!({"seq": 1, "digest": head.digest});
+    let payload = json!({"stage": stage, "digest": sha256_hex(&bytes), "head": head_json, "tasks": [], "widened": []});
+    let h = s.append(&stream, Some(&head), &draft("stage-authorized", payload), Some(&signer)).unwrap();
+    s.append(&stream, Some(&h), &draft("stage-closed", json!({})), Some(&signer)).unwrap();
+    s.finish(&fabrewk_core::identity::PolicyVerifier, &[]).unwrap();
+}

@@ -106,11 +106,6 @@ pub struct Pending {
 }
 
 impl Pending {
-    /// The fingerprint the key will have in place.
-    pub fn fingerprint(&self) -> &str {
-        &self.fingerprint
-    }
-
     /// Renames the key into place, its public half first, and gives its fingerprint.
     pub fn install(mut self) -> Result<String, Error> {
         let folder = self.folder.clone();
