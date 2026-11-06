@@ -536,10 +536,15 @@ fn refusal_tool_failed_for_a_key_literal_without_its_agent_writes_nothing() {
     assert!(!fx.domain.join("local/tmp").exists());
     refused(&fx, &["adopt", "--say", SAY], "TOOL_FAILED", 1, "es");
     assert!(!fx.folder().exists());
-    // With `local/tmp/` there before, it stays.
-    fs::create_dir_all(fx.domain.join("local/tmp")).unwrap();
+    // Each run alone too, since two runs of a command that made the directory and of one that removed it would
+    // leave the same tree: absent before, it is absent after; there before, it stays.
+    let tmp = fx.domain.join("local/tmp");
+    assert_eq!(fx.run(&["adopt", "--say", SAY]).status, 1);
+    assert!(!tmp.exists());
+    fs::create_dir_all(&tmp).unwrap();
     refused(&fx, &["adopt", "--say", SAY], "TOOL_FAILED", 1, "es");
-    assert!(fx.domain.join("local/tmp").is_dir());
+    assert_eq!(fx.run(&["adopt", "--say", SAY]).status, 1);
+    assert!(tmp.is_dir());
 }
 
 #[test]
