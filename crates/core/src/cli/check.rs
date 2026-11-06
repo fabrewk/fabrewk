@@ -122,7 +122,8 @@ fn targets(text: &str) -> Vec<String> {
                         break;
                     }
                     c if c.is_whitespace() && !angle => break,
-                    '(' if !angle => depth += 1,
+                    // Only a destination without `<…>` counts its parentheses.
+                    '(' => depth += 1,
                     ')' if !angle && depth == 0 => break,
                     ')' if !angle => depth -= 1,
                     _ => {}
@@ -137,12 +138,12 @@ fn targets(text: &str) -> Vec<String> {
     out
 }
 
-/// A destination as a relative path, without its fragment or query; `None` for a scheme, an absolute path or only a
-/// fragment.
+/// A destination as a relative path, without its fragment or query; `None` for a scheme or an absolute path. An
+/// empty one (only a fragment) names the citing file's own directory, which holds no file to scan.
 fn link(dest: &str) -> Option<&str> {
     let path = dest.split(['#', '?']).next()?;
     let scheme = path.split_once(':').is_some_and(|(s, _)| !s.is_empty() && !s.contains('/'));
-    (!path.is_empty() && !path.starts_with('/') && !scheme).then_some(path)
+    (!path.starts_with('/') && !scheme).then_some(path)
 }
 
 pub(super) fn run(cx: &Cx) -> Result<Out, Failed> {

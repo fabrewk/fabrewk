@@ -41,6 +41,14 @@ fn refused(fx: &Fx, args: &[&str], code: &str, exit: i32, lang: &str) -> Value {
     let list = if doc["schema"] == "fabrewk.check/1" { &doc["findings"] } else { &doc["refusals"] };
     let entry = list.as_array().unwrap().iter().find(|e| e["code"] == code).unwrap_or_else(|| panic!("{code}: {doc}"));
     assert_eq!(entry["next"], cli::say(lang, &format!("code.{code}.next"), &[]));
+    // The human output names where and the detail exactly when the document has them.
+    for (field, label) in [("path", "ui.where"), ("detail", "ui.detail")] {
+        let label = format!("  {}: ", cli::say(lang, label, &[]));
+        match entry[field].as_str().filter(|v| !v.is_empty()) {
+            Some(v) => assert!(human.all().contains(&format!("{label}{v}\n")), "{field}: {human:?}"),
+            None => assert!(!human.all().contains(&label), "{field}: {human:?}"),
+        }
+    }
     if let Some(run) = entry["run"].as_str() {
         assert!(human.all().contains(run));
         assert!(matches!(cli::parse(run.split(' ').skip(1).map(std::ffi::OsString::from)), Ok(Parsed::Run { .. })));
@@ -151,6 +159,7 @@ fn status_shows_each_stage_and_task_and_an_identifier_its_events() {
     for id in [task.clone(), format!("task-{task}")] {
         let doc = fx.run(&["status", &id, "--json"]).doc();
         assert_eq!((doc["subject"].as_str(), doc["state"].as_str()), (Some("task"), Some("proposed")));
+        assert_eq!((doc["id"].as_str(), doc["events"][0]["actor"].as_str()), (Some(task.as_str()), Some("agent")));
         assert_eq!(doc["stage"], stage.as_str());
         assert_eq!(doc["events"][0]["kind"], "task-proposed");
         assert!(doc["allowed"].as_array().unwrap().contains(&"task-authorized".into()));
@@ -159,6 +168,16 @@ fn status_shows_each_stage_and_task_and_an_identifier_its_events() {
     assert_eq!(out.status, 0);
     whole(&out.stdout);
     assert!(out.stdout.contains("stage-proposed"));
+    assert!(out.stdout.contains(&cli::say("es", "actor.agent", &[("tool", "codex")])), "{out:?}");
+    assert!(human.contains(&format!("{}:\n  fabrewk check\n", cli::say("es", "ui.next-steps", &[]))), "{human}");
+    // Each stage lists its own tasks only.
+    let (other, other_task) = fx.stage_and_task();
+    let doc = fx.run(&["status", "--json"]).doc();
+    for s in doc["stages"].as_array().unwrap() {
+        let tasks: Vec<&str> = s["tasks"].as_array().unwrap().iter().map(|t| t["id"].as_str().unwrap()).collect();
+        let want = if s["id"] == other.as_str() { other_task.as_str() } else { task.as_str() };
+        assert_eq!(tasks, [want], "{doc}");
+    }
     for unknown in ["t-00000000", "s-0000000", "zzz", "project", "task-t-00000000"] {
         let out = fx.run(&["status", unknown]);
         assert_eq!(out.status, 2, "{unknown}: {out:?}");
@@ -175,8 +194,9 @@ fn refusal_record_absent() {
     let out = fx.run(&["status"]);
     assert_eq!((out.status, out.stdout.trim()), (0, cli::say("en", "status.absent", &[]).as_str()));
     assert_eq!(fx.run(&["status", "--json"]).doc()["record"], "absent");
-    refused(&fx, &["check"], "RECORD_ABSENT", 3, "en");
+    assert_eq!(refused(&fx, &["check"], "RECORD_ABSENT", 3, "en")["check"], "C4");
     refused(&fx, &["check"], "POLICY_ABSENT", 3, "en");
+    assert_eq!(fx.run(&["status", "t-00000000"]).status, 2);
     refused(&fx, &["config"], "POLICY_ABSENT", 1, "en");
     // Outside any domain.
     let dir = tmp("nowhere");
@@ -206,6 +226,7 @@ fn a_record_that_does_not_replay_is_shown_by_status_and_refused_by_config_and_ch
     );
     whole(&fx.run(&["status"]).stdout);
     refused(&fx, &["check"], "RECORD_DIGEST_MISMATCH", 3, "en");
+    assert_eq!(finding_of(&fx.run(&["check", "--json"]).doc(), "C2"), ["CHECK_UNKNOWN"]);
     refused(&fx, &["config"], "RECORD_DIGEST_MISMATCH", 1, "en");
 }
 
@@ -234,7 +255,25 @@ fn req_set_7_config_shows_every_value_with_its_source_and_one_key() {
     let unset = fx.run(&["config", "maintainers.xel.hostAccount", "--json"]).doc();
     assert_eq!(unset["value"], Value::Null);
     whole(&fx.run(&["config", "maintainers.xel.hostAccount"]).stdout);
-    whole(&fx.run(&["config"]).stdout);
+    let human = fx.run(&["config"]).stdout;
+    whole(&human);
+    for line in [
+        "  limits.rounds = 3\n",
+        "  gate.protectedPaths = [\"Cargo.toml\", \"Cargo.lock\", \".github/\"]\n",
+        "  languages.agentInteraction = \"es-MX\"\n",
+    ] {
+        assert!(human.contains(line), "{line}: {human}");
+    }
+    let about = cli::say("es", "setting.limits.rounds", &[]);
+    let project = cli::say("es", "source.project", &[("from", &digest[..12])]);
+    assert!(human.contains(&format!("      {about}; {}\n", cli::say("es", "source.default", &[]))), "{human}");
+    assert!(
+        human.contains(&format!("; {project}\n"))
+            && human.contains(&cli::say("es", "source.personal", &[("from", "xel")]))
+    );
+    assert_eq!(values["limits.rounds"]["about"], about);
+    assert_eq!(values["maintainers.xel.role"]["about"], cli::say("es", "setting.maintainers.*.role", &[]));
+    assert!(!human.contains(&cli::say("es", "config.pending", &[])));
 }
 
 #[test]
@@ -311,6 +350,7 @@ fn refusal_policy_pending() {
     assert_eq!((e["severity"].as_str(), e["run"].as_str()), (Some("warning"), Some("fabrewk config")));
     let doc = fx.run(&["config", "--json"]).doc();
     assert_eq!(doc["pending"][0]["key"], "limits.rounds");
+    assert!(fx.run(&["config"]).stdout.contains(&cli::say("es", "config.pending", &[])));
     assert_eq!(doc["pending"][0]["effect"], "widening");
     assert_eq!(fx.run(&["status", "--json"]).doc()["policy"]["pending"], true);
     // The policy in force is still the adopted one.
@@ -324,6 +364,11 @@ fn refusal_domain_unknown_entry() {
     let e = refused(&fx, &["check"], "DOMAIN_UNKNOWN_ENTRY", 0, "es");
     assert_eq!(e["severity"], "warning");
     assert_eq!(findings(&fx), [("DOMAIN_UNKNOWN_ENTRY".into(), "warning".into())]);
+    let doc = fx.run(&["check", "--json"]).doc();
+    assert_eq!((doc["errors"].as_u64(), doc["warnings"].as_u64()), (Some(0), Some(1)));
+    assert!(
+        fx.run(&["check"]).stdout.ends_with(&format!("{}\n", cli::say("es", "check.passed", &[("warnings", "1")])))
+    );
     assert_eq!(fs::read_to_string(fx.domain.join("notes.md")).unwrap(), "mine\n");
 }
 
@@ -339,6 +384,8 @@ fn refusal_gitignore_changed() {
     let fx = published("gitignore");
     fs::write(fx.domain.join(".gitignore"), "local/\n*.log\n").unwrap();
     refused(&fx, &["check"], "GITIGNORE_CHANGED", 3, "es");
+    let failed = cli::say("es", "check.failed", &[("errors", "1"), ("warnings", "0")]);
+    assert!(fx.run(&["check"]).stdout.ends_with(&format!("{failed}\n")));
 }
 
 #[test]
@@ -724,6 +771,9 @@ fn d_056_text_shaped_as_a_link_cites_its_whole_destination() {
         ("- ```\n  [notes](notes(1).txt)\n  ```", true),
         ("[x](other.txt \"an example [link](notes(1).txt)\")", true),
         ("[notes](other.txt \"example\n\n[link](notes(1).txt)\")", true),
+        ("[notes](notes(1).txt>x)", false),
+        ("[notes](./dir/../notes(1).txt)", true),
+        ("[notes](a/b:c/../../notes(1).txt)", true),
         ("This is not a link: ](notes(1).txt)", false),
         ("](notes(1).txt) and then [", false),
         ("[notes]\n(notes(1).txt)", false),
@@ -739,6 +789,8 @@ fn d_056_text_shaped_as_a_link_cites_its_whole_destination() {
         ("[notes](https://example.invalid/notes(1).txt)", false),
     ];
     fs::write(x.join("notes(1).txt"), format!("{token}\n")).unwrap();
+    let absolute = format!("[notes]({})", x.join("notes(1).txt").display());
+    let cases: Vec<(&str, bool)> = cases.into_iter().chain([(absolute.as_str(), false)]).collect();
     for (text, cites) in cases {
         fs::write(x.join("fermento.md"), format!("# Fermento\n\n{text}\n")).unwrap();
         let found = finding_of(&check_within(&fx), "C9");
@@ -843,6 +895,7 @@ fn p7d2_12_a_branch_whose_commit_git_cannot_give_is_unknown() {
     fs::write(fx.root.join(".git/refs/heads/main"), format!("{}\n", "0123456789".repeat(4))).unwrap();
     let doc = fx.run(&["check", "--json"]).doc();
     assert!(finding_of(&doc, "C4").contains(&"CHECK_UNKNOWN".to_owned()), "{doc}");
+    assert_eq!(finding_of(&doc, "C10"), ["CHECK_UNKNOWN"], "{doc}");
 }
 
 #[test]
@@ -1159,4 +1212,70 @@ fn p7d2_30_a_signing_key_in_another_domain_is_never_read() {
     a.git(&["config", "--unset", "include.path"]);
     a.git(&["config", "user.signingkey", a.keys.join("xel.pub").to_str().unwrap()]);
     assert_eq!(a.run(&["config", "--json"]).doc()["person"], "xel");
+}
+
+#[test]
+fn check_reads_only_the_maintainers_own_directories() {
+    let fx = published("check-dirs");
+    let token = format!("gh{}_{}", "p", "a".repeat(36));
+    fs::write(fx.domain.join("xel/other.txt"), format!("{token}\n")).unwrap();
+    // A directory whose name is no alias: its settings and its fermento are not a maintainer's.
+    fs::create_dir(fx.domain.join("Xel")).unwrap();
+    fs::write(fx.domain.join("Xel/settings.toml"), "not = [toml\n").unwrap();
+    fs::write(fx.domain.join("Xel/fermento.md"), "[x](../xel/other.txt)\n").unwrap();
+    // A maintainer's directory with no settings file has nothing to read.
+    fs::create_dir(fx.domain.join("ana")).unwrap();
+    let doc = fx.run(&["check", "--json"]).doc();
+    assert_eq!((finding_of(&doc, "C1"), finding_of(&doc, "C9")), (vec![], vec![]), "{doc}");
+    // A domain that is a file is one broken record, nothing else.
+    let fx = published("domain-file");
+    fs::rename(&fx.domain, fx.root.join("elsewhere")).unwrap();
+    fs::write(&fx.domain, "a file\n").unwrap();
+    let codes: Vec<(String, String)> = findings(&fx);
+    assert_eq!(codes, [("RECORD_BROKEN".into(), "error".into())]);
+}
+
+#[test]
+fn the_record_never_reads_an_event_through_a_link() {
+    let fx = published("event-link");
+    let dir = fx.domain.join("data/events/project");
+    let first = fs::read_dir(&dir)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.extension().is_some_and(|e| e == "json"))
+        .min()
+        .unwrap();
+    let away = fx.root.join("away.json");
+    fs::rename(&first, &away).unwrap();
+    std::os::unix::fs::symlink(&away, &first).unwrap();
+    assert_eq!(fx.run(&["status", "--json"]).doc()["problems"][0]["code"], "RECORD_BROKEN");
+}
+
+#[test]
+fn the_detection_cache_is_never_read_through_a_link() {
+    let fx = published("cache-link");
+    let doc = fx.run(&["config", "--json"]).doc();
+    let git = doc["machine"].as_array().unwrap().iter().find(|m| m["name"] == "git").unwrap().clone();
+    let entry = serde_json::json!({"how": "observed", "path": git["path"], "verified": "2026-01-01T00:00:00Z", "version": git["version"]});
+    let cache = serde_json::json!({"at": "2026-01-01T00:00:00Z", "programs": {"git": entry}, "required": {}, "schema": 1, "tools": {}});
+    let bytes = fabrewk_core::record::encode(&cache).unwrap();
+    // Read where it stands, the cache gives the date; through a link, it is none.
+    fs::write(fx.domain.join("local/cache/detected.json"), &bytes).unwrap();
+    let verified = |fx: &Fx| {
+        let doc = fx.run(&["config", "--json"]).doc();
+        doc["machine"].as_array().unwrap().iter().find(|m| m["name"] == "git").unwrap()["verified"].clone()
+    };
+    assert_eq!(verified(&fx), "2026-01-01T00:00:00Z");
+    let away = fx.domain.join("xel/uncited-cache");
+    fs::rename(fx.domain.join("local/cache"), &away).unwrap();
+    std::os::unix::fs::symlink("../xel/uncited-cache", fx.domain.join("local/cache")).unwrap();
+    assert_eq!(verified(&fx), Value::Null);
+}
+
+#[test]
+fn a_maintainer_with_no_personal_file_has_the_defaults() {
+    let fx = published("no-personal");
+    fs::remove_file(fx.domain.join("xel/settings.toml")).unwrap();
+    let out = fx.run(&["config", "environment.shell", "--json"]);
+    assert_eq!((out.status, out.doc()["source"].as_str()), (0, Some("default")), "{out:?}");
 }

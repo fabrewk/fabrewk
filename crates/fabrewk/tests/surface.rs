@@ -316,3 +316,24 @@ fn version_and_its_features() {
         assert!(features.is_empty(), "a release build with {features:?}");
     }
 }
+
+#[test]
+fn usage_errors_say_what_is_wrong() {
+    let dir = tmp("usage-words");
+    let says = |args: &[&str], key: &str, word: &str| {
+        let out = run_in(&dir, &dir, args, None);
+        assert_eq!(out.status, 2, "{args:?}");
+        assert!(out.all().contains(&cli::say("en", key, &[("word", word)])), "{args:?}: {out:?}");
+    };
+    says(&[], "usage.none", "");
+    says(&["--json"], "usage.flag", "--json");
+    says(&["status", "--json=1"], "usage.value", "--json");
+    says(&["nosuch"], "usage.command", "nosuch");
+    says(&["check", "extra"], "usage.extra", "extra");
+    // Help lists refusals only for a command that has them.
+    let refusals = format!("{}:", cli::say("en", "help.refusals", &[]));
+    let status = COMMANDS.iter().find(|c| c.name == "status").unwrap();
+    let config = COMMANDS.iter().find(|c| c.name == "config").unwrap();
+    assert!(!cli::help("en", Some(status)).contains(&refusals));
+    assert!(cli::help("en", Some(config)).contains(&refusals) && cli::help("en", Some(config)).contains("KEY_UNKNOWN"));
+}
