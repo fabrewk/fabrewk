@@ -6,7 +6,7 @@ Mi entrada es exclusivamente mía. Lo que cite desde aquí (capturas, PDF, otros
 
 ## Propuestas y pendientes
 
-Sin propuestas ni pendientes vigentes.
+PROPUESTA: (Adición, modificación) Partiendo que Fabrewk se ancla fuertemente del ALAMBIQUE para construir la verdad para que los agentes elaboren el PLAN para cada proyecto, parte del script o proceso de instalación y/o "onboarding" debería llevar de la mano al usuario nuevo para crear el primer ALAMBIQUE, sugiriendole mediante preguntas muy sencillas que quiere lograr en su proyecto.  Si esto ya está definido en alguno de nuestros puntos pero con otra prosa, solo confirma, si no es así propon el diseño, donde se implementaría y en que fase del desarrollo encaja.  Leo tu propuesta en el chat cuando realices el barrido del fermento y si llegamos a consenso allí mismo te declaro mi aceptación expresa y autorización para que lo integres al ALAMBIQUE.
 
 
 

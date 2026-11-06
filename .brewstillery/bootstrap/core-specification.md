@@ -577,7 +577,11 @@ the streams replay reads (P7D3A-9); the events, each written by compare-and-swap
 (`RECORD_HEAD_MOVED`); the replay before the record commit (PD-46), the commit (`RECORD_COMMIT_RACE`) and, once it
 is made, the mark (P7D3A-10); then, still under the lock (P7D3A-3), the other caches: `allowed_signers` from the
 policy in force (REQ-ID-2) and `detected.json` with `git` and `ssh-keygen` verified by use (REQ-SET-8). A refusal decided before the session writes nothing; one decided after it,
-only when the record changed in between, may leave the empty `local/lock`. A person is the maintainer whose key Git's `user.signingkey`
+only when the record changed in between, may leave the empty `local/lock`. Two things are no write in this sense
+(D-063): cleaning what an interrupted write left (temporary files, signatures whose event never reached its place,
+the record commit's temporary index, a machine key that does not read), which every write command does even when it
+then refuses; and, after a race with a writer that ignores the lock (`RECORD_HEAD_MOVED`, `RECORD_COMMIT_RACE`), the
+machine key the refused command made, which the next command uses. A person is the maintainer whose key Git's `user.signingkey`
 names (D-055), refused `ROLE_FORBIDDEN` when Git names none, the key is no maintainer's, or the role may not make the
 move; the signature is `ssh-keygen -Y sign -n fabrewk -f` over the private key file, the public key file (its
 private key beside it or in the SSH agent) or, for a `key::` literal, a copy of it in `local/tmp/` removed after

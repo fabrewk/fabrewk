@@ -78,6 +78,8 @@ Rechazos
 - `WORDS_MISSING`: Un movimiento de persona necesita tus propias palabras, dadas con --say: no vacías y en texto UTF-8 válido.
 - `WORDS_COPIED`: Las palabras dadas son el ejemplo que imprime la ayuda, no las tuyas.
 - `SETTINGS_INVALID`: Un archivo de ajustes no se lee o no valida.
+- `SETTINGS_KEY_NOT_PERSONAL`: Un archivo personal tiene una clave que solo el archivo del proyecto puede fijar.
+- `ALIAS_MISMATCH`: El archivo personal nombra a otro mantenedor que su directorio.
 - `ROLE_NOT_ENFORCED`: La política lista un supervisor, un rol que Fabrewk aún no hace cumplir.
 - `POLICY_UNCOMMITTED`: El archivo del proyecto no está como se confirmó en el head de la rama del registro.
 - `WIDENING_UNNAMED`: Un cambio amplía la autoridad sin nombrarse.
@@ -179,6 +181,7 @@ Rechazos
 - `NOT_A_REPOSITORY`: Esta no es la raíz del árbol de trabajo principal del repositorio.
 - `HEAD_DETACHED`: El head de Git no nombra ninguna rama, así que no hay rama del registro.
 - `PRIVATE_FOLDER_PERMISSIONS`: La carpeta privada da acceso a alguien más que su dueño, así que Fabrewk no la lee.
+- `SETTINGS_INVALID`: Un archivo de ajustes no se lee o no valida.
 - `LOCK_HELD`: Otro comando de Fabrewk tiene el candado del registro de este repositorio.
 - `RECORD_HEAD_MOVED`: Algo escribió en el registro sin su candado mientras corría este comando; este comando no escribió nada.
 - `RECORD_COMMIT_RACE`: La rama se movió mientras Fabrewk confirmaba el registro; sus eventos están escritos pero no confirmados.

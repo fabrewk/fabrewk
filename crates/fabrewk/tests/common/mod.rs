@@ -367,6 +367,12 @@ pub fn whole(text: &str) {
 /// is in both outputs with the catalogue's reason and next step in `lang`, and that a command to run parses (11.2
 /// rule 4). Gives the document's entry for the code.
 pub fn refused(fx: &Fx, args: &[&str], code: &str, exit: i32, lang: &str) -> Value {
+    // A write command's refusal is one its declaration lists, so its help and the reference name it (REQ-CLI-1).
+    let command = fabrewk_core::cli::COMMANDS.iter().find(|c| Some(&c.name) == args.first());
+    if let Some(c) = command.filter(|c| fabrewk_core::cli::writes(c)) {
+        let listed: Vec<String> = fabrewk_core::cli::refusals(c).iter().map(|r| r.to_string()).collect();
+        assert!(listed.iter().any(|r| r == code), "{} does not declare {code}", c.name);
+    }
     let before = fx.snapshot();
     let human = fx.run(args);
     let json = fx.run(&[args, &["--json"]].concat());

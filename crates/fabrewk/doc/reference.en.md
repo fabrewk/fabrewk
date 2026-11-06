@@ -78,6 +78,8 @@ Refusals
 - `WORDS_MISSING`: A person's move needs your own words, given with --say: not empty, and valid UTF-8 text.
 - `WORDS_COPIED`: The words given are the example that help prints, not your own.
 - `SETTINGS_INVALID`: A settings file does not read or validate.
+- `SETTINGS_KEY_NOT_PERSONAL`: A personal file holds a key that only the project file may set.
+- `ALIAS_MISMATCH`: The personal file names another maintainer than its directory.
 - `ROLE_NOT_ENFORCED`: The policy lists a supervisor, a role Fabrewk does not enforce yet.
 - `POLICY_UNCOMMITTED`: The project file is not as committed at the record branch's head.
 - `WIDENING_UNNAMED`: A change widens authority without being named.
@@ -179,6 +181,7 @@ Refusals
 - `NOT_A_REPOSITORY`: This is not the root of the repository's main working tree.
 - `HEAD_DETACHED`: Git's head names no branch, so there is no record branch.
 - `PRIVATE_FOLDER_PERMISSIONS`: The private folder gives access to someone other than its owner, so Fabrewk does not read it.
+- `SETTINGS_INVALID`: A settings file does not read or validate.
 - `LOCK_HELD`: Another Fabrewk command holds the lock of this repository's record.
 - `RECORD_HEAD_MOVED`: Something wrote in the record without its lock while this command ran; this command wrote nothing.
 - `RECORD_COMMIT_RACE`: The branch moved while Fabrewk committed the record; its events are written but not committed.

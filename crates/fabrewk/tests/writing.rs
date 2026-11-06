@@ -572,6 +572,45 @@ fn a_private_folder_reached_through_a_link_into_a_domain_is_refused() {
 }
 
 #[test]
+fn a_dangling_link_as_a_git_lock_is_a_lock() {
+    let fx = published("dangling-lock");
+    std::os::unix::fs::symlink("missing-lock-target", fx.root.join(".git/index.lock")).unwrap();
+    let name = proposal(&fx, "plan.json", &file(json!({})));
+    refused(&fx, &["propose", &name], "TOOL_FAILED", 1, "es");
+}
+
+#[test]
+fn a_private_folder_whose_place_cannot_be_told_is_refused() {
+    // `<link>/unmade/../confignew`, the link leading into a maintainer's directory (P7D3A-8).
+    let fx = published("folder-dotdot");
+    let link = fx.home.join("config-link");
+    std::os::unix::fs::symlink(fx.domain.join("xel"), &link).unwrap();
+    let config = link.join("unmade/../confignew");
+    let name = proposal(&fx, "plan.json", &file(json!({})));
+    let before = fx.snapshot();
+    let args: Vec<OsString> = ["propose", &name, "--json"].iter().map(Into::into).collect();
+    let ran = fx.run_os(&args, &[("XDG_CONFIG_HOME", config.as_os_str())]);
+    assert_eq!(fx.snapshot(), before);
+    assert_eq!((ran.status, ran.doc()["refusals"][0]["code"].as_str()), (1, Some("PRIVATE_FOLDER_PERMISSIONS")));
+}
+
+#[test]
+fn a_persons_staged_files_where_replay_does_not_read_stay_staged() {
+    // A file in a hidden directory under `data/events/`, committed, then staged with other content (P7D3A-12).
+    let fx = published("hidden-index");
+    let note = fx.domain.join("data/events/.personal/note.txt");
+    fs::create_dir_all(note.parent().unwrap()).unwrap();
+    fs::write(&note, "original\n").unwrap();
+    fx.git(&["add", "-f", note.to_str().unwrap()]);
+    fx.git(&["commit", "-q", "-m", "note"]);
+    fs::write(&note, "staged personal text\n").unwrap();
+    fx.git(&["add", "-f", note.to_str().unwrap()]);
+    fs::write(&note, "original\n").unwrap();
+    ok(&fx.run(&["propose", &proposal(&fx, "plan.json", &file(json!({})))]));
+    assert_eq!(fx.git(&["show", ":.brewstillery/data/events/.personal/note.txt"]), "staged personal text");
+}
+
+#[test]
 fn what_is_no_stream_is_never_committed() {
     // A hidden directory under `data/events/` holds no event: replay skips it, and no record commit takes it (P7D3A-9).
     let fx = published("hidden");

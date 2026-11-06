@@ -263,7 +263,8 @@ pub(crate) fn check_git_locks(repo: &Repo, branch: &str) -> Result<(), Error> {
     let common = line(git(repo, &os(&["rev-parse", "--path-format=absolute", "--git-common-dir"]), b"", None)?);
     let common = PathBuf::from(common);
     for lock in [common.join("index.lock"), common.join("HEAD.lock"), common.join(format!("{branch}.lock"))] {
-        if lock.exists() {
+        // The entry itself, a dangling link included, which Git takes as a lock held (P7D3A-7).
+        if std::fs::symlink_metadata(&lock).is_ok() {
             return Err(refuse(Code::ToolFailed, Some(&lock), "a lock a stopped Git left; remove it if no Git runs"));
         }
     }
@@ -279,10 +280,18 @@ pub(crate) fn sync_index(repo: &Repo) -> Result<(), Error> {
     let mut args = os(&["diff-index", "--cached", "--no-renames", "--name-only", "-z", "HEAD", "--"]);
     args.push(events.as_os_str());
     let differ = git(repo, &args, b"", None)?;
+    // Only the record's own files: an event or a signature in a stream replay reads (P7D3A-12). Anything else under
+    // `data/events/`, a hidden directory's file among them, is the person's and stays staged as it is.
+    let record_file = |p: &&str| {
+        let rel = Path::new(p).strip_prefix(&events).ok();
+        let parts: Vec<&str> = rel.into_iter().flat_map(Path::iter).filter_map(OsStr::to_str).collect();
+        matches!(parts[..], [stream, name] if super::stream_kind(stream).is_some() && !name.starts_with('.'))
+    };
     let paths: Vec<&OsStr> = differ
         .split(|&b| b == 0)
         .filter(|p| !p.is_empty())
         .filter_map(|p| std::str::from_utf8(p).ok())
+        .filter(record_file)
         .map(OsStr::new)
         .collect();
     if paths.is_empty() {

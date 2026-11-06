@@ -2645,3 +2645,30 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   R-029; `core-specification.md` sections 2 TASK, RUN, SEC, GATE-7, 3 to 5, 11.3, 11.4; the strings of
   `~/.codex/packages/standalone/releases/0.166.0-aarch64-unknown-linux-musl/bin/codex`.
 - Supersedes: none.
+
+## D-063 — Part 7d3a: what a write command cleans and keeps before it refuses; a fourth Codex pass
+
+- Status: decided
+- Decided: 2026-11-06
+- Origin: maintainer XEL in session 23's chat, answering the integrator's three questions when Codex's first, second
+  and third passes of 7d3a each confirmed five blocking findings (two consecutive retries without progress by the
+  measure of the plan's rule, D-003): "Corregir, decidir y pasada 4 (Recomendado)"; "Aprobar como diseño
+  (Recomendado)"; "Aprobar como diseño (Recomendado)".
+- Decision:
+  1. The integrator corrects P7D3A-7 (a dangling link as a Git lock), P7D3A-8 (a `..` in a private folder's path
+     not made yet), P7D3A-12 (the index repair touching staged files in directories replay skips) and P7D3A-13 (a
+     refusal missing from the declaration) in code; then one more full Codex pass. With a confirmed blocking finding
+     left, the integrator corrects it and asks the maestro again before any further pass, as D-057 did.
+  2. Cleaning what an interrupted write left is part of every write command, even one that then refuses: temporary
+     files, signatures whose event never reached its place, the record commit's temporary index, and a machine key
+     that does not read (7b's `Session::begin`, 7c2a's "a key that does not read is none, and a write command makes
+     it again"). None of it is a person's content; section 11.2 rule 4's "nothing written" holds for everything
+     else. This settles P7D3A-1's remaining variants.
+  3. The machine key is not part of the record: after a race with a writer that ignores the lock
+     (`RECORD_HEAD_MOVED`, `RECORD_COMMIT_RACE`), the key the refused command made stays, and the next command uses
+     it, as the empty `local/lock` already may. This settles P7D3A-11.
+- Consequences: `core-specification.md`'s paragraph "The write path, as part 7d3a fixed it" says points 2 and 3;
+  R-031 records the passes. The alternatives offered were all in code with a fourth pass, a scoped re-check, and
+  accepting the part without another pass.
+- Sources: chat of session 23; Codex's passes 1 to 3 of 7d3a; D-057, D-062; `core-specification.md` 11.2 rule 4.
+- Supersedes: none.

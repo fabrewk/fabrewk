@@ -136,19 +136,21 @@ pub(crate) fn normal(path: &Path) -> PathBuf {
 /// Whether `path`, as written or as it resolves, lies in a Fabrewk domain (a `.brewstillery` component) or under
 /// `root`: what Fabrewk reads from a place the person names must lie in neither (P7D2-22, P7D2-28 to P7D2-30).
 pub(crate) fn in_domain(path: &Path, root: &Path) -> bool {
-    // `root` is where the command runs, which the operating system gives resolved.
-    in_a_domain(path) || [Some(normal(path)), resolved(path)].iter().flatten().any(|p| p.starts_with(root))
+    // `root` is where the command runs, which the operating system gives resolved. A path whose place cannot be told
+    // is taken as inside (P7D3A-8).
+    in_a_domain(path) || normal(path).starts_with(root) || resolved(path).is_none_or(|p| p.starts_with(root))
 }
 
-/// Whether `path`, as written or as it resolves, has a `.brewstillery` component.
+/// Whether `path`, as written or as it resolves, has a `.brewstillery` component; a path whose place cannot be told
+/// counts as one (P7D3A-8).
 pub(crate) fn in_a_domain(path: &Path) -> bool {
     let domain = |p: &Path| p.components().any(|c| c.as_os_str() == ".brewstillery");
-    domain(&normal(path)) || resolved(path).is_some_and(|p| domain(&p))
+    domain(&normal(path)) || resolved(path).is_none_or(|p| domain(&p))
 }
 
 /// `path` resolved as far as it exists: its deepest existing ancestor canonicalized, the rest of it appended as
 /// written, so that a folder not made yet is placed where its links lead (P7D3A-8); `None` when a part of the rest
-/// is not a plain name.
+/// is not a plain name (a `..` after a name that does not exist), whose place cannot be told.
 fn resolved(path: &Path) -> Option<PathBuf> {
     let mut rest = Vec::new();
     let mut p = path;
