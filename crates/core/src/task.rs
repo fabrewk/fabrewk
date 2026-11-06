@@ -309,3 +309,46 @@ pub fn observable(eff: &Effective, modules: &[Program], profiles: &[&str], token
     }
     Ok(())
 }
+
+/// One field of `propose`'s file: its depth, its name, whether it may be absent, and its type as a chain read from the
+/// outside in (`["list", "object"]`).
+pub type FormatLine = (usize, &'static str, bool, Vec<&'static str>);
+
+/// The format of `propose`'s file (section 5; part 7d3a): every field of a stage's payload and of a task's, but the
+/// nonce, which `propose` draws, and a task's stage, which the file's stage gives. Help and the reference render it.
+pub fn file_format() -> [Vec<FormatLine>; 2] {
+    fn chain(t: &T) -> Vec<&'static str> {
+        let word = match t {
+            T::Text => "text",
+            T::Tag => "tag",
+            T::Count => "count",
+            T::Bool => "bool",
+            T::Hex(_) => "hex",
+            T::Id('s') => "stage-id",
+            T::Id(_) => "task-id",
+            T::Base => "base",
+            T::Value => "value",
+            T::Obj(_) => "object",
+            T::List(inner) | T::Map(inner) => {
+                let outer = if matches!(t, T::List(_)) { "list" } else { "map" };
+                return [vec![outer], chain(inner)].concat();
+            }
+        };
+        vec![word]
+    }
+    fn walk(t: &T, depth: usize, out: &mut Vec<FormatLine>) {
+        let fields = match t {
+            T::Obj(fields) => *fields,
+            T::List(inner) | T::Map(inner) => return walk(inner, depth, out),
+            _ => return,
+        };
+        for (f, ty) in fields.iter().filter(|(f, _)| !["nonce", "stage"].contains(f)) {
+            out.push((depth, f.trim_start_matches('?'), f.starts_with('?'), chain(ty)));
+            walk(ty, depth + 1, out);
+        }
+    }
+    let [mut stage, mut task] = [Vec::new(), Vec::new()];
+    walk(&STAGE, 1, &mut stage);
+    walk(&TASK, 1, &mut task);
+    [stage, task]
+}

@@ -2604,3 +2604,44 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   settings edit (`layout.reservedNames` gains `skills`) went in its own commit, `29b7a40`.
 - Sources: chat of session 22; `xel/fermento.md`'s open item; D-060, R-030; `ALAMBIQUE.md` 6.38.
 - Supersedes: none.
+
+## D-062 — Part 7d3 split into 7d3a and 7d3b; `run` takes words; `TASK_CHANGED` through `--seen`; agents' markers declared by the binary
+
+- Status: decided
+- Decided: 2026-11-06
+- Origin: maintainer XEL in session 23's chat, answering the integrator's four questions before any code, after the
+  integrator estimated 7d3 at about 1,100 to 1,500 counted lines of core: "7d3a y 7d3b (Recomendado)"; "`run` exige
+  --say (Recomendado)"; "`--seen <digest>` obligatorio (Recomendado)"; "Lista en el binario (Recomendado)".
+- Decision:
+  1. Part 7d3 is split in two, each with its own chat and Codex review. 7d3a, the write path and the policy and
+     proposal commands: the declaration's arguments that are required and options that take a value (`--say`,
+     `--say-lang`, `--widen`, repeated); the write context every write command opens (REQ-REG-5's lock, REQ-REG-11,
+     the mark, REQ-REG-10's commit of what is left uncommitted, REQ-DOM-7, the machine key of REQ-REG-12 and
+     `instance`); signing with Git's signing key (D-055 point 1); `--say` and `--say-lang` (REQ-TASK-4, PD-30 to
+     PD-32 for the moves that exist), `AGENT_ENVIRONMENT`; `adopt` and `propose`; the refusal tests of the record's
+     codes through the command line (D-047). 7d3b, the task commands: `authorize` (PD-37, `TASK_CHANGED`,
+     `LIMIT_UNOBSERVABLE`, the layers' widenings), `reject`, and `run` up to confinement (D-053 point 4), with
+     `MOVE_NOT_ALLOWED`, `DEPENDENCY_OPEN` and `LOCK_HELD` through `run`. Accepted with the question, as stated in
+     it: REQ-RUN-5 is phase 9's, since no command of phase 7 opens an attempt; `propose` records Fabrewk as its actor;
+     `authorize --run` evaluates the guards of both moves before writing either, so without confinement it writes
+     nothing; Git's signing key may be a `key::` literal, a public key file or a private key file, and the signature
+     is made with `ssh-keygen -Y sign` as Git makes its own (with the SSH agent where the key is public only).
+  2. `run` is a person's move like the others: `--say` is required (`WORDS_MISSING` without it), and `run-started`
+     carries the words. `authorize --run --say` puts the same words in the authorization and in each `run-started`
+     it signs; `run <stage> --say`, in each task's. Section 4's row of `run-started` gains the mark `say`.
+  3. `status <id>` prints the digest of its rendering of what an authorization binds (REQ-GATE-7, PD-37), and
+     `authorize <id>` requires `--seen <digest>`: when the rendering made under the lock differs from the one the
+     person read, it refuses `TASK_CHANGED` and writes nothing. The signed `task-authorized` and `stage-authorized`
+     carry that digest in a new payload field, `shown`, which amends the payloads part 7d1 fixed (no real event
+     exists yet). Section 5's synopsis of `authorize` gains `--seen <digest>`.
+  4. The `fabrewk` binary declares, on each adapter's behalf, only its environment markers (`claude-code`:
+     `CLAUDECODE`; `codex`: `CODEX_SANDBOX` and `CODEX_SANDBOX_NETWORK_DISABLED`, read from the strings of
+     `codex-cli` 0.166.0's binary), and passes them to the core as it passes the modules; `FABREWK_EXTENSION` is the
+     core's own. Phase 9 moves each list into its module's contract. The core still names no tool (AD-5).
+- Consequences: `plan.md` shows 7d3a and 7d3b instead of 7d3. `core-specification.md` records each point where it
+  applies, in the part that builds it: 7d3a points 1 and 4 and the interpretations of point 1; 7d3b points 2 and 3.
+  The size budget is unchanged; the maestro decides it when 7d3 is measured, as R-029 says.
+- Sources: chat of session 23; `STATUS.md`'s "Next"; D-047, D-053, D-055, R-028 (the two items left open for 7d3),
+  R-029; `core-specification.md` sections 2 TASK, RUN, SEC, GATE-7, 3 to 5, 11.3, 11.4; the strings of
+  `~/.codex/packages/standalone/releases/0.166.0-aarch64-unknown-linux-musl/bin/codex`.
+- Supersedes: none.

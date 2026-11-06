@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 /// The refusal codes the core raises (core-specification section 7).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Code {
+    AgentEnvironment,
     AliasInvalid,
     AliasMismatch,
     AttemptEnded,
@@ -45,11 +46,14 @@ pub enum Code {
     RoleNotEnforced,
     SettingsInvalid,
     SettingsKeyNotPersonal,
+    StageClosed,
     TaskChanged,
     TaskInvalid,
     ToolFailed,
     ToolMissing,
     WideningUnnamed,
+    WordsCopied,
+    WordsMissing,
 }
 
 /// The code as the catalogue and `--json` name it: the variant's name in upper snake case (`RecordFork` is
@@ -161,6 +165,7 @@ mod tests {
         let list = &spec[spec.find("All codes, in one list:").unwrap()..];
         let list = &list[..list.find("\n\n").unwrap()];
         for code in [
+            AgentEnvironment,
             AliasInvalid,
             AliasMismatch,
             AttemptEnded,
@@ -200,11 +205,14 @@ mod tests {
             RoleNotEnforced,
             SettingsInvalid,
             SettingsKeyNotPersonal,
+            StageClosed,
             TaskChanged,
             TaskInvalid,
             ToolFailed,
             ToolMissing,
             WideningUnnamed,
+            WordsCopied,
+            WordsMissing,
         ] {
             assert!(list.contains(&format!("`{code}`")), "{code:?}");
             assert!(code.to_string().bytes().all(|b| b.is_ascii_uppercase() || b == b'_'), "{code}");

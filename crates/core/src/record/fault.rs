@@ -37,3 +37,29 @@ pub(crate) fn fails(name: &str) -> bool {
         false
     }
 }
+
+/// Pauses at the step `name` when `FABREWK_FAULT_PAUSE` is `<name>:<dir>`: writes `<dir>/<name>.paused`, then waits
+/// until `<dir>/<name>.resume` exists, at most a minute, so that a test can act while a command runs (part 7d3a).
+/// Without the feature it does nothing.
+#[inline]
+pub(crate) fn pause(name: &str) {
+    #[cfg(feature = "fault-injection")]
+    {
+        let Some(dir) = std::env::var("FABREWK_FAULT_PAUSE")
+            .ok()
+            .and_then(|v| Some(v.strip_prefix(&format!("{name}:"))?.to_owned()))
+        else {
+            return;
+        };
+        let dir = std::path::Path::new(&dir);
+        let _ = std::fs::write(dir.join(format!("{name}.paused")), b"");
+        for _ in 0..600 {
+            if dir.join(format!("{name}.resume")).exists() {
+                return;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
+    }
+    #[cfg(not(feature = "fault-injection"))]
+    let _ = name;
+}

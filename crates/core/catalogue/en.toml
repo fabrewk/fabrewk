@@ -18,6 +18,10 @@ extra = "The argument {word} is one more than this command takes."
 none = "No command was given."
 utf8 = "An argument is not valid UTF-8 text."
 id = "No stage or task in the record has the identifier {word}."
+missing = "The option {word} takes a value."
+repeat = "The option {word} is given more than once."
+tag = "The language tag {word} is not a valid BCP 47 tag."
+argument = "The command needs its argument {word}."
 next = "See what the command takes:"
 
 [internal]
@@ -25,6 +29,8 @@ about = "Internal errors (exit 70): something failed that no refusal names"
 io = "Fabrewk stopped on an internal error: it could not read or write {path}. This command writes nothing, so nothing changed."
 panic = "Fabrewk stopped on an internal error. This command writes nothing, so nothing changed."
 missing = "(a message the catalogue lacks)"
+io-write = "Fabrewk stopped on an internal error: it could not read or write {path}. What it wrote before stays in the record, and verifying the repository shows what the record holds."
+panic-write = "Fabrewk stopped on an internal error. What it wrote before stays in the record, and verifying the repository shows what the record holds."
 
 [help]
 about = "Words of the help that --help prints"
@@ -35,12 +41,16 @@ options = "Options"
 argument = "Argument"
 refusals = "Refusals"
 command-word = "command"
+format = "The file's format"
 
 [flag]
 about = "What each option does"
 help = "Shows this help."
 version = "Shows Fabrewk's version."
 json = "Gives the output as one JSON document with a schema field."
+say = "Your own words for this decision, kept verbatim and signed. Words copied from an example, such as “I agree.”, are refused."
+say-lang = "The language tag of your words; by default, your languages.agentInteraction."
+widen = "Names a widening of authority this move makes, by its key path; give it once for each."
 
 [command.status]
 about = "The command that shows the state"
@@ -55,6 +65,59 @@ arg = "One setting, by its key path: shows only its value and source."
 [command.check]
 about = "The command that verifies the repository"
 summary = "Verifies the settings, the policy, the record, the domain, the credentials and the private folder."
+
+[command.adopt]
+about = "The command that adopts the project file as the policy in force"
+summary = "A maestro adopts the project file as the policy in force, naming every widening it makes."
+
+[command.propose]
+about = "The command that proposes a stage and its tasks"
+summary = "Proposes a stage and its tasks, or tasks for a stage of the record, from a JSON file; it authorizes nothing."
+arg = "The JSON file that describes the stage and its tasks; its format is below."
+
+[words]
+about = "The example of words that help prints; given as --say, it is refused (WORDS_COPIED)"
+example = "I agree."
+
+[format]
+about = "Words of the format of propose's file"
+stage = "stage: an object with these fields, or the identifier (s-…) of a stage of the record"
+tasks = "tasks: a list of one task or more, each an object with these fields"
+name = "a name for the task, which a later task of the file may give among its dependencies"
+optional = "(optional)"
+
+[type]
+about = "The types of the fields of propose's file; {of} is the type a list or a map holds"
+text = "text"
+tag = "a language tag (BCP 47)"
+count = "a whole number, 1 or more"
+bool = "true or false"
+hex = "hexadecimal digits"
+stage-id = "a stage's identifier (s-…)"
+task-id = "a task's identifier (t-…), or the name of a task above it in the file"
+base = "a commit (40 or 64 hexadecimal digits), or null"
+value = "a setting's value"
+object = "an object with these fields"
+list = "a list, each item {of}"
+map = "an object whose fields each hold {of}"
+
+[adopt]
+about = "What adopt reports"
+done = "The project file is now the policy in force (digest {digest}). Its changes against the policy it replaces:"
+unchanged = "none: it holds what the policy in force held."
+
+[propose]
+about = "What propose reports"
+stage = "Proposed the stage {id}: {goal}"
+added = "Added to the stage {id}: {goal}"
+task = "Proposed the task {id}: {goal}"
+grants = "Nothing is authorized: a maestro reads each one and decides."
+
+[write]
+about = "What every write command reports of what it wrote"
+event = "Recorded the event {seq} of the stream {stream}."
+commit = "Committed the record: {commit}."
+uncommitted = "The record is not committed: the publication mode commits nothing."
 
 [reference]
 about = "Words of the generated reference documentation"
@@ -322,6 +385,11 @@ about = "What each settings key means"
 
 # The refusal codes the core raises (section 7): what each means, its reason and its next step.
 
+[code.AGENT_ENVIRONMENT]
+about = "A person's move run where the environment shows an agent's or an extension's markers (REQ-TASK-4, REQ-SEC-7)"
+reason = "This runs inside an agent or an extension, whose markers are in the environment, and only a person makes this move. The check is cooperative: a process can clear its environment."
+next = "Run the command yourself, in your own terminal."
+
 [code.ALIAS_INVALID]
 about = "A maintainer's alias, or a directory at the domain's top, that is not a valid alias"
 reason = "A name that is not a valid alias: lowercase letters, digits and single hyphens, starting with a letter, at most 32 characters, and not a reserved name."
@@ -421,6 +489,7 @@ run = "fabrewk config"
 about = "A project file adopted while not committed, in a mode that commits"
 reason = "The project file is not as committed at the record branch's head."
 next = "Commit .brewstillery/settings.toml, then adopt it."
+run = "fabrewk adopt"
 
 [code.PRIVATE_FOLDER_PERMISSIONS]
 about = "A private folder whose permissions give access to others"
@@ -523,6 +592,11 @@ about = "A personal file holding a key that is not personal"
 reason = "A personal file holds a key that only the project file may set."
 next = "Move the key to the project file, where a maestro adopts it."
 
+[code.STAGE_CLOSED]
+about = "A task proposed into a stage that is closed (section 4)"
+reason = "The stage is closed, so no task can be added to it."
+next = "Propose the tasks in a new stage."
+
 [code.TASK_CHANGED]
 about = "A task changed after it was shown for authorization"
 reason = "The task, or its stream's head, changed after it was shown."
@@ -548,3 +622,13 @@ next = "Install the tool named, or declare where it is."
 about = "A change that widens authority, not named with --widen"
 reason = "A change widens authority without being named."
 next = "A maestro names each widening, by its key path, when making the move."
+
+[code.WORDS_COPIED]
+about = "A person's words that are the catalogue's example (REQ-TASK-4)"
+reason = "The words given are the example that help prints, not your own."
+next = "Write your own words for this decision with --say."
+
+[code.WORDS_MISSING]
+about = "A person's move without words: none given, empty, or not UTF-8 (REQ-TASK-4)"
+reason = "A person's move needs your own words, given with --say: not empty, and valid UTF-8 text."
+next = "Say with --say, in your own words, why you decide it."

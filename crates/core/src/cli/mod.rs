@@ -4,15 +4,22 @@
 //! person is the maintainer whose key Git's `user.signingkey` names (D-055). The reading commands take no lock and
 //! write nothing.
 
+mod adopt;
 mod check;
 mod config;
 mod decl;
+mod propose;
 mod status;
 mod text;
+mod write;
 
 pub use check::CHECKS;
-pub use decl::{COMMANDS, Command, EXITS, PROGRAM_FLAGS, Parsed, SCHEMAS, Usage, fish, help, parse, posix, synopsis};
+pub use decl::{
+    COMMANDS, Command, EXITS, Options, PROGRAM_FLAGS, Parsed, SCHEMAS, Usage, VALUES, file_format, fish, help, parse,
+    posix, refusals, synopsis, writes,
+};
 pub use text::{CATALOGUES, get, messages, say};
+pub use write::EXTENSION_MARKER;
 
 use crate::code::{Code, Error};
 use crate::detect::Program;
@@ -72,16 +79,19 @@ pub(crate) struct Cx {
     person: Option<String>,
     lang: &'static str,
     modules: &'static [Program],
+    markers: &'static [&'static str],
+    /// Whether the command is one that writes, so that an internal error does not say that nothing changed.
+    writes: bool,
 }
 
 impl Cx {
-    fn new(root: PathBuf, modules: &'static [Program]) -> Cx {
+    fn new(root: PathBuf, modules: &'static [Program], markers: &'static [&'static str]) -> Cx {
         let domain = root.join(".brewstillery");
         let record = replay(&domain, &PolicyVerifier);
         let policy = record.as_ref().ok().and_then(|r| settings::in_force(r).ok().flatten());
         let person = policy.as_ref().and_then(|p| identity::person(&p.settings, &root));
         let lang = language(&domain, policy.as_ref(), person.as_deref());
-        Cx { root, domain, record, policy, person, lang, modules }
+        Cx { root, domain, record, policy, person, lang, modules, markers, writes: false }
     }
 
     fn t(&self, key: &str, params: &[(&str, &str)]) -> String {
@@ -126,7 +136,7 @@ impl Cx {
 
     fn refused(&self, errors: Vec<Error>) -> Out {
         if let Some(Error::Io { path, .. }) = errors.iter().find(|e| e.code().is_none()) {
-            return internal(self.lang, &self.show(path));
+            return internal(self.lang, &self.show(path), self.writes);
         }
         let entries: Vec<Value> = errors.iter().map(|e| self.entry(e)).collect();
         let text = entries.iter().map(|v| self.entry_text(v, "")).collect();
@@ -159,7 +169,15 @@ impl Cx {
 
     /// The person's own file, when the policy knows who they are and they have one.
     fn personal(&self) -> Result<Option<settings::Settings>, Vec<Error>> {
-        let Some(alias) = &self.person else { return Ok(None) };
+        match &self.person {
+            Some(alias) => self.personal_of(alias),
+            None => Ok(None),
+        }
+    }
+
+    /// The personal file of `alias`, if it has one; one that is not a regular file reached without a link, or does
+    /// not read, is refused, never taken for absent (P7D2-26).
+    fn personal_of(&self, alias: &str) -> Result<Option<settings::Settings>, Vec<Error>> {
         let path = self.domain.join(alias).join("settings.toml");
         // Absent is only what does not exist; what cannot be examined is an error (P7D2-26).
         match std::fs::symlink_metadata(&path) {
@@ -204,9 +222,11 @@ fn language(domain: &Path, policy: Option<&Policy>, person: Option<&str>) -> &'s
     tags.iter().find_map(|t| CATALOGUES.iter().find(|(l, _)| l == t).map(|(l, _)| *l)).unwrap_or("en")
 }
 
-fn internal(lang: &str, path: &str) -> Out {
+/// An internal error: what could not be read or written; a write command may have written before it.
+fn internal(lang: &str, path: &str, writes: bool) -> Out {
     let doc = json!({"schema": "fabrewk.internal/1", "path": path});
-    Out { doc, text: say(lang, "internal.io", &[("path", path)]) + "\n", error: true, exit: INTERNAL }
+    let key = if writes { "internal.io-write" } else { "internal.io" };
+    Out { doc, text: say(lang, key, &[("path", path)]) + "\n", error: true, exit: INTERNAL }
 }
 
 fn version() -> Out {
@@ -216,27 +236,32 @@ fn version() -> Out {
 }
 
 /// Runs the program with `args` (without its name) from the current directory and gives its exit status; `modules`
-/// are the built-in modules' programs (D-051).
-pub fn main(args: Vec<OsString>, modules: &'static [Program]) -> i32 {
-    std::panic::set_hook(Box::new(|_| {
-        let _ = writeln!(std::io::stderr(), "{}", say("en", "internal.panic", &[]));
-        std::process::exit(INTERNAL);
-    }));
+/// are the built-in modules' programs (D-051), `markers` the environment variables that show a process runs inside
+/// an agent, declared on each adapter's behalf (REQ-SEC-7, D-062).
+pub fn main(args: Vec<OsString>, modules: &'static [Program], markers: &'static [&'static str]) -> i32 {
     let asked = args.iter().any(|a| a == "--json");
     let parsed = decl::parse(args);
+    let writes = matches!(&parsed, Ok(Parsed::Run { command, .. }) if decl::writes(command));
+    std::panic::set_hook(Box::new(move |_| {
+        let key = if writes { "internal.panic-write" } else { "internal.panic" };
+        let _ = writeln!(std::io::stderr(), "{}", say("en", key, &[]));
+        std::process::exit(INTERNAL);
+    }));
     let json = asked && !matches!(parsed, Ok(Parsed::Help(_)));
     // The version reads nothing: no record, no Git, no file the person names.
     let out = match (parsed, std::env::current_dir()) {
         (Ok(Parsed::Version { .. }), _) => version(),
-        (_, Err(_)) => internal("en", "."),
+        (_, Err(_)) => internal("en", ".", writes),
         (parsed, Ok(root)) => {
-            let cx = Cx::new(root, modules);
+            let cx = Cx { writes, ..Cx::new(root, modules, markers) };
             let result = match parsed {
                 Err(u) => Err(Failed::Usage(u)),
                 Ok(Parsed::Help(c)) => Ok(Out::new(Value::Null, decl::help(cx.lang, c))),
-                Ok(Parsed::Run { command, arg, .. }) => match command.name {
+                Ok(Parsed::Run { command, arg, options, .. }) => match command.name {
                     "status" => status::run(&cx, arg.as_deref()),
                     "config" => config::run(&cx, arg.as_deref()),
+                    "adopt" => adopt::run(&cx, &options),
+                    "propose" => propose::run(&cx, arg.as_deref().unwrap_or_default()),
                     _ => check::run(&cx),
                 },
                 Ok(Parsed::Version { .. }) => Ok(version()),

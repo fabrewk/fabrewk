@@ -71,7 +71,7 @@ fn req_cli_1_every_command_appears_in_help_completions_and_reference() {
         assert!(posix.contains(&format!("        {}) ", c.name)), "posix: {}", c.name);
     }
     // Only the commands that exist (D-053 point 3): nothing of a later phase.
-    for later in ["adopt", "propose", "authorize", "run", "accept", "reject", "sweep", "approve", "discard", "close"] {
+    for later in ["authorize", "run", "accept", "reject", "sweep", "approve", "discard", "close"] {
         assert!(COMMANDS.iter().all(|c| c.name != later), "{later}");
         assert!(!fish.contains(&format!("-a {later} ")) && !posix.contains(&format!(" {later})")), "{later}");
     }
@@ -97,7 +97,8 @@ fn req_cli_1_the_completions_run_in_their_shells() {
         String::from_utf8(out.stdout).unwrap().lines().map(str::to_owned).collect::<Vec<_>>()
     };
     assert_eq!(complete("fabrewk st", 1), ["status"]);
-    assert_eq!(complete("fabrewk ''", 1), ["status", "config", "check", "--help", "--version"]);
+    assert_eq!(complete("fabrewk ''", 1), ["status", "config", "check", "adopt", "propose", "--help", "--version"]);
+    assert_eq!(complete("fabrewk adopt --w", 2), ["--widen"]);
     assert_eq!(complete("fabrewk check --", 2), ["--json", "--help"]);
     assert!(complete("fabrewk config limits.", 2).contains(&"limits.rounds".to_owned()));
     // In fish, the file completes the commands.
@@ -109,23 +110,71 @@ fn req_cli_1_the_completions_run_in_their_shells() {
 #[test]
 fn req_cli_1_the_parser_accepts_exactly_the_declaration() {
     for c in COMMANDS {
-        let mut ok = vec![vec![c.name], vec![c.name, "--help"]];
-        ok.extend(c.flags.iter().map(|f| vec![c.name, if *f == "json" { "--json" } else { "--help" }]));
-        if c.arg.is_some() {
+        // A required argument is in every accepted line; help needs none.
+        let base = if c.required { vec![c.name, "x-1"] } else { vec![c.name] };
+        let with = |more: &[&'static str]| [base.clone(), more.to_vec()].concat();
+        let mut ok = vec![base.clone(), vec![c.name, "--help"]];
+        for f in c.flags {
+            ok.push(match *f {
+                "json" => with(&["--json"]),
+                "say" => with(&["--say", "words"]),
+                "say-lang" => with(&["--say-lang", "es-MX"]),
+                "widen" => with(&["--widen", "a.b", "--widen", "c.d"]),
+                _ => with(&["--help"]),
+            });
+        }
+        if c.arg.is_some() && !c.required {
             ok.push(vec![c.name, "x-1"]);
+        }
+        if c.arg.is_some() {
             ok.push(vec![c.name, "x-1", "--json"]);
             ok.push(vec!["--json", c.name, "x-1"]);
         }
         for args in &ok {
             assert!(parse(args).is_ok(), "{args:?}");
         }
-        let mut bad =
-            vec![vec![c.name, "--nope"], vec![c.name, "-j"], vec![c.name, "--version"], vec![c.name, "--json=1"]];
+        let mut bad = vec![with(&["--nope"]), with(&["-j"]), with(&["--version"]), with(&["--json=1"])];
         bad.push(if c.arg.is_some() { vec![c.name, "a", "b"] } else { vec![c.name, "a"] });
+        if c.required {
+            bad.push(vec![c.name]);
+            bad.push(vec![c.name, "--json"]);
+        }
+        if !c.flags.contains(&"say") {
+            bad.push(with(&["--say", "words"]));
+        }
         for args in &bad {
             assert!(parse(args).is_err(), "{args:?}");
         }
     }
+    // The options that take a value (D-062): `--say` keeps its words as given, absent or empty, for the command to
+    // refuse; `--say-lang` takes one tag; only `--widen` repeats.
+    let run = |args: &[&str]| match parse(args) {
+        Ok(Parsed::Run { options, .. }) => options,
+        other => panic!("{args:?}: {other:?}"),
+    };
+    assert_eq!(run(&["adopt"]).say, None);
+    assert_eq!(run(&["adopt", "--say"]).say, Some("".into()));
+    assert_eq!(run(&["adopt", "--say", "--json"]).say, Some("".into()));
+    assert_eq!(run(&["adopt", "--say=--json"]).say, Some("--json".into()));
+    assert!(parse(&["adopt", "--say", "-"]).is_err() && parse(&["adopt", "--say", "-x"]).is_err());
+    assert_eq!(run(&["adopt", "--say=Sí."]).say, Some("Sí.".into()));
+    let o = run(&["adopt", "--widen", "a.b", "--say-lang", "es-MX", "--widen=c.d"]);
+    assert_eq!((o.widen, o.say_lang), (vec!["a.b".to_owned(), "c.d".to_owned()], Some("es-MX".to_owned())));
+    for bad in [
+        &["adopt", "--say", "a", "--say", "b"][..],
+        &["adopt", "--say-lang", "es", "--say-lang", "en"],
+        &["adopt", "--say-lang", "not a tag"],
+        &["adopt", "--say-lang"],
+        &["adopt", "--widen"],
+        &["adopt", "--widen", "--json"],
+    ] {
+        assert!(parse(bad).is_err(), "{bad:?}");
+    }
+    use std::os::unix::ffi::OsStringExt;
+    let raw = |v: Vec<u8>| vec!["adopt".into(), "--say".into(), std::ffi::OsString::from_vec(v)];
+    assert!(matches!(cli::parse(raw(vec![0xff])), Ok(Parsed::Run { options, .. }) if options.say.is_some()));
+    let widen = vec!["adopt".into(), "--widen".into(), std::ffi::OsString::from_vec(vec![0xff])];
+    assert!(cli::parse(widen).is_err());
     for args in [&["--version"][..], &["--version", "--json"], &["--json", "--version"], &["--help"], &[]] {
         let r = parse(args);
         assert_eq!(r.is_ok(), !args.is_empty(), "{args:?}");
@@ -138,7 +187,6 @@ fn req_cli_1_the_parser_accepts_exactly_the_declaration() {
         matches!(parse(&["config", "limits.rounds"]), Ok(Parsed::Run { arg: Some(a), .. }) if a == "limits.rounds")
     );
     // A name that is not a command, and bytes that are not UTF-8, are usage errors.
-    use std::os::unix::ffi::OsStringExt;
     assert!(cli::parse([std::ffi::OsString::from_vec(vec![0xff])]).is_err());
 }
 
@@ -172,7 +220,7 @@ fn rendered(lang: &str) -> Vec<(String, String)> {
     let params: Vec<(&str, &str)> = [
         "word", "path", "check", "about", "severity", "control", "errors", "warnings", "streams", "events", "digest",
         "mode", "id", "state", "goal", "stage", "what", "kind", "by", "at", "moves", "alias", "role", "tool", "name",
-        "touch", "tools", "from", "version", "verified",
+        "touch", "tools", "from", "version", "verified", "seq", "stream", "commit", "of",
     ]
     .iter()
     .map(|p| (*p, "x"))
@@ -227,7 +275,25 @@ fn pd_34_every_key_has_words_in_every_catalogue() {
     }
     // Every key the command surface's code names is in the catalogue.
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../core/src/cli");
-    let groups = ["ui", "usage", "internal", "help", "flag", "reference", "check", "status", "config", "source", "how"];
+    let groups = [
+        "ui",
+        "usage",
+        "internal",
+        "help",
+        "flag",
+        "reference",
+        "check",
+        "status",
+        "config",
+        "source",
+        "how",
+        "adopt",
+        "propose",
+        "write",
+        "format",
+        "type",
+        "words",
+    ];
     for file in std::fs::read_dir(dir).unwrap() {
         let text = std::fs::read_to_string(file.unwrap().path()).unwrap();
         for literal in text.split('"').skip(1).step_by(2) {
@@ -269,7 +335,8 @@ fn printed() -> Vec<String> {
         }
     }
     for c in COMMANDS {
-        out.push(format!("fabrewk {}", c.name));
+        let arg = if c.required { " x" } else { "" };
+        out.push(format!("fabrewk {}{arg}", c.name));
         out.push(format!("fabrewk {} --help", c.name));
     }
     out.extend(["fabrewk --help", "fabrewk --version"].map(str::to_owned));

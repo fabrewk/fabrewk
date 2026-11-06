@@ -77,9 +77,16 @@ impl Session {
         Ok(Session { domain: domain.to_path_buf(), _lock: lock, appended: Vec::new(), git, record })
     }
 
-    /// The record as replayed when the command began; `None` if there was none yet.
+    /// The record as replayed when the command began, or at its last [`Session::refresh`]; `None` if there was none.
     pub fn record(&self) -> Option<&Replay> {
         self.record.as_ref()
+    }
+
+    /// Replays the record again now that the lock is held, so that a command plans from what no other writer can
+    /// change while it runs (part 7d3a); refused by its first code.
+    pub fn refresh(&mut self, verifier: &dyn Verify) -> Result<(), Error> {
+        self.record = Some(replay::replay(&self.domain, verifier).map_err(|mut errors| errors.remove(0))?);
+        Ok(())
     }
 
     /// The head of `stream` as it is on disk now, `None` for a stream with no event.
@@ -190,6 +197,7 @@ impl Session {
         let Some((repo, branch, start)) = &self.git else {
             return Ok(None);
         };
+        fault::pause("before-commit");
         let mut files: Vec<PathBuf> = self.appended.iter().map(|a| a.1.clone()).collect();
         files.extend(views.iter().map(|v| self.domain.join(v)));
         if files.is_empty() {

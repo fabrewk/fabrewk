@@ -11,8 +11,10 @@ use std::ffi::OsString;
 #[derive(Debug)]
 pub struct Command {
     pub name: &'static str,
-    /// Its one optional argument's name, if it takes one.
+    /// Its one argument's name, if it takes one.
     pub arg: Option<&'static str>,
+    /// Whether the argument must be given.
+    pub required: bool,
     pub flags: &'static [&'static str],
     pub moves: &'static [&'static str],
     pub refusals: &'static [Code],
@@ -22,11 +24,44 @@ pub struct Command {
 
 const READ: &[&str] = &["json", "help"];
 
-/// Every command of this phase (D-053): the reading commands. `check`'s findings are its checks' codes (`CHECKS`).
+/// The options that take a value, with the word their help shows for it (D-062); only `widen` may be given more than
+/// once. Every other option is a switch.
+pub const VALUES: [(&str, &str); 3] = [("say", "words"), ("say-lang", "tag"), ("widen", "key")];
+
+/// The refusals every write command may give before its own (part 7d3a): the record's, the lock's, the repository's,
+/// the domain's, the private folder's and the tools'.
+const WRITE: &[Code] = &[
+    RecordAbsent,
+    PolicyAbsent,
+    RecordBroken,
+    RecordDigestMismatch,
+    RecordNoncanonical,
+    RecordFork,
+    RecordTransitionInvalid,
+    AttemptEnded,
+    RecordSignatureInvalid,
+    RecordVersionUnknown,
+    RecordIdCollision,
+    RecordRollback,
+    MarkInvalid,
+    DomainNotIgnored,
+    NotARepository,
+    HeadDetached,
+    PrivateFolderPermissions,
+    LockHeld,
+    RecordHeadMoved,
+    RecordCommitRace,
+    ToolFailed,
+    ToolMissing,
+];
+
+/// Every command of this phase (D-053, D-062): the reading commands, then the write commands of part 7d3a. `check`'s
+/// findings are its checks' codes (`CHECKS`); a write command's refusals are its own, then `WRITE`'s.
 pub const COMMANDS: &[Command] = &[
     Command {
         name: "status",
         arg: Some("id"),
+        required: false,
         flags: READ,
         moves: &[],
         refusals: &[],
@@ -35,6 +70,7 @@ pub const COMMANDS: &[Command] = &[
     Command {
         name: "config",
         arg: Some("key"),
+        required: false,
         flags: READ,
         moves: &[],
         refusals: &[
@@ -47,8 +83,57 @@ pub const COMMANDS: &[Command] = &[
         ],
         schemas: &["fabrewk.config/1", "fabrewk.value/1"],
     },
-    Command { name: "check", arg: None, flags: READ, moves: &[], refusals: &[], schemas: &["fabrewk.check/1"] },
+    Command {
+        name: "check",
+        arg: None,
+        required: false,
+        flags: READ,
+        moves: &[],
+        refusals: &[],
+        schemas: &["fabrewk.check/1"],
+    },
+    Command {
+        name: "adopt",
+        arg: None,
+        required: false,
+        flags: &["say", "say-lang", "widen", "json", "help"],
+        moves: &["policy-adopted"],
+        refusals: &[
+            AgentEnvironment,
+            RoleForbidden,
+            WordsMissing,
+            WordsCopied,
+            SettingsInvalid,
+            RoleNotEnforced,
+            PolicyUncommitted,
+            WideningUnnamed,
+        ],
+        schemas: &["fabrewk.adopted/1"],
+    },
+    Command {
+        name: "propose",
+        arg: Some("file"),
+        required: true,
+        flags: READ,
+        moves: &["stage-proposed", "task-proposed"],
+        refusals: &[StageClosed, TaskInvalid, ProtectedPath, ProtectedPathWildcard, CheckDuplicate],
+        schemas: &["fabrewk.proposed/1"],
+    },
 ];
+
+/// Whether a command writes (it lists the moves it may cause).
+pub fn writes(c: &Command) -> bool {
+    !c.moves.is_empty()
+}
+
+/// A command's refusals as its help and the reference list them: its own, then, for a write command, `WRITE`'s.
+pub fn refusals(c: &Command) -> Vec<Code> {
+    let mut out = c.refusals.to_vec();
+    if writes(c) {
+        out.extend(WRITE.iter().filter(|w| !c.refusals.contains(w)));
+    }
+    out
+}
 
 /// The program's own flags, without a command; `--version` also takes `--json`.
 pub const PROGRAM_FLAGS: [&str; 2] = ["help", "version"];
@@ -64,7 +149,16 @@ pub const EXITS: [i32; 5] = [0, 1, 2, 3, 70];
 pub enum Parsed {
     Help(Option<&'static Command>),
     Version { json: bool },
-    Run { command: &'static Command, arg: Option<String>, json: bool },
+    Run { command: &'static Command, arg: Option<String>, json: bool, options: Options },
+}
+
+/// The values of the options a write command takes. The words are kept as given, so that words that are not UTF-8,
+/// or none at all, are the command's refusal (`WORDS_MISSING`), never a usage error (REQ-TASK-4).
+#[derive(Debug, Default)]
+pub struct Options {
+    pub say: Option<OsString>,
+    pub say_lang: Option<String>,
+    pub widen: Vec<String>,
 }
 
 /// A command line the declaration does not accept: the catalogue's message, the word at fault, and the command whose
@@ -86,22 +180,66 @@ pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Parsed, Usage> 
     let mut p = lexopt::Parser::from_args(args);
     let (mut command, mut arg, mut help, mut version, mut json): (Option<&'static Command>, _, _, _, _) =
         (None, None, false, false, false);
+    let mut options = Options::default();
     loop {
         let next = p.next().map_err(|e| match e {
             lexopt::Error::UnexpectedValue { option, .. } => usage("usage.value", option, command),
             _ => usage("usage.utf8", "", command),
         })?;
+        // Owned, so that an option's value can be read from the parser next.
+        enum A {
+            Long(String),
+            Short(char),
+            Value(OsString),
+        }
+        let next = match next {
+            Some(Long(f)) => Some(A::Long(f.to_owned())),
+            Some(Short(c)) => Some(A::Short(c)),
+            Some(Value(v)) => Some(A::Value(v)),
+            None => None,
+        };
         let allowed = |f: &str| command.map_or(PROGRAM_FLAGS.contains(&f) || f == "json", |c| c.flags.contains(&f));
         match next {
             None => break,
-            Some(Long(f)) if allowed(f) => match f {
+            Some(A::Long(f)) if allowed(&f) && VALUES.iter().any(|v| v.0 == f) => {
+                let word = format!("--{f}");
+                // `--say` with no value is words missing, as is `--say` absent (REQ-TASK-4). A value is attached with
+                // `=`, or is the next argument unless that one starts with `-`: so `--say --json` gives no words
+                // rather than the words `--json`, and words that start with `-` are given as `--say=-…`.
+                let attached = p.optional_value();
+                let next_is_option = attached.is_none()
+                    && p.raw_args().ok().and_then(|r| r.peek().map(|a| a.as_encoded_bytes().starts_with(b"-")))
+                        != Some(false);
+                let value = match attached {
+                    Some(v) => v,
+                    None if next_is_option && f == "say" => OsString::new(),
+                    None if next_is_option => return Err(usage("usage.missing", word, command)),
+                    None => p.value().map_err(|_| usage("usage.missing", word.clone(), command))?,
+                };
+                if f == "say" {
+                    if options.say.replace(value).is_some() {
+                        return Err(usage("usage.repeat", word, command));
+                    }
+                    continue;
+                }
+                let value = value.into_string().map_err(|_| usage("usage.utf8", "", command))?;
+                match f.as_str() {
+                    "widen" => options.widen.push(value),
+                    _ if !crate::settings::is_tag(&value) => return Err(usage("usage.tag", value, command)),
+                    _ if options.say_lang.replace(value).is_some() => {
+                        return Err(usage("usage.repeat", word, command));
+                    }
+                    _ => {}
+                }
+            }
+            Some(A::Long(f)) if allowed(&f) => match f.as_str() {
                 "help" => help = true,
                 "version" => version = true,
                 _ => json = true,
             },
-            Some(Long(f)) => return Err(usage("usage.flag", format!("--{f}"), command)),
-            Some(Short(c)) => return Err(usage("usage.flag", format!("-{c}"), command)),
-            Some(Value(v)) => {
+            Some(A::Long(f)) => return Err(usage("usage.flag", format!("--{f}"), command)),
+            Some(A::Short(c)) => return Err(usage("usage.flag", format!("-{c}"), command)),
+            Some(A::Value(v)) => {
                 let v = v.into_string().map_err(|_| usage("usage.utf8", "", command))?;
                 match command {
                     None if version => return Err(usage("usage.extra", v, None)),
@@ -119,18 +257,59 @@ pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Parsed, Usage> 
         (_, true, false) => Ok(Parsed::Help(command)),
         (None, false, false) if json => Err(usage("usage.flag", "--json", None)),
         (None, false, true) => Ok(Parsed::Version { json }),
-        (Some(command), false, _) => Ok(Parsed::Run { command, arg, json }),
+        (Some(c), false, _) if c.required && arg.is_none() => {
+            Err(usage("usage.argument", format!("<{}>", c.arg.unwrap_or_default()), Some(c)))
+        }
+        (Some(command), false, _) => Ok(Parsed::Run { command, arg, json, options }),
         (None, true, true) => Err(usage("usage.flag", "--version", None)),
         (None, false, false) => Err(usage("usage.none", "", None)),
         (Some(c), true, true) => Err(usage("usage.flag", "--version", Some(c))),
     }
 }
 
-/// A command's synopsis: `fabrewk status [<id>] [--json]`.
+/// A command's synopsis: `fabrewk status [<id>] [--json]`, `fabrewk adopt --say <words> [--widen <key>]… [--json]`.
 pub fn synopsis(c: &Command) -> String {
-    let arg = c.arg.map(|a| format!(" [<{a}>]")).unwrap_or_default();
-    let json = if c.flags.contains(&"json") { " [--json]" } else { "" };
-    format!("fabrewk {}{arg}{json}", c.name)
+    let arg = match (c.arg, c.required) {
+        (Some(a), true) => format!(" <{a}>"),
+        (Some(a), false) => format!(" [<{a}>]"),
+        (None, _) => String::new(),
+    };
+    let mut out = format!("fabrewk {}{arg}", c.name);
+    for f in c.flags.iter().filter(|f| **f != "help") {
+        out += &match VALUES.iter().find(|v| v.0 == *f) {
+            Some(("say", word)) => format!(" --say <{word}>"),
+            Some(("widen", word)) => format!(" [--widen <{word}>]…"),
+            Some((f, word)) => format!(" [--{f} <{word}>]"),
+            None => format!(" [--{f}]"),
+        };
+    }
+    out
+}
+
+/// The format of `propose`'s file, in `lang`: the stage, then the tasks, each field with its type (part 7d3a).
+pub fn file_format(lang: &str) -> String {
+    let t = |k: &str, of: &str| say(lang, k, &[("of", of)]);
+    let ty = |chain: &[&str]| chain.iter().rev().fold(String::new(), |of, w| t(&format!("type.{w}"), &of));
+    let [stage, task] = crate::task::file_format();
+    let mut out = format!("{}\n", t("format.stage", ""));
+    let lines = |rows: Vec<crate::task::FormatLine>, out: &mut String| {
+        for (depth, field, optional, chain) in rows {
+            let optional = if optional { format!(" {}", t("format.optional", "")) } else { String::new() };
+            *out += &format!("{}{field}{optional}: {}\n", "  ".repeat(depth), ty(&chain));
+        }
+    };
+    lines(stage, &mut out);
+    out += &format!("{}\n  name {}: {}\n", t("format.tasks", ""), t("format.optional", ""), t("format.name", ""));
+    lines(task, &mut out);
+    out
+}
+
+/// An option as help lists it: `--say <words>`, `--json`.
+fn option(f: &str) -> String {
+    match VALUES.iter().find(|v| v.0 == f) {
+        Some((_, word)) => format!("--{f} <{word}>"),
+        None => format!("--{f}"),
+    }
 }
 
 fn pad(rows: &[(String, String)]) -> String {
@@ -141,7 +320,7 @@ fn pad(rows: &[(String, String)]) -> String {
 /// Help in `lang`: the program's, or one command's.
 pub fn help(lang: &str, command: Option<&Command>) -> String {
     let t = |k: &str| say(lang, k, &[]);
-    let flag = |f: &str| (format!("--{f}"), t(&format!("flag.{f}")));
+    let flag = |f: &str| (option(f), t(&format!("flag.{f}")));
     match command {
         None => {
             let commands: Vec<_> = COMMANDS
@@ -171,8 +350,12 @@ pub fn help(lang: &str, command: Option<&Command>) -> String {
             }
             let flags: Vec<_> = c.flags.iter().map(|f| flag(f)).collect();
             out += &format!("\n{}:\n{}", t("help.options"), pad(&flags));
-            if !c.refusals.is_empty() {
-                let rows: Vec<_> = c.refusals.iter().map(|r| (r.to_string(), t(&format!("code.{r}.reason")))).collect();
+            if c.name == "propose" {
+                out += &format!("\n{}:\n{}", t("help.format"), file_format(lang));
+            }
+            let refusals = refusals(c);
+            if !refusals.is_empty() {
+                let rows: Vec<_> = refusals.iter().map(|r| (r.to_string(), t(&format!("code.{r}.reason")))).collect();
                 out += &format!("\n{}:\n{}", t("help.refusals"), pad(&rows));
             }
             out
@@ -209,7 +392,11 @@ pub fn fish() -> String {
         out += &format!("complete -c fabrewk -n __fish_use_subcommand -a {} -d {}\n", c.name, quoted(&summary));
         for f in c.flags {
             let d = quoted(&say("en", &format!("flag.{f}"), &[]));
-            out += &format!("complete -c fabrewk -n '__fish_seen_subcommand_from {}' -l {f} -d {d}\n", c.name);
+            let r = if VALUES.iter().any(|v| v.0 == *f) { " -r" } else { "" };
+            out += &format!("complete -c fabrewk -n '__fish_seen_subcommand_from {}' -l {f}{r} -d {d}\n", c.name);
+        }
+        if c.name == "propose" {
+            out += "complete -c fabrewk -n '__fish_seen_subcommand_from propose' -F\n";
         }
     }
     let words: Vec<&str> = keys().collect();
@@ -258,14 +445,20 @@ pub fn reference(lang: &str, checks: &[(String, String, String)]) -> String {
             out += &format!("- `<{a}>`: {}\n", t(&format!("command.{}.arg", c.name)));
         }
         for f in c.flags {
-            out += &format!("- `--{f}`: {}\n", t(&format!("flag.{f}")));
+            out += &format!("- `{}`: {}\n", option(f), t(&format!("flag.{f}")));
         }
-        out += &format!("\n{} {}\n", t("reference.moves"), t("reference.none"));
+        let moves: Vec<String> = c.moves.iter().map(|m| format!("`{m}` ({})", t(&format!("kind.{m}")))).collect();
+        let moves = if moves.is_empty() { t("reference.none") } else { moves.join(", ") + "." };
+        out += &format!("\n{} {moves}\n", t("reference.moves"));
         let schemas: Vec<String> = c.schemas.iter().map(|s| format!("`{s}`")).collect();
         out += &format!("\n{} {}\n", t("reference.documents"), schemas.join(", "));
-        if !c.refusals.is_empty() {
+        if c.name == "propose" {
+            out += &format!("\n{}\n\n```text\n{}```\n", t("help.format"), file_format(lang));
+        }
+        let refusals = refusals(c);
+        if !refusals.is_empty() {
             out += &format!("\n{}\n\n", t("help.refusals"));
-            for r in c.refusals {
+            for r in refusals {
                 out += &format!("- `{r}`: {}\n", t(&format!("code.{r}.reason")));
             }
         }

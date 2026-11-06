@@ -553,6 +553,46 @@ a record's own code when it does not replay; it lists each effective value with 
 their effect, each maintainer's key (REQ-ID-5), what detection finds, the effective tools and every guard of section
 4 and every check of section 6 with its label (REQ-SEC-5).
 
+**The write path, as part 7d3a fixed it (D-062).** The declaration gains a required argument (`propose <file>`, a
+usage error without it) and the options that take a value, `--say <words>`, `--say-lang <tag>` and `--widen <key>`
+(only `--widen` repeats; another repeated, a tag that is not BCP 47, or a missing value is a usage error). A value is
+attached with `=` or is the next argument unless that one starts with `-`, so `--say --json` gives no words rather
+than the words `--json`, and words that start with `-` are given as `--say=-…`; `--say` absent, given no value,
+empty after trimming or not UTF-8 is `WORDS_MISSING`. Write commands take `--json` too (`fabrewk.adopted/1`,
+`fabrewk.proposed/1`, each with the events written and the record commit); help and the reference list, after a
+write command's own refusals, those of the write path. Every write command runs in this order: for a person's move,
+`AGENT_ENVIRONMENT`; the record read without the lock (`RECORD_ABSENT` and the replay's codes); this machine's mark
+(`RECORD_ROLLBACK`, `MARK_INVALID`); the policy in force (`POLICY_ABSENT`); the publication mode (a record with a
+policy and no `publication-decided` is `RECORD_BROKEN`: `apply` writes both); `DOMAIN_NOT_IGNORED`; the private
+folder's permissions; the command's own guards on that record; then the session (`NOT_A_REPOSITORY`,
+`HEAD_DETACHED`, the history walk, `LOCK_HELD`), the record replayed again under the lock and the command's guards
+again on it; the record commit of what an earlier command left uncommitted; the machine key (REQ-REG-12); the events,
+each appended by compare-and-swap after the head the plan saw (`RECORD_HEAD_MOVED`), an adoption's seal read just
+before it; the replay before the record commit (PD-46) and the commit (`RECORD_COMMIT_RACE`); then the caches: the
+mark, `allowed_signers` from the policy in force (REQ-ID-2) and `detected.json` with `git` and `ssh-keygen` verified
+by use (REQ-SET-8). A refusal decided before the session writes nothing; one decided after it, only when the record
+changed in between, may leave the empty `local/lock`. A person is the maintainer whose key Git's `user.signingkey`
+names (D-055), refused `ROLE_FORBIDDEN` when Git names none, the key is no maintainer's, or the role may not make the
+move; the signature is `ssh-keygen -Y sign -n fabrewk -f` over the private key file, the public key file (its
+private key beside it or in the SSH agent) or, for a `key::` literal, a copy of it in `local/tmp/` removed after
+(the agent). The words are not an example any catalogue prints (`words.example`, which `--say`'s help shows),
+compared after trimming (`WORDS_COPIED`); their tag is `--say-lang`, else the person's `languages.agentInteraction`.
+`AGENT_ENVIRONMENT` is refused when any marker is set in the environment, whatever its value: those the binary
+declares on each adapter's behalf (`CLAUDECODE`; `CODEX_SANDBOX`, `CODEX_SANDBOX_NETWORK_DISABLED`) and the core's
+`FABREWK_EXTENSION` (REQ-SEC-7); `propose`, which grants nothing, is not refused there. REQ-RUN-5 is phase 9's: no
+command of phase 7 opens an attempt. An internal error of a write command says that what it wrote stays in the
+record. `adopt` cites the policy in force, checks the move's role in it, and records the file's content, digest, the
+seal of every other stream's head read just before the append, and the widenings named; it may adopt a file equal
+to the policy in force. `propose <file>` reads a regular file outside every Fabrewk domain, at most 1 MiB, as JSON
+holding exactly `stage` (a stage's payload without its nonce, or the identifier of a stage of the record) and `tasks`
+(one or more, each a task's payload without its nonce and stage, plus an optional `name` that is not shaped as a
+task's identifier, by which a later task of the file names it among its dependencies); `propose` draws the nonces,
+records Fabrewk as the actor, and refuses every failure of the file's shape or content as `TASK_INVALID`; the
+protected paths a task's wildcards are held to are the effective `gate.protectedPaths` with its stage's and its own
+layer; a stage that is closed is `STAGE_CLOSED`. Its format is printed by `propose --help` and the reference. The
+fault tests of the write path (`RECORD_HEAD_MOVED`, `RECORD_COMMIT_RACE`, PD-46) are in the binary's test `faults`,
+built with the binary's feature `fault-injection`, which enables the core's.
+
 ### INS: assessment, installation and onboarding
 
 - **REQ-INS-1.** `fabrewk assess` reads only Git's state, the root files, an existing `AGENTS.md`, the licence, another

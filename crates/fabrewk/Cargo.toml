@@ -15,3 +15,12 @@ serde_json = "1"
 
 [lints]
 workspace = true
+
+[features]
+# The core's crash-suite seam, for the write commands' fault tests (core-specification 11.2 rule 8); never in a
+# release build.
+fault-injection = ["fabrewk-core/fault-injection"]
+
+[[test]]
+name = "faults"
+required-features = ["fault-injection"]

@@ -28,15 +28,7 @@ pub struct KeySigner(pub PathBuf);
 
 impl Sign for KeySigner {
     fn sign(&self, bytes: &[u8]) -> Result<Vec<u8>, Error> {
-        let key = self.0.as_os_str();
-        let out = ssh_keygen(
-            &["-Y".as_ref(), "sign".as_ref(), "-n".as_ref(), "fabrewk".as_ref(), "-f".as_ref(), key],
-            bytes,
-        )?;
-        if !out.status.success() {
-            return Err(refuse(Code::ToolFailed, Some(&self.0), "ssh-keygen -Y sign failed"));
-        }
-        Ok(out.stdout)
+        sign_with(&self.0, bytes)
     }
 
     fn public(&self) -> Result<String, Error> {
@@ -45,6 +37,17 @@ impl Sign for KeySigner {
         let path = PathBuf::from(path);
         std::fs::read_to_string(&path).map(|s| s.trim_end().to_owned()).map_err(io_at(&path))
     }
+}
+
+/// The detached signature of `bytes` made with `ssh-keygen -Y sign -n fabrewk -f <key>`, a private key file, or a public
+/// one whose private key is beside it or in the SSH agent; `TOOL_FAILED` if it fails, never its own text.
+pub(crate) fn sign_with(key: &Path, bytes: &[u8]) -> Result<Vec<u8>, Error> {
+    let args = ["-Y".as_ref(), "sign".as_ref(), "-n".as_ref(), "fabrewk".as_ref(), "-f".as_ref(), key.as_os_str()];
+    let out = ssh_keygen(&args, bytes)?;
+    if !out.status.success() {
+        return Err(refuse(Code::ToolFailed, Some(key), "ssh-keygen -Y sign failed"));
+    }
+    Ok(out.stdout)
 }
 
 /// The public key blob an armored SSH signature carries, if it is one made in the namespace `fabrewk`.

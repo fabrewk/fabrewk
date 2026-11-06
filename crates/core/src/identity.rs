@@ -147,29 +147,76 @@ pub fn actor(policy: &Settings, alias: &str, signer: &dyn Sign, kind: &str) -> R
     Ok(serde_json::json!({"kind": "person", "alias": m.alias, "role": m.role}))
 }
 
+/// The key Git's `user.signingkey` names in the repository at `root` (D-055): its public key, and the file to give
+/// `ssh-keygen -Y sign`, as Git does: the private key file, or the public key file (whose private key is beside it or
+/// in the SSH agent); none for a `key::` literal, whose private key is in the agent.
+#[derive(Debug, Clone)]
+pub struct GitKey {
+    pub public: String,
+    pub file: Option<std::path::PathBuf>,
+}
+
+/// The key Git signs with in the repository at `root`; `None` when Git names none, or names one that is not a key.
+pub fn signing(root: &Path) -> Option<GitKey> {
+    let named = record::signing_key(root)?;
+    if let Some(literal) = named.strip_prefix("key::") {
+        return key_blob(literal.trim()).is_some().then(|| GitKey { public: literal.trim().to_owned(), file: None });
+    }
+    // Only a regular file is opened, so that a pipe never blocks a command (P7D2-17), and never one in a domain or in
+    // this repository, however it is reached: a key is no maintainer's cited material.
+    let inside = |p: &Path| crate::code::in_domain(p, root);
+    let regular = |p: &Path| !inside(p) && std::fs::metadata(p).is_ok_and(|m| m.is_file());
+    let read = |p: &Path| {
+        regular(p).then(|| std::fs::read_to_string(p).ok()).flatten().filter(|t| key_blob(t.trim()).is_some())
+    };
+    let path = root.join(&named);
+    let mut public = path.clone().into_os_string();
+    public.push(".pub");
+    let public = read(&path).or_else(|| read(Path::new(&public)))?;
+    Some(GitKey { public: public.trim().to_owned(), file: Some(path) })
+}
+
 /// The maintainer of `policy` who runs this command (D-055): the one whose key is the public key Git's
 /// `user.signingkey` names in the repository at `root`, a `key::` literal, a public key file, or a private key file
 /// with its `.pub` beside it. `None` when Git names none or no maintainer holds it.
 pub fn person(policy: &Settings, root: &Path) -> Option<String> {
-    let named = record::signing_key(root)?;
-    let public = match named.strip_prefix("key::") {
-        Some(literal) => literal.to_owned(),
-        None => {
-            // Only a regular file is opened, so that a pipe never blocks a reading command (P7D2-17), and never one
-            // in a domain or in this repository, however it is reached: a key is no maintainer's cited material.
-            let inside = |p: &Path| crate::code::in_domain(p, root);
-            let regular = |p: &Path| !inside(p) && std::fs::metadata(p).is_ok_and(|m| m.is_file());
-            let read = |p: &Path| {
-                regular(p).then(|| std::fs::read_to_string(p).ok()).flatten().filter(|t| key_blob(t.trim()).is_some())
-            };
-            let path = root.join(&named);
-            let mut public = path.clone().into_os_string();
-            public.push(".pub");
-            read(&path).or_else(|| read(Path::new(&public)))?
-        }
-    };
-    let blob = key_blob(public.trim());
+    holder(policy, &signing(root)?.public)
+}
+
+/// The maintainer of `policy` whose key is `public`.
+pub fn holder(policy: &Settings, public: &str) -> Option<String> {
+    let blob = key_blob(public);
     maintainers(policy).into_iter().find(|m| blob.is_some() && key_blob(&m.key) == blob).map(|m| m.alias)
+}
+
+/// Signs as Git signs with its signing key (D-055 point 1, D-062): `ssh-keygen -Y sign -n fabrewk -f <file>`; for a
+/// `key::` literal the public key is written to `tmp` first, in the domain's unversioned area, and removed after.
+pub struct GitSigner {
+    pub key: GitKey,
+    pub tmp: std::path::PathBuf,
+}
+
+impl Sign for GitSigner {
+    fn sign(&self, bytes: &[u8]) -> Result<Vec<u8>, Error> {
+        let file = match &self.key.file {
+            Some(f) => f.clone(),
+            None => {
+                let dir = self.tmp.parent().unwrap_or(&self.tmp);
+                std::fs::create_dir_all(dir).map_err(crate::code::io_at(dir))?;
+                record::write_atomic(&self.tmp, format!("{}\n", self.key.public).as_bytes())?;
+                self.tmp.clone()
+            }
+        };
+        let signed = record::sign_with(&file, bytes);
+        if self.key.file.is_none() {
+            let _ = std::fs::remove_file(&self.tmp);
+        }
+        signed
+    }
+
+    fn public(&self) -> Result<String, Error> {
+        Ok(self.key.public.clone())
+    }
 }
 
 /// The allowed-signers file derived from a policy (REQ-ID-2), one line per maintainer, for `ssh-keygen` and Git. It is

@@ -217,6 +217,45 @@ impl Fx {
         run_in(&self.root, &self.home, args, path)
     }
 
+    /// As [`Fx::run`], with arguments that need not be UTF-8 and variables added to the environment.
+    pub fn run_os(&self, args: &[std::ffi::OsString], env: &[(&str, &std::ffi::OsStr)]) -> Ran {
+        let mut c = Command::new(env!("CARGO_BIN_EXE_fabrewk"));
+        isolate(&mut c, &self.home, None);
+        for (k, v) in env {
+            c.env(k, v);
+        }
+        let out = c.current_dir(&self.root).args(args).output().unwrap();
+        Ran {
+            status: out.status.code().unwrap_or(-1),
+            stdout: String::from_utf8_lossy(&out.stdout).into_owned(),
+            stderr: String::from_utf8_lossy(&out.stderr).into_owned(),
+        }
+    }
+
+    /// As [`Fx::run`], with variables added to the environment.
+    pub fn run_env(&self, args: &[&str], env: &[(&str, &str)]) -> Ran {
+        let args: Vec<std::ffi::OsString> = args.iter().map(Into::into).collect();
+        let env: Vec<(&str, &std::ffi::OsStr)> = env.iter().map(|(k, v)| (*k, std::ffi::OsStr::new(*v))).collect();
+        self.run_os(&args, &env)
+    }
+
+    /// Every event of `stream`, in order, as JSON.
+    pub fn events(&self, stream: &str) -> Vec<Value> {
+        let dir = self.domain.join("data/events").join(stream);
+        let mut files: Vec<PathBuf> =
+            std::fs::read_dir(&dir).map(|d| d.map(|e| e.unwrap().path()).collect()).unwrap_or_default();
+        files.retain(|f| f.extension().is_some_and(|e| e == "json"));
+        files.sort();
+        files.iter().map(|f| serde_json::from_slice(&std::fs::read(f).unwrap()).unwrap()).collect()
+    }
+
+    /// Replaces the project file with `text` and commits it.
+    pub fn edit_policy(&self, text: &str) {
+        std::fs::write(self.domain.join("settings.toml"), text).unwrap();
+        self.git(&["add", ".brewstillery/settings.toml"]);
+        self.git(&["commit", "-q", "-m", "policy"]);
+    }
+
     /// Every file and directory under the root, the home and the keys, with its mode and bytes.
     pub fn snapshot(&self) -> BTreeMap<PathBuf, (u32, Vec<u8>)> {
         let mut out = BTreeMap::new();
@@ -312,4 +351,51 @@ fn sweep_ended(prefix: &str) {
             }
         }
     });
+}
+
+/// A human output holds no placeholder, no internal key and no command the declaration refuses (PD-36, PD-38).
+pub fn whole(text: &str) {
+    assert!(!text.contains(['{', '}']), "a placeholder: {text}");
+    assert!(!text.contains("(a message the catalogue lacks)") && !text.contains("(un mensaje que falta"), "{text}");
+    for line in text.lines().map(str::trim).filter(|l| l.starts_with("fabrewk ") && !l.contains(['<', '['])) {
+        let words: Vec<&str> = line.split(' ').collect();
+        assert!(fabrewk_core::cli::parse(words[1..].iter().map(std::ffi::OsString::from)).is_ok(), "{line}");
+    }
+}
+
+/// Runs `args` as a person and with `--json`; asserts that nothing changed on disk, the exit status, that the code
+/// is in both outputs with the catalogue's reason and next step in `lang`, and that a command to run parses (11.2
+/// rule 4). Gives the document's entry for the code.
+pub fn refused(fx: &Fx, args: &[&str], code: &str, exit: i32, lang: &str) -> Value {
+    let before = fx.snapshot();
+    let human = fx.run(args);
+    let json = fx.run(&[args, &["--json"]].concat());
+    assert_eq!(fx.snapshot(), before, "{args:?} wrote");
+    assert_eq!((human.status, json.status), (exit, exit), "{args:?}: {human:?}");
+    whole(&human.all());
+    assert!(
+        human.all().contains(&format!("{code}: {}", fabrewk_core::cli::say(lang, &format!("code.{code}.reason"), &[]))),
+        "{human:?}"
+    );
+    assert!(human.all().contains(&fabrewk_core::cli::say(lang, &format!("code.{code}.next"), &[])), "{human:?}");
+    let doc = json.doc();
+    let list = if doc["schema"] == "fabrewk.check/1" { &doc["findings"] } else { &doc["refusals"] };
+    let entry = list.as_array().unwrap().iter().find(|e| e["code"] == code).unwrap_or_else(|| panic!("{code}: {doc}"));
+    assert_eq!(entry["next"], fabrewk_core::cli::say(lang, &format!("code.{code}.next"), &[]));
+    // The human output names where and the detail exactly when the document has them.
+    for (field, label) in [("path", "ui.where"), ("detail", "ui.detail")] {
+        let label = format!("  {}: ", fabrewk_core::cli::say(lang, label, &[]));
+        match entry[field].as_str().filter(|v| !v.is_empty()) {
+            Some(v) => assert!(human.all().contains(&format!("{label}{v}\n")), "{field}: {human:?}"),
+            None => assert!(!human.all().contains(&label), "{field}: {human:?}"),
+        }
+    }
+    if let Some(run) = entry["run"].as_str() {
+        assert!(human.all().contains(run));
+        assert!(matches!(
+            fabrewk_core::cli::parse(run.split(' ').skip(1).map(std::ffi::OsString::from)),
+            Ok(fabrewk_core::cli::Parsed::Run { .. })
+        ));
+    }
+    entry.clone()
 }

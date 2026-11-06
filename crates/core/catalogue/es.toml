@@ -15,12 +15,18 @@ extra = "El argumento {word} sobra: este comando no acepta tantos."
 none = "No se indicó ningún comando."
 utf8 = "Un argumento no es texto UTF-8 válido."
 id = "Ninguna etapa ni tarea del registro tiene el identificador {word}."
+missing = "La opción {word} lleva un valor."
+repeat = "La opción {word} se dio más de una vez."
+tag = "La etiqueta de idioma {word} no es una etiqueta BCP 47 válida."
+argument = "El comando necesita su argumento {word}."
 next = "Consulta qué acepta el comando:"
 
 [internal]
 io = "Fabrewk se detuvo por un error interno: no pudo leer ni escribir {path}. Este comando no escribe nada, así que nada cambió."
 panic = "Fabrewk se detuvo por un error interno. Este comando no escribe nada, así que nada cambió."
 missing = "(un mensaje que falta en el catálogo)"
+io-write = "Fabrewk se detuvo por un error interno: no pudo leer ni escribir {path}. Lo que escribió antes queda en el registro, y verificar el repositorio muestra lo que contiene."
+panic-write = "Fabrewk se detuvo por un error interno. Lo que escribió antes queda en el registro, y verificar el repositorio muestra lo que contiene."
 
 [help]
 intro = "Fabrewk coordina el desarrollo de un proyecto a partir de su registro, guardado en .brewstillery/."
@@ -30,11 +36,15 @@ options = "Opciones"
 argument = "Argumento"
 refusals = "Rechazos"
 command-word = "comando"
+format = "El formato del archivo"
 
 [flag]
 help = "Muestra esta ayuda."
 version = "Muestra la versión de Fabrewk."
 json = "Da la salida como un solo documento JSON con un campo schema."
+say = "Tus propias palabras para esta decisión, guardadas tal cual y firmadas. Se rechazan las copiadas de un ejemplo, como «Estoy de acuerdo.»."
+say-lang = "La etiqueta de idioma de tus palabras; por omisión, tu languages.agentInteraction."
+widen = "Nombra una ampliación de autoridad que hace este movimiento, por su ruta de clave; una vez por cada una."
 
 [command.status]
 summary = "Muestra la salud del registro, la política vigente y el estado de cada etapa y tarea."
@@ -46,6 +56,51 @@ arg = "Un solo ajuste, por su ruta de clave: muestra solo su valor y su origen."
 
 [command.check]
 summary = "Verifica los ajustes, la política, el registro, el dominio, las credenciales y la carpeta privada."
+
+[command.adopt]
+summary = "Un maestro adopta el archivo del proyecto como la política vigente, nombrando cada ampliación que hace."
+
+[command.propose]
+summary = "Propone una etapa y sus tareas, o tareas para una etapa del registro, desde un archivo JSON; no autoriza nada."
+arg = "El archivo JSON que describe la etapa y sus tareas; su formato va abajo."
+
+[words]
+example = "Estoy de acuerdo."
+
+[format]
+stage = "stage: un objeto con estos campos, o el identificador (s-…) de una etapa del registro"
+tasks = "tasks: una lista de una tarea o más, cada una un objeto con estos campos"
+name = "un nombre para la tarea, que una tarea posterior del archivo puede dar entre sus dependencias"
+optional = "(opcional)"
+
+[type]
+text = "texto"
+tag = "una etiqueta de idioma (BCP 47)"
+count = "un número entero, 1 o más"
+bool = "true o false"
+hex = "dígitos hexadecimales"
+stage-id = "el identificador de una etapa (s-…)"
+task-id = "el identificador de una tarea (t-…), o el nombre de una tarea anterior del archivo"
+base = "un commit (40 o 64 dígitos hexadecimales), o null"
+value = "el valor de un ajuste"
+object = "un objeto con estos campos"
+list = "una lista, cada elemento {of}"
+map = "un objeto cuyos campos tienen cada uno {of}"
+
+[adopt]
+done = "El archivo del proyecto es ahora la política vigente (digest {digest}). Sus cambios frente a la política que reemplaza:"
+unchanged = "ninguno: contiene lo que contenía la política vigente."
+
+[propose]
+stage = "Se propuso la etapa {id}: {goal}"
+added = "Se agregó a la etapa {id}: {goal}"
+task = "Se propuso la tarea {id}: {goal}"
+grants = "Nada queda autorizado: un maestro lee cada una y decide."
+
+[write]
+event = "Se registró el evento {seq} del flujo {stream}."
+commit = "Se confirmó el registro: {commit}."
+uncommitted = "El registro no se confirma: el modo de publicación no confirma nada."
 
 [reference]
 title = "fabrewk: referencia de comandos"
@@ -292,6 +347,10 @@ declared = "{path}, {version}; declarado en machine.toml; verificado por uso por
 "extensions.*.digest" = "El resumen de la extensión"
 "extensions.*.network" = "Si la extensión tiene red"
 
+[code.AGENT_ENVIRONMENT]
+reason = "Esto corre dentro de un agente o una extensión, cuyos marcadores están en el entorno, y solo una persona hace este movimiento. El control es cooperativo: un proceso puede limpiar su entorno."
+next = "Ejecuta tú el comando, en tu propia terminal."
+
 [code.ALIAS_INVALID]
 reason = "Un nombre que no es un alias válido: minúsculas, dígitos y guiones sueltos, empezando con una letra, de 32 caracteres a lo más, y que no sea un nombre reservado."
 next = "Renómbralo a un alias válido."
@@ -372,6 +431,7 @@ run = "fabrewk config"
 [code.POLICY_UNCOMMITTED]
 reason = "El archivo del proyecto no está como se confirmó en el head de la rama del registro."
 next = "Confirma .brewstillery/settings.toml y luego adóptalo."
+run = "fabrewk adopt"
 
 [code.PRIVATE_FOLDER_PERMISSIONS]
 reason = "La carpeta privada da acceso a alguien más que su dueño, así que Fabrewk no la lee."
@@ -454,6 +514,10 @@ next = "Corrige el archivo en la ruta de clave y la línea indicadas."
 reason = "Un archivo personal tiene una clave que solo el archivo del proyecto puede fijar."
 next = "Mueve la clave al archivo del proyecto, donde un maestro la adopta."
 
+[code.STAGE_CLOSED]
+reason = "La etapa está cerrada, así que no se le puede agregar ninguna tarea."
+next = "Propón las tareas en una etapa nueva."
+
 [code.TASK_CHANGED]
 reason = "La tarea, o el head de su flujo, cambió después de mostrarse."
 next = "Consulta la tarea como está ahora:"
@@ -474,3 +538,11 @@ next = "Instala la herramienta indicada, o declara dónde está."
 [code.WIDENING_UNNAMED]
 reason = "Un cambio amplía la autoridad sin nombrarse."
 next = "Un maestro nombra cada ampliación, por su ruta de clave, al hacer el movimiento."
+
+[code.WORDS_COPIED]
+reason = "Las palabras dadas son el ejemplo que imprime la ayuda, no las tuyas."
+next = "Escribe tus propias palabras para esta decisión con --say."
+
+[code.WORDS_MISSING]
+reason = "Un movimiento de persona necesita tus propias palabras, dadas con --say: no vacías y en texto UTF-8 válido."
+next = "Di con --say, con tus palabras, por qué lo decides."

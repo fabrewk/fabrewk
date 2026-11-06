@@ -6,55 +6,11 @@
 mod common;
 
 use common::*;
-use fabrewk_core::cli::{self, CHECKS, Parsed};
+use fabrewk_core::cli::{self, CHECKS};
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
-
-/// A human output holds no placeholder, no internal key and no command the declaration refuses (PD-36, PD-38).
-fn whole(text: &str) {
-    assert!(!text.contains(['{', '}']), "a placeholder: {text}");
-    assert!(!text.contains("(a message the catalogue lacks)") && !text.contains("(un mensaje que falta"), "{text}");
-    for line in text.lines().map(str::trim).filter(|l| l.starts_with("fabrewk ") && !l.contains(['<', '['])) {
-        let words: Vec<&str> = line.split(' ').collect();
-        assert!(cli::parse(words[1..].iter().map(std::ffi::OsString::from)).is_ok(), "{line}");
-    }
-}
-
-/// Runs `args` as a person and with `--json`; asserts that nothing changed on disk, the exit status, that the code
-/// is in both outputs with the catalogue's reason and next step in `lang`, and that a command to run parses (11.2
-/// rule 4). Gives the document's entry for the code.
-fn refused(fx: &Fx, args: &[&str], code: &str, exit: i32, lang: &str) -> Value {
-    let before = fx.snapshot();
-    let human = fx.run(args);
-    let json = fx.run(&[args, &["--json"]].concat());
-    assert_eq!(fx.snapshot(), before, "{args:?} wrote");
-    assert_eq!((human.status, json.status), (exit, exit), "{args:?}: {human:?}");
-    whole(&human.all());
-    assert!(
-        human.all().contains(&format!("{code}: {}", cli::say(lang, &format!("code.{code}.reason"), &[]))),
-        "{human:?}"
-    );
-    assert!(human.all().contains(&cli::say(lang, &format!("code.{code}.next"), &[])), "{human:?}");
-    let doc = json.doc();
-    let list = if doc["schema"] == "fabrewk.check/1" { &doc["findings"] } else { &doc["refusals"] };
-    let entry = list.as_array().unwrap().iter().find(|e| e["code"] == code).unwrap_or_else(|| panic!("{code}: {doc}"));
-    assert_eq!(entry["next"], cli::say(lang, &format!("code.{code}.next"), &[]));
-    // The human output names where and the detail exactly when the document has them.
-    for (field, label) in [("path", "ui.where"), ("detail", "ui.detail")] {
-        let label = format!("  {}: ", cli::say(lang, label, &[]));
-        match entry[field].as_str().filter(|v| !v.is_empty()) {
-            Some(v) => assert!(human.all().contains(&format!("{label}{v}\n")), "{field}: {human:?}"),
-            None => assert!(!human.all().contains(&label), "{field}: {human:?}"),
-        }
-    }
-    if let Some(run) = entry["run"].as_str() {
-        assert!(human.all().contains(run));
-        assert!(matches!(cli::parse(run.split(' ').skip(1).map(std::ffi::OsString::from)), Ok(Parsed::Run { .. })));
-    }
-    entry.clone()
-}
 
 /// The codes of `check --json`'s findings, with their severity.
 fn findings(fx: &Fx) -> Vec<(String, String)> {
