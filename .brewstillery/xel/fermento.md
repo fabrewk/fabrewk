@@ -6,7 +6,8 @@ Mi entrada es exclusivamente mía. Lo que cite desde aquí (capturas, PDF, otros
 
 ## Propuestas y pendientes
 
-1. PREGUNTA:  ¿Tenemos definido el que busques, analices e implementes para el bootstrap de Fabrewk skills que puedan usar todos los agentes para eficientar el trabajo que se está haciendo..?
+1. PROPUESTA:  Propongo que, durante el bootsrap, el integrador busque y evalúe skills para Claude Code y Codex que eficienticen su trabajo en función a los lenguajes de implementación usados o a usar, herramientas, enfoque del proyecto, etc, así como para ahorrar en trabjo repetido; me proponga cuáles adoptar con su evaluación, y que solo las que yo apruebe se instalen. (Preferentemente dentro del dominio `.brewstilery/`).  Si no está registrado en la prosa descriptiva del Alambique, te autorizo para hacer los ajustes necesarios en el mismo, tanto para el bootstrap como para el diseño final en el producto (donde irían guardados, propongo dentro del dominio).  Como Nota de diseño creo que el call para buscar skills debe ser requerido en el alambique de cada proyecto, como estamos requiriendolo justo ahora para el bootstrap.
+
 
 
 ################################################################################
