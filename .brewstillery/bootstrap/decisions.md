@@ -2799,3 +2799,22 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   `-p fabrewk-core -p fabrewk --features fault-injection --test crash --test faults`, and its mutation paragraph says
   that the core's feature builds `faults` too.
 - Not done: part 7d3b.
+
+## R-032 — Session 23, after the close: a sweep of the maestro's proposal on the first alambique
+
+- Status: recorded
+- Date: 2026-11-06
+- Who: integrator Claude Code, `claude-opus-5-5`.
+- Fermento: during part 7d3a's review the maestro added a proposal to their input (the onboarding guides a new
+  maintainer, with simple questions, to write the project's first alambique). The integrator's commit `972ebe5`
+  (`git add -A`) took that edit in with an AI co-author, the slip of R-021 and R-029; history was not rewritten. At
+  the maestro's request the answer was replaced, the separator found exactly once and the input byte-identical
+  (everything above the answer, sha256 `00d129fc…`, before and after): the point is not defined yet (AD-7's interview
+  asks the mode, the publication, the alias, the key and the tools; `apply` records the alambique's digest, and
+  nothing creates it); a recommended design (a few questions in the onboarding when no alambique exists, the answers
+  placed as given on a fixed skeleton, the file part of the plan and approved with it, an existing one never
+  touched, the agent route asking the same questions in chat); its destination (the alambique's section 1, after the
+  installation item; phase 10, on phase 8's alambique machinery; the frozen specification amended when phase 10
+  starts). The drafted alambique text was given in chat for the maestro's approval.
+- Read: `ALAMBIQUE.md` sections 1 and 2, `architecture-decisions.md` AD-7, `core-specification.md` REQ-INS-1 to
+  REQ-INS-7, REQ-FER-7 and section 3's `alambique-baseline`.
