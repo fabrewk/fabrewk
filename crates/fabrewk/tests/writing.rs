@@ -572,6 +572,23 @@ fn a_private_folder_reached_through_a_link_into_a_domain_is_refused() {
 }
 
 #[test]
+fn a_git_that_cannot_name_the_author_is_refused_before_anything_is_written() {
+    let fx = published("no-ident");
+    fx.git(&["config", "user.name", ""]);
+    fx.edit_policy_as(&policy_with(&fx, "\n[limits]\nminutes = 60\n"));
+    refused(&fx, &["adopt", "--say", SAY], "TOOL_FAILED", 1, "es");
+    assert!(!fx.folder().exists());
+}
+
+#[test]
+fn refusal_check_unknown_for_a_shallow_history() {
+    let fx = published("shallow");
+    let head = fx.git(&["rev-parse", "HEAD"]);
+    fs::write(fx.root.join(".git/shallow"), format!("{head}\n")).unwrap();
+    refused(&fx, &["adopt", "--say", SAY], "CHECK_UNKNOWN", 1, "es");
+}
+
+#[test]
 fn a_dangling_link_as_a_git_lock_is_a_lock() {
     let fx = published("dangling-lock");
     std::os::unix::fs::symlink("missing-lock-target", fx.root.join(".git/index.lock")).unwrap();

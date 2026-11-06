@@ -115,6 +115,11 @@ pub(crate) fn is_creation(kind: &str) -> bool {
 
 /// A random nonce of 16 bytes, as 32 hexadecimal digits, for a creating payload (REQ-REG-1).
 pub fn nonce() -> std::io::Result<String> {
+    // The crash suite's seam: a nonce chosen by a test, to provoke an identifier's collision (P7D3A-15).
+    #[cfg(feature = "fault-injection")]
+    if let Ok(n) = std::env::var("FABREWK_FAULT_NONCE") {
+        return Ok(n);
+    }
     let mut bytes = [0u8; 16];
     std::fs::File::open("/dev/urandom")?.read_exact(&mut bytes)?;
     Ok(hex(&bytes))

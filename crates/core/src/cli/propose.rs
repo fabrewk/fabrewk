@@ -67,10 +67,21 @@ fn plan(cx: &Cx, path: &Path, file: &Value, record: &Replay) -> Result<Plan<Prop
         say: None,
         payload,
     };
-    let fresh = |mut p: Value| -> Result<Value, Error> {
-        let n = nonce().map_err(|e| Error::Io { path: "/dev/urandom".into(), error: e })?;
-        p.as_object_mut().map(|o| o.insert("nonce".into(), json!(n)));
-        Ok(p)
+    // A creation's identifier is the first 8 digits of its digest, so two may meet: a nonce whose identifier the
+    // record or this file already holds is drawn again, and after 8 draws the command refuses, with nothing written
+    // (REQ-REG-1, P7D3A-15).
+    let taken = std::cell::RefCell::new(std::collections::BTreeSet::new());
+    let fresh = |kind: &str, p: Value| -> Result<Value, Error> {
+        for _ in 0..8 {
+            let n = nonce().map_err(|e| Error::Io { path: "/dev/urandom".into(), error: e })?;
+            let mut p = p.clone();
+            p.as_object_mut().map(|o| o.insert("nonce".into(), json!(n)));
+            let stream = subject_stream(kind, &p).unwrap_or_default();
+            if !record.streams.contains_key(&stream) && taken.borrow_mut().insert(stream) {
+                return Ok(p);
+            }
+        }
+        Err(refuse(Code::RecordIdCollision, Some(path), format!("{kind}: eight nonces drawn gave identifiers taken")))
     };
     let mut events = Vec::new();
     let (stream, new, goal, stage_layer) = match &o["stage"] {
@@ -86,7 +97,7 @@ fn plan(cx: &Cx, path: &Path, file: &Value, record: &Replay) -> Result<Plan<Prop
             (stream, false, first["goal"].as_str().unwrap_or_default().to_owned(), layer(first))
         }
         stage => {
-            let payload = fresh(stage.clone())?;
+            let payload = fresh("stage-proposed", stage.clone())?;
             if stage.get("nonce").is_some() {
                 return Err(invalid(path, "stage.nonce: drawn by propose, never given").into());
             }
@@ -126,7 +137,7 @@ fn plan(cx: &Cx, path: &Path, file: &Value, record: &Replay) -> Result<Plan<Prop
             }
         }
         t.insert("stage".into(), json!(stage_id));
-        let payload = fresh(Value::Object(t))?;
+        let payload = fresh("task-proposed", Value::Object(t))?;
         content(path, "task-proposed", &payload)?;
         let allowed: Vec<&str> =
             payload["allowed"].as_array().into_iter().flatten().filter_map(Value::as_str).collect();

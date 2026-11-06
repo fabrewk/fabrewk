@@ -126,9 +126,11 @@ pub(super) fn run<T>(cx: &Cx, plan: impl Fn(&Replay) -> Result<Plan<T>, Failed>)
         let product = Repo { root: root.to_path_buf(), prefix: std::path::PathBuf::from(".brewstillery") };
         crate::record::record_branch(&product)?;
     }
-    // A lock a stopped Git left is refused before anything is written (P7D3A-7); the commit checks it again.
+    // A lock a stopped Git left, and a Git that cannot name the commit's author, are refused before anything is
+    // written (P7D3A-7, P7D3A-14); the commit checks the lock again.
     if let Some(repo) = Repo::for_domain(&cx.domain, mode) {
         crate::record::check_git_locks(&repo, &crate::record::record_branch(&repo)?)?;
+        crate::record::check_ident(&repo)?;
     }
     let folder = cx.folder()?;
     // The private folder and the machine file are read before anything is written, as every write uses them.

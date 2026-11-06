@@ -44,6 +44,7 @@ const WRITE: &[Code] = &[
     RecordIdCollision,
     RecordRollback,
     MarkInvalid,
+    CheckUnknown,
     DomainNotIgnored,
     NotARepository,
     HeadDetached,

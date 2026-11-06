@@ -565,7 +565,7 @@ write command's own refusals, those of the write path. Every write command runs 
 (`RECORD_ROLLBACK`, `MARK_INVALID`); the policy in force (`POLICY_ABSENT`); the publication mode (a record with a
 policy and no `publication-decided` is `RECORD_BROKEN`: `apply` writes both); `DOMAIN_NOT_IGNORED`; the product's
 checked-out branch in every mode (`HEAD_DETACHED`, P7D3A-5); where the mode commits, a lock a stopped Git left
-(`TOOL_FAILED`, P7D3A-7); the private folder's place and permissions, a folder not made yet placed where the links of
+(`TOOL_FAILED`, P7D3A-7) and a Git that cannot name the commit's author or committer (`TOOL_FAILED`, P7D3A-14); the private folder's place and permissions, a folder not made yet placed where the links of
 its existing ancestors lead (P7D3A-8), and the machine file (`SETTINGS_INVALID`, P7D3A-2); the command's own guards
 on that record; then the session (`NOT_A_REPOSITORY`, the
 record branch where the mode commits, the history walk, `LOCK_HELD`), the record replayed again under the lock and
@@ -574,8 +574,9 @@ event made and signed in memory, an adoption's seal read just before it; then th
 (REQ-REG-12), so that a key that cannot sign is `TOOL_FAILED` with the private folder, a key literal's copy and its
 directory all as they were (P7D3A-1); the record commit of what an earlier command left uncommitted, taken only from
 the streams replay reads (P7D3A-9); the events, each written by compare-and-swap after the head the plan saw
-(`RECORD_HEAD_MOVED`); the replay before the record commit (PD-46), the commit (`RECORD_COMMIT_RACE`) and, once it
-is made, the mark (P7D3A-10); then, still under the lock (P7D3A-3), the other caches: `allowed_signers` from the
+(`RECORD_HEAD_MOVED`); the replay before the record commit (PD-46), the commit (`RECORD_COMMIT_RACE`; rebuilt on a new head only once
+that head's history is walked as the first one was, `RECORD_ROLLBACK` otherwise, P7D3A-16) and, once it is made, the
+mark (P7D3A-10); then, still under the lock (P7D3A-3), the other caches: `allowed_signers` from the
 policy in force (REQ-ID-2) and `detected.json` with `git` and `ssh-keygen` verified by use (REQ-SET-8). A refusal decided before the session writes nothing; one decided after it,
 only when the record changed in between, may leave the empty `local/lock`. Two things are no write in this sense
 (D-063): cleaning what an interrupted write left (temporary files, signatures whose event never reached its place,
@@ -598,8 +599,9 @@ seal of every other stream's head read just before the append, and the widenings
 to the policy in force. `propose <file>` reads a regular file outside every Fabrewk domain, at most 1 MiB, as JSON
 holding exactly `stage` (a stage's payload without its nonce, or the identifier of a stage of the record) and `tasks`
 (one or more, each a task's payload without its nonce and stage, plus an optional `name` that is not shaped as a
-task's identifier, by which a later task of the file names it among its dependencies); `propose` draws the nonces,
-records Fabrewk as the actor, and refuses every failure of the file's shape or content as `TASK_INVALID`; the
+task's identifier, by which a later task of the file names it among its dependencies); `propose` draws the nonces, again
+for an identifier the record or the file already holds, and refuses `RECORD_ID_COLLISION` with nothing written after
+eight draws (P7D3A-15); it records Fabrewk as the actor, and refuses every failure of the file's shape or content as `TASK_INVALID`; the
 protected paths a task's wildcards are held to are the effective `gate.protectedPaths` with its stage's and its own
 layer; a stage that is closed is `STAGE_CLOSED`. Its format is printed by `propose --help` and the reference. The
 fault tests of the write path (`RECORD_HEAD_MOVED`, `RECORD_COMMIT_RACE`, PD-46) are in the binary's test `faults`,

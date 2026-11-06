@@ -96,6 +96,7 @@ Rechazos
 - `RECORD_ID_COLLISION`: Dos etapas o dos tareas recibieron el mismo identificador.
 - `RECORD_ROLLBACK`: El registro perdió eventos que tenía antes: un retroceso.
 - `MARK_INVALID`: La marca del registro de este equipo (local/cache/heads.json) está dañada o nombra un evento que el registro no tiene en ese lugar.
+- `CHECK_UNKNOWN`: Una verificación no pudo correr, así que su resultado es desconocido, y un resultado desconocido nunca es un pase.
 - `DOMAIN_NOT_IGNORED`: El repositorio del producto no ignora .brewstillery/, así que un commit ahí lo publicaría.
 - `NOT_A_REPOSITORY`: Esta no es la raíz del árbol de trabajo principal del repositorio.
 - `HEAD_DETACHED`: El head de Git no nombra ninguna rama, así que no hay rama del registro.
@@ -177,6 +178,7 @@ Rechazos
 - `RECORD_ID_COLLISION`: Dos etapas o dos tareas recibieron el mismo identificador.
 - `RECORD_ROLLBACK`: El registro perdió eventos que tenía antes: un retroceso.
 - `MARK_INVALID`: La marca del registro de este equipo (local/cache/heads.json) está dañada o nombra un evento que el registro no tiene en ese lugar.
+- `CHECK_UNKNOWN`: Una verificación no pudo correr, así que su resultado es desconocido, y un resultado desconocido nunca es un pase.
 - `DOMAIN_NOT_IGNORED`: El repositorio del producto no ignora .brewstillery/, así que un commit ahí lo publicaría.
 - `NOT_A_REPOSITORY`: Esta no es la raíz del árbol de trabajo principal del repositorio.
 - `HEAD_DETACHED`: El head de Git no nombra ninguna rama, así que no hay rama del registro.

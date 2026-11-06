@@ -96,6 +96,7 @@ Refusals
 - `RECORD_ID_COLLISION`: Two stages or two tasks were given the same identifier.
 - `RECORD_ROLLBACK`: The record lost events it held before: a rollback.
 - `MARK_INVALID`: This machine's mark of the record (local/cache/heads.json) is damaged or names an event the record does not hold there.
+- `CHECK_UNKNOWN`: A verification could not run, so its result is unknown, and an unknown result is never a pass.
 - `DOMAIN_NOT_IGNORED`: The product's repository does not ignore .brewstillery/, so a commit there would publish it.
 - `NOT_A_REPOSITORY`: This is not the root of the repository's main working tree.
 - `HEAD_DETACHED`: Git's head names no branch, so there is no record branch.
@@ -177,6 +178,7 @@ Refusals
 - `RECORD_ID_COLLISION`: Two stages or two tasks were given the same identifier.
 - `RECORD_ROLLBACK`: The record lost events it held before: a rollback.
 - `MARK_INVALID`: This machine's mark of the record (local/cache/heads.json) is damaged or names an event the record does not hold there.
+- `CHECK_UNKNOWN`: A verification could not run, so its result is unknown, and an unknown result is never a pass.
 - `DOMAIN_NOT_IGNORED`: The product's repository does not ignore .brewstillery/, so a commit there would publish it.
 - `NOT_A_REPOSITORY`: This is not the root of the repository's main working tree.
 - `HEAD_DETACHED`: Git's head names no branch, so there is no record branch.

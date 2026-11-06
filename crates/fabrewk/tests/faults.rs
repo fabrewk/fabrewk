@@ -194,3 +194,64 @@ fn req_reg_5_the_lock_is_held_until_the_last_cache_is_written() {
     assert_eq!(ran.status, 0, "{ran:?}");
     lock.try_lock().unwrap();
 }
+
+#[test]
+fn a_rebuilt_record_commit_never_stands_on_a_rollback() {
+    // While the command waits to commit, someone moves the branch to a commit that drops an older event, leaving it
+    // in the working tree (P7D3A-16): the commit is not rebuilt on that head.
+    let fx = ready("rebuilt-on-rollback");
+    let dir = tmp("rollback-steps");
+    let child = paused(&fx, &args(true), "before-commit", &dir);
+    let oldest = files(&fx.domain.join("data/events/project")).remove(0);
+    let rel = oldest.strip_prefix(&fx.root).unwrap().display().to_string();
+    let script = format!(
+        "export GIT_INDEX_FILE=\"$PWD/.git/drop-index\"; git read-tree HEAD && git update-index --force-remove '{rel}' && \
+         c=$(git commit-tree -p HEAD -m drop $(git write-tree)) && git update-ref refs/heads/main $c && rm \"$GIT_INDEX_FILE\""
+    );
+    fx.program("sh", &["-c", &script]);
+    let theirs = fx.git(&["rev-parse", "HEAD"]);
+    let ran = resume(child, "before-commit", &dir);
+    assert_eq!(ran.status, 1, "{ran:?}");
+    assert_eq!(ran.doc()["refusals"][0]["code"], "RECORD_ROLLBACK", "{ran:?}");
+    assert_eq!(fx.git(&["rev-parse", "HEAD"]), theirs, "no record commit on it");
+}
+
+#[test]
+fn refusal_record_id_collision_at_propose() {
+    // A nonce chosen by the test gives every draw one identifier (P7D3A-15): the second proposal of the same stage, and
+    // two equal tasks in one file, are refused with nothing written.
+    let fx = Fx::new("id-collision", "published");
+    let task = json!({
+        "lang": "en", "goal": "Make it.", "requirements": [{"text": "It builds.", "criterion": "cargo build passes"}],
+        "base": "0".repeat(40), "dependencies": [], "allowed": ["src/**"],
+        "profiles": {"build": "build", "review": "review"}, "checks": [],
+        "limits": {"rounds": 3, "dispatches": 6, "minutes": 120}, "delegationLanguage": "en", "settings": {},
+    });
+    let stage = json!({"lang": "en", "goal": "Build it.", "budget": {"dispatches": 6, "minutes": 120}, "checks": {}, "settings": {}});
+    let nonce = [("FABREWK_FAULT_NONCE", std::ffi::OsStr::new("0123456789abcdef0123456789abcdef"))];
+    let run = |name: &str, plan: Value| {
+        fs::write(fx.root.join(name), serde_json::to_vec(&plan).unwrap()).unwrap();
+        let argv: Vec<std::ffi::OsString> = ["propose", name, "--json"].iter().map(Into::into).collect();
+        fx.run_os(&argv, &nonce)
+    };
+    assert_eq!(run("one.json", json!({"stage": stage, "tasks": [task]})).status, 0);
+    fx.commit("one");
+    for (name, plan) in [
+        ("again.json", json!({"stage": stage, "tasks": [task]})),
+        (
+            "twice.json",
+            json!({"stage": {"lang": "en", "goal": "Other.", "budget": {"dispatches": 6, "minutes": 120}, "checks": {}, "settings": {}}, "tasks": [task, task]}),
+        ),
+    ] {
+        fs::write(fx.root.join(name), serde_json::to_vec(&plan).unwrap()).unwrap();
+        let before = fx.snapshot();
+        let ran = run(name, plan);
+        assert_eq!(fx.snapshot(), before, "{name}");
+        assert_eq!(
+            (ran.status, ran.doc()["refusals"][0]["code"].as_str()),
+            (1, Some("RECORD_ID_COLLISION")),
+            "{ran:?}"
+        );
+    }
+    assert_eq!(fx.run(&["check"]).status, 0);
+}

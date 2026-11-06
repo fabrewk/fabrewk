@@ -271,6 +271,17 @@ pub(crate) fn check_git_locks(repo: &Repo, branch: &str) -> Result<(), Error> {
     Ok(())
 }
 
+/// Refuses `TOOL_FAILED` unless Git can name the author and the committer of a record commit, so that a commit that
+/// could not be made is refused before anything is written (P7D3A-14).
+pub(crate) fn check_ident(repo: &Repo) -> Result<(), Error> {
+    for var in ["GIT_AUTHOR_IDENT", "GIT_COMMITTER_IDENT"] {
+        git(repo, &os(&["var", var]), b"", None).map_err(|_| {
+            refuse(Code::ToolFailed, Some(&repo.root), format!("Git names no {var} (user.name, user.email)"))
+        })?;
+    }
+    Ok(())
+}
+
 /// Puts back in the person's index, from the tip, every event file a stopped record commit left out of it.
 pub(crate) fn sync_index(repo: &Repo) -> Result<(), Error> {
     if head_of(repo, "HEAD")?.is_none() {
@@ -391,6 +402,9 @@ fn attempt(
         if round == 1 || !git(repo, &changed, b"", None)?.is_empty() {
             return Err(race());
         }
+        // The new head is walked as the session's first one was: a head whose history drops or changes an event is
+        // a rollback, never a base (P7D3A-16).
+        walk_history(repo, branch)?;
         base = now;
     }
     Err(refuse(Code::RecordCommitRace, Some(&repo.root), "the branch moved twice"))

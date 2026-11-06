@@ -249,6 +249,13 @@ impl Fx {
         files.iter().map(|f| serde_json::from_slice(&std::fs::read(f).unwrap()).unwrap()).collect()
     }
 
+    /// As [`Fx::edit_policy`], committing with a fixed author, whatever the repository's own configuration says.
+    pub fn edit_policy_as(&self, text: &str) {
+        std::fs::write(self.domain.join("settings.toml"), text).unwrap();
+        self.git(&["add", ".brewstillery/settings.toml"]);
+        self.git(&["-c", "user.name=Fixture", "commit", "-q", "-m", "policy"]);
+    }
+
     /// Replaces the project file with `text` and commits it.
     pub fn edit_policy(&self, text: &str) {
         std::fs::write(self.domain.join("settings.toml"), text).unwrap();
