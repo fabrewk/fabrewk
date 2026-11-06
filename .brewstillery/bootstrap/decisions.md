@@ -2527,3 +2527,58 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Sources: chat of session 22; `skills-evaluation.md`; D-059; `ALAMBIQUE.md` section 2 and 6.38; `reference-study.md`
   PP-10.
 - Supersedes: none.
+
+## R-030 — Session 22, part 7s: skills for the agents
+
+- Status: recorded
+- Date: 2026-11-06
+- Who: integrator Claude Code, `claude-opus-5-5`, effort high. Reviewer: Codex `codex-cli 0.166.0`, `gpt-6.1-sol`,
+  effort high, launched as the new `codex-review` skill says (`codex exec --json`, standard input closed, sandbox
+  `workspace-write`, no network, a user systemd scope capped at 3 GB, a disposable clone under `target/review-7s/`
+  with a copy of the Cargo registry and clones of the skill sources). One subagent (`web-fetch`) read the two tools'
+  skills pages.
+- Start: HEAD `8bde466`, tree clean. Network, given by D-059 to read sources of skills only, was used for GitHub (`gh
+  api`, shallow `git clone` of `trailofbits/skills`, `openai/skills`, `anthropics/skills`, `obra/superpowers`, the
+  metadata and `SKILL.md` of `leonardomso/rust-skills` and `actionbook/rust-skills`), three web searches, and the
+  two documentation pages (`code.claude.com/docs/en/skills`; `developers.openai.com/codex/skills`, redirected to
+  `learn.chatgpt.com/docs/build-skills`), whose tails came back summarized and are marked so in the evaluation.
+- Read: `STATUS.md`, `AGENTS.md`, `plan.md`, the fermento, the settings, D-059 and R-029 (and R-022, R-024 and D-041
+  for the recipes), `ALAMBIQUE.md` section 2, section 3 and 6.38, `reference-study.md` PP-10, C-60, C-61,
+  `core-specification.md` REQ-DOM-2, REQ-DOM-3 and the 7c2b paragraph, `crates/core/src/domain.rs`, `settings/mod.rs`'s
+  `RESERVED`, `crates/core/tests/domain.rs`; the five skills in `~/.agents/skills/` (headers and `MANIFEST.sha256`,
+  which verifies) and the list of `~/.codex/skills/.system/`. TickBrew's `AGENT_SKILLS_POLICY.md`, which those copies
+  name, is not cited by the alambique and was not read.
+- Decided: D-060, after the evaluation and before any installation or code.
+- Written: `skills-evaluation.md`; `.brewstillery/skills/` with `property-based-testing`, `sharp-edges` and
+  `differential-review` copied from `trailofbits/skills` `470419e` (upstream `SKILL.md` sha256 `9448cacb…`,
+  `3b69a709…`, `f9af6a81…`) and adapted as D-060 says, and `verify-part` and `codex-review`; `AGENTS.md` "Skills";
+  `skills` in `RESERVED` and `DIRS`, the assertions in `crates/core/tests/domain.rs` (a `skills/` directory listed, a
+  file and a link so named unknown entries, `skills` never an alias), REQ-DOM-2, REQ-DOM-3 and the 7c2b paragraph;
+  `plan.md`, `STATUS.md`, this entry. The new test assertions failed before the change (`skills` was a valid alias)
+  and with `RESERVED` alone (the directory became an unknown entry). `fabrewk check` here gives the same findings before
+  and after; nothing in the skills' text raises one.
+- Codex, three passes, confirmed blocking findings by pass: 3, 1, 0. Pass 1 (`8dc7ee5`): P7S-1 (the notices of
+  `differential-review` and `property-based-testing` did not name the creators the upstream plugins name, as CC BY-SA
+  4.0's attribution asks), P7S-2, not blocking (`differential-review`'s conditional `git checkout` of the baseline
+  missing from the evaluation; every notice now forbids moving HEAD or changing the index or the working tree), P7S-3
+  (`verify-part`'s mutation run lacked `fault-injection`, so the crash suite judged no mutant, against R-024), P7S-4
+  (`codex-review`'s build line lacked the rustup shims on `PATH`; Fedora's `cargo` refuses `+1.99.1`). Pass 2
+  (`1eacd71`): P1 to P4 closed; P7S-5 (with the feature, a run mutating only `budget` fails its baseline). Codex's
+  suggested fix, `--test-workspace true`, was run here and still failed the baseline; the recipe was split into a run
+  of the core and the binary with the feature and every package's tests, and one of the counter without it, each
+  run here on one mutant, caught. Pass 3 (`4f2e3ad`): P7S-5 closed, no new finding; accept.
+- Checks (the clean clone of `8dc7ee5`, rustup 1.99.1): 257 tests and the crash suite (3) green; the musl release
+  build, `--version --json` listing no feature; `budget check --binary` exits 0: core 4,540 of 7,500 counted lines in
+  30 files (+10, `rustfmt` splitting `RESERVED`), 4 direct runtime crates, 31 crates in the release build, the binary
+  1,380,712 bytes; `clippy` with and without the feature, `fmt --check`, `cargo deny --offline check licenses
+  advisories` clean. The corrections after it changed no code. Mutation: `--in-diff` over the part finds no mutant
+  (only constants changed); the assertions above guard both constants.
+- Cleaning: the review and clean-clone directories of 7c1 and 7d2, and the mutation outputs of 7d1 and 7d2, under
+  `target/`, removed at the start (the disk had 4.9 GB free); this part's are removed at the close.
+- Residuals, not blocking: the evaluation's section 2 rests on two web pages Codex could not fetch, checked only for
+  consistency; the five TickBrew copies in `~/.agents/skills/` still load in every session of both tools on this
+  machine, beside the domain's copies that only `AGENTS.md` points to; the community and registry skills were judged
+  on metadata and their top file only.
+- Fermento: the answer was replaced at the close, the separator found exactly once and the input byte-identical
+  (everything above the answer, sha256 `141a03e1…`, before and after): point 1 is done and may be removed.
+- Not done: part 7d3.

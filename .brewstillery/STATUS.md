@@ -6,8 +6,8 @@ view generated from that registry. Technical files are in English by default (D-
 ## Current state
 
 **Phases 0 to 6 are closed (D-037, D-040). Phase 7 (the first code) is split into parts 7a, 7b, 7c1, 7c2a, 7c2b,
-7d1, 7d2, 7s and 7d3 (D-041, D-047, D-048, D-050, D-053, D-059); parts 7a to 7d2 are closed, 7d2 the command
-surface and the reading commands (R-029); 7s, skills for the agents, is next, then 7d3, the write commands.** The repository holds the first code at its root: a
+7d1, 7d2, 7s and 7d3 (D-041, D-047, D-048, D-050, D-053, D-059); parts 7a to 7s are closed, 7s the skills for the
+agents (D-060, R-030); 7d3, the write commands, is next.** The repository holds the first code at its root: a
 Cargo workspace with one crate per ring (`crates/core`, `crates/fabrewk`, the binary, which runs the core's command
 surface) and the size counter `tools/budget`, the licence files, `deny.toml` and a root `.gitignore` with `/target`.
 The record is built in `crates/core/src/record/`, the settings in `crates/core/src/settings/`, identity in
@@ -15,7 +15,7 @@ The record is built in `crates/core/src/record/`, the settings in `crates/core/s
 domain's layout in `domain.rs`, the transition table in `table.rs`, the payloads and pattern guards in `task.rs`, the
 credential scan in `scan.rs`, and the command surface in `crates/core/src/cli/` with its catalogue in
 `crates/core/catalogue/` (`en`, `es`); `fabrewk status`, `fabrewk config` and `fabrewk check` exist, and no command
-writes yet. The core counts 4,530 of 7,500 lines, formatted at width 120 (D-049, D-054). No `data/` exists in this
+writes yet. The skills the maestro approved are in `.brewstillery/skills/`, listed in `AGENTS.md`. The core counts 4,540 of 7,500 lines, formatted at width 120 (D-049, D-054). No `data/` exists in this
 repository, whose project file still holds bootstrap keys, so `fabrewk check` here reports them. The domain is
 `.brewstillery/`, hidden (D-032).
 
@@ -196,20 +196,27 @@ repository, is imported into the single registry at production and then stays re
   approved the two alambique edits the integrator drafted: `.brewstillery/skills/` for approved skills, read as
   `AGENTS.md` says (section 2), and the search and evaluation of skills in every project, asked by each alambique and
   done in the bootstrap before the core continues (6.38). A part 7s runs before 7d3.
-- **Next: part 7s (plan, "Phase 7").** Search and evaluate skills for Claude Code and Codex (Rust, Git, mutation
-  testing, review, the bootstrap's flow), each with its permissions, provenance, version, licence and effects (6.38;
-  `reference-study.md` PP-10 on skills that pre-approve tools); propose which to adopt; install only the approved, in
-  `.brewstillery/skills/`, with `AGENTS.md` pointing there; reserve the name `skills` in the core's domain layout
-  with its test, the exact change approved by the maestro; Codex reviews. Network to read sources of skills only.
-- **Then: part 7d3 (plan, "Phase 7").** The write commands: `adopt`, `propose`, `authorize` (PD-37 for `authorize`),
+- **Part 7s closed (session 22, D-060, R-030).** `.brewstillery/bootstrap/skills-evaluation.md` evaluates the
+  candidates (Trail of Bits, OpenAI, Anthropic, Superpowers, community Rust skills) by permissions, provenance,
+  version, licence and effects. The maestro adopted `property-based-testing`, `sharp-edges` and `differential-review`
+  from Trail of Bits, adapted (CC BY-SA 4.0, no key that pre-approves tools, a notice that puts `AGENTS.md` first), and
+  two skills written from the record, `verify-part` (the checks, clean clone and mutation on this machine) and
+  `codex-review` (launching and recording Codex). They live only in `.brewstillery/skills/`; `AGENTS.md` says when to
+  read each, and no tool loads them by itself. The core reserves `skills` and lists `skills/` in the domain
+  (REQ-DOM-2, REQ-DOM-3 amended). Codex accepted at its third pass (confirmed blocking 3, 1, 0). Clean clone: 257
+  tests and the crash suite green, musl build, `budget check`, clippy, fmt, `cargo deny` clean. The five TickBrew
+  copies in `~/.agents/skills/` still load in every session on this machine; they are the maintainer's to keep or
+  remove. The disk had 4.9 GB free at the start; old clones under `target/` were removed.
+- **Next: part 7d3 (plan, "Phase 7").** The write commands: `adopt`, `propose`, `authorize` (PD-37 for `authorize`),
   `reject`, `run` up to confinement (`CONFINEMENT_UNAVAILABLE`), `--say` and `--say-lang`, `AGENT_ENVIRONMENT`, the
   guards every write command applies (REQ-RUN-5, REQ-DOM-7), signing with Git's signing key (D-055 point 1), and the
   record's refusal tests through the command line (D-047); TASK-4, PD-30 to PD-32, PD-37. Open from R-028:
   `run-started`'s words, and how `TASK_CHANGED` arises. The declaration, catalogue, completions and reference grow
   with each command (D-053 point 3); next steps that today are words become commands.
-- **Start prompt:** `Eres el integrador de Fabrewk; fase 7, parte 7s: búsqueda, evaluación e instalación de skills
-  para los agentes; empieza por .brewstillery/STATUS.md`. Model and effort: Claude Code on Opus 5.5, effort high;
-  Codex GPT-6.1 Sol, effort high, reviews the evaluation and the code (plan row 7).
+- **Start prompt:** `Eres el integrador de Fabrewk; fase 7, parte 7d3: los comandos de escritura (adopt, propose,
+  authorize, reject, run hasta el confinamiento); empieza por .brewstillery/STATUS.md`. Model and effort: Claude Code
+  on Opus 5.5, effort high; Codex GPT-6.1 Sol, effort high, reviews the code (plan row 7). Read the skills `verify-part`
+  and `codex-review` before the checks and the review.
 
 Carried without blocking, with destinations, in D-013. A phase that does not pass is corrected and retried; it
 never ends the project (D-003).

@@ -17,6 +17,4 @@ Mi entrada es exclusivamente mía. Lo que cite desde aquí (capturas, PDF, otros
 
 ## Respuesta del integrador
 
-**Punto 1 (skills para los agentes, en el bootstrap y en el producto).** Aprobaste las dos ediciones y ya están en el alambique: en la sección 2, `.brewstillery/skills/` guarda las skills aprobadas, que `AGENTS.md` indica leer de ahí; en el 6.38, cada proyecto pide desde su incorporación buscar y evaluar skills, el maestro decide cuáles se adoptan y solo esas se instalan, y en el bootstrap de Fabrewk eso se hace antes de seguir con el núcleo.
-
-Lo que falta lo hace el chat intermedio, antes de la parte 7d3: buscar y evaluar las skills, proponerte cuáles adoptar, instalar solo las que apruebes y reservar el nombre `skills` en el núcleo, con la revisión de Codex. Cuando ese chat termine, puedes quitar este punto de tu entrada.
+**Punto 1 (skills para los agentes).** Está hecho. Evalué las candidatas de Trail of Bits, OpenAI, Anthropic, Superpowers y las colecciones comunitarias de Rust, cada una con permisos, procedencia, versión, licencia y efectos, y adoptaste cinco: tres de Trail of Bits adaptadas (pruebas de propiedades, APIs resistentes al mal uso y revisión de un diff por riesgo) y dos escritas desde el registro (verificar una parte y lanzar la revisión de Codex). Viven solo en `.brewstillery/skills/`, `AGENTS.md` dice cuándo leer cada una, y el núcleo reserva el nombre `skills`. Codex aceptó en su tercera pasada. Puedes quitar este punto de tu entrada.
