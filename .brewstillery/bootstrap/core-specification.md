@@ -616,7 +616,8 @@ ignored. The exclude line is `/.brewstillery/`, added once to the file `git rev-
 - **REQ-BUD-2.** AD-5's limits are provisional ceilings (core 4,000; each tool adapter 600; each confinement backend
   400; installer and assessment 1,200; 8 direct runtime crates; 50 crates in the release lock file; a stripped release
   binary of 8 MB). A maestro freezes the budget after measuring phase 7's skeleton, before any feature; raising it later
-  is a maestro's recorded decision with its reason. (AD-5, D-038)
+  is a maestro's recorded decision with its reason. The core's ceiling was raised to 7,500 after part 7d1 was
+  measured (D-054). (AD-5, D-038)
 - **REQ-BUD-3.** The MSRV is in `Cargo.toml` as `rust-version`; edition 2024; release builds for
   `aarch64-unknown-linux-musl`. (AD-4)
 - **REQ-BUD-4.** Every runtime crate has a recorded reason approved by a maestro; `Cargo.lock` is committed; every

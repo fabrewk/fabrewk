@@ -5,16 +5,17 @@ view generated from that registry. Technical files are in English by default (D-
 
 ## Current state
 
-**Phases 0 to 6 are closed (D-037, D-040). Phase 7 (the first code) is split into parts 7a, 7b, 7c1, 7c2a, 7c2b
-and 7d (D-041, D-047, D-048, D-050); parts 7a (R-023), 7b, the record (R-024), 7c1, settings and policy (R-025),
-7c2a, signatures and identity (R-026), and 7c2b, the machine and the domain (R-027), are closed; 7d, the transition
-table, the commands and `check`, is next.** The repository now holds the first code at its root: a Cargo workspace with one crate per ring
-(`crates/core`, `crates/fabrewk`, a binary that only answers `--version`) and the size counter `tools/budget`, the
-licence files, `deny.toml` and a root `.gitignore` with `/target`. The size budget is frozen (D-042). The record is
-built as a library in `crates/core/src/record/`, the settings in `crates/core/src/settings/`, identity in
-`crates/core/src/identity.rs`, the private folder and the machine file in `machine.rs`, detection and profiles in
-`detect.rs` and the domain's layout in `domain.rs` (the core counts 2,751 of 4,000 lines, formatted at width 120,
-D-049); no command uses them yet and no `data/` exists in this repository. The domain is `.brewstillery/`, hidden (D-032).
+**Phases 0 to 6 are closed (D-037, D-040). Phase 7 (the first code) is split into parts 7a, 7b, 7c1, 7c2a, 7c2b,
+7d1, 7d2 and 7d3 (D-041, D-047, D-048, D-050, D-053); parts 7a to 7c2b and 7d1, the transition table and the
+payloads (R-028), are closed; 7d2, the command surface and the reading commands, is next.** The repository holds the
+first code at its root: a Cargo workspace with one crate per ring (`crates/core`, `crates/fabrewk`, a binary that
+only answers `--version`) and the size counter `tools/budget`, the licence files, `deny.toml` and a root `.gitignore`
+with `/target`. The record is built as a library in `crates/core/src/record/`, the settings in
+`crates/core/src/settings/`, identity in `identity.rs`, the private folder and the machine file in `machine.rs`,
+detection and profiles in `detect.rs`, the domain's layout in `domain.rs`, the transition table in `table.rs`, the
+stage and task payloads and the pattern guards in `task.rs`, the credential scan in `scan.rs` (the core counts 3,299
+of 7,500 lines, formatted at width 120, D-049, D-054); no command uses them yet and no `data/` exists in this
+repository. The domain is `.brewstillery/`, hidden (D-032).
 
 ## Read first
 
@@ -164,17 +165,25 @@ repository, is imported into the single registry at production and then stays re
   file is executable (D-052). Codex accepted at its second pass (confirmed blocking 4, 0). Mutation: caught but two
   declared equivalents. Clean clone: 172 tests and the crash suite green, musl build, `budget check`, clippy, fmt,
   `cargo deny` clean.
-- **Next: part 7d (plan, "Phase 7").** The transition table, the command surface, the message catalogue and `check`:
-  TASK (but TASK-5 and TASK-6), CLI, VIEW-4, SEC-3 at `check`, SEC-5; `RECORD_TRANSITION_INVALID`, the stage and task
-  payloads and the record's refusal tests through the command line (D-047); PD-15, PD-17, PD-24, PD-30 to PD-32, PD-34
-  to PD-38. The libraries of 7b to 7c2b are ready to be wired: every write command's guards (`DOMAIN_NOT_IGNORED` in
-  `own-repository` and `unpublished`, the machine key, the cache: the mark, `allowed_signers`, `detected.json`),
-  `config`'s sources (`declared`, detection with how and when; a value that follows another key should say which,
-  R-025) and `check`'s C1 to C12. It is the largest part left, and the core has 1,249 lines left of its 4,000 for 7d,
-  phase 8 and the core's part of phase 9: the cut of 7d and the size are the first things to show the maestro.
-- **Start prompt:** `Eres el integrador de Fabrewk; fase 7, parte 7d: tabla de transiciones, comandos, catálogo de
-  mensajes y check; empieza por .brewstillery/STATUS.md`. Model and effort: Claude Code on Opus 5.5, effort high;
-  Codex GPT-6.1 Sol, effort high, reviews each part that delivers code (plan row 7).
+- **Part 7d1 closed (session 20, D-053, D-054, R-028).** Before any code the maestro split 7d into 7d1 (the table and
+  the payloads, as a library), 7d2 (the command surface and the reading commands) and 7d3 (the write commands); the
+  declaration of commands grows by phase, so `MOVE_NOT_ALLOWED`'s tests of `accept`, `approve` and `close` move to
+  their phases; `run` evaluates its guards up to confinement, which refuses until phase 9. 7d1 delivers section 4 as
+  one declarative table with each guard labelled effective or cooperative, the replay held to it (bindings, attempts),
+  the four stage and task payloads, the pattern language with its guards, `CHECK_DUPLICATE`, `LIMIT_UNOBSERVABLE`
+  and the credential scan. Codex accepted at its third pass (confirmed blocking 3, 1, 0). Mutation: caught, none
+  equivalent. Clean clone: 197 tests and the crash suite green, musl build, `budget check`, clippy, fmt, `cargo deny`
+  clean. Measured at +548 lines (estimated 750), the maestro raised the core's ceiling to 7,500 (D-054).
+- **Next: part 7d2 (plan, "Phase 7").** The declaration of commands with `lexopt` (approved, D-040; not yet in the
+  lock file, so the session needs network for Cargo against crates.io only, a maestro's permission), the parser,
+  help, the fish and POSIX completions, the reference documentation, the catalogue in `en` and `es` (data files the
+  counter reads as data, D-044), `--json`, the exit statuses, and `status`, `config` and `check` (C1 to C4, C8 to
+  C11): CLI, VIEW-4, SEC-3 at `check` (which files the fermento or the alambique cite is 7d2's to settle), SEC-5's
+  listing in `config`; PD-34 to PD-36, PD-38. Projection (D-054): 650 to 900 lines. Open for 7d3, in R-028's
+  residuals: `run-started`'s words, and how `TASK_CHANGED` arises.
+- **Start prompt:** `Eres el integrador de Fabrewk; fase 7, parte 7d2: superficie de comandos, catálogo de mensajes,
+  status, config y check; empieza por .brewstillery/STATUS.md`. Model and effort: Claude Code on Opus 5.5, effort
+  high; Codex GPT-6.1 Sol, effort high, reviews each part that delivers code (plan row 7).
 
 Carried without blocking, with destinations, in D-013. A phase that does not pass is corrected and retried; it
 never ends the project (D-003).

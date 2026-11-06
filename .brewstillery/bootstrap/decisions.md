@@ -2222,3 +2222,79 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   `core-specification.md` sections 2 TASK, CLI, VIEW, SEC, 4 to 7, 11.2, 11.4, 12 TASK, VIEW, CLI, SEC, 13;
   `tools/budget/src/budget.rs`.
 - Supersedes: none.
+
+## D-054 — The core's ceiling raised to 7,500 counted lines after measuring part 7d1
+
+- Status: decided
+- Decided: 2026-11-05
+- Origin: maintainer XEL in session 20's chat, answering the integrator's question after part 7d1 was accepted and
+  measured, as D-053's point 2 asked: "7,500 ya (Recomendado)".
+- Decision: the core ring's ceiling in `tools/budget/src/budget.rs` is 7,500 counted lines instead of 4,000. Reason:
+  part 7d1 measured 548 counted lines against an estimate of about 750 (a factor of 0.73); with that factor and the
+  estimates as given, the core reaches about 3,950 to 4,200 lines after 7d2, 4,500 to 4,950 after 7d3, 5,300 to 6,050
+  after phase 8 and 6,300 to 7,450 after the core's part of phase 9, so the frozen specification does not fit in
+  4,000 and does in 7,500. The other ceilings, the crate limits and the binary's size are unchanged (D-042). Each
+  part is still measured, and the projection corrected at each closing.
+- Consequences: `budget.rs` and its two tests that pin the ceiling; REQ-BUD-2 in `core-specification.md` names this
+  entry. The alambique's "núcleo pequeño" (6.2) is served by the ceiling and the measure, not by a number it states.
+- Sources: chat of session 20; D-042, D-049, D-053; R-028 ("Size"); `tools/budget`.
+- Supersedes: D-042 for the core's ceiling only.
+
+## R-028 — Session 20, part 7d1: the transition table, the payloads, the pattern guards and the credential scan
+
+- Status: recorded
+- Date: 2026-11-05
+- Who: integrator Claude Code, `claude-opus-5-5`. Reviewer: Codex `codex-cli 0.166.0`, `gpt-6.1-sol`, effort high,
+  launched with `codex exec --json`, standard input closed, sandbox `workspace-write`, no network, in a user systemd
+  scope capped at 3 GB, in a disposable clone under `target/review-7d1/` with a copy of the Cargo registry (35 MB).
+  No subagent.
+- Start: HEAD `8e7c854`, tree clean. The fermento was not swept: its answer has no current recommendation and the
+  maestro added no input.
+- Read: `STATUS.md`, `AGENTS.md`, `plan.md`, this file (D-047 to D-052, R-024 to R-027), `core-specification.md`
+  (sections 2 TASK, VIEW, CLI, SEC, GATE-1, GATE-8, GATE-9, REG-6, RUN-1, RUN-2, RUN-5, RUN-7, RUN-9, DOM-7; 3 to 9;
+  11.2 to 11.4; 12 TASK, VIEW, CLI, SEC, BUD; 13), `architecture-decisions.md` on effective and cooperative controls,
+  the code of the record, settings, identity and detection, and their test fixtures.
+- Decided before any code (D-053): 7d split into 7d1, 7d2 and 7d3; the ceiling decided after 7d1 is measured; the
+  declaration of commands grows by phase; `run` up to confinement. After the review (D-054): the core's ceiling.
+- Written: `crates/core/src/table.rs` (section 4 as one declarative table with the stage and proposal moves, the
+  control labels, guards in order, `MOVE_NOT_ALLOWED`, the replay held to it), `crates/core/src/task.rs` (the four
+  payloads, shape and content, the pattern language and matcher, the lane guard, `PROTECTED_PATH_WILDCARD`,
+  `CHECK_DUPLICATE`, `LIMIT_UNOBSERVABLE`), `crates/core/src/scan.rs` (REQ-SEC-3 and the domain's walk), a code's
+  name derived from its variant and nine codes in `code.rs`, `subject_digest` and the payload's shape in
+  `event.rs`, `tokens` in the modules' contract (`detect.rs`); tests in `crates/core/tests/table.rs`, fixtures given
+  valid stage and task payloads. `core-specification.md` (the payloads and the replay's rules in section 3, the table
+  and its labels in section 4, REQ-SEC-3's interpretations, `MOVE_NOT_ALLOWED`'s phases, REQ-BUD-2), `plan.md`,
+  `STATUS.md`, `budget.rs` and its tests (D-054), this entry.
+- Interpretations, given to the review and not re-opened by it: a task's limits are fields of its payload and a
+  layer of settings beside them; a stage's authorization binds its own digest and head as a task's does, and makes
+  each task it binds authorized after the head it names; an invalid payload's shape is `RECORD_VERSION_UNKNOWN` and
+  wins, its content is `TASK_INVALID` at a command and `RECORD_TRANSITION_INVALID` on replay; the pattern guards,
+  `STAGE_CLOSED`, `CHECK_DUPLICATE` and `LIMIT_UNOBSERVABLE` are the commands', not the replay's; the token patterns
+  of REQ-SEC-3 have no boundary before the prefix (none matched this repository's domain without one); the labels
+  of section 4's guards (cooperative: a move that grants nothing, `WORDS_COPIED`, `LOCK_HELD`, REQ-RUN-2,
+  `CREDENTIAL_SUSPECTED`).
+- Codex, three passes: pass 1 (`daef066`): reject, 3 blocking (P7D1-1 an attempt replaced while open lost its end;
+  P7D1-2 a wildcard matching a protected directory's own entry kept; P7D1-3 a domain that is a link followed) and 1
+  not blocking (P7D1-4 a credential's name hid an unreadable file). Pass 2 (`1d18b64`): reject, 1 blocking (P7D1-5
+  a final `/` or `/.` resolved the link P7D1-3 refuses); the other three closed. Pass 3 (`4724084`): **accept**, both
+  closed; 1 not blocking left as a residual (P7D1-6). Confirmed blocking findings by pass: 3, 1, 0. Each pass checked
+  that the new tests fail without their correction. Codex ran no command outside its clone.
+- Mutation (`cargo mutants`, rustup 1.99.1, `-j 2`, in its own scope as R-022 says, `TMPDIR` under `target/`): the
+  four new or reworked files whole, 225 mutants (57 in `table.rs`, 125 in `task.rs`, 33 in `scan.rs`, 10 in
+  `code.rs`): 8 missed, each killed by a new test and re-run (9 mutants, all caught); the changed lines of the other
+  files and of each correction (16, 14 and 5 mutants): all caught or unviable. No equivalent declared. The first run
+  stopped by itself after its last file's new mutants (exit 101, 2.7 GB peak in its 3 GB scope); the rest of
+  `event.rs` is earlier code, mutated in part 7b.
+- Clean clone of `4724084`, rustup 1.99.1: 197 tests green, and the crash suite (3 tests) with `--features
+  fault-injection`; the musl release build; `budget check --binary` exits 0: core 3,299 of 4,000 counted lines in 24
+  files, 3 direct runtime crates, 30 crates in the release build, the binary 397,600 bytes; `clippy --workspace
+  --all-targets -D warnings` with and without the feature, `fmt --check`, `cargo deny --offline check licenses
+  advisories` clean. Then D-054 raised the ceiling to 7,500; the budget's suite passes with it.
+- Residuals, not blocking: `scan::domain` refuses a domain given as `.` (`CHECK_UNKNOWN`, conservative; `check` passes
+  the domain's named path, P7D1-6); `gate.protectedPaths`'s default does not yet add "every file a check's command
+  names" (section 8), and a protected directory must be written with its final `/`; PD-09 has an attempt ended in
+  `authorized` and `halted` while section 4 lets `attempt-ended` move only from `running`, which phase 9 must
+  reconcile; for 7d3: section 4's `run-started` takes no `--say` while schema 1 gives every person's move words, and
+  how `TASK_CHANGED` arises when a task's fields cannot change in the record (the binding is held on replay).
+- Size: the core grew from 2,751 to 3,299 counted lines (+548; estimated about 750). Projection in D-054.
+- Not done: parts 7d2 and 7d3.
