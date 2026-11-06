@@ -23,4 +23,4 @@ fault-injection = ["fabrewk-core/fault-injection"]
 
 [[test]]
 name = "faults"
-required-features = ["fault-injection"]
+required-features = ["fabrewk-core/fault-injection"]
