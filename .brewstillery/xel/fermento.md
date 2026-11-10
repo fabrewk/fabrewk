@@ -6,7 +6,8 @@ Mi entrada es exclusivamente mía. Lo que cite desde aquí (capturas, PDF, otros
 
 ## Propuestas y pendientes
 
-PROPUESTA: (Adición, modificación) Partiendo que Fabrewk se ancla fuertemente del ALAMBIQUE para construir la verdad para que los agentes elaboren el PLAN para cada proyecto, parte del script o proceso de instalación y/o "onboarding" debería llevar de la mano al usuario nuevo para crear el primer ALAMBIQUE, sugiriendole mediante preguntas muy sencillas que quiere lograr en su proyecto.  Si esto ya está definido en alguno de nuestros puntos pero con otra prosa, solo confirma, si no es así propon el diseño, donde se implementaría y en que fase del desarrollo encaja.  Leo tu propuesta en el chat cuando realices el barrido del fermento y si llegamos a consenso allí mismo te declaro mi aceptación expresa y autorización para que lo integres al ALAMBIQUE.
+1. PROPUESTA: Que Fabrewk compruebe el espacio libre antes de trabajos que escriben mucho, contra un umbral configurable, y se niegue con un código claro en lugar de fallar a medias; que declare la vida de lo que guarda (temporal, caché, evidencia), informe cuánto ocupa la evidencia y solo limpie su propio dominio. Que el espacio libre mínimo sea un requisito declarado de cada máquina (6.46).
+2. PROPUESTA: [proyectado] Tras el piloto, que Fabrewk se instale en su propio repositorio, se reevalúe con sus herramientas contra su alambique y reconstruya solo lo que esa evaluación justifique, como en la autoconstrucción por etapas de un toolchain, manteniendo como oráculos externos las pruebas, los casos de defectos pasados y la revisión independiente.
 
 
 
