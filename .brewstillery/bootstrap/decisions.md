@@ -3041,3 +3041,34 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   phase 8 starts.
 - Sources: chat of session 25; `plan.md` row 7 and "Phase 7"; D-041, D-053, D-061, D-069; R-034.
 - Supersedes: none.
+
+## D-071 — Phase 9 opens with Claude Fable 5.2, as a calibration
+
+- Status: decided
+- Decided: 2026-11-10
+- Origin: maintainer XEL in session 25's chat, after phase 7 closed, asking whether Claude Fable 5.2 is worth using
+  for the plan's harder design; the integrator recommended a single calibration rather than a standing role, and XEL
+  answered: "Estoy de acuerdo con tus recomendaciones, dejemos la fase 9 como nuestro 'piloto' de calibración para el
+  nuevo Fable 5.2", authorizing the change without the fermento (it is the plan's, not the alambique's).
+- Decision:
+  1. Phase 9 (adapters and confinement) opens with Claude Fable 5.2 (`claude-fable-5-2`), effort high: its opening
+     session makes the threat model, the confinement backend's design and the cut into parts, before any code. The
+     parts' code runs on Opus 5.5, effort high, unless that design says a part (the confinement backend, most likely)
+     needs Fable too. Codex (GPT-6.1 Sol), effort high, reviews, as in phase 7: the reviewer stays another vendor's.
+  2. It is measured as every part is: the confirmed blocking findings per Codex pass, against phase 7's record (most
+     parts accepted at the second or third pass; 7a and 7d2 at the tenth, 7c1 at the seventh, 7d3a at the sixth, on
+     adversarial edges of the file system, concurrency and fail-closed checks). Without a clear gain, phase 10 and
+     later stay on the plan's models. The phase 9 closing reports the comparison, and Fable's weekly allotment as
+     it was spent, for the maestro to decide whether Fable keeps a role.
+  3. Phases 8, 10 and 11 keep their models: their design is fixed by the frozen specification, and phase 7's cost
+     came from edge cases a review finds, not from the architecture. Fable is not used as a reviewer.
+- Reason: Fable 5.2 is Anthropic's most capable widely released model; at the API's prices it costs twice Opus 5.5
+  per token ($8/$40 against $4/$20 per million) and its turns run longer; on the maestro's plan its use is metered
+  apart, weekly, so the risk is the allotment running out mid-session rather than the Opus allotment. Phase 9 is the
+  product's security core and the one design the specification leaves open (a confinement backend per operating
+  system), where better reasoning may save review passes.
+- Consequences: `plan.md` row 9's model; `STATUS.md`'s "Next". The prompts written for Opus may be too prescriptive
+  for Fable; the opening session of phase 9 states the task and its acceptance and lets the model plan.
+- Sources: chat of session 25; `plan.md` rows 7 to 11; R-023 to R-034; the `claude-api` skill's model table (cached
+  2026-11-03).
+- Supersedes: `plan.md` row 9's "Opus 5.5 high; Codex high" for its opening session.

@@ -260,7 +260,8 @@ repository, is imported into the single registry at production and then stays re
   `approve` and `discard` with their `MOVE_NOT_ALLOWED` tests (D-053 points 1 and 3), and D-061's requirement on
   skills loaded from outside the project, to propose when the phase starts. Its start decides whether it splits into
   parts (D-019) and what the frozen specification already fixes for it. When phase 9 starts, the maestro decides the
-  core's ceiling with phase 8's measure (D-069).
+  core's ceiling with phase 8's measure (D-069), and its opening session runs on Claude Fable 5.2, effort high, as a
+  calibration measured against phase 7's passes (D-071).
 - **Start prompt:** `Eres el integrador de Fabrewk; fase 8, núcleo parte 2: el separador comprobado por código, la
   zona de respuestas, el barrido y STATUS.md generado; empieza por .brewstillery/STATUS.md`. Model and effort: Claude
   Code on Sonnet 5.5, effort high; Codex GPT-6.1 Sol, effort medium, reviews the code (plan row 8). Read the skills
