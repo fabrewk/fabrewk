@@ -228,6 +228,15 @@ repository, is imported into the single registry at production and then stays re
   into the integrator's commit `972ebe5` (R-032, the slip of R-021). After the sweep the maestro approved the item,
   with a pedagogical explanation of the names' analogy, now in the alambique's section 1 (D-066; a requirement is due
   when phase 10 starts). The fermento's answer says the proposal may be removed.
+- **Session 24, before 7d3b (R-033, D-067).** The machine's root disk went from 2.9 to 33 GiB free: caches and
+  superseded tool versions removed, inactive folders moved to the external disk (`/home/xel/Dev/external`, compressed
+  per folder), old snapper snapshots removed by the maestro. `~/Dev` holds only `Fabrewk`, `TickBrew` (still cited and
+  needed by the pilot) and `external`; `~/Dev/tmp` now lives at `/home/xel/Dev/external/tmp`. A `git bundle` of the
+  repository is kept at `/home/xel/Dev/external/backups/fabrewk/`. The maestro's cleanup scripts live outside the
+  project (`~/Dev/tools/dev-clean.sh`, `~/System/Asahi/Fedora/system_maintenance.sh`). The maestro approved two
+  alambique edits (D-067): Fabrewk's own disk discipline in 6.4, 6.41 and 6.46 (a requirement due when phases 9 and 10
+  start), and 6.53, a staged self-rebuild after the pilot, `[proyectado]`. Check the free disk space (15 GiB or more)
+  before a clean clone or a mutation run.
 - **Next: part 7d3b (plan, "Phase 7").** The task commands: `authorize <stage|task> --seen <digest> --say [--widen
   <key>]… [--run]` (PD-37's rendering in `status <id>` with its digest, `TASK_CHANGED`, `LIMIT_UNOBSERVABLE`, the
   layers' widenings, the lane guard again, `CHECK_DUPLICATE` for a stage, the `shown` field, D-062 point 3), `reject

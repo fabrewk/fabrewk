@@ -2843,3 +2843,69 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Sources: chat of session 23; `xel/fermento.md`'s proposal; R-032; `ALAMBIQUE.md` sections 1 and 2;
   `architecture-decisions.md` AD-7; `core-specification.md` REQ-INS-1 to REQ-INS-7.
 - Supersedes: none.
+
+## R-033 — Session 24, before part 7d3b: the machine's disk space, and a sweep of two proposals
+
+- Status: recorded
+- Date: 2026-11-10
+- Who: integrator Claude Code, `claude-opus-5-5`; second opinion on the home sweep by Codex (`codex-cli 0.166.0`,
+  `gpt-6.1-sol`, effort high, `codex exec -s read-only` in a memory-capped scope, launched from an empty disposable
+  repository under `target/`, removed after).
+- Disk, at the maestro's request before 7d3b, so that linking, the clean clone and the mutation runs do not fail: the
+  root btrfs (shared by `/` and `/home`) went from 2.9 GiB free of 90 (97 %) to 33 GiB (63 %). Removed by the
+  integrator, regenerable or superseded only (about 5.6 GiB): Chromium, Zen, VS Code VSIX and Codex caches, the npm,
+  pip and user dnf caches, Codex 0.165.0 (CLI and daemon), Claude CLI 2.1.296 and 2.1.314, VS Code's obsolete and
+  unregistered extension copies, the Pine Script server's build intermediates. Moved to the external disk with
+  `rsync -aHAX`, verified by a checksum dry run and file counts, then removed (about 4.3 GiB): `~/rpmbuild`, two
+  installed `.rpm` files, three Claude Code transcript folders of projects that no longer exist, and every folder of
+  `~/Dev` except `Fabrewk` and `TickBrew`. Run by the maestro with sudo: five monthly snapper snapshots deleted (1,
+  77, 312, 640, 884; 2.3 to 5.0 GiB exclusive each), the timeline limits lowered, `/etc/snapper/configs/root` given
+  back to root, the journal capped at 200 MB, the coredumps removed.
+- External disk: subvolume `Dev` of a btrfs disk mounted at `/home/xel/Dev/external`; it also holds subvolume `VM`
+  (qemu images, `nocow`). The first subvolume mounted fixes the options for both, so the maestro removed
+  `compress=zstd:1` from `/etc/fstab`; the integrator set `btrfs property compression=zstd` on
+  `/home/xel/Dev/external` (new files there are compressed, checked with `filefrag`).
+- Paths the record cites: `/home/xel/Dev/tmp` (R-001's check, R-005's note, R-030's `skills-tickbrew/`, the audit's
+  pending item) now reads `/home/xel/Dev/external/tmp`; `skills-tickbrew/MANIFEST.sha256` verifies there. `~/Dev/tmp`
+  no longer exists, as the audit asked. `/home/xel/Dev/TickBrew/` is unchanged: the alambique's section 3 cites it and
+  the pilot (plan phases 11 and 12) still needs it.
+- Backup: Fabrewk has no remote; `git bundle create --all` of `24ba4d7` at
+  `/home/xel/Dev/external/backups/fabrewk/fabrewk-2026-11-10-24ba4d7.bundle`, `git bundle verify` clean.
+- Outside the repository and outside Fabrewk, the maestro's scripts: `/home/xel/Dev/tools/dev-clean.sh` (development
+  tools' caches and superseded versions; dry run by default, skips any running tool) and
+  `/home/xel/System/Asahi/Fedora/system_maintenance.sh` (snapper, journal, coredumps, dnf, flatpak; sudo).
+- Fermento: the maestro added two proposals (Fabrewk's own disk discipline; a staged self-rebuild after the pilot)
+  and removed the one applied in D-066; their edit committed alone in `178344e`, with no AI co-author. The answer was
+  replaced twice (the drafts, then the applied note); the separator found exactly once and everything above the
+  answer byte-identical (sha256 `29ab4fd4…`) before and after. The drafted alambique text was given in chat.
+- Read: `ALAMBIQUE.md` sections 1, 2, 6.1 to 6.4, 6.39 to 6.41, 6.45 to 6.48; `plan.md`'s phase table;
+  `core-specification.md` REQ-DOM-5; the skills `codex-review` and `verify-part`; D-022, D-066, R-032.
+
+## D-067 — Disk space and a staged self-rebuild, applied on the maestro's approval
+
+- Status: decided
+- Decided: 2026-11-10
+- Origin: maintainer XEL in session 24's chat, after the sweep of R-033: "estoy de acuerdo contigo, el alambique solo
+  debe ocuparse de la limpieza de archivos generados por su propio build", then, on the drafted text: "Aprobadas".
+- Decision: four edits to the alambique, with no change of key on existing points.
+  1. 6.4 gains: each area declares the life of what it keeps (temporary ends with its attempt, cache is rebuildable
+     and purgeable, evidence is never deleted automatically and `status` reports its size so a maestro decides to
+     archive it); Fabrewk cleans only what it generates in its domain and never touches other tools' files.
+  2. 6.41 gains: before a job that writes much (an attempt's copy, a build, a verification) Fabrewk compares the free
+     space with a threshold from the project's settings and refuses with a clear code instead of failing halfway.
+  3. 6.46 gains: the minimum free space the project's builds and verifications need is one of a machine's
+     requirements.
+  4. A new point 6.53, staged self-rebuild, `[proyectado]`: after the pilot Fabrewk installs itself in its own
+     repository, re-evaluates itself with its own tools against the alambique, and rebuilds only what that evaluation
+     justifies, each piece as a Fabrewk task; tests, past-defect cases and independent review stay as external
+     oracles and acceptance criteria do not change. The pilot's section is renamed "Piloto y autoconstrucción (6.48,
+     6.53)".
+- Consequences: `ALAMBIQUE.md` changes (sha256 `044bf04f…` before, `b9409261…` after). The frozen specification has
+  no requirement for points 1 to 3 yet: the free-space refusal and the evidence's size in `status` are a change to
+  propose when phase 9 starts (real agents write the attempts' copies); the machine's minimum free space, with the
+  installation's assessment when phase 10 starts. Part 7d3b's scope does not change. Point 4 adds no phase now; one
+  is proposed after phase 13 when it is evaluated. The maintenance of the machine's other tools stays outside the
+  project (R-033). The fermento's answer says both proposals are applied and may be removed.
+- Sources: chat of session 24; `xel/fermento.md`'s two proposals; R-033; `ALAMBIQUE.md` 6.4, 6.41, 6.46, 6.48;
+  `plan.md` phases 9 to 13; `core-specification.md` REQ-DOM-5.
+- Supersedes: none.
