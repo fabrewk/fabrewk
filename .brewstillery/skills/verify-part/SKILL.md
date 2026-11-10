@@ -59,12 +59,12 @@ and `TMPDIR` on disk under `target/`:
     mkdir -p target/mutants-tmp
     export TMPDIR=$PWD/target/mutants-tmp
     systemd-run --user --scope -p MemoryMax=3G -p MemorySwapMax=0 -p OOMPolicy=continue \
-      bash -c 'ulimit -v 1000000; exec cargo mutants --package fabrewk-core --package fabrewk --test-workspace true -j 2 --timeout 90 --features fabrewk-core/fault-injection --in-diff target/<part>.diff --output target/mutants-<part>'
+      bash -c 'ulimit -v 1000000; exec cargo mutants --package fabrewk-core --package fabrewk --test-workspace true -j 2 --timeout 90 --build-timeout 600 --features fabrewk-core/fault-injection --in-diff target/<part>.diff --output target/mutants-<part>'
 
 and, when the part touches `tools/budget/`, a second run in the same kind of scope for the counter, without the
 feature (it does not depend on the core):
 
-      bash -c 'ulimit -v 1000000; exec cargo mutants --package budget -j 2 --timeout 90 --in-diff target/<part>.diff --output target/mutants-<part>-budget'
+      bash -c 'ulimit -v 1000000; exec cargo mutants --package budget -j 2 --timeout 90 --build-timeout 600 --in-diff target/<part>.diff --output target/mutants-<part>-budget'
 
 with the prefix exported first, and `target/<part>.diff` written by `git diff <start>..HEAD > target/<part>.diff`.
 `--features fabrewk-core/fault-injection` makes the crash suite judge every mutant too (R-024: mutants in the
@@ -76,9 +76,12 @@ surface). The counter has its own run because cargo-mutants builds the baseline 
 run) and 1 GB per process (with 4 GB the scope's killer once took `cargo-mutants` itself). Run one heavy job at a time:
 never a mutation run beside a Codex review or another build.
 
-For each missed mutant: add the assertion or case that kills it, or simplify the code so it no longer exists, or
-declare it equivalent with the reason (why no input can tell the mutant from the original). Then run again over what
-changed. Timeouts are loops caught by the timeout, not misses. The record lists every declared equivalent.
+For each missed mutant: add the assertion or case that kills it, or simplify the code so it no longer exists, or declare
+it equivalent with the reason (why no input can tell the mutant from the original). Then run again over what changed.
+Timeouts are loops caught by the timeout, not misses. A build that reaches the cap per process can wait forever instead
+of failing (R-034: one compiler waited 1 h 45 min); with `--build-timeout 600` it ends as a timeout, and such a mutant
+is run again alone (`--re` naming it, `-j 1`, in the same scope without `ulimit -v`, the scope's 3 GB still capping it)
+before it is counted. The record lists every declared equivalent.
 
 ## After
 

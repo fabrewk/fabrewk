@@ -2941,3 +2941,103 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Sources: chat of session 25; `STATUS.md`'s "Next"; D-053, D-062; `core-specification.md` sections 2 TASK, RUN, GATE-7
   to GATE-9, 3 to 5, 11.4, 12; `crates/fabrewk/src/main.rs` (no module in phase 7).
 - Supersedes: none.
+
+## R-034 — Session 25, part 7d3b: the task commands
+
+- Status: recorded
+- Date: 2026-11-10
+- Who: integrator Claude Code, `claude-opus-5-5`, effort high. Reviewer: Codex `codex-cli 0.166.0`, `gpt-6.1-sol`,
+  effort high, launched as the `codex-review` skill says (a disposable clone under `target/review-7d3b/` with a copy
+  of the Cargo registry, `workspace-write`, no network, a user scope capped at 3 GB). No subagent.
+- Start: HEAD `3de45ac`, with the maestro's fermento edit (the two proposals already applied, removed) not committed.
+  It went in its own commit, `230ff56`, with no AI co-author; the answer was then replaced (`cf21056`), the separator
+  found exactly once and the input byte-identical: no current recommendation.
+- Read: `STATUS.md`, `AGENTS.md`, `plan.md`, this file (D-053, D-062 to D-068, R-031, R-033), `core-specification.md`
+  (sections 2 TASK, RUN, GATE-7 to GATE-9, SEC-2, the CLI paragraphs of 7d1 to 7d3a, 3 to 5, 11.2, 11.4), the skills
+  `verify-part` and `codex-review`, and the code of the table, the payloads, the write path, `adopt`, `propose`,
+  `status`, the declaration and the catalogues, with their tests.
+- Decided before any code (D-068): `run`'s `BASE_MOVED` and REQ-RUN-2 from phase 9; `authorize` without `--seen` a
+  usage error; `task-rejected` bound to its task and head, `MERGE_IN_PROGRESS` closed by default until phase 9; the
+  wildcard guard at both authorizations. After the measure: D-069.
+- Written: `crates/core/src/cli/tasks.rs` (what an authorization binds and its rendering, `authorize`, `reject`,
+  `run` up to confinement); `status <id>`'s rendering with its digest and next steps (`fabrewk.subject/2`); the table's
+  two authorization rows with `PROTECTED_PATH_WILDCARD`, `run-started` with `say`, the replay binding
+  `task-rejected`; `shown` in both authorizations' payloads and `task-rejected`'s payload (`task.rs`); three codes
+  (`CONFINEMENT_UNAVAILABLE`, `DEPENDENCY_OPEN`, `MERGE_IN_PROGRESS`); `--seen`, `--run` and the three commands in
+  the declaration, with the catalogue's `flag.then-run` (a field named `run` holds a command); `Cx::lang_in`;
+  `text::printable`, `hidden`, `escape`, and `say` filling in one pass; the catalogues in `en` and `es`; the generated
+  completions and reference; tests in `crates/fabrewk/tests/tasks.rs` (24) and `faults.rs` (one more, 9), the
+  fixtures' `shown`; `core-specification.md` (sections 3 to 5, the paragraph "The task commands, as part 7d3b fixed
+  it"), `plan.md`, `STATUS.md`, `verify-part` (D-069), this entry.
+- Codex, three passes, confirmed blocking findings by pass: 2, 1, 0. Pass 1 (`ea8374b`): P7D3B-1 (the rendering was
+  worded in the language read before the lock, so a policy adopted or the personal file changed in that window let
+  `authorize` sign a stale digest), P7D3B-2 (goals printed raw in human outputs, so a control sequence could hide the
+  rendering that follows); P7D3B-3 not blocking (`say` filled a placeholder held in a value already filled). Pass 2
+  (`e55b3d5`): P7D3B-1 to P7D3B-3 closed; P7D3B-4 (an agent's tool printed raw in `status`'s list of events, before
+  the rendering), corrected at the sink: every human output is made printable where it is written. Pass 3
+  (`29c4f25`): **accept**, no new finding. Each new test failed without its correction (P7D3B-1 in both its ways).
+  Codex wrote its reports in Spanish and ran nothing outside its clone; its sandbox cannot bind an SSH agent's socket,
+  so it skipped that one test, which passes here.
+- Clean clone of `29c4f25`, rustup 1.99.1: 324 tests green, and the fault suites (`crash` 3, `faults` 9); the musl
+  release build, whose `--version --json` lists no feature; `budget check --binary` exits 0: core 5,859 of 7,500
+  counted lines in 34 files, 4 direct runtime crates, 31 crates in the release build, the binary 1,773,928 bytes;
+  `clippy --workspace --all-targets -D warnings` with and without `fabrewk-core/fault-injection`, `fmt --check`,
+  `cargo deny --offline check licenses advisories` clean.
+- Mutation, with `--features fabrewk-core/fault-injection` and `--test-workspace true`:
+  - A first run at `24ae24e` (184 mutants: 110 caught, 74 unviable, none missed) is void: the fault suite's fixture
+    lacked `shown`, so `faults` failed on every mutant and the baseline, built for the core alone, did not show it.
+    The integrator had skipped `verify-part`'s fault-suite step before mutating. Corrected in `5f20c1a`.
+  - The valid run at `5f20c1a`: 184 mutants, 103 caught, 73 unviable, no timeout, 8 missed. After 183 a compiler held
+    at the cap per process (`ulimit -v`, 999,664 kB of virtual memory) waited 1 h 45 min on a futex with 2 s of CPU;
+    the run was stopped, its results kept, and that mutant (`walk` replaced by `Ok("")`) run alone without `ulimit -v`
+    in the same scope: caught. The 8 missed, all in `tasks.rs`, were killed by `ea8374b` (the usage error's next step,
+    a stage binding only its own tasks in its dependencies' order, the indentation of a task and of a stage's tasks,
+    a task authorized alone carrying its stage's layer, `--run` on a task, `authorize`'s document `id`, the widened
+    line); a run over them, also without `ulimit -v`: 9 of 9 caught.
+  - Over pass 1's corrections: 68 mutants, 24 caught, 42 unviable, 2 timeouts (`open + 1` in `say` made `- 1` or
+    `* 1`, a loop), none missed. Over pass 2's: 16 mutants, 15 caught, 1 unviable. No equivalent declared.
+- Residuals, not blocking: a refusal is worded in the language read before the lock (its code is what is held); the
+  personal file is not under the record's lock, so a change after the second plan is not seen; JSON documents carry a
+  bidirectional mark as is (JSON escapes only control characters); the SSH agent test cannot run in Codex's sandbox.
+- Size: the core grew from 5,377 to 5,859 counted lines (+482; R-031 projected +450 to +650). Projection: phase 8 as
+  R-029 estimated it (+800 to +1,100), about 6,650 to 6,950; the core's part of phase 9 (+1,000 to +1,400), about
+  7,650 to 8,350. The maestro kept the ceiling at 7,500 and decides it again when phase 9 starts (D-069).
+- Not done: phase 8.
+
+## D-069 — Part 7d3b measured: the core's ceiling kept until phase 9; a build timeout in `verify-part`
+
+- Status: decided
+- Decided: 2026-11-10
+- Origin: maintainer XEL in session 25's chat, answering the integrator's two questions after part 7d3b was accepted
+  and measured, as R-029 and R-031 asked: "Mantener; decidir en fase 9 (Recomendado)"; "Aprobar (Recomendado)".
+- Decision:
+  1. The core ring's ceiling stays at 7,500 counted lines (D-054). Measured at 5,859 after 7d3b, the projection
+     (R-034) puts it at about 6,650 to 6,950 after phase 8, which fits, and 7,650 to 8,350 after the core's part of
+     phase 9, which likely does not. The maestro decides the ceiling again when phase 9 starts, with phase 8's
+     measure. The alternatives offered were 8,500 or 9,000 now.
+  2. `verify-part`'s two mutation commands gain `--build-timeout 600`, and the skill says that a build that reaches
+     the cap per process can wait forever instead of failing (R-034), so that a mutant whose build times out is run
+     again alone (`--re`, `-j 1`, in the same scope without `ulimit -v`, the scope's 3 GB still capping it) before it
+     is counted. The rerun's detail (`-j 1`, without `ulimit -v`) is the integrator's, added after the answer from
+     how this session's run was recovered; the maestro may undo it. The alternative offered was a lesson in R-034
+     only.
+- Consequences: `.brewstillery/skills/verify-part/SKILL.md`; `tools/budget` unchanged.
+- Sources: chat of session 25; D-042, D-054, D-060; R-029, R-031, R-034.
+- Supersedes: none.
+
+## D-070 — Phase 7 closed
+
+- Status: decided
+- Decided: 2026-11-10
+- Origin: maintainer XEL in session 25's chat, answering the integrator's question after part 7d3b was accepted:
+  "Cerrar la fase 7 (Recomendado)".
+- Decision: phase 7 (core, part 1) is closed. Its parts 7a, 7b, 7c1, 7c2a, 7c2b, 7d1, 7d2, 7s, 7d3a and 7d3b are done
+  (R-023 to R-031, R-034), each meeting the plan's acceptance for row 7: tests green in a clean clone, the past-defect
+  cases its part covers held, every mutant caught or declared equivalent, within the size budget (D-042, D-054,
+  D-069), and Codex's review accepted. Phase 8 (core, part 2) is next.
+- Consequences: `plan.md` and `STATUS.md`. What phase 7 left to phase 8 stays where the record put it: C5, C6, C7 and
+  C12 and the `MOVE_NOT_ALLOWED` tests of `approve` and `close` (D-053 points 1 and 3), `ALAMBIQUE_UNAPPROVED` and the
+  views that say who acts next, `close`, `sweep`, `approve` and `discard`, and D-061's requirement, to propose when
+  phase 8 starts.
+- Sources: chat of session 25; `plan.md` row 7 and "Phase 7"; D-041, D-053, D-061, D-069; R-034.
+- Supersedes: none.
