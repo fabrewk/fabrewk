@@ -99,6 +99,14 @@ impl Cx {
         say(self.lang, key, params)
     }
 
+    /// The person's language as `record`'s policy and their file give it now: what a rendering planned on `record`
+    /// under the lock is in, where `lang` is as the command first read them (P7D3B-1).
+    fn lang_in(&self, record: &Replay) -> &'static str {
+        let policy = settings::in_force(record).ok().flatten();
+        let person = policy.as_ref().and_then(|p| identity::person(&p.settings, &self.root));
+        language(&self.domain, policy.as_ref(), person.as_deref())
+    }
+
     /// A path as the person reads it: relative to where they ran the command.
     fn show(&self, path: &Path) -> String {
         path.strip_prefix(&self.root).unwrap_or(path).display().to_string()

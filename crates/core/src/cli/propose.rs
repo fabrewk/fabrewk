@@ -174,10 +174,11 @@ pub(super) fn run(cx: &Cx, file: &str) -> Result<Out, Failed> {
     let (proposed, written) = write::run(cx, |record| plan(cx, &path, &value, record))?;
     let (id, new, goal) = &proposed.stage;
     let key = if *new { "propose.stage" } else { "propose.added" };
-    let mut text = cx.t(key, &[("id", id), ("goal", goal)]) + "\n";
+    let mut text = cx.t(key, &[("id", id), ("goal", &super::tasks::verbatim(goal, "  "))]) + "\n";
     let mut tasks = Vec::new();
     for (tid, name, goal) in &proposed.tasks {
-        text += &format!("  {}\n", cx.t("propose.task", &[("id", tid), ("goal", goal)]));
+        text +=
+            &format!("  {}\n", cx.t("propose.task", &[("id", tid), ("goal", &super::tasks::verbatim(goal, "    "))]));
         tasks.push(json!({"id": tid, "name": name, "goal": goal}));
     }
     text += &format!("{}\n", cx.t("propose.grants", &[]));

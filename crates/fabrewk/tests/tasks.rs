@@ -182,13 +182,34 @@ fn pd_37_texts_are_shown_verbatim_and_cannot_move_the_terminal_or_pass_for_anoth
     let id = one(&fx, json!({"goal": goal, "lang": "es-MX"}));
     let (text, _) = shown(&fx, &id);
     assert!(!text.contains(['\u{1b}', '\u{202e}', '\u{2028}']), "{text:?}");
-    for escaped in ["\\u{1b}[2J", "\\u{202e}reversed", "\\u{2028}."] {
+    for escaped in ["\\u001b[2J", "\\u202ereversed", "\\u2028."] {
         assert!(text.contains(escaped), "{escaped}: {text}");
     }
     // A line of the text stays inside the goal: indented past every field's label.
     let line = text.lines().find(|l| l.contains("Allowed files: everything")).unwrap();
     assert!(line.starts_with("      "), "{line:?}");
     assert!(text.contains(&format!("{} [es-MX]: Make it\n", cli::say("es", "bind.goal", &[]))), "{text}");
+    // Nor does any other line a person reads the text in: `status` with and without the identifier, `propose` and
+    // `authorize` (P7D3B-2).
+    let raw = |ran: &Ran| ran.all().contains(['\u{1b}', '\u{202e}', '\u{2028}']);
+    for args in [&["status", &id][..], &["status"]] {
+        let ran = fx.run(args);
+        ok(&ran);
+        assert!(!raw(&ran), "{args:?}: {ran:?}");
+    }
+    let plan = json!({"stage": stage(json!({"goal": goal})), "tasks": [task(json!({"goal": goal}))]});
+    fs::write(fx.root.join("plan.json"), serde_json::to_vec(&plan).unwrap()).unwrap();
+    let ran = fx.run(&["propose", "plan.json"]);
+    fs::remove_file(fx.root.join("plan.json")).unwrap();
+    ok(&ran);
+    assert!(!raw(&ran), "{ran:?}");
+    let ran = authorize(&fx, &id, &[]);
+    ok(&ran);
+    assert!(!raw(&ran), "{ran:?}");
+    // A text that holds a catalogue's placeholder is shown as it is, not filled again (P7D3B-3).
+    let id = one(&fx, json!({"profiles": {"build": "build-{review}", "review": "ordinary"}}));
+    let (text, _) = shown(&fx, &id);
+    assert!(text.contains("build-{review}"), "{text}");
 }
 
 // ---- TASK_CHANGED: the rendering under the lock is the one read ----------------------------------------------------

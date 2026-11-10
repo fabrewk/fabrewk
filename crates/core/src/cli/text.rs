@@ -44,9 +44,25 @@ pub fn get(lang: &str, key: &str) -> Option<&'static str> {
 /// The message `key` in `lang` with each `{name}` of `params` filled. A key no catalogue holds is a defect the tests
 /// catch; it renders as the catalogue's own sentence for a missing message, never as the bare key.
 pub fn say(lang: &str, key: &str, params: &[(&str, &str)]) -> String {
-    let mut text = get(lang, key).or_else(|| get(lang, "internal.missing")).unwrap_or_default().to_owned();
-    for (name, value) in params {
-        text = text.replace(&format!("{{{name}}}"), value);
+    let mut rest = get(lang, key).or_else(|| get(lang, "internal.missing")).unwrap_or_default();
+    // In one pass over the message: a value filled in is never read again for a name (P7D3B-3).
+    let mut out = String::with_capacity(rest.len());
+    while let Some(open) = rest.find('{') {
+        out += &rest[..open];
+        let after = &rest[open + 1..];
+        let named = after.find('}').and_then(|close| {
+            params.iter().find(|(name, _)| *name == &after[..close]).map(|(_, value)| (*value, close))
+        });
+        match named {
+            Some((value, close)) => {
+                out += value;
+                rest = &after[close + 1..];
+            }
+            None => {
+                out.push('{');
+                rest = after;
+            }
+        }
     }
-    text
+    out + rest
 }

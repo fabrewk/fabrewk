@@ -8,7 +8,7 @@
 use super::adopt::written_lines;
 use super::propose::layer;
 use super::write::{self, Plan};
-use super::{COMMANDS, Cx, Failed, Options, Out, Usage};
+use super::{COMMANDS, Cx, Failed, Options, Out, Usage, say};
 use crate::code::{Code, Error, refuse};
 use crate::record::{Draft, Event, Replay, StreamKind, sha256_hex, stream_kind, subject_digest};
 use crate::settings::{self, Source, Val};
@@ -69,21 +69,22 @@ fn head(events: &[Event]) -> Value {
 /// A text as `status` shows it: verbatim, but for what could move the terminal or reorder the line (control
 /// characters, bidirectional marks, line and paragraph separators), shown as escapes, and with every line after the
 /// first indented, so that no text passes for another field.
-fn verbatim(s: &str, indent: &str) -> String {
+pub(super) fn verbatim(s: &str, indent: &str) -> String {
     let hidden = |c: char| {
         c.is_control()
             || matches!(c, '\u{61c}' | '\u{200e}' | '\u{200f}' | '\u{2028}'..='\u{202e}' | '\u{2066}'..='\u{2069}')
     };
     let one = |c: char| match c {
         '\n' => format!("\n{indent}"),
-        c if hidden(c) => c.escape_unicode().to_string(),
+        // Written as `\u` and four hex digits, without braces, which a catalogue's placeholder uses.
+        c if hidden(c) => format!("\\u{:04x}", c as u32),
         c => c.to_string(),
     };
     s.chars().map(one).collect()
 }
 
 /// A field's values: each string verbatim, anything else as JSON; the catalogue's "none" for none.
-fn items(cx: &Cx, v: &Value, indent: &str) -> String {
+fn items(lang: &str, v: &Value, indent: &str) -> String {
     let one = |v: &Value| verbatim(&v.as_str().map_or_else(|| v.to_string(), str::to_owned), indent);
     let all: Vec<String> = match v {
         Value::Array(a) => a.iter().map(one).collect(),
@@ -91,20 +92,20 @@ fn items(cx: &Cx, v: &Value, indent: &str) -> String {
         Value::Null => Vec::new(),
         v => vec![one(v)],
     };
-    if all.is_empty() { cx.t("bind.none", &[]) } else { all.join(", ") }
+    if all.is_empty() { say(lang, "bind.none", &[]) } else { all.join(", ") }
 }
 
 /// A task's limits or a stage's budget, each in words, in a fixed order.
-fn limits(cx: &Cx, v: &Value) -> String {
+fn limits(lang: &str, v: &Value) -> String {
     let each = ["rounds", "dispatches", "minutes", "tokens"].into_iter().filter_map(|k| Some((k, v.get(k)?)));
-    each.map(|(k, n)| cx.t(&format!("limit.{k}"), &[("n", &n.to_string())])).collect::<Vec<_>>().join(", ")
+    each.map(|(k, n)| say(lang, &format!("limit.{k}"), &[("n", &n.to_string())])).collect::<Vec<_>>().join(", ")
 }
 
 /// The lines of a task or a stage, at `at`: its identifier and fields' digest, its stream's head, then each field.
-fn lines(cx: &Cx, (name, events): Stream, at: &str) -> String {
+fn lines(ui: &str, (name, events): Stream, at: &str) -> String {
     let p = &events[0].value["payload"];
     let (lang, deeper) = (p["lang"].as_str().unwrap_or_default(), format!("{at}    "));
-    let t = |k: &str, params: &[(&str, &str)]| cx.t(&format!("bind.{k}"), params);
+    let t = |k: &str, params: &[(&str, &str)]| say(ui, &format!("bind.{k}"), params);
     let (id, digest) = (&name[name.find('-').unwrap_or_default() + 1..], subject_digest(p).unwrap_or_default());
     let task = name.starts_with("task-");
     let mut out = match p["stage"].as_str().filter(|_| task) {
@@ -117,9 +118,9 @@ fn lines(cx: &Cx, (name, events): Stream, at: &str) -> String {
         &format!("{at}  {} [{lang}]: {}\n", t("goal", &[]), verbatim(p["goal"].as_str().unwrap_or_default(), &deeper));
     let field = |k: &str, v: String| format!("{at}  {}: {v}\n", t(k, &[]));
     if !task {
-        out += &field("budget", limits(cx, &p["budget"]));
-        out += &field("checks", items(cx, &p["checks"], &deeper));
-        return out + &field("settings", items(cx, &p["settings"], &deeper));
+        out += &field("budget", limits(ui, &p["budget"]));
+        out += &field("checks", items(ui, &p["checks"], &deeper));
+        return out + &field("settings", items(ui, &p["settings"], &deeper));
     }
     out += &format!("{at}  {} [{lang}]:\n", t("requirements", &[]));
     for (i, r) in p["requirements"].as_array().into_iter().flatten().enumerate() {
@@ -128,14 +129,14 @@ fn lines(cx: &Cx, (name, events): Stream, at: &str) -> String {
         out += &format!("{deeper}   {} [{lang}]: {}\n", t("criterion", &[]), text("criterion"));
     }
     for k in ["base", "dependencies", "allowed"] {
-        out += &field(k, items(cx, &p[k], &deeper));
+        out += &field(k, items(ui, &p[k], &deeper));
     }
     let profile = |k: &str| verbatim(p["profiles"][k].as_str().unwrap_or_default(), &deeper);
     out += &format!("{at}  {}\n", t("profiles", &[("build", &profile("build")), ("review", &profile("review"))]));
-    out += &field("checks", items(cx, &p["checks"], &deeper));
-    out += &field("limits", limits(cx, &p["limits"]));
-    out += &field("delegation", items(cx, &p["delegationLanguage"], &deeper));
-    out + &field("settings", items(cx, &p["settings"], &deeper))
+    out += &field("checks", items(ui, &p["checks"], &deeper));
+    out += &field("limits", limits(ui, &p["limits"]));
+    out += &field("delegation", items(ui, &p["delegationLanguage"], &deeper));
+    out + &field("settings", items(ui, &p["settings"], &deeper))
 }
 
 /// What an authorization of a stream binds (REQ-GATE-7, PD-37): the rendering `status <id>` shows, in the person's
@@ -152,18 +153,19 @@ pub(super) fn bound<'a>(cx: &Cx, record: &'a Replay, states: &States, stream: &s
     let (name, events) = record.streams.get_key_value(stream)?;
     let kind = if stream.starts_with("task-") { "task" } else { "stage" };
     table::step(kind, states.get(stream).copied(), &format!("{kind}-authorized")).ok()?;
+    let lang = cx.lang_in(record);
     let waits = &table::find("task", "task-authorized")?.from;
-    let mut text = format!("{}\n", cx.t("bind.title", &[]));
+    let mut text = format!("{}\n", say(lang, "bind.title", &[]));
     let tasks: Vec<Stream> = if kind == "task" {
         vec![(name, events)]
     } else {
-        text += &lines(cx, (name, events), "");
-        text += &format!("  {}\n", cx.t("bind.tasks", &[]));
+        text += &lines(lang, (name, events), "");
+        text += &format!("  {}\n", say(lang, "bind.tasks", &[]));
         let stage = tasks_of(record, &stream["stage-".len()..]);
         stage.into_iter().filter(|(n, _)| states.get(*n).is_some_and(|s| waits.contains(s))).collect()
     };
     for t in &tasks {
-        text += &lines(cx, *t, if kind == "task" { "" } else { "    " });
+        text += &lines(lang, *t, if kind == "task" { "" } else { "    " });
     }
     Some(Bound { digest: sha256_hex(text.as_bytes()), text, tasks })
 }
@@ -340,7 +342,7 @@ pub(super) fn authorize(cx: &Cx, id: &str, options: &Options) -> Result<Out, Fai
     let (a, written) = write::run(cx, |record| authorize_plan(cx, id, options, record))?;
     let mut text = cx.t(&format!("authorize.{}", a.subject), &[("id", &a.id)]) + "\n";
     for (tid, goal) in &a.tasks {
-        text += &format!("  {}\n", cx.t("authorize.bound", &[("id", tid), ("goal", goal)]));
+        text += &format!("  {}\n", cx.t("authorize.bound", &[("id", tid), ("goal", &verbatim(goal, "    "))]));
     }
     if !a.widened.is_empty() {
         text += &format!("{}\n", cx.t("authorize.widened", &[("keys", &a.widened.join(", "))]));

@@ -619,7 +619,9 @@ identifier the record does not hold, or a stage's given to `reject`, is a usage 
 row's guards in section 4's order. `status <id>` shows, for a subject the table lets an authorization move, what that
 authorization binds: a title, then the subject's identifier and fields' digest, its stream's head and every field,
 each text verbatim with its language tag (control characters, bidirectional marks and line separators written as
-escapes, every further line of a text indented), the words around them in the person's language; for a stage, its
+escapes, `\u` and four hex digits, every further line of a text indented; a catalogue's placeholder in a text is
+never filled), the words around them in the person's language as the record planned on and their file give it, so
+under the lock as they are then (P7D3B-1); for a stage, its
 own fields and then each of its tasks that waits for an authorization (from `proposed`, `halted`, `verified` or
 `accepted`), each after the tasks of the stage it depends on, else in the order of their identifiers. Its digest is
 the SHA-256 of that text, printed after it with the command `fabrewk authorize <id> --seen <digest>` (without words,
@@ -638,7 +640,9 @@ nothing is written; the policy in force is the write path's guard, `BASE_MOVED` 
 phase 9 with the modules and the integration, and the alambique's approval, after confinement, with phase 8 (D-068).
 `authorize --run` evaluates the run's guards on the states the authorization leaves before writing either, so until
 phase 9 it writes nothing. `reject` refuses `MERGE_IN_PROGRESS` whenever a `task-accepted` follows the task's last
-`candidate-recorded`, which closes by default until phase 9 can tell where the record branch is (D-068).
+`candidate-recorded`, which closes by default until phase 9 can tell where the record branch is (D-068). A proposed
+text that a person reads in any other line, the goals `status`, `propose` and `authorize` print, is written with the
+same escapes (P7D3B-2); the documents carry it as it is, JSON escaping it.
 
 ### INS: assessment, installation and onboarding
 

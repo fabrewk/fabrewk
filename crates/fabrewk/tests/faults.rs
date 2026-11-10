@@ -317,3 +317,39 @@ fn close_stage(fx: &Fx, stage: &str) {
     s.append(&stream, Some(&h), &draft("stage-closed", json!({})), Some(&signer)).unwrap();
     s.finish(&fabrewk_core::identity::PolicyVerifier, &[]).unwrap();
 }
+
+/// What `status` shows of `task` for an authorization: its digest.
+fn shown_digest(fx: &Fx, task: &str) -> String {
+    fx.run(&["status", task, "--json"]).doc()["shown"]["digest"].as_str().unwrap().to_owned()
+}
+
+#[test]
+fn refusal_task_changed_when_the_language_changes_before_the_lock() {
+    // The rendering bound is in the person's language as the record under the lock and their file give it, not as
+    // the command read them first (P7D3B-1): a policy adopted, or the personal file changed, between the first replay
+    // and the lock is `TASK_CHANGED`, and nothing is written.
+    let say = "Lo autorizo: el alcance es el que leí.";
+    for personal in [false, true] {
+        let fx = Fx::new(if personal { "language-personal" } else { "language-policy" }, "published");
+        if !personal {
+            fs::remove_file(fx.domain.join("xel/settings.toml")).unwrap();
+            fx.commit("the policy's language");
+        }
+        let (_, task) = fx.stage_and_task();
+        fx.commit("stage");
+        let seen = shown_digest(&fx, &task);
+        let dir = tmp(if personal { "language-personal-steps" } else { "language-policy-steps" });
+        let child = paused(&fx, &["authorize", &task, "--seen", &seen, "--say", say, "--json"], "before-lock", &dir);
+        if personal {
+            fs::write(fx.domain.join("xel/settings.toml"), PERSONAL.replace("es-MX", "en")).unwrap();
+        } else {
+            fx.edit_policy(&policy_text(&fx.keys).replace("Language = \"en\"", "Language = \"es\""));
+            assert_eq!(fx.run(&["adopt", "--say", SAY]).status, 0);
+        }
+        assert_ne!(shown_digest(&fx, &task), seen);
+        let ran = resume(child, "before-lock", &dir);
+        // The refusal is worded as the command first read the language; its code is what is held.
+        assert_eq!((ran.status, &ran.doc()["refusals"][0]["code"]), (1, &json!("TASK_CHANGED")), "{ran:?}");
+        assert_eq!(fx.events(&format!("task-{task}")).len(), 1, "{ran:?}");
+    }
+}

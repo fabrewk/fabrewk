@@ -99,7 +99,14 @@ fn record_lines(cx: &Cx, record: &Replay, doc: &mut Value, text: &mut String) ->
         let goal = text_of(&events[0], "goal");
         *text += &format!(
             "{}\n",
-            cx.t("status.stage", &[("id", id), ("state", &cx.t(&format!("state.{state}"), &[])), ("goal", goal)])
+            cx.t(
+                "status.stage",
+                &[
+                    ("id", id),
+                    ("state", &cx.t(&format!("state.{state}"), &[])),
+                    ("goal", &super::tasks::verbatim(goal, "  "))
+                ]
+            )
         );
         let mut tasks = Vec::new();
         for (tname, tevents) in
@@ -108,7 +115,13 @@ fn record_lines(cx: &Cx, record: &Replay, doc: &mut Value, text: &mut String) ->
             let (tid, tstate, tgoal) =
                 (&tname["task-".len()..], states.get(tname).copied().unwrap_or_default(), text_of(&tevents[0], "goal"));
             let words = cx.t(&format!("state.{tstate}"), &[]);
-            *text += &format!("  {}\n", cx.t("status.task", &[("id", tid), ("state", &words), ("goal", tgoal)]));
+            *text += &format!(
+                "  {}\n",
+                cx.t(
+                    "status.task",
+                    &[("id", tid), ("state", &words), ("goal", &super::tasks::verbatim(tgoal, "    "))]
+                )
+            );
             tasks.push(json!({"id": tid, "state": tstate, "goal": tgoal}));
         }
         stages.push(json!({"id": id, "state": state, "goal": goal, "tasks": tasks}));
@@ -152,8 +165,10 @@ fn subject(cx: &Cx, id: &str) -> Result<Out, Failed> {
     let state = table::current(record).ok().and_then(|s| s.get(&stream).copied()).unwrap_or_default();
     let (first, state_words) = (&events[0], cx.t(&format!("state.{state}"), &[]));
     let stage = (subject == "task").then(|| text_of(first, "stage"));
-    let mut text =
-        cx.t(&format!("status.{subject}"), &[("id", short), ("state", &state_words), ("goal", text_of(first, "goal"))]);
+    let mut text = cx.t(
+        &format!("status.{subject}"),
+        &[("id", short), ("state", &state_words), ("goal", &super::tasks::verbatim(text_of(first, "goal"), "  "))],
+    );
     text += "\n";
     if let Some(stage) = stage {
         text += &format!("{}\n", cx.t("status.in-stage", &[("stage", stage)]));
