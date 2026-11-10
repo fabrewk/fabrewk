@@ -6,8 +6,7 @@ Mi entrada es exclusivamente mía. Lo que cite desde aquí (capturas, PDF, otros
 
 ## Propuestas y pendientes
 
-1. PROPUESTA: Que Fabrewk compruebe el espacio libre antes de trabajos que escriben mucho, contra un umbral configurable, y se niegue con un código claro en lugar de fallar a medias; que declare la vida de lo que guarda (temporal, caché, evidencia), informe cuánto ocupa la evidencia y solo limpie su propio dominio. Que el espacio libre mínimo sea un requisito declarado de cada máquina (6.46).
-2. PROPUESTA: [proyectado] Tras el piloto, que Fabrewk se instale en su propio repositorio, se reevalúe con sus herramientas contra su alambique y reconstruya solo lo que esa evaluación justifique, como en la autoconstrucción por etapas de un toolchain, manteniendo como oráculos externos las pruebas, los casos de defectos pasados y la revisión independiente.
+Sin propuestas ni pendientes vigentes.
 
 
 
