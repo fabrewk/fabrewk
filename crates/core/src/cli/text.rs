@@ -35,6 +35,24 @@ pub fn messages(text: &str) -> BTreeMap<String, String> {
     out
 }
 
+/// Whether `c` could move the terminal or reorder a line: a control character, a bidirectional mark, a line or
+/// paragraph separator.
+pub(super) fn hidden(c: char) -> bool {
+    c.is_control()
+        || matches!(c, '\u{61c}' | '\u{200e}' | '\u{200f}' | '\u{2028}'..='\u{202e}' | '\u{2066}'..='\u{2069}')
+}
+
+/// `c` as a person reads it: `\u` and four hex digits, without braces, which a catalogue's placeholder uses.
+pub(super) fn escape(c: char) -> String {
+    format!("\\u{:04x}", c as u32)
+}
+
+/// A human output as it reaches the terminal: every hidden character but the line break written as an escape, so that
+/// no text the record holds, in whatever field, can hide or reorder what follows it (P7D3B-4).
+pub(super) fn printable(text: &str) -> String {
+    text.chars().map(|c| if c != '\n' && hidden(c) { escape(c) } else { c.to_string() }).collect()
+}
+
 /// The message `key` in `lang`, or in `en`, if either holds it.
 pub fn get(lang: &str, key: &str) -> Option<&'static str> {
     let find = |l: &str| READ.iter().find(|(c, _)| *c == l).and_then(|(_, m)| m.get(key)).map(String::as_str);

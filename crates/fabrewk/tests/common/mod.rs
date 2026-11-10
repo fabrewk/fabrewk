@@ -170,7 +170,11 @@ impl Fx {
 
     /// Proposes, as an agent, a stage with one task; gives their identifiers.
     pub fn stage_and_task(&self) -> (String, String) {
-        let agent = json!({"kind": "agent", "tool": "codex", "provider": "openai", "modelRequested": "gpt-6.1-sol", "modelObserved": null});
+        self.stage_and_task_by(json!({"kind": "agent", "tool": "codex", "provider": "openai", "modelRequested": "gpt-6.1-sol", "modelObserved": null}))
+    }
+
+    /// A stage and its task, proposed by `agent` (an actor's object) through the library.
+    pub fn stage_and_task_by(&self, agent: Value) -> (String, String) {
         let digest = sha256_hex(std::fs::read_to_string(self.domain.join("settings.toml")).unwrap().as_bytes());
         let draft = |kind: &str, mut payload: Value| {
             payload["nonce"] = json!(nonce().unwrap());

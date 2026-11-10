@@ -640,9 +640,10 @@ nothing is written; the policy in force is the write path's guard, `BASE_MOVED` 
 phase 9 with the modules and the integration, and the alambique's approval, after confinement, with phase 8 (D-068).
 `authorize --run` evaluates the run's guards on the states the authorization leaves before writing either, so until
 phase 9 it writes nothing. `reject` refuses `MERGE_IN_PROGRESS` whenever a `task-accepted` follows the task's last
-`candidate-recorded`, which closes by default until phase 9 can tell where the record branch is (D-068). A proposed
-text that a person reads in any other line, the goals `status`, `propose` and `authorize` print, is written with the
-same escapes (P7D3B-2); the documents carry it as it is, JSON escaping it.
+`candidate-recorded`, which closes by default until phase 9 can tell where the record branch is (D-068). Every human
+output reaches the terminal with each such character but the line break written as that escape, whatever field of the
+record it comes from (P7D3B-4), and the goals `status`, `propose` and `authorize` print are indented as the rendering's
+texts are (P7D3B-2); the documents carry each text as it is, JSON escaping it.
 
 ### INS: assessment, installation and onboarding
 

@@ -286,7 +286,7 @@ pub fn main(args: Vec<OsString>, modules: &'static [Program], markers: &'static 
         }
     };
     let text = if json { crate::record::encode(&out.doc).map(String::from_utf8).and_then(Result::ok) } else { None };
-    let text = text.unwrap_or(out.text);
+    let text = text.unwrap_or_else(|| text::printable(&out.text));
     let _ = if out.error && !json {
         std::io::stderr().write_all(text.as_bytes())
     } else {

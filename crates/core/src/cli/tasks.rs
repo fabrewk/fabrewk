@@ -70,14 +70,9 @@ fn head(events: &[Event]) -> Value {
 /// characters, bidirectional marks, line and paragraph separators), shown as escapes, and with every line after the
 /// first indented, so that no text passes for another field.
 pub(super) fn verbatim(s: &str, indent: &str) -> String {
-    let hidden = |c: char| {
-        c.is_control()
-            || matches!(c, '\u{61c}' | '\u{200e}' | '\u{200f}' | '\u{2028}'..='\u{202e}' | '\u{2066}'..='\u{2069}')
-    };
     let one = |c: char| match c {
         '\n' => format!("\n{indent}"),
-        // Written as `\u` and four hex digits, without braces, which a catalogue's placeholder uses.
-        c if hidden(c) => format!("\\u{:04x}", c as u32),
+        c if super::text::hidden(c) => super::text::escape(c),
         c => c.to_string(),
     };
     s.chars().map(one).collect()

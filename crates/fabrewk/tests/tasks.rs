@@ -206,6 +206,17 @@ fn pd_37_texts_are_shown_verbatim_and_cannot_move_the_terminal_or_pass_for_anoth
     let ran = authorize(&fx, &id, &[]);
     ok(&ran);
     assert!(!raw(&ran), "{ran:?}");
+    // Nor any other text the record holds that a human output prints, such as an agent's own name for its tool
+    // (P7D3B-4): every such character reaches the terminal as an escape.
+    let agent = json!({"kind": "agent", "tool": "codex\u{1b}[8m\u{202e}", "provider": "openai\u{2028}", "modelRequested": "gpt-6.1-sol", "modelObserved": null});
+    let (stage_id, hidden) = fx.stage_and_task_by(agent);
+    fx.commit("an agent's proposal");
+    for args in [&["status", &hidden][..], &["status", &stage_id], &["status"]] {
+        let ran = fx.run(args);
+        ok(&ran);
+        assert!(!raw(&ran), "{args:?}: {ran:?}");
+    }
+    assert!(fx.run(&["status", &hidden]).stdout.contains("codex\\u001b[8m\\u202e"));
     // A text that holds a catalogue's placeholder is shown as it is, not filled again (P7D3B-3).
     let id = one(&fx, json!({"profiles": {"build": "build-{review}", "review": "ordinary"}}));
     let (text, _) = shown(&fx, &id);
