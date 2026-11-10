@@ -149,6 +149,8 @@ fn pd_37_status_shows_what_an_authorization_binds_and_authorize_signs_its_digest
     let limits = ["2 rondas", "4 despachos", "90 minutos"].join(", ");
     assert!(text.contains(&limits), "{text}");
     assert!(text.starts_with(&cli::say("es", "bind.title", &[])));
+    // A task's own rendering is not indented; a stage's indents its tasks (below).
+    assert!(text.contains(&format!("\nTarea {id}")), "{text}");
     // The signed authorization carries that digest, the fields' digest, the head the person read and the limits.
     let stream = format!("task-{id}");
     let created = fx.events(&stream)[0].clone();
@@ -157,7 +159,7 @@ fn pd_37_status_shows_what_an_authorization_binds_and_authorize_signs_its_digest
     assert_eq!(ran.status, 0, "{ran:?}");
     let doc = ran.doc();
     assert_eq!((doc["schema"].as_str(), doc["subject"].as_str()), (Some("fabrewk.authorized/1"), Some("task")));
-    assert_eq!(doc["tasks"], json!([id]));
+    assert_eq!((&doc["id"], &doc["tasks"], &doc["widened"]), (&json!(id), &json!([id]), &json!([])));
     let e = last(&fx, &stream);
     assert_eq!(e["kind"], "task-authorized");
     let mut fields = fabrewk_core::record::encode(&created["payload"]).unwrap();
@@ -253,7 +255,12 @@ fn req_task_3_authorizing_a_stage_binds_each_task_that_waits_in_order() {
     // A task added to the authorized stage waits for its own authorization (section 4).
     let (_, added) = propose(&fx, json!(stage_id), vec![task(json!({"goal": "Later."}))]);
     assert_eq!(state(&fx, &added[0]), "proposed");
-    ok(&authorize(&fx, &added[0], &[]));
+    let ran = authorize(&fx, &added[0], &[]);
+    ok(&ran);
+    assert!(ran.stdout.contains(&format!("fabrewk run {}\n", added[0])), "{ran:?}");
+    // No widening named, no line says one was.
+    let widened = cli::say("es", "authorize.widened", &[("keys", "")]);
+    assert!(!ran.stdout.contains(widened.trim_end()), "{ran:?}");
     // Run, the stage's first task waits for confinement; its dependent one, for the first to be integrated.
     refused(&fx, &["run", &stage_id, "--say", SAY], "CONFINEMENT_UNAVAILABLE", 1, "es");
     let e = refused(&fx, &["run", &ids[1], "--say", SAY], "DEPENDENCY_OPEN", 1, "es");
@@ -355,7 +362,18 @@ fn refusal_widening_unnamed_at_authorize() {
     let (stage_id, _) = propose(&fx, stage(json!({"settings": {"limits.dispatches": 12}})), vec![task(json!({}))]);
     let digest = shown(&fx, &stage_id).1;
     refused(&fx, &["authorize", &stage_id, "--seen", &digest, "--say", SAY], "WIDENING_UNNAMED", 1, "es");
-    ok(&authorize(&fx, &stage_id, &["--widen", "limits.dispatches"]));
+    let ran = authorize(&fx, &stage_id, &["--widen", "limits.dispatches"]);
+    ok(&ran);
+    assert!(ran.stdout.contains(&cli::say("es", "authorize.widened", &[("keys", "limits.dispatches")])), "{ran:?}");
+    // A task authorized alone carries its stage's layer too, under the stage's name.
+    let (other, ids) = propose(&fx, stage(json!({"settings": {"limits.dispatches": 12}})), vec![task(json!({}))]);
+    let digest = shown(&fx, &ids[0]).1;
+    let e = refused(&fx, &["authorize", &ids[0], "--seen", &digest, "--say", SAY], "WIDENING_UNNAMED", 1, "es");
+    assert!(e["detail"].as_str().unwrap().contains("limits.dispatches"), "{e}");
+    assert!(e["detail"].as_str().unwrap().contains(&other), "{e}");
+    let ran = authorize(&fx, &ids[0], &["--widen", "limits.dispatches", "--json"]);
+    assert_eq!(ran.status, 0, "{ran:?}");
+    assert_eq!(ran.doc()["widened"], json!(["limits.dispatches"]));
 }
 
 #[test]
@@ -442,11 +460,10 @@ fn identifiers_the_commands_do_not_take_are_usage_errors() {
         assert_eq!(ran.status, 2, "{args:?}: {ran:?}");
         whole(&ran.all());
     }
-    assert!(fx.run(&["reject", &stage_id, "--say", SAY]).all().contains(&cli::say(
-        "es",
-        "usage.stage",
-        &[("word", &stage_id)]
-    )));
+    let ran = fx.run(&["reject", &stage_id, "--say", SAY, "--json"]);
+    assert_eq!(ran.doc()["message"], cli::say("es", "usage.stage", &[("word", &stage_id)]));
+    // The next step is the help of the command given, not another's.
+    assert_eq!(ran.doc()["run"], "fabrewk reject --help");
     assert_eq!(fx.snapshot(), before);
 }
 
@@ -465,12 +482,52 @@ fn refusal_confinement_unavailable_and_authorize_run_writes_nothing() {
     ok(&authorize(&fx, &id, &[]));
     refused(&fx, &["run", &id, "--say", SAY], "CONFINEMENT_UNAVAILABLE", 1, "es");
     assert_eq!(fx.events(&format!("task-{id}")).len(), 2);
-    // A stage's `--run` starts its first task after the authorization: its dependency's guard comes first.
+    // A task's `--run` runs that task, not the first of its stage that may run: its dependency, authorized and not
+    // integrated, refuses it.
     let first = task(json!({"name": "first"}));
     let second = task(json!({"goal": "Second.", "base": null, "dependencies": ["first"]}));
-    let (_, ids) = propose(&fx, stage(json!({})), vec![first, second]);
+    let (stage_id, ids) = propose(&fx, stage(json!({})), vec![first, second]);
+    ok(&authorize(&fx, &ids[0], &[]));
     let digest = shown(&fx, &ids[1]).1;
-    refused(&fx, &["authorize", &ids[1], "--seen", &digest, "--say", SAY, "--run"], "DEPENDENCY_OPEN", 1, "es");
+    let e = refused(&fx, &["authorize", &ids[1], "--seen", &digest, "--say", SAY, "--run"], "DEPENDENCY_OPEN", 1, "es");
+    assert!(e["detail"].as_str().unwrap().contains(&ids[0]), "{e}");
+    // A stage's `--run` runs its first task that may run, after the authorization.
+    let digest = shown(&fx, &stage_id).1;
+    refused(
+        &fx,
+        &["authorize", &stage_id, "--seen", &digest, "--say", SAY, "--run"],
+        "CONFINEMENT_UNAVAILABLE",
+        1,
+        "es",
+    );
+    assert_eq!(state(&fx, &ids[1]), "proposed");
+}
+
+#[test]
+fn req_task_3_a_stages_tasks_are_ordered_by_their_dependencies_and_only_its_own_are_bound() {
+    let fx = Fx::new("order", "published");
+    let (_, elsewhere) = propose(&fx, stage(json!({"goal": "Other."})), vec![task(json!({"goal": "Elsewhere."}))]);
+    // A chain whose last task has a smaller identifier than the one it depends on; identifiers are random, so the
+    // stage is proposed again until one does.
+    let chain = || {
+        vec![
+            task(json!({"name": "a", "goal": "A."})),
+            task(json!({"name": "b", "goal": "B.", "base": null, "dependencies": ["a"]})),
+            task(json!({"name": "c", "goal": "C.", "base": null, "dependencies": ["b"]})),
+        ]
+    };
+    let (stage_id, ids) = (0..64)
+        .map(|_| propose(&fx, stage(json!({})), chain()))
+        .find(|(_, ids)| ids[2] < ids[1])
+        .expect("one of 64 chains has its identifiers out of order");
+    let (text, digest) = shown(&fx, &stage_id);
+    let at: Vec<usize> = ids.iter().map(|t| text.find(&format!("\n    Tarea {t}")).expect(&text)).collect();
+    assert!(at[0] < at[1] && at[1] < at[2], "{text}");
+    assert!(!text.contains(&elsewhere[0]), "{text}");
+    let ran = fx.run(&["authorize", &stage_id, "--seen", &digest, "--say", SAY, "--json"]);
+    assert_eq!(ran.status, 0, "{ran:?}");
+    assert_eq!(ran.doc()["tasks"], json!(ids));
+    assert_eq!(state(&fx, &elsewhere[0]), "proposed");
 }
 
 #[test]
