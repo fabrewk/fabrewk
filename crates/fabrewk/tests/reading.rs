@@ -571,8 +571,8 @@ const PINNED: &[(&str, &str)] = &[
         ":object .mode:null|string .next:array .next[]:string .policy:null|object .policy.digest:string .policy.pending:bool|null .problems:array .problems[]:object .problems[].code:string .problems[].detail:string .problems[].next:string .problems[].path:null|string .problems[].reason:string .problems[].run:null|string .record:string .schema:string .stages:array .stages[]:object .stages[].goal:string .stages[].id:string .stages[].state:string .stages[].tasks:array .stages[].tasks[]:object .stages[].tasks[].goal:string .stages[].tasks[].id:string .stages[].tasks[].state:string",
     ),
     (
-        "fabrewk.subject/1",
-        ":object .allowed:array .allowed[]:string .events:array .events[]:object .events[].actor:string .events[].at:string .events[].kind:string .events[].seq:number .goal:string .id:string .lang:string .schema:string .stage:null|string .state:string .subject:string",
+        "fabrewk.subject/2",
+        ":object .allowed:array .allowed[]:string .events:array .events[]:object .events[].actor:string .events[].at:string .events[].kind:string .events[].seq:number .goal:string .id:string .lang:string .next:array .next[]:string .schema:string .shown:null|object .shown.digest:string .shown.text:string .stage:null|string .state:string .subject:string",
     ),
     ("fabrewk.usage/1", ":object .message:string .run:string .schema:string"),
     (

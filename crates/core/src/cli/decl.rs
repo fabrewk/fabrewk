@@ -26,7 +26,7 @@ const READ: &[&str] = &["json", "help"];
 
 /// The options that take a value, with the word their help shows for it (D-062); only `widen` may be given more than
 /// once. Every other option is a switch.
-pub const VALUES: [(&str, &str); 3] = [("say", "words"), ("say-lang", "tag"), ("widen", "key")];
+pub const VALUES: [(&str, &str); 4] = [("say", "words"), ("say-lang", "tag"), ("widen", "key"), ("seen", "digest")];
 
 /// The refusals every write command may give before its own (part 7d3a): the record's, the lock's, the repository's,
 /// the domain's, the private folder's and the tools'.
@@ -57,8 +57,8 @@ const WRITE: &[Code] = &[
     ToolMissing,
 ];
 
-/// Every command of this phase (D-053, D-062): the reading commands, then the write commands of part 7d3a. `check`'s
-/// findings are its checks' codes (`CHECKS`); a write command's refusals are its own, then `WRITE`'s.
+/// Every command of this phase (D-053, D-062): the reading commands, then the write commands of parts 7d3a and 7d3b.
+/// `check`'s findings are its checks' codes (`CHECKS`); a write command's refusals are its own, then `WRITE`'s.
 pub const COMMANDS: &[Command] = &[
     Command {
         name: "status",
@@ -67,7 +67,7 @@ pub const COMMANDS: &[Command] = &[
         flags: READ,
         moves: &[],
         refusals: &[],
-        schemas: &["fabrewk.status/1", "fabrewk.subject/1"],
+        schemas: &["fabrewk.status/1", "fabrewk.subject/2"],
     },
     Command {
         name: "config",
@@ -123,7 +123,64 @@ pub const COMMANDS: &[Command] = &[
         refusals: &[StageClosed, TaskInvalid, ProtectedPath, ProtectedPathWildcard, CheckDuplicate],
         schemas: &["fabrewk.proposed/1"],
     },
+    Command {
+        name: "authorize",
+        arg: Some("id"),
+        required: true,
+        flags: &["seen", "say", "say-lang", "widen", "run", "json", "help"],
+        moves: &["task-authorized", "stage-authorized", "run-started"],
+        refusals: &[
+            AgentEnvironment,
+            MoveNotAllowed,
+            RoleForbidden,
+            WordsMissing,
+            WordsCopied,
+            TaskChanged,
+            CheckDuplicate,
+            ProtectedPath,
+            ProtectedPathWildcard,
+            WideningUnnamed,
+            LimitUnobservable,
+            DependencyOpen,
+            LockHeld,
+            ConfinementUnavailable,
+        ],
+        schemas: &["fabrewk.authorized/1"],
+    },
+    Command {
+        name: "reject",
+        arg: Some("task"),
+        required: true,
+        flags: &["say", "say-lang", "json", "help"],
+        moves: &["task-rejected"],
+        refusals: &[AgentEnvironment, MoveNotAllowed, RoleForbidden, WordsMissing, WordsCopied, MergeInProgress],
+        schemas: &["fabrewk.rejected/1"],
+    },
+    Command {
+        name: "run",
+        arg: Some("id"),
+        required: true,
+        flags: &["say", "say-lang", "json", "help"],
+        moves: &["run-started"],
+        refusals: &[
+            AgentEnvironment,
+            MoveNotAllowed,
+            RoleForbidden,
+            WordsMissing,
+            WordsCopied,
+            DependencyOpen,
+            LockHeld,
+            ConfinementUnavailable,
+        ],
+        schemas: &[],
+    },
 ];
+
+/// The catalogue key of an option's words: `flag.<name>`, but `flag.then-run` for `--run`, since a catalogue field
+/// named `run` holds a command (REQ-CLI-2).
+pub fn flag_key(f: &str) -> String {
+    format!("flag.{}", if f == "run" { "then-run" } else { f })
+}
 
 /// Whether a command writes (it lists the moves it may cause).
 pub fn writes(c: &Command) -> bool {
@@ -163,6 +220,10 @@ pub struct Options {
     pub say: Option<OsString>,
     pub say_lang: Option<String>,
     pub widen: Vec<String>,
+    /// The digest of what `status <id>` showed (`authorize --seen`, D-062).
+    pub seen: Option<String>,
+    /// `authorize --run`: start the run in the same command.
+    pub run: bool,
 }
 
 /// A command line the declaration does not accept: the catalogue's message, the word at fault, and the command whose
@@ -227,18 +288,23 @@ pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Parsed, Usage> 
                     continue;
                 }
                 let value = value.into_string().map_err(|_| usage("usage.utf8", "", command))?;
-                match f.as_str() {
-                    "widen" => options.widen.push(value),
-                    _ if !crate::settings::is_tag(&value) => return Err(usage("usage.tag", value, command)),
-                    _ if options.say_lang.replace(value).is_some() => {
-                        return Err(usage("usage.repeat", word, command));
+                let slot = match f.as_str() {
+                    "widen" => {
+                        options.widen.push(value);
+                        continue;
                     }
-                    _ => {}
+                    "seen" => &mut options.seen,
+                    _ if !crate::settings::is_tag(&value) => return Err(usage("usage.tag", value, command)),
+                    _ => &mut options.say_lang,
+                };
+                if slot.replace(value).is_some() {
+                    return Err(usage("usage.repeat", word, command));
                 }
             }
             Some(A::Long(f)) if allowed(&f) => match f.as_str() {
                 "help" => help = true,
                 "version" => version = true,
+                "run" => options.run = true,
                 _ => json = true,
             },
             Some(A::Long(f)) => return Err(usage("usage.flag", format!("--{f}"), command)),
@@ -264,6 +330,11 @@ pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Parsed, Usage> 
         (Some(c), false, _) if c.required && arg.is_none() => {
             Err(usage("usage.argument", format!("<{}>", c.arg.unwrap_or_default()), Some(c)))
         }
+        // `--seen`, the digest of what the person read, is needed whenever a command takes it (D-062, D-068); a
+        // missing `--say` is the command's refusal instead (REQ-TASK-4).
+        (Some(c), false, _) if c.flags.contains(&"seen") && options.seen.is_none() => {
+            Err(usage("usage.needed", "--seen", Some(c)))
+        }
         (Some(command), false, _) => Ok(Parsed::Run { command, arg, json, options }),
         (None, true, true) => Err(usage("usage.flag", "--version", None)),
         (None, false, false) => Err(usage("usage.none", "", None)),
@@ -281,7 +352,7 @@ pub fn synopsis(c: &Command) -> String {
     let mut out = format!("fabrewk {}{arg}", c.name);
     for f in c.flags.iter().filter(|f| **f != "help") {
         out += &match VALUES.iter().find(|v| v.0 == *f) {
-            Some(("say", word)) => format!(" --say <{word}>"),
+            Some((f @ ("say" | "seen"), word)) => format!(" --{f} <{word}>"),
             Some(("widen", word)) => format!(" [--widen <{word}>]…"),
             Some((f, word)) => format!(" [--{f} <{word}>]"),
             None => format!(" [--{f}]"),
@@ -324,7 +395,7 @@ fn pad(rows: &[(String, String)]) -> String {
 /// Help in `lang`: the program's, or one command's.
 pub fn help(lang: &str, command: Option<&Command>) -> String {
     let t = |k: &str| say(lang, k, &[]);
-    let flag = |f: &str| (option(f), t(&format!("flag.{f}")));
+    let flag = |f: &str| (option(f), t(&flag_key(f)));
     match command {
         None => {
             let commands: Vec<_> = COMMANDS
@@ -384,7 +455,7 @@ pub fn fish() -> String {
     for f in PROGRAM_FLAGS {
         out += &format!(
             "complete -c fabrewk -n __fish_use_subcommand -l {f} -d {}\n",
-            quoted(&say("en", &format!("flag.{f}"), &[]))
+            quoted(&say("en", &flag_key(f), &[]))
         );
     }
     out += &format!(
@@ -395,7 +466,7 @@ pub fn fish() -> String {
         let summary = say("en", &format!("command.{}.summary", c.name), &[]);
         out += &format!("complete -c fabrewk -n __fish_use_subcommand -a {} -d {}\n", c.name, quoted(&summary));
         for f in c.flags {
-            let d = quoted(&say("en", &format!("flag.{f}"), &[]));
+            let d = quoted(&say("en", &flag_key(f), &[]));
             let r = if VALUES.iter().any(|v| v.0 == *f) { " -r" } else { "" };
             out += &format!("complete -c fabrewk -n '__fish_seen_subcommand_from {}' -l {f}{r} -d {d}\n", c.name);
         }
@@ -449,7 +520,7 @@ pub fn reference(lang: &str, checks: &[(String, String, String)]) -> String {
             out += &format!("- `<{a}>`: {}\n", t(&format!("command.{}.arg", c.name)));
         }
         for f in c.flags {
-            out += &format!("- `{}`: {}\n", option(f), t(&format!("flag.{f}")));
+            out += &format!("- `{}`: {}\n", option(f), t(&flag_key(f)));
         }
         let moves: Vec<String> = c.moves.iter().map(|m| format!("`{m}` ({})", t(&format!("kind.{m}")))).collect();
         let moves = if moves.is_empty() { t("reference.none") } else { moves.join(", ") + "." };
@@ -480,7 +551,7 @@ pub fn reference(lang: &str, checks: &[(String, String, String)]) -> String {
     }
     out += &format!("\n## {}\n\n", t("reference.program"));
     for f in PROGRAM_FLAGS {
-        out += &format!("- `fabrewk --{f}`: {}\n", t(&format!("flag.{f}")));
+        out += &format!("- `fabrewk --{f}`: {}\n", t(&flag_key(f)));
     }
     out += &format!(
         "\n{} {}\n\n## {}\n\n",

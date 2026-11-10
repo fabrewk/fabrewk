@@ -539,7 +539,7 @@ language in `crates/core/catalogue/` (`en`, the canonical one, holds every table
 command appears in it only in a `run` field, whole. A refusal prints its code and the catalogue's reason, where (a
 path relative to where the command ran), the core's detail (its technical note: a key path and line, a count; never
 a tool's own output) and the next step, with the command to run when there is one. Documents: `fabrewk.status/1`,
-`fabrewk.subject/1`, `fabrewk.config/1`, `fabrewk.value/1`, `fabrewk.check/1`, `fabrewk.refused/1`,
+`fabrewk.subject/1` (`/2` since part 7d3b), `fabrewk.config/1`, `fabrewk.value/1`, `fabrewk.check/1`, `fabrewk.refused/1`,
 `fabrewk.usage/1`, `fabrewk.internal/1`, `fabrewk.version/1`; their fields are pinned by a test. An error no refusal
 names (a file that does not read where a command needs it, a panic) is exit 70 with the catalogue's words. Help,
 `crates/fabrewk/completions/fabrewk.fish`, `crates/fabrewk/completions/fabrewk.sh` (POSIX `sh` syntax registering
@@ -609,6 +609,36 @@ protected paths a task's wildcards are held to are the effective `gate.protected
 layer; a stage that is closed is `STAGE_CLOSED`. Its format is printed by `propose --help` and the reference. The
 fault tests of the write path (`RECORD_HEAD_MOVED`, `RECORD_COMMIT_RACE`, PD-46) are in the binary's test `faults`,
 built with the binary's feature `fault-injection`, which enables the core's.
+
+**The task commands, as part 7d3b fixed it (D-053 point 4, D-062, D-068).** `authorize <id> --seen <digest> --say
+<words> [--say-lang <tag>] [--widen <key>]… [--run]`, `reject <task> --say <words>` and `run <id> --say <words>` are
+write commands (`fabrewk.authorized/1`, `fabrewk.rejected/1`; `run` gives none of its own until phase 9). An
+identifier the record does not hold, or a stage's given to `reject`, is a usage error, and so is `authorize` without
+`--seen`. After the write path's own guards each runs, in this order, the move from the subject's state
+(`MOVE_NOT_ALLOWED`), the person (`ROLE_FORBIDDEN`) and their words (`WORDS_MISSING`, `WORDS_COPIED`), then the
+row's guards in section 4's order. `status <id>` shows, for a subject the table lets an authorization move, what that
+authorization binds: a title, then the subject's identifier and fields' digest, its stream's head and every field,
+each text verbatim with its language tag (control characters, bidirectional marks and line separators written as
+escapes, every further line of a text indented), the words around them in the person's language; for a stage, its
+own fields and then each of its tasks that waits for an authorization (from `proposed`, `halted`, `verified` or
+`accepted`), each after the tasks of the stage it depends on, else in the order of their identifiers. Its digest is
+the SHA-256 of that text, printed after it with the command `fabrewk authorize <id> --seen <digest>` (without words,
+PD-32) and given in `fabrewk.subject/2` as `shown` (`text`, `digest`); `TASK_CHANGED` is the rendering made under the
+lock differing from the one `--seen` names, so a change of the fields, of a head, of a stage's tasks or of the
+person's language refuses; its detail never gives the digest of what is shown now. The authorization binds each task's
+identifier, fields' digest, head and limits as proposed, and records only the widenings its layers make (a key named
+with `--widen` that widens nothing records nothing). `PROTECTED_PATH` holds each bound task's allowed files to the
+lane guard; `PROTECTED_PATH_WILDCARD` to the protected paths in force with its stage's and its own layer;
+`WIDENING_UNNAMED` checks the stage's layer and each task's against the policy in force; `LIMIT_UNOBSERVABLE` applies
+a task's `tokens` or its stage's budget in tokens to both of its profiles; `CHECK_DUPLICATE`, for a stage, its checks
+against the policy in force. `run <stage>` runs the stage's first task, in that order, that the table lets start
+(`MOVE_NOT_ALLOWED` when none may); `run`'s guards are its dependencies integrated (`DEPENDENCY_OPEN`), no task
+`running` (`LOCK_HELD`, REQ-TASK-3), then confinement, which refuses `CONFINEMENT_UNAVAILABLE` until phase 9, so
+nothing is written; the policy in force is the write path's guard, `BASE_MOVED` and REQ-RUN-2 are evaluated from
+phase 9 with the modules and the integration, and the alambique's approval, after confinement, with phase 8 (D-068).
+`authorize --run` evaluates the run's guards on the states the authorization leaves before writing either, so until
+phase 9 it writes nothing. `reject` refuses `MERGE_IN_PROGRESS` whenever a `task-accepted` follows the task's last
+`candidate-recorded`, which closes by default until phase 9 can tell where the record branch is (D-068).
 
 ### INS: assessment, installation and onboarding
 
@@ -800,9 +830,11 @@ creating nonce are fixed by the part that first builds each kind.
   `minutes`, optionally `tokens`), `delegationLanguage` and `settings` (the task's layer). A stage's or a task's
   digest is the SHA-256 of its creating payload, canonical, without the final newline; its identifier is that
   digest's first 8 digits. `task-authorized`: exactly `task`, `digest`, `head` (`seq`, `digest`: the stream's head
-  just before it), `limits` and `widened`. `stage-authorized`: exactly `stage`, `digest`, `head`, `tasks` (each
-  `task`, `digest`, `head`, `limits`) and `widened`. `task-accepted` holds at least `task` and `head`, bound the same
-  way; the rest of its payload is phase 9's.
+  just before it), `limits`, `shown` (the digest of what `status <id>` showed, D-062 point 3) and `widened`.
+  `stage-authorized`: exactly `stage`, `digest`, `head`, `tasks` (each `task`, `digest`, `head`, `limits`), `shown`
+  and `widened`. `task-accepted` holds at least `task` and `head`, bound the same way; the rest of its payload is
+  phase 9's. `task-rejected`: exactly `task` and `head`, bound the same way; where the record branch is, phase 9 adds
+  with the candidate (part 7d3b, D-068).
 - A payload of one of these kinds missing a field, holding an unknown one or a field of the wrong JSON type is
   `RECORD_VERSION_UNKNOWN`, as schema 1 says, and wins over any failure of content. Content (a blank text, a tag that
   is not one, a count below 1, a malformed identifier or commit, no requirement or allowed file, a pattern REQ-TASK-7
@@ -810,7 +842,7 @@ creating nonce are fixed by the part that first builds each kind.
   command, a layer key that level may not set or a value not of its type) is `TASK_INVALID` at a command and
   `RECORD_TRANSITION_INVALID` on replay. The replay holds every stage and task stream to the transition table: a
   move from a state the table does not allow, a task naming a stage or a dependency the record does not hold, an
-  authorization or acceptance whose `task` (or `stage`), `digest` or `head` is not its own stream's, and a stage's
+  authorization, acceptance or rejection whose `task` (or `stage`), `digest` or `head` is not its own stream's, and a stage's
   authorization binding a task of another stage, another digest, or a task that waits for no authorization, are
   `RECORD_TRANSITION_INVALID`; a bound head its task's stream does not hold is `RECORD_ROLLBACK`, as for the seal. A
   stage's authorization makes each task it binds `authorized` right after the head it names. An `attempt-ended`
@@ -841,8 +873,8 @@ creating nonce are fixed by the part that first builds each kind.
 | Move (event) | From | To | Who | Guards (refusal) |
 | --- | --- | --- | --- | --- |
 | `task-proposed` | — | `proposed` | anyone; grants nothing | stage exists and is open (`STAGE_CLOSED`); fields and patterns valid (`TASK_INVALID`, REQ-TASK-7); no pattern reaches a protected name (`PROTECTED_PATH`); protected paths literal (`PROTECTED_PATH_WILDCARD`) |
-| `task-authorized`, or covered by `stage-authorized` | `proposed`, `halted`; `verified` and `accepted` for a revalidation, keeping the candidate (REQ-GATE-8, REQ-RUN-9) | `authorized` | maestro, `--say` | role (`ROLE_FORBIDDEN`); words (`WORDS_MISSING`, `WORDS_COPIED`); digest and head current (`TASK_CHANGED`); lane guard again (`PROTECTED_PATH`); widenings named (`WIDENING_UNNAMED`); observable limits (`LIMIT_UNOBSERVABLE`) |
-| `run-started`, then `attempt-started` | `authorized`; `verified` with stale evidence, as a revalidation (REQ-RUN-9) | `running` | maestro (signed) | policy adopted (`POLICY_ABSENT`); dependencies integrated (`DEPENDENCY_OPEN`); a dependent task's base fixed (`BASE_MOVED`, REQ-TASK-3); no other task running (`LOCK_HELD`); REQ-RUN-2; confinement (`CONFINEMENT_UNAVAILABLE`); alambique approved (`ALAMBIQUE_UNAPPROVED`) |
+| `task-authorized`, or covered by `stage-authorized` | `proposed`, `halted`; `verified` and `accepted` for a revalidation, keeping the candidate (REQ-GATE-8, REQ-RUN-9) | `authorized` | maestro, `--say` | role (`ROLE_FORBIDDEN`); words (`WORDS_MISSING`, `WORDS_COPIED`); digest and head current (`TASK_CHANGED`); lane guard again (`PROTECTED_PATH`); protected paths literal again (`PROTECTED_PATH_WILDCARD`, D-068); widenings named (`WIDENING_UNNAMED`); observable limits (`LIMIT_UNOBSERVABLE`) |
+| `run-started`, then `attempt-started` | `authorized`; `verified` with stale evidence, as a revalidation (REQ-RUN-9) | `running` | maestro, `--say` (D-062) | policy adopted (`POLICY_ABSENT`); dependencies integrated (`DEPENDENCY_OPEN`); a dependent task's base fixed (`BASE_MOVED`, REQ-TASK-3); no other task running (`LOCK_HELD`); REQ-RUN-2; confinement (`CONFINEMENT_UNAVAILABLE`); alambique approved (`ALAMBIQUE_UNAPPROVED`) |
 | `attempt-ended`, `candidate-recorded`, `check-recorded`, `review-recorded` | `running` | `running` | fabrewk | one end per attempt (`ATTEMPT_ENDED`); lanes (`LANE_VIOLATION`, `PROTECTED_PATH`); credentials (`CREDENTIAL_SUSPECTED`); review schema (`REVIEW_INVALID`) |
 | `task-verified` | `running` | `verified` | fabrewk | REQ-GATE-5 |
 | `task-halted` | `authorized`, `running` | `halted` | fabrewk | one of REQ-TASK-5's codes |
@@ -861,8 +893,8 @@ withdrawn by Fabrewk. Each guard is labelled (REQ-SEC-5): cooperative are the gu
 again), `WORDS_COPIED` (the signer can always type the example), `LOCK_HELD` (an advisory lock), REQ-RUN-2 (the
 tools found on the machine) and `CREDENTIAL_SUSPECTED` (a heuristic); every other guard is effective, enforced by the
 replay, by the signature of the person who moves after it was checked, by the confinement that keeps agents from the
-domain, or by the Git host. `run-started`'s row takes no `--say` in section 4 while schema 1 gives every person's
-move words: how `run` records them is decided with 7d3.
+domain, or by the Git host. `run-started` takes the person's words like every person's move (D-062 point 2), and the
+authorizations check again that protected paths are listed literally (D-068).
 
 "Waiting state" is `authorized`, `halted` or `verified`. `run` on an `accepted` task finishes its merge. A `running`
 task with no live process is halted by the next write command (REQ-RUN-5). A command whose move this table does not
@@ -896,8 +928,8 @@ the project file) and `close` (REQ-TASK-6). Every command takes `--help`; every 
 | `fabrewk apply <plan-digest> --say` | yes | project events | `PLAN_CHANGED`, `VERDICT_NONE`, `MODE_NOT_AVAILABLE`, `AGENT_ENVIRONMENT` |
 | `fabrewk adopt --say [--widen <key>]…` | yes | `policy-adopted` | `POLICY_UNCOMMITTED`, `WIDENING_UNNAMED`, `ROLE_NOT_ENFORCED`, `SETTINGS_INVALID` |
 | `fabrewk propose <file>` | yes | `stage-proposed`, `task-proposed` | `TASK_INVALID`, `STAGE_CLOSED` |
-| `fabrewk authorize <stage\|task> --say [--widen <key>]… [--run]` | yes | `stage-authorized`, `task-authorized`; with `--run`, also as `run` | section 4 |
-| `fabrewk run <task\|stage>` | yes | `run-started` and the run's events | section 4 |
+| `fabrewk authorize <stage\|task> --seen <digest> --say [--widen <key>]… [--run]` | yes | `stage-authorized`, `task-authorized`; with `--run`, also as `run` | section 4 |
+| `fabrewk run <task\|stage> --say` | yes | `run-started` and the run's events | section 4 |
 | `fabrewk accept <task> --say` | yes | `task-accepted`, `task-integrated` | section 4 |
 | `fabrewk reject <task> --say` | yes | `task-rejected` | `MERGE_IN_PROGRESS` |
 | `fabrewk sweep <alias> --answer <file>` | yes | `sweep-recorded`, `proposal-*` | REQ-FER-1, REQ-FER-3 |

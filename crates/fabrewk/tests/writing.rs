@@ -473,7 +473,7 @@ fn refusal_stage_closed() {
         b.pop();
         b
     });
-    let payload = json!({"stage": stage, "digest": digest, "head": {"seq": 1, "digest": head.digest}, "tasks": [], "widened": []});
+    let payload = json!({"stage": stage, "digest": digest, "head": {"seq": 1, "digest": head.digest}, "tasks": [], "shown": "0".repeat(64), "widened": []});
     let h = s.append(&stream, Some(&head), &draft("stage-authorized", payload), Some(&signer)).unwrap();
     s.append(&stream, Some(&h), &draft("stage-closed", json!({})), Some(&signer)).unwrap();
     s.finish(&fabrewk_core::identity::PolicyVerifier, &[]).unwrap();
@@ -934,7 +934,7 @@ fn run_by_hand(fx: &Fx, stream: &str) {
     };
     let bound = json!({
         "task": &stream["task-".len()..], "digest": sha256_hex(&bytes), "head": {"seq": head.seq, "digest": head.digest},
-        "limits": first["limits"], "widened": [],
+        "limits": first["limits"], "shown": "0".repeat(64), "widened": [],
     });
     let h = s.append(stream, Some(&head), &person("task-authorized", bound), Some(&signer)).unwrap();
     s.append(stream, Some(&h), &person("run-started", json!({})), Some(&signer)).unwrap();

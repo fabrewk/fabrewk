@@ -16,8 +16,8 @@ use std::sync::LazyLock;
 /// effective (enforced by a signature, by code with confinement, or by the Git host).
 const TABLE: &str = "
 task | task-proposed | - | proposed | anyone | STAGE_CLOSED~ TASK_INVALID~ PROTECTED_PATH~ PROTECTED_PATH_WILDCARD~
-task | task-authorized ^stage-authorized | proposed halted verified accepted | authorized | maestro say | ROLE_FORBIDDEN WORDS_MISSING WORDS_COPIED~ TASK_CHANGED PROTECTED_PATH WIDENING_UNNAMED LIMIT_UNOBSERVABLE
-task | run-started +attempt-started | authorized verified | running | maestro | POLICY_ABSENT DEPENDENCY_OPEN BASE_MOVED LOCK_HELD~ REQ-RUN-2~ CONFINEMENT_UNAVAILABLE ALAMBIQUE_UNAPPROVED
+task | task-authorized ^stage-authorized | proposed halted verified accepted | authorized | maestro say | ROLE_FORBIDDEN WORDS_MISSING WORDS_COPIED~ TASK_CHANGED PROTECTED_PATH PROTECTED_PATH_WILDCARD WIDENING_UNNAMED LIMIT_UNOBSERVABLE
+task | run-started +attempt-started | authorized verified | running | maestro say | POLICY_ABSENT DEPENDENCY_OPEN BASE_MOVED LOCK_HELD~ REQ-RUN-2~ CONFINEMENT_UNAVAILABLE ALAMBIQUE_UNAPPROVED
 task | attempt-ended candidate-recorded check-recorded review-recorded | running | running | fabrewk | ATTEMPT_ENDED LANE_VIOLATION PROTECTED_PATH CREDENTIAL_SUSPECTED~ REVIEW_INVALID
 task | task-verified | running | verified | fabrewk | REQ-GATE-5
 task | task-halted | authorized running | halted | fabrewk | REQ-TASK-5
@@ -26,7 +26,7 @@ task | task-integrated | accepted | integrated | fabrewk | REQ-GATE-8 BASE_MOVED
 task | merge-failed | accepted | accepted | fabrewk |
 task | task-rejected | proposed authorized halted verified accepted | rejected | maestro say | MERGE_IN_PROGRESS
 stage | stage-proposed | - | proposed | anyone | TASK_INVALID~ CHECK_DUPLICATE~
-stage | stage-authorized | proposed | authorized | maestro say | ROLE_FORBIDDEN WORDS_MISSING WORDS_COPIED~ TASK_CHANGED CHECK_DUPLICATE PROTECTED_PATH WIDENING_UNNAMED LIMIT_UNOBSERVABLE
+stage | stage-authorized | proposed | authorized | maestro say | ROLE_FORBIDDEN WORDS_MISSING WORDS_COPIED~ TASK_CHANGED CHECK_DUPLICATE PROTECTED_PATH PROTECTED_PATH_WILDCARD WIDENING_UNNAMED LIMIT_UNOBSERVABLE
 stage | stage-closed | authorized | closed | maestro say | STAGE_OPEN_TASKS SWEEP_MISSING ALAMBIQUE_UNAPPROVED RECORD_UNCOMMITTED
 proposal | proposal-recorded | - | pending | agent | REQ-FER-3
 proposal | proposal-incorporated | pending | incorporated | maestro say | PROPOSAL_STALE ALAMBIQUE_CHANGED UNIT_AMBIGUOUS
@@ -132,7 +132,8 @@ fn invalid(e: &Event, why: impl Into<String>) -> Error {
 
 /// The replay held to the table (REQ-REG-6; D-047, D-053). Each stage and task stream's moves are allowed from the
 /// state its earlier events left, with their payloads' content (REQ-TASK-2, REQ-TASK-3) and their bindings to their
-/// own subject's identifier, digest and previous head (PD-06); a stage's authorization makes each task it binds
+/// own subject's identifier, digest and previous head (PD-06; a rejection and an acceptance bind no digest, part
+/// 7d3b); a stage's authorization makes each task it binds
 /// authorized after the head it names, which its stream must hold (`RECORD_ROLLBACK` otherwise). A second end of an
 /// attempt is `ATTEMPT_ENDED` (PD-10); an attempt that starts while another is open, or a move out of `running` with
 /// one open, is `RECORD_TRANSITION_INVALID`, as is every other failure: each attempt ends exactly once (REQ-RUN-1).
@@ -167,11 +168,11 @@ fn walk(subject: &str, state: Option<&str>, e: &Event, digest: &str) -> Result<&
         _ => x,
     };
     crate::task::check(&e.kind, &e.value["payload"]).map_err(content)?;
-    if ["stage-authorized", "task-authorized", "task-accepted"].contains(&e.kind.as_str()) {
+    if ["stage-authorized", "task-authorized", "task-accepted", "task-rejected"].contains(&e.kind.as_str()) {
         let p = &e.value["payload"];
         let id = &e.stream[subject.len() + 1..];
         let head = json!({"seq": e.seq - 1, "digest": e.value["prev"]});
-        if p[subject] != id || p["head"] != head || (e.kind != "task-accepted" && p["digest"] != digest) {
+        if p[subject] != id || p["head"] != head || (e.kind.ends_with("-authorized") && p["digest"] != digest) {
             return Err(invalid(e, "bound to another subject, its digest or its head"));
         }
     }

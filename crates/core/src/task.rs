@@ -67,6 +67,7 @@ const TASK_AUTHORIZED: T = T::Obj(&[
     ("digest", T::Hex(64)),
     ("head", HEAD),
     ("limits", LIMITS),
+    ("shown", T::Hex(64)),
     ("widened", T::List(&T::Text)),
 ]);
 const STAGE_AUTHORIZED: T = T::Obj(&[
@@ -74,8 +75,10 @@ const STAGE_AUTHORIZED: T = T::Obj(&[
     ("digest", T::Hex(64)),
     ("head", HEAD),
     ("tasks", T::List(&BOUND)),
+    ("shown", T::Hex(64)),
     ("widened", T::List(&T::Text)),
 ]);
+const TASK_REJECTED: T = T::Obj(&[("task", T::Id('t')), ("head", HEAD)]);
 
 /// Holds `v` to `t`: a failure of shape is the error, where; the first failure of content is kept in `content`, so
 /// that a payload is refused for its shape whenever its shape fails.
@@ -153,6 +156,7 @@ pub fn check(kind: &str, p: &Value) -> Result<(), Error> {
         "task-proposed" => (&TASK, Level::Task),
         "stage-authorized" => (&STAGE_AUTHORIZED, Level::Stage),
         "task-authorized" => (&TASK_AUTHORIZED, Level::Task),
+        "task-rejected" => (&TASK_REJECTED, Level::Task),
         _ => return Ok(()),
     };
     let fail = |code: Code, why: String| refuse(code, None, format!("{kind}: {why}"));

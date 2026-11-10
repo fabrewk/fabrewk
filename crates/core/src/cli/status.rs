@@ -134,11 +134,7 @@ fn actor(cx: &Cx, e: &Event) -> (String, String) {
 }
 
 fn subject(cx: &Cx, id: &str) -> Result<Out, Failed> {
-    let stream = match id.split_once('-') {
-        Some(("t", _)) => format!("task-{id}"),
-        Some(("s", _)) => format!("stage-{id}"),
-        _ => id.to_owned(),
-    };
+    let stream = super::tasks::stream_of(id);
     let unknown = || Failed::Usage(Usage { key: "usage.id", word: id.to_owned(), command: Some(&COMMANDS[0]) });
     // A record that does not replay cannot say whether it holds the identifier: its state is shown instead.
     let record = match &cx.record {
@@ -179,9 +175,26 @@ fn subject(cx: &Cx, id: &str) -> Result<Out, Failed> {
     let words: Vec<String> = allowed.iter().map(|k| format!("{} ({k})", cx.t(&format!("kind.{k}"), &[]))).collect();
     let moves = if words.is_empty() { cx.t("config.none", &[]) } else { words.join(", ") };
     text += &format!("{}\n", cx.t("status.allowed", &[("moves", &moves)]));
+    // What an authorization would bind, with the digest `authorize` takes (REQ-GATE-7, PD-37), and the moves a person
+    // may make, each printed without words (PD-32).
+    let states = table::current(record).unwrap_or_default();
+    let bound = super::tasks::bound(cx, record, &states, &stream);
+    let mut next = Vec::new();
+    if let Some(b) = &bound {
+        text += &format!("\n{}{}\n", b.text, cx.t("bind.digest", &[("digest", &b.digest)]));
+        next.push(format!("fabrewk authorize {short} --seen {}", b.digest));
+    }
+    for (kind, command) in [("run-started", "run"), ("task-rejected", "reject")] {
+        if allowed.contains(&kind) {
+            next.push(format!("fabrewk {command} {short}"));
+        }
+    }
+    text += &cx.next(&next.iter().map(String::as_str).collect::<Vec<_>>());
+    let shown = bound.map(|b| json!({"text": b.text, "digest": b.digest}));
     let doc = json!({
-        "schema": "fabrewk.subject/1", "id": short, "subject": subject, "state": state, "goal": text_of(first, "goal"),
-        "lang": text_of(first, "lang"), "stage": stage, "events": list, "allowed": allowed,
+        "schema": "fabrewk.subject/2", "id": short, "subject": subject, "state": state, "goal": text_of(first, "goal"),
+        "lang": text_of(first, "lang"), "stage": stage, "events": list, "allowed": allowed, "shown": shown,
+        "next": next,
     });
     Ok(Out::new(doc, text))
 }

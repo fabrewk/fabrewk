@@ -19,6 +19,8 @@ missing = "La opción {word} lleva un valor."
 repeat = "La opción {word} se dio más de una vez."
 tag = "La etiqueta de idioma {word} no es una etiqueta BCP 47 válida."
 argument = "El comando necesita su argumento {word}."
+needed = "El comando necesita la opción {word}."
+stage = "El identificador {word} es de una etapa; este comando acepta el de una tarea."
 next = "Consulta qué acepta el comando:"
 
 [internal]
@@ -45,6 +47,8 @@ json = "Da la salida como un solo documento JSON con un campo schema."
 say = "Tus propias palabras para esta decisión, guardadas tal cual y firmadas. Se rechazan las copiadas de un ejemplo, como «Estoy de acuerdo.»."
 say-lang = "La etiqueta de idioma de tus palabras; por omisión, tu languages.agentInteraction."
 widen = "Nombra una ampliación de autoridad que hace este movimiento, por su ruta de clave; una vez por cada una."
+seen = "El digest que status imprimió de lo que leíste; si el sujeto cambió desde entonces, el movimiento se niega."
+then-run = "Inicia la ejecución en el mismo comando, después de la autorización."
 
 [command.status]
 summary = "Muestra la salud del registro, la política vigente y el estado de cada etapa y tarea."
@@ -63,6 +67,18 @@ summary = "Un maestro adopta el archivo del proyecto como la política vigente, 
 [command.propose]
 summary = "Propone una etapa y sus tareas, o tareas para una etapa del registro, desde un archivo JSON; no autoriza nada."
 arg = "El archivo JSON que describe la etapa y sus tareas; su formato va abajo."
+
+[command.authorize]
+summary = "Un maestro autoriza una tarea, o una etapa y sus tareas, tal como status las mostró, nombrando cada ampliación que hace."
+arg = "La tarea o la etapa, por su identificador (t-… o s-…)."
+
+[command.reject]
+summary = "Un maestro rechaza una tarea y dice por qué."
+arg = "La tarea, por su identificador (t-…)."
+
+[command.run]
+summary = "Un maestro inicia la ejecución confinada de una tarea autorizada, o de la siguiente de una etapa; esta versión aún no tiene confinamiento, así que se niega."
+arg = "La tarea o la etapa, por su identificador (t-… o s-…)."
 
 [words]
 example = "Estoy de acuerdo."
@@ -96,6 +112,42 @@ stage = "Se propuso la etapa {id}: {goal}"
 added = "Se agregó a la etapa {id}: {goal}"
 task = "Se propuso la tarea {id}: {goal}"
 grants = "Nada queda autorizado: un maestro lee cada una y decide."
+
+[bind]
+title = "Lo que ata una autorización, tal como lo guarda el registro:"
+task = "Tarea {id}, de la etapa {stage}; el digest de sus campos: {digest}"
+stage = "Etapa {id}; el digest de sus campos: {digest}"
+head = "El head de su flujo: evento {seq}, {digest}"
+goal = "Objetivo"
+requirements = "Requisitos"
+criterion = "Criterio"
+base = "Commit base"
+dependencies = "Depende de"
+allowed = "Archivos permitidos"
+profiles = "Perfiles: {build} para construir, {review} para revisar"
+checks = "Verificaciones"
+limits = "Límites"
+budget = "Presupuesto"
+delegation = "Idioma de la delegación"
+settings = "Configuración"
+tasks = "Las tareas que autoriza:"
+none = "ninguno"
+digest = "El digest de lo mostrado arriba, que authorize acepta con --seen: {digest}"
+
+[limit]
+rounds = "{n} rondas"
+dispatches = "{n} despachos"
+minutes = "{n} minutos"
+tokens = "{n} tokens"
+
+[authorize]
+task = "Se autorizó la tarea {id}."
+stage = "Se autorizó la etapa {id} y las tareas que ata:"
+bound = "La tarea {id}: {goal}"
+widened = "Ampliaciones nombradas: {keys}."
+
+[reject]
+done = "Se rechazó la tarea {id}: es definitivo."
 
 [write]
 event = "Se registró el evento {seq} del flujo {stream}."
@@ -373,9 +425,18 @@ reason = "Una verificación no pudo correr, así que su resultado es desconocido
 next = "Instala o repara lo indicado y verifica de nuevo."
 run = "fabrewk check"
 
+[code.CONFINEMENT_UNAVAILABLE]
+reason = "Ningún agente corre sin confinamiento, y este equipo o esta versión no tiene un confinamiento que darle."
+next = "Córrelo donde Fabrewk tenga un mecanismo de confinamiento; el detalle dice qué falta."
+
 [code.CREDENTIAL_SUSPECTED]
 reason = "Un archivo parece una credencial. La coincidencia es una heurística, un control cooperativo."
 next = "Quita la credencial del dominio, y reemplázala si alguna vez se confirmó o se compartió."
+
+[code.DEPENDENCY_OPEN]
+reason = "Una tarea de la que depende aún no está integrada."
+next = "Primero lleva esa tarea a su fin:"
+run = "fabrewk status"
 
 [code.DOMAIN_NOT_IGNORED]
 reason = "El repositorio del producto no ignora .brewstillery/, así que un commit ahí lo publicaría."
@@ -403,12 +464,17 @@ reason = "Hay un límite de tokens para una herramienta que no informa los token
 next = "Quita el límite de tokens, o usa un perfil cuya herramienta informe tokens."
 
 [code.LOCK_HELD]
-reason = "Otro comando de Fabrewk tiene el candado del registro de este repositorio."
+reason = "Otro comando de Fabrewk tiene el candado del registro de este repositorio, u otra tarea está en ejecución: un escritor y una ejecución a la vez."
 next = "Espera a que termine y corre tu comando de nuevo."
 
 [code.MARK_INVALID]
 reason = "La marca del registro de este equipo (local/cache/heads.json) está dañada o nombra un evento que el registro no tiene en ese lugar."
 next = "Una persona examina la marca y la quita si está dañada; Fabrewk nunca la quita."
+
+[code.MERGE_IN_PROGRESS]
+reason = "El candidato actual de la tarea está aceptado, y su integración puede estar a medias."
+next = "Termina la integración, o consulta dónde está la tarea:"
+run = "fabrewk status"
 
 [code.MOVE_NOT_ALLOWED]
 reason = "La tabla de transiciones no permite este movimiento desde el estado del sujeto."

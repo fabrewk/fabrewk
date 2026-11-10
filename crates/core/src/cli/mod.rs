@@ -10,13 +10,14 @@ mod config;
 mod decl;
 mod propose;
 mod status;
+mod tasks;
 mod text;
 mod write;
 
 pub use check::CHECKS;
 pub use decl::{
-    COMMANDS, Command, EXITS, Options, PROGRAM_FLAGS, Parsed, SCHEMAS, Usage, VALUES, file_format, fish, help, parse,
-    posix, refusals, synopsis, writes,
+    COMMANDS, Command, EXITS, Options, PROGRAM_FLAGS, Parsed, SCHEMAS, Usage, VALUES, file_format, fish, flag_key,
+    help, parse, posix, refusals, synopsis, writes,
 };
 pub use text::{CATALOGUES, get, messages, say};
 pub use write::EXTENSION_MARKER;
@@ -262,6 +263,9 @@ pub fn main(args: Vec<OsString>, modules: &'static [Program], markers: &'static 
                     "config" => config::run(&cx, arg.as_deref()),
                     "adopt" => adopt::run(&cx, &options),
                     "propose" => propose::run(&cx, arg.as_deref().unwrap_or_default()),
+                    "authorize" => tasks::authorize(&cx, arg.as_deref().unwrap_or_default(), &options),
+                    "reject" => tasks::reject(&cx, arg.as_deref().unwrap_or_default(), &options),
+                    "run" => tasks::run(&cx, arg.as_deref().unwrap_or_default(), &options),
                     _ => check::run(&cx),
                 },
                 Ok(Parsed::Version { .. }) => Ok(version()),

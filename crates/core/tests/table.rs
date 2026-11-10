@@ -315,7 +315,7 @@ fn req_task_3_a_stage_authorization_authorizes_the_tasks_it_binds() {
         let created: Value = serde_json::from_slice(&fs::read(&t.f.events(&stage)[0]).unwrap()).unwrap();
         json!({
             "stage": &stage["stage-".len()..], "digest": subject_digest(&created["payload"]).unwrap(),
-            "head": {"seq": seq, "digest": digest}, "tasks": tasks, "widened": [],
+            "head": {"seq": seq, "digest": digest}, "tasks": tasks, "shown": "0".repeat(64), "widened": [],
         })
     };
     let entry = |seq: u64, digest: &str| {
@@ -474,7 +474,7 @@ fn refusal_task_invalid() {
     assert_eq!(put(&[("/settings", json!({"limits.rounds": {"x": 1}}))]), Err(Code::RecordVersionUnknown));
     assert_eq!(put(&[("/settings", json!({"limits.rounds": true}))]), invalid);
     // The authorizations' payloads are held to their shape too.
-    for kind in ["task-authorized", "stage-authorized"] {
+    for kind in ["task-authorized", "stage-authorized", "task-rejected"] {
         assert_eq!(task::check(kind, &json!({})).map_err(|e| e.code().unwrap()), Err(Code::RecordVersionUnknown));
     }
     // The shape is schema 1's: a record holding a malformed payload does not replay.

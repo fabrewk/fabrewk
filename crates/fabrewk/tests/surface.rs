@@ -71,7 +71,7 @@ fn req_cli_1_every_command_appears_in_help_completions_and_reference() {
         assert!(posix.contains(&format!("        {}) ", c.name)), "posix: {}", c.name);
     }
     // Only the commands that exist (D-053 point 3): nothing of a later phase.
-    for later in ["authorize", "run", "accept", "reject", "sweep", "approve", "discard", "close"] {
+    for later in ["accept", "sweep", "approve", "discard", "close"] {
         assert!(COMMANDS.iter().all(|c| c.name != later), "{later}");
         assert!(!fish.contains(&format!("-a {later} ")) && !posix.contains(&format!(" {later})")), "{later}");
     }
@@ -97,7 +97,9 @@ fn req_cli_1_the_completions_run_in_their_shells() {
         String::from_utf8(out.stdout).unwrap().lines().map(str::to_owned).collect::<Vec<_>>()
     };
     assert_eq!(complete("fabrewk st", 1), ["status"]);
-    assert_eq!(complete("fabrewk ''", 1), ["status", "config", "check", "adopt", "propose", "--help", "--version"]);
+    let all = ["status", "config", "check", "adopt", "propose", "authorize", "reject", "run", "--help", "--version"];
+    assert_eq!(complete("fabrewk ''", 1), all);
+    assert_eq!(complete("fabrewk authorize --s", 2), ["--seen", "--say", "--say-lang"]);
     assert_eq!(complete("fabrewk adopt --w", 2), ["--widen"]);
     assert_eq!(complete("fabrewk check --", 2), ["--json", "--help"]);
     assert!(complete("fabrewk config limits.", 2).contains(&"limits.rounds".to_owned()));
@@ -110,8 +112,11 @@ fn req_cli_1_the_completions_run_in_their_shells() {
 #[test]
 fn req_cli_1_the_parser_accepts_exactly_the_declaration() {
     for c in COMMANDS {
-        // A required argument is in every accepted line; help needs none.
-        let base = if c.required { vec![c.name, "x-1"] } else { vec![c.name] };
+        // A required argument, and `--seen` where the command takes it, are in every accepted line; help needs none.
+        let mut base = if c.required { vec![c.name, "x-1"] } else { vec![c.name] };
+        if c.flags.contains(&"seen") {
+            base.extend(["--seen", "d"]);
+        }
         let with = |more: &[&'static str]| [base.clone(), more.to_vec()].concat();
         let mut ok = vec![base.clone(), vec![c.name, "--help"]];
         for f in c.flags {
@@ -120,6 +125,7 @@ fn req_cli_1_the_parser_accepts_exactly_the_declaration() {
                 "say" => with(&["--say", "words"]),
                 "say-lang" => with(&["--say-lang", "es-MX"]),
                 "widen" => with(&["--widen", "a.b", "--widen", "c.d"]),
+                "run" => with(&["--run"]),
                 _ => with(&["--help"]),
             });
         }
@@ -127,8 +133,8 @@ fn req_cli_1_the_parser_accepts_exactly_the_declaration() {
             ok.push(vec![c.name, "x-1"]);
         }
         if c.arg.is_some() {
-            ok.push(vec![c.name, "x-1", "--json"]);
-            ok.push(vec!["--json", c.name, "x-1"]);
+            ok.push([&[c.name, "x-1", "--json"], base.get(2..).unwrap_or(&[])].concat());
+            ok.push([&["--json", c.name, "x-1"], base.get(2..).unwrap_or(&[])].concat());
         }
         for args in &ok {
             assert!(parse(args).is_ok(), "{args:?}");
@@ -138,6 +144,14 @@ fn req_cli_1_the_parser_accepts_exactly_the_declaration() {
         if c.required {
             bad.push(vec![c.name]);
             bad.push(vec![c.name, "--json"]);
+        }
+        if c.flags.contains(&"seen") {
+            bad.push(vec![c.name, "x-1"]);
+            bad.push(vec![c.name, "x-1", "--seen"]);
+            bad.push(with(&["--seen", "e"]));
+        }
+        if !c.flags.contains(&"run") {
+            bad.push(with(&["--run"]));
         }
         if !c.flags.contains(&"say") {
             bad.push(with(&["--say", "words"]));
@@ -220,7 +234,8 @@ fn rendered(lang: &str) -> Vec<(String, String)> {
     let params: Vec<(&str, &str)> = [
         "word", "path", "check", "about", "severity", "control", "errors", "warnings", "streams", "events", "digest",
         "mode", "id", "state", "goal", "stage", "what", "kind", "by", "at", "moves", "alias", "role", "tool", "name",
-        "touch", "tools", "from", "version", "verified", "seq", "stream", "commit", "of",
+        "touch", "tools", "from", "version", "verified", "seq", "stream", "commit", "of", "keys", "n", "build",
+        "review",
     ]
     .iter()
     .map(|p| (*p, "x"))
@@ -258,11 +273,11 @@ fn pd_34_every_key_has_words_in_every_catalogue() {
     wanted.extend(["published", "own-repository", "unpublished"].map(|m| format!("mode.{m}")));
     wanted.extend(KEYS.iter().map(|k| format!("setting.{}", k.path)));
     wanted.extend(CHECKS.iter().map(|c| format!("check.{}", c.id)));
-    wanted.extend(PROGRAM_FLAGS.iter().map(|f| format!("flag.{f}")));
+    wanted.extend(PROGRAM_FLAGS.iter().map(|f| cli::flag_key(f)));
     for c in COMMANDS {
         wanted.push(format!("command.{}.summary", c.name));
         wanted.extend(c.arg.map(|_| format!("command.{}.arg", c.name)));
-        wanted.extend(c.flags.iter().map(|f| format!("flag.{f}")));
+        wanted.extend(c.flags.iter().map(|f| cli::flag_key(f)));
         wanted.extend(c.refusals.iter().map(|r| format!("code.{r}.about")));
     }
     wanted.extend(cli::EXITS.iter().map(|e| format!("exit.{e}")));
@@ -336,7 +351,8 @@ fn printed() -> Vec<String> {
     }
     for c in COMMANDS {
         let arg = if c.required { " x" } else { "" };
-        out.push(format!("fabrewk {}{arg}", c.name));
+        let seen = if c.flags.contains(&"seen") { " --seen d" } else { "" };
+        out.push(format!("fabrewk {}{arg}{seen}", c.name));
         out.push(format!("fabrewk {} --help", c.name));
     }
     out.extend(["fabrewk --help", "fabrewk --version"].map(str::to_owned));
@@ -397,6 +413,8 @@ fn usage_errors_say_what_is_wrong() {
     says(&["status", "--json=1"], "usage.value", "--json");
     says(&["nosuch"], "usage.command", "nosuch");
     says(&["check", "extra"], "usage.extra", "extra");
+    // `authorize` needs the digest of what the person read (D-062, D-068): without it, a usage error, never a move.
+    says(&["authorize", "t-00000000", "--say", "Sí."], "usage.needed", "--seen");
     // Help lists refusals only for a command that has them.
     let refusals = format!("{}:", cli::say("en", "help.refusals", &[]));
     let status = COMMANDS.iter().find(|c| c.name == "status").unwrap();

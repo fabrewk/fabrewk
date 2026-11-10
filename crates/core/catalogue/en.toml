@@ -22,6 +22,8 @@ missing = "The option {word} takes a value."
 repeat = "The option {word} is given more than once."
 tag = "The language tag {word} is not a valid BCP 47 tag."
 argument = "The command needs its argument {word}."
+needed = "The command needs the option {word}."
+stage = "The identifier {word} is a stage's; this command takes a task's."
 next = "See what the command takes:"
 
 [internal]
@@ -51,6 +53,8 @@ json = "Gives the output as one JSON document with a schema field."
 say = "Your own words for this decision, kept verbatim and signed. Words copied from an example, such as “I agree.”, are refused."
 say-lang = "The language tag of your words; by default, your languages.agentInteraction."
 widen = "Names a widening of authority this move makes, by its key path; give it once for each."
+seen = "The digest that status printed of what you read; if the subject changed since, the move is refused."
+then-run = "Starts the run in the same command, after the authorization."
 
 [command.status]
 about = "The command that shows the state"
@@ -74,6 +78,21 @@ summary = "A maestro adopts the project file as the policy in force, naming ever
 about = "The command that proposes a stage and its tasks"
 summary = "Proposes a stage and its tasks, or tasks for a stage of the record, from a JSON file; it authorizes nothing."
 arg = "The JSON file that describes the stage and its tasks; its format is below."
+
+[command.authorize]
+about = "The command that authorizes a task or a stage"
+summary = "A maestro authorizes a task, or a stage and its tasks, as status showed it, naming every widening it makes."
+arg = "The task or the stage, by its identifier (t-… or s-…)."
+
+[command.reject]
+about = "The command that rejects a task"
+summary = "A maestro rejects a task, saying why."
+arg = "The task, by its identifier (t-…)."
+
+[command.run]
+about = "The command that starts a task's run"
+summary = "A maestro starts the confined run of an authorized task, or of a stage's next one; this version has no confinement yet, so it refuses."
+arg = "The task or the stage, by its identifier (t-… or s-…)."
 
 [words]
 about = "The example of words that help prints; given as --say, it is refused (WORDS_COPIED)"
@@ -112,6 +131,46 @@ stage = "Proposed the stage {id}: {goal}"
 added = "Added to the stage {id}: {goal}"
 task = "Proposed the task {id}: {goal}"
 grants = "Nothing is authorized: a maestro reads each one and decides."
+
+[bind]
+about = "What status shows that an authorization binds, and the digest that authorize takes with --seen (REQ-GATE-7)"
+title = "What an authorization binds, as the record holds it:"
+task = "Task {id}, of the stage {stage}; the digest of its fields: {digest}"
+stage = "Stage {id}; the digest of its fields: {digest}"
+head = "Its stream's head: event {seq}, {digest}"
+goal = "Goal"
+requirements = "Requirements"
+criterion = "Criterion"
+base = "Base commit"
+dependencies = "Depends on"
+allowed = "Allowed files"
+profiles = "Profiles: {build} to build, {review} to review"
+checks = "Checks"
+limits = "Limits"
+budget = "Budget"
+delegation = "Language of the delegation"
+settings = "Settings"
+tasks = "The tasks it authorizes:"
+none = "none"
+digest = "The digest of what is shown above, which authorize takes with --seen: {digest}"
+
+[limit]
+about = "Words for each limit of a task and each part of a stage's budget"
+rounds = "{n} rounds"
+dispatches = "{n} dispatches"
+minutes = "{n} minutes"
+tokens = "{n} tokens"
+
+[authorize]
+about = "What authorize reports"
+task = "Authorized the task {id}."
+stage = "Authorized the stage {id} and the tasks it binds:"
+bound = "The task {id}: {goal}"
+widened = "Widenings named: {keys}."
+
+[reject]
+about = "What reject reports"
+done = "Rejected the task {id}: it is final."
 
 [write]
 about = "What every write command reports of what it wrote"
@@ -417,10 +476,21 @@ reason = "A verification could not run, so its result is unknown, and an unknown
 next = "Install or repair what is named, then verify again."
 run = "fabrewk check"
 
+[code.CONFINEMENT_UNAVAILABLE]
+about = "A run with no confinement backend, or one whose preflight fails (REQ-SEC-2)"
+reason = "No agent runs unconfined, and this machine or this version has no confinement to give it."
+next = "Run it where Fabrewk has a confinement backend; the detail says what is missing."
+
 [code.CREDENTIAL_SUSPECTED]
 about = "A file that looks like a credential"
 reason = "A file looks like a credential. The match is a heuristic, a cooperative control."
 next = "Remove the credential from the domain, and replace it if it was ever committed or shared."
+
+[code.DEPENDENCY_OPEN]
+about = "A run of a task whose dependencies are not integrated (REQ-TASK-3)"
+reason = "A task it depends on is not integrated yet."
+next = "Bring that task to its end first:"
+run = "fabrewk status"
 
 [code.DOMAIN_NOT_IGNORED]
 about = "A domain that the product's repository would publish, in a mode that must not publish it"
@@ -455,13 +525,19 @@ next = "Remove the token limit, or use a profile whose tool reports tokens."
 
 [code.LOCK_HELD]
 about = "Another Fabrewk command is writing in this repository"
-reason = "Another Fabrewk command holds the lock of this repository's record."
+reason = "Another Fabrewk command holds the lock of this repository's record, or another task is running: one writer and one run at a time."
 next = "Wait until it ends, then run your command again."
 
 [code.MARK_INVALID]
 about = "This machine's mark of the record's heads is damaged"
 reason = "This machine's mark of the record (local/cache/heads.json) is damaged or names an event the record does not hold there."
 next = "A person examines the mark and removes it if it is damaged; Fabrewk never removes it."
+
+[code.MERGE_IN_PROGRESS]
+about = "A rejection while an acceptance of the task's current candidate is on record (REQ-GATE-8)"
+reason = "The task's current candidate is accepted, and its integration may be halfway done."
+next = "Finish the integration, or see where the task is:"
+run = "fabrewk status"
 
 [code.MOVE_NOT_ALLOWED]
 about = "A move the transition table does not allow from the subject's state"

@@ -557,7 +557,7 @@ fn refusal_record_transition_invalid() {
     // A task stream that does not begin with its creation.
     let bound = json!({
         "task": "t-00000000", "digest": "0".repeat(64), "head": {"seq": 1, "digest": "0".repeat(64)},
-        "limits": {"rounds": 1, "dispatches": 1, "minutes": 1}, "widened": [],
+        "limits": {"rounds": 1, "dispatches": 1, "minutes": 1}, "shown": "0".repeat(64), "widened": [],
     });
     assert_eq!(check("task-t-00000000", &person("task-authorized", "Autorizo.", bound), true), invalid);
 }

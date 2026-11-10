@@ -325,7 +325,8 @@ pub fn forge_stage_and_task(f: &Fixture) -> (String, PathBuf) {
 }
 
 /// The payload of a person's move that binds the task of `stream` (`task-authorized`, or the binding of
-/// `task-accepted`) to the task's digest and to the head its stream has on disk now (part 7d1, PD-06).
+/// `task-accepted`) to the task's digest and to the head its stream has on disk now (part 7d1, PD-06), with the digest
+/// of a rendering (`shown`, part 7d3b).
 pub fn bound(f: &Fixture, stream: &str) -> Value {
     let files = f.events(stream);
     let first: Value = serde_json::from_slice(&std::fs::read(&files[0]).unwrap()).unwrap();
@@ -334,7 +335,7 @@ pub fn bound(f: &Fixture, stream: &str) -> Value {
         "task": &stream["task-".len()..],
         "digest": fabrewk_core::record::subject_digest(&first["payload"]).unwrap(),
         "head": {"seq": files.len(), "digest": sha256_hex(&last)},
-        "limits": first["payload"]["limits"], "widened": [],
+        "limits": first["payload"]["limits"], "shown": "0".repeat(64), "widened": [],
     })
 }
 

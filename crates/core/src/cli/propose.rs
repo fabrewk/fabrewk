@@ -36,7 +36,7 @@ fn read(path: &Path) -> Result<Value, Error> {
 }
 
 /// A payload's layer of settings, as `effective` takes it.
-fn layer(p: &Value) -> BTreeMap<String, Val> {
+pub(super) fn layer(p: &Value) -> BTreeMap<String, Val> {
     let entries = p["settings"].as_object().into_iter().flatten();
     entries.filter_map(|(k, v)| Some((k.clone(), task::value(v)?))).collect()
 }

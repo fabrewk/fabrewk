@@ -2909,3 +2909,35 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Sources: chat of session 24; `xel/fermento.md`'s two proposals; R-033; `ALAMBIQUE.md` 6.4, 6.41, 6.46, 6.48;
   `plan.md` phases 9 to 13; `core-specification.md` REQ-DOM-5.
 - Supersedes: none.
+
+## D-068 — Part 7d3b: `run`'s guards of phase 9, `--seen` required by the parser, `reject` bound and closed by default, the wildcard guard at authorization
+
+- Status: decided
+- Decided: 2026-11-10
+- Origin: maintainer XEL in session 25's chat, answering the integrator's four questions before any code: "Diferir a
+  fase 9 (Recomendado)"; "Error de uso (Recomendado)"; "Atar y cerrar por defecto (Recomendado)"; "Añadirla
+  (Recomendado)".
+- Decision:
+  1. `run` evaluates, in section 4's order, `POLICY_ABSENT` (the write path's), `DEPENDENCY_OPEN`, `LOCK_HELD` (a
+     task of the record in `running`: tasks run one at a time, REQ-TASK-3) and then refuses `CONFINEMENT_UNAVAILABLE`
+     with nothing written. `BASE_MOVED` (it needs `task-integrated`'s payload) and REQ-RUN-2 (in phase 7 the binary
+     has no module, so every profile's tool is absent and REQ-RUN-2 would always refuse `TOOL_MISSING`, leaving
+     confinement unreached) are evaluated from phase 9, with the modules and the integration, where 11.4 and section
+     12 already test them.
+  2. `authorize` without `--seen` is a usage error (exit 2), as a missing required argument is; the synopsis shows
+     `--seen <digest>` as required.
+  3. `task-rejected`'s payload is exactly `task` and `head`, bound as an authorization is and held to it by the
+     replay (PD-06's binding); where the record branch is, phase 9 adds with the candidate. Until phase 9 can tell
+     where the branch is, `MERGE_IN_PROGRESS` refuses whenever a `task-accepted` follows the task's last
+     `candidate-recorded`.
+  4. `task-authorized` and `stage-authorized` check `PROTECTED_PATH_WILDCARD` again, after `PROTECTED_PATH`, against
+     the protected paths in force with the stage's and the task's layers: `propose` is cooperative, a hand-written
+     `task-proposed` could hold a wildcard that reaches a protected path, and section 4 says the authorization checks
+     those fields again. Section 4's two rows gain the guard, effective since the maestro's signature follows it.
+- Consequences: `core-specification.md` sections 3 (`shown`, `task-rejected`), 4 (the two rows, `run-started`'s
+  `--say` of D-062 point 2) and 5 (the synopses), and the paragraph "The task commands, as part 7d3b fixed it". The
+  alternatives offered were evaluating REQ-RUN-2 now (confinement tested only at the library's level), `TASK_CHANGED`
+  for a missing `--seen`, `reject`'s guard left to phase 9, and keeping the wildcard guard at `propose` only.
+- Sources: chat of session 25; `STATUS.md`'s "Next"; D-053, D-062; `core-specification.md` sections 2 TASK, RUN, GATE-7
+  to GATE-9, 3 to 5, 11.4, 12; `crates/fabrewk/src/main.rs` (no module in phase 7).
+- Supersedes: none.
