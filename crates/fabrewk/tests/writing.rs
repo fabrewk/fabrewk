@@ -1058,3 +1058,15 @@ fn p8c_6_a_lock_or_unversioned_area_that_is_a_link_is_refused_not_followed() {
     refused(&fx, &["propose", &name], "MARK_INVALID", 1, "es");
     assert!(fs::read_dir(&elsewhere).unwrap().next().is_none());
 }
+
+#[test]
+fn a_lock_that_cannot_be_opened_is_an_internal_error_not_a_link() {
+    use std::os::unix::fs::PermissionsExt;
+    let fx = published("lock-unreadable");
+    let name = proposal(&fx, ".plan.json", &file(json!({})));
+    let lock = fx.domain.join("local/lock");
+    fs::set_permissions(&lock, fs::Permissions::from_mode(0o400)).unwrap();
+    let ran = fx.run(&["propose", &name]);
+    fs::set_permissions(&lock, fs::Permissions::from_mode(0o600)).unwrap();
+    assert_eq!(ran.status, 70, "{ran:?}");
+}

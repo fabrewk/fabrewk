@@ -370,10 +370,7 @@ pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), Error> {
     // Whatever stands at the temporary name, a link included, is removed, not followed, and the file is created anew
     // (`O_EXCL`): the write never leaves the directory (P8C-1).
     let write = || -> std::io::Result<()> {
-        match fs::remove_file(&tmp) {
-            Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(e),
-            _ => {}
-        }
+        let _ = fs::remove_file(&tmp);
         let mut file = File::options().write(true).create_new(true).open(&tmp)?;
         std::io::Write::write_all(&mut file, bytes)?;
         file.sync_all()
@@ -407,7 +404,8 @@ fn open_lock(domain: &Path, path: &Path) -> Result<File, Error> {
         };
         let file = opened.map_err(io_at(path))?;
         let same = fs::symlink_metadata(path).ok().zip(file.metadata().ok());
-        let same = same.is_some_and(|(l, f)| l.is_file() && (l.dev(), l.ino()) == (f.dev(), f.ino()));
+        // A link has an inode of its own, which is never the file's it leads to.
+        let same = same.is_some_and(|(l, f)| (l.dev(), l.ino()) == (f.dev(), f.ino()));
         return if same { Ok(file) } else { Err(link()) };
     }
     Err(link())
