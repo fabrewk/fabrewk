@@ -81,7 +81,7 @@ impl Session {
         }
         fs::create_dir_all(&local).map_err(io_at(&local))?;
         fault::pause("before-lock");
-        let lock = File::options().create(true).truncate(false).write(true).open(&path).map_err(io_at(&path))?;
+        let lock = open_lock(domain, &path)?;
         match lock.try_lock() {
             Ok(()) => {}
             Err(fs::TryLockError::WouldBlock) => {
@@ -383,6 +383,34 @@ pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), Error> {
     fs::rename(&tmp, path).map_err(io_at(path))?;
     fault::point();
     sync_dir(dir)
+}
+
+/// Opens the lock without following a link at its name, even one put there after the check (P8C-6, P8C-7): an existing
+/// file is opened and must be the very file the name holds (not a link to another); a missing one is created
+/// exclusively (`O_EXCL` does not follow a link) and only in a folder that lies inside the domain.
+fn open_lock(domain: &Path, path: &Path) -> Result<File, Error> {
+    use std::os::unix::fs::MetadataExt;
+    let link = || refuse(Code::RecordBroken, Some(path), "the lock is reached through a link; it is not followed");
+    for _ in 0..3 {
+        let opened = match File::options().write(true).open(path) {
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                let inside = path.parent().and_then(|p| p.canonicalize().ok()).zip(domain.canonicalize().ok());
+                if !inside.is_some_and(|(local, domain)| local.starts_with(domain)) {
+                    return Err(link());
+                }
+                match File::options().write(true).create_new(true).open(path) {
+                    Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                    other => other,
+                }
+            }
+            other => other,
+        };
+        let file = opened.map_err(io_at(path))?;
+        let same = fs::symlink_metadata(path).ok().zip(file.metadata().ok());
+        let same = same.is_some_and(|(l, f)| l.is_file() && (l.dev(), l.ino()) == (f.dev(), f.ino()));
+        return if same { Ok(file) } else { Err(link()) };
+    }
+    Err(link())
 }
 
 fn sync_dir(dir: &Path) -> Result<(), Error> {

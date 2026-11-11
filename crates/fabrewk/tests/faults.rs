@@ -610,3 +610,26 @@ fn req_view_3_a_command_stopped_before_its_commit_leaves_fresh_views_and_the_nex
     assert_eq!(held.trim_end(), fs::read_to_string(fx.domain.join("STATUS.md")).unwrap().trim_end());
     assert_ne!(held.trim_end(), status.trim_end(), "the second adoption changed what the view shows");
 }
+
+#[test]
+fn p8c_7_a_lock_replaced_by_a_link_between_the_check_and_the_open_is_not_followed() {
+    // The link leads to nothing (the open would create a file outside the domain) or to a file that exists.
+    for (json, existing) in [(false, false), (true, false), (false, true), (true, true)] {
+        let fx = ready(&format!("lock-raced-{json}-{existing}"));
+        let dir = tmp(&format!("lock-raced-steps-{json}-{existing}"));
+        let child = paused(&fx, &args(json), "before-lock", &dir);
+        // Another process swaps the lock for a link to a file outside the domain, after the check.
+        let (lock, outside) = (fx.domain.join("local/lock"), fx.root.join("outside-raced-lock"));
+        fs::remove_file(&lock).unwrap();
+        if existing {
+            fs::write(&outside, b"x").unwrap();
+        }
+        std::os::unix::fs::symlink(&outside, &lock).unwrap();
+        let ran = resume(child, "before-lock", &dir);
+        says(&ran, "RECORD_BROKEN", json);
+        assert_eq!(outside.exists(), existing);
+        if existing {
+            assert_eq!(fs::read(&outside).unwrap(), b"x");
+        }
+    }
+}
