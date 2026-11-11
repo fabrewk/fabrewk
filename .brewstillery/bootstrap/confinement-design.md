@@ -13,7 +13,10 @@ closes, which `config` must declare (6.38: no written instruction presented as a
 **State (session 29).** The maestro decided section 5 as recommended (D-075). Codex's first pass confirmed six
 blocking findings (P9O-1 to P9O-6), corrected here: T-02, T-28, 3.3, 3.4, 3.8 and S-4, S-5, S-9 to S-12. Its second
 pass closed them and confirmed one more (P9O-7: a new session keyring does not keep a cell from the host's keys),
-corrected in T-02, 3.3 and S-12 with a filter on the keyring system calls (P-13). The review is recorded in R-038.
+corrected in T-02, 3.3 and S-12 with a filter on the keyring system calls (P-13). Its third pass closed that and
+confirmed one more (P9O-8: a key used through a cryptographic socket, by its serial number, with no keyring call),
+corrected by widening the filter and by narrowing the claim: the kernel's keys are now T-29, with what stays open
+declared (P-14). The review is recorded in R-038.
 
 ## 0. Inputs and what was probed
 
@@ -66,6 +69,10 @@ Docker or Podman), in the session's scratch directory:
   and `request_key`, given to `bwrap` on standard input (`--seccomp 0`), refuses each of those; a `bwrap` nested
   under it runs and inherits the refusal; the cell's command then finds standard input closed, and reopens it. A
   `/proc/keys` hidden by a mount keeps a nested `bwrap` from mounting its own `/proc`.
+- **P-14 (after P9O-8).** On this machine a cryptographic socket (`AF_ALG`) finds no algorithm to bind, so a key used
+  through one by its serial number was not reproduced here; other kernels offer it. A filter of fifteen instructions
+  that also refuses a socket of that family and the three `io_uring` calls (which make sockets no filter sees)
+  refuses the socket's creation; Internet and Unix sockets, and a nested `bwrap`, still work under it.
 - **P-12 (after P9O-2).** In a repository whose configuration sets `core.hooksPath` to a tracked directory, `git
   update-ref` runs that directory's `reference-transaction`; with `-c core.hooksPath=<an empty directory>` it runs
   nothing.
@@ -115,13 +122,14 @@ of the machine with root; macOS and Windows (no backend, so dispatch refuses the
 | # | Threat | Control | Label | Shown by |
 | --- | --- | --- | --- | --- |
 | T-01 | An agent or a check reads the repository, `.git`, the domain, another repository, the home or the private folder | Only what the cell lists exists inside; the copy holds no `.git` and no `.brewstillery` at any depth | effective | REQ-SEC-1's probes, PD-22 |
-| T-02 | It reaches the person's signature or session: the SSH agent's socket, the session bus, the key store, the display's socket, the kernel keyring its process inherits | No `/run`, no host `/tmp`, no host home; the environment is built from empty; the kernel's three keyring system calls refused by a filter (3.3; P-11, P-13) | effective | Probes for each socket and for a planted variable; a key planted in the host's session keyring and one in its user keyring, their serial numbers given to the probe, are neither found, read nor linked |
+| T-02 | It reaches the person's signature or session: the SSH agent's socket, the session bus, the key store's service, the display's socket | No `/run`, no host `/tmp`, no host home; the environment is built from empty | effective | Probes for each socket and for a planted variable |
+| T-29 | It reads or uses the keys the kernel holds for the person: namespaces neither detach the session keyring a process inherits nor change whose keys they are (P-11, P-13) | A filter refuses the three keyring system calls, cryptographic sockets and `io_uring` (3.3; P-13, P-14) | effective for those routes; residual for any other kernel interface that takes a key's serial number | A key planted in the host's session keyring and one in its user keyring, their serial numbers given to the probe, are neither found, read, linked nor used through a cryptographic socket, from the cell and from a sandbox nested in it; the rest declared by `config` |
 | T-03 | Through a shared network namespace it reaches the host's abstract sockets (the X server: keys read and typed into the person's terminal) and loopback services (the editor's, `sshd`) | A private network namespace with outbound connections only (section 3.5) | effective with option B; residual with option A | Probes: no abstract socket, the host's loopback closed |
 | T-04 | It reaches the local network and the Internet: sends the copy anywhere, attacks other machines | None in the first core | residual | Declared by `config` |
 | T-05 | It reads its tool's credential and sends it out | The credential bound is the tool's only; the tool's own sandbox keeps the model's commands from the network (3.6) | cooperative (the tool's control); residual | Declared; the preflight shows the tool's sandbox starts |
 | T-06 | It writes outside its copy, or leaves something that outlives the attempt | Only the attempt's directories are writable; they are deleted when it ends; everything else is read-only or absent | effective | Probes; nothing of the attempt remains |
 | T-07 | It gains privileges or touches host processes: setuid programs, `ptrace`, signals, devices | No new privileges, a PID namespace, a minimal `/dev` | effective | Probes |
-| T-08 | It exploits the kernel through what a user namespace opens, or through system calls no filter refuses | Nested namespaces only where a tool's own sandbox needs them; the filter refuses the keyring calls only (a wider one is a later hardening) | residual | Declared |
+| T-08 | It exploits the kernel through what a user namespace opens, or through system calls no filter refuses | Nested namespaces only where a tool's own sandbox needs them; the filter refuses only what T-29 names (a wider one is a later hardening) | residual | Declared |
 | T-09 | It outlives its time limit or its end | Ending Fabrewk's direct child ends every process of the cell; it dies with Fabrewk (3.7) | effective | A process in its own session that ignores signals is gone after the limit, and after Fabrewk is killed |
 | T-10 | It exhausts memory, processors or disk | The time limit; a cap on the stream kept; free space checked before each copy (S-3). None for memory | residual for memory and for disk during a run | Declared; R-022's lesson |
 | T-11 | The tree it leaves attacks what reads it: links out of the copy, special files, a nested `.git`, `.gitattributes` that convert or filter, `.gitignore` edited to hide files, names that are not text | Section 3.8's rules: read after the cell is dead, nothing followed, nothing in the tree read as configuration | effective | PD-16, PD-18 to PD-21 and S-2's new cases |
@@ -202,9 +210,13 @@ contract and is not built in phase 9.
 
 - New user, mount, PID, IPC, UTS and cgroup namespaces; a new session, so no terminal is shared; no new privileges; a
   fixed host name.
-- No use of the kernel's keyrings: namespaces neither detach the session keyring a process inherits (P-11) nor keep
-  it from the host's keys, which stay the same user's (P-13), so `bwrap` loads a seccomp filter that refuses
-  `keyctl`, `add_key` and `request_key`, in the cell and in anything nested in it. The filter is a constant of the
+- The kernel's keys (T-29): namespaces neither detach the session keyring a process inherits (P-11) nor keep it from
+  the host's keys, which stay the same user's (P-13), so `bwrap` loads a seccomp filter, in force in the cell and in
+  anything nested in it, that refuses `keyctl`, `add_key` and `request_key`; a socket of the cryptographic family
+  (`AF_ALG`), which takes a key by its serial number; and the three `io_uring` calls, which could make that socket
+  unseen (P-14). The filter closes the routes it names and no more: another kernel interface that takes a key's
+  serial number is a residual risk `config` declares. A session keyring of the cell's own, which would also end the
+  inherited possession, needs one more program and is left with the wider filter as a later hardening. The filter is a constant of the
   backend for each architecture it supports (ARM64 first; a platform counts only when tested), and a process of
   another architecture is ended. It reaches `bwrap` on standard input, the one descriptor the standard library
   passes besides the two output channels; the cell's command starts with standard input reopened on `/dev/null`.
@@ -330,7 +342,8 @@ Beside the controls and their labels (REQ-SEC-5), `config` lists the residual ri
 adapter, worded in the catalogue: the open outbound network (T-04); the tool's credential readable by its agent
 (T-05); the kernel and the trusted programs (T-08); no limit on memory, processors or disk during a run (T-10); the
 audit's limit (T-13); what a check proves (T-17); a reviewer steered by the candidate (T-18); the tool's own flags
-(T-22); host paths visible by name (T-24); an unconfined process of the same user (T-25).
+(T-22); the host's names visible inside (T-24); an unconfined process of the same user (T-25); a kernel interface that
+takes a key's serial number, beyond those refused (T-29).
 
 ## 4. What this design asks the specification to change
 
@@ -384,10 +397,11 @@ own; nothing built in phases 7 and 8 changes but where named.
   empty hooks directory and turns the file-system monitor off; the working tree is brought to a candidate by
   writing each touched path from its object's bytes. This changes `record/git.rs`'s one command builder, built in
   phase 7; part 9b makes the change with P-12 as its test, before any candidate can exist.
-- **S-12 (after P9O-1 and P9O-7).** REQ-SEC-1 gains: no process of a cell can use the kernel's keyring system calls.
-  Its criterion gains: a key planted in the host's session keyring and one of default permissions in its user
-  keyring, their serial numbers given to the probe, are neither found, read nor linked, from the cell and from a
-  sandbox nested in it.
+- **S-12 (after P9O-1, P9O-7 and P9O-8).** REQ-SEC-1 gains: no process of a cell can call the kernel's keyring
+  system calls, open a cryptographic socket or use `io_uring`; what other kernel interface may take a key's serial
+  number is a stated residual risk. Its criterion gains: a key planted in the host's session keyring and one of
+  default permissions in its user keyring, their serial numbers given to the probe, are neither found, read, linked
+  nor used through a cryptographic socket, from the cell and from a sandbox nested in it.
 
 ## 5. What the maestro decides
 
@@ -417,7 +431,7 @@ names. Codex is GPT-6.1 Sol.
 
 | Part | Delivers | Inputs | Acceptance (checkable) | Model |
 | --- | --- | --- | --- | --- |
-| 9a | The cell's contract and the runner in the core; the bubblewrap backend with the network of M-1; its own probe; the evidence store; `CONFINEMENT_UNAVAILABLE` for an absent or failing backend; the residual risks in `config` | Sections 3.1 to 3.5, 3.7, 3.9, 3.10; REQ-SEC-1 (the cell), REQ-SEC-2, REQ-REG-13, REQ-SEC-5; S-1, S-7 | REQ-SEC-1's probes as an agent, a check and an extension would be confined (T-01 to T-03, the planted key included, T-06, T-07, T-23; S-10, S-12); T-09's test; REQ-SEC-2 at the library's level; PD-28 with a fixture program; 3.7's open point settled by test | Fable 5.2 high |
+| 9a | The cell's contract and the runner in the core; the bubblewrap backend with the network of M-1; its own probe; the evidence store; `CONFINEMENT_UNAVAILABLE` for an absent or failing backend; the residual risks in `config` | Sections 3.1 to 3.5, 3.7, 3.9, 3.10; REQ-SEC-1 (the cell), REQ-SEC-2, REQ-REG-13, REQ-SEC-5; S-1, S-7 | REQ-SEC-1's probes as an agent, a check and an extension would be confined (T-01 to T-03, T-06, T-07, T-23, T-29's planted keys; S-10, S-12); T-09's test; REQ-SEC-2 at the library's level; PD-28 with a fixture program; 3.7's open point settled by test | Fable 5.2 high |
 | 9b | The attempt's copy and the candidate: the export, the walk and the change set, the three guards on it, the credential scan in a candidate, the candidate commit, the free-space refusal | Section 3.8; REQ-RUN-3, REQ-RUN-4, REQ-SEC-3 (change set); S-2, S-3, S-4 (the protected names on the change set), S-11 (Fabrewk's Git runs no hook); `record/git.rs`, `task.rs`, `scan.rs` | PD-16 (change set), PD-18 to PD-21, PD-22 (the export), PD-45; `LANE_VIOLATION`, `CREDENTIAL_SUSPECTED` in a candidate, `DISK_LOW`; the tests of S-2, S-4 and S-11 | Opus 5.5 high |
 | 9c | The adapter's contract and the Claude Code module: launch per role, the packet and the role's result schema, usage, markers, protected instruction files, its preflight and its stream audit | Sections 3.6, 3.9; REQ-RUN-7, REQ-RUN-8, REQ-SEC-1 (adapter), REQ-SEC-7, REQ-SET-9 (dispatch), REQ-GATE-4 (audit); S-4; the tool's own documentation; one recorded real stream (the maestro's permission and budget) | PD-25, PD-26 and PD-27 for this adapter; `REVIEW_INVALID`; the credential question of 3.6 answered by test; the fixture home's settings byte-identical (REQ-SEC-6) | Opus 5.5 high |
 | 9d | The Codex module, the same contract: launch per role, its machine rule, its preflight and its stream audit | As 9c, for Codex; 6.38's rule of this machine | PD-25, PD-26 and PD-27 for this adapter; the launch refused in a directory that holds other repositories | Opus 5.5 high |
