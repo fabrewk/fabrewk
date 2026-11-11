@@ -305,7 +305,7 @@ impl Session {
             let (root, name) = (repo.root.display().to_string(), file.strip_prefix(&repo.root).unwrap_or(file));
             let name = name.display().to_string();
             let plain = |t: &str| t.chars().all(|c| c.is_ascii_alphanumeric() || "_./-+=,:@%~".contains(c));
-            let fix = match plain(&root) && plain(&name) {
+            let fix = match plain(&format!("{root}{name}")) {
                 true => format!("run git -C {root} add {name}"),
                 false => format!("stage {name} in the repository at {root}"),
             };

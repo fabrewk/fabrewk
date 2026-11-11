@@ -515,10 +515,17 @@ fn pd_46_a_replay_that_fails_before_an_approval_commits_nothing() {
 
 #[test]
 fn an_alambique_commit_made_is_reported_made_when_the_index_is_held_after_it() {
+    for spaced in [false, true] {
+        index_held(spaced);
+    }
+}
+
+fn index_held(spaced: bool) {
     // P8B-4: the hook takes the index's lock once the ref moves; the person is told to bring the index to the commit,
     // and the record is committed by the next write command.
     use std::os::unix::fs::PermissionsExt;
-    let fx = Fx::new("alambique-index", "published");
+    // A path a shell would split is not printed as a command, but said in words.
+    let fx = Fx::new(if spaced { "alambique index spaced" } else { "alambique-index" }, "published");
     fx.alambique(SMALL, "published");
     let id = alambique_proposal(&fx);
     let hook = fx.root.join(".git/hooks/reference-transaction");
@@ -528,7 +535,12 @@ fn an_alambique_commit_made_is_reported_made_when_the_index_is_held_after_it() {
     let ran = fx.run(&["approve", &id, "--say", SAY, "--json"]);
     assert_eq!(ran.status, 1, "{ran:?}");
     let detail = ran.doc()["refusals"][0]["detail"].as_str().unwrap().to_owned();
-    assert!(detail.contains(" add .brewstillery/ALAMBIQUE.md") && detail.contains("events are written"), "{detail}");
+    let fix = if spaced {
+        "stage .brewstillery/ALAMBIQUE.md in the repository at"
+    } else {
+        " add .brewstillery/ALAMBIQUE.md"
+    };
+    assert!(detail.contains(fix) && detail.contains("events are written"), "{detail}");
     assert_ne!(fx.git(&["rev-parse", "HEAD"]), head, "the alambique's commit is made");
     fs::remove_file(&hook).unwrap();
     fs::remove_file(fx.root.join(".git/index.lock")).unwrap();
