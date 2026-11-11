@@ -253,6 +253,9 @@ Text under a heading is no point.
     assert_eq!(numbered(&fermento::points("1.\n\n\n2.\tx\n")), [(1, "1.".into()), (2, "2.\tx".into())]);
     assert!(fermento::points("").is_empty() && fermento::points("text only\n").is_empty());
     assert!(fermento::points("1234567890. ten digits\n").is_empty());
+    // A heading ends a point's text when a space or a tab follows its hashes, and a hash that starts a word does not.
+    let headed = fermento::points("1. a\n#tag\n#\tTitle\n2. b\n");
+    assert_eq!(numbered(&headed), [(1, "1. a\n#tag".into()), (2, "2. b".into())]);
 }
 
 fn agent(kind: &str, payload: Value) -> Draft {
@@ -402,7 +405,14 @@ fn req_reg_6_proposals_are_held_to_the_table_on_replay() {
     };
     // Recorded twice; decided twice; withdrawn after a discard; unknown; another maintainer's; incorporated after a
     // discard.
+    let fabrewk = |d: Draft| Draft { actor: json!({"kind": "fabrewk"}), say: None, ..d };
     let cases: Vec<(&str, Vec<Draft>, &str)> = vec![
+        ("duplicate", vec![sweep(vec![recommendation(2, two), recommendation(2, two)], json!([]))], "fermento-xel"),
+        (
+            "withdrawn-elsewhere",
+            vec![fabrewk(agent("proposal-withdrawn", json!({"id": "p-aaaaaaaa", "why": "point-gone"})))],
+            "fermento-ana",
+        ),
         ("twice", vec![proposal("p-aaaaaaaa", 2, two, "**6.1.** A.")], "fermento-xel"),
         ("unknown", vec![person("proposal-discarded", json!({"id": "p-cccccccc"}))], "fermento-xel"),
         ("elsewhere", vec![person("proposal-discarded", json!({"id": "p-aaaaaaaa"}))], "fermento-ana"),
@@ -477,6 +487,21 @@ fn refusal_answer_invalid_and_the_payloads_of_the_kinds() {
     let recorded = json!({"id": "p-aaaaaaaa", "point": {"number": 1, "digest": H}, "target": "alambique", "base": H,
                           "units": [], "keys": [], "result": H, "extra": 1});
     assert_eq!(fermento::check("proposal-recorded", &recorded).unwrap_err().code(), Some(Code::RecordVersionUnknown));
+    // Each kind of a fermento holds its shape and its content in the record; a sweep names a point once.
+    let rec = |n: u32| json!({"number": n, "digest": H, "recommendation": {"point": "a", "clarify": "b", "destination": "c"}});
+    let sweep_of = |points: Value| json!({"input": H, "points": points, "heads": {}, "skills": []});
+    assert_eq!(
+        fermento::check("sweep-recorded", &json!({"input": 1})).unwrap_err().code(),
+        Some(Code::RecordVersionUnknown)
+    );
+    assert_eq!(fermento::check("sweep-recorded", &sweep_of(json!([rec(1), rec(1)]))).unwrap_err().code(), invalid);
+    fermento::check("sweep-recorded", &sweep_of(json!([rec(1), rec(2)]))).unwrap();
+    for (kind, bad) in [("proposal-withdrawn", json!({"id": "p-aaaaaaaa"})), ("proposal-discarded", json!({"id": 5}))] {
+        assert_eq!(fermento::check(kind, &bad).unwrap_err().code(), Some(Code::RecordVersionUnknown), "{kind}");
+    }
+    let empty = json!({"id": "p-aaaaaaaa", "point": {"number": 1, "digest": H}, "target": "alambique", "base": H,
+                       "units": [], "keys": [], "result": H});
+    assert_eq!(fermento::check("proposal-recorded", &empty).unwrap_err().code(), invalid);
     let mut twice = answer(good.clone());
     twice["points"] = json!([twice["points"][0].clone(), twice["points"][0].clone()]);
     assert_eq!(fermento::check_answer(&twice).unwrap_err().code(), invalid);
@@ -530,4 +555,66 @@ fn req_fer_10_a_sweep_lists_the_names_of_skills_outside_the_project() {
     assert_eq!(fermento::skills(&modules[..1], Some(&home), &domain)[0]["shadows"], json!([]));
     // The skills were not touched.
     assert_eq!(std::fs::read_to_string(home.join(".tool/skills/alpha/SKILL.md")).unwrap(), "secret text of a skill");
+}
+
+#[test]
+fn req_reg_6_a_decision_in_the_alambique_belongs_to_no_fermento() {
+    let two = "2. Second point.";
+    let f = Fixture::new("incorporated", false);
+    write(
+        &f,
+        "fermento-xel",
+        &[sweep(vec![recommendation(2, two)], json!([])), proposal("p-aaaaaaaa", 2, two, "**6.1.** A.")],
+    );
+    write(&f, "alambique", &[person("proposal-incorporated", json!({"id": "p-aaaaaaaa"}))]);
+    let all = fermento::proposals(&f.replay()).unwrap();
+    assert_eq!(all["p-aaaaaaaa"].state, "incorporated");
+}
+
+#[test]
+fn req_reg_6_a_payload_of_the_wrong_shape_is_refused_where_it_is_written_and_one_of_the_wrong_content_is_not() {
+    let f = Fixture::new("shapes", false);
+    let try_append = |d: Draft| {
+        let mut s = Session::begin(&f.domain, None, &f.verifier()).unwrap();
+        let head = s.head("fermento-xel").unwrap();
+        let signer = d.say.is_some().then(|| f.signer());
+        s.append("fermento-xel", head.as_ref(), &d, signer.as_ref().map(|s| s as &dyn Sign))
+            .map(|_| ())
+            .map_err(|e| e.code())
+    };
+    let wrong = [
+        sweep_with(json!({"input": 1})),
+        Draft { actor: json!({"kind": "fabrewk"}), ..agent("proposal-withdrawn", json!({"id": "p-aaaaaaaa"})) },
+        person("proposal-discarded", json!({"id": 5})),
+        agent("proposal-recorded", json!({"id": "p-aaaaaaaa"})),
+    ];
+    for d in wrong {
+        let kind = d.kind.clone();
+        assert_eq!(try_append(d), Err(Some(Code::RecordVersionUnknown)), "{kind}");
+    }
+    // Content is held on replay with the record's table: written, it passes the shape.
+    assert_eq!(try_append(sweep(vec![recommendation(2, "2. x"), recommendation(2, "2. x")], json!([]))), Ok(()));
+}
+
+fn sweep_with(payload: Value) -> Draft {
+    agent("sweep-recorded", payload)
+}
+
+#[test]
+fn req_fer_4_a_proposal_waits_in_the_answer_though_the_sweep_names_no_point() {
+    let f = Fixture::new("waiting", false);
+    let two = "2. Second point.";
+    write(&f, "fermento-xel", &[sweep(vec![], json!([])), proposal("p-aaaaaaaa", 2, two, "**6.1.** A.")]);
+    let en = fermento::answer(&f.replay(), "xel", "en");
+    assert!(en.contains("fabrewk discard p-aaaaaaaa"), "{en}");
+}
+
+#[test]
+fn refusal_fermento_missing_is_only_for_a_file_that_is_not_there() {
+    let domain = tmp("read-error");
+    assert_eq!(fermento::read(&domain, "xel").unwrap_err().code(), Some(Code::FermentoMissing));
+    // The maintainer's directory is a file: the file system's own error, not a missing fermento.
+    std::fs::write(domain.join("xel"), "not a directory").unwrap();
+    let got = fermento::read(&domain, "xel").unwrap_err().code();
+    assert_ne!(got, Some(Code::FermentoMissing));
 }

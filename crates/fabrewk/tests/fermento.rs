@@ -6,7 +6,7 @@ mod common;
 
 use common::*;
 use fabrewk_core::fermento::{self, Point};
-use fabrewk_core::record::sha256_hex;
+use fabrewk_core::record::{Draft, Session, sha256_hex, subject_digest};
 use serde_json::{Value, json};
 use std::fs;
 
@@ -374,4 +374,47 @@ fn req_cli_1_sweep_and_discard_are_declared_with_their_formats() {
     assert_eq!(fx.run(&["discard"]).status, 2);
     let digest = sha256_hex(b"x");
     assert_eq!(digest.len(), 64);
+}
+
+#[test]
+fn req_fer_3_a_decided_proposal_whose_point_is_gone_is_left_as_it_was() {
+    let fx = published("decided-gone");
+    let doc = sweep(&fx, answer(&fx, &[(2, edit("**6.1.** Two."))])).doc();
+    let id = doc["proposals"][0].as_str().unwrap().to_owned();
+    ok(&fx.run(&["discard", &id, "--say", SAY, "--json"]));
+    fs::write(fermento_path(&fx), text(&fx).replace("2. Second point,\n   on two lines.\n\n", "")).unwrap();
+    fx.commit("input");
+    let ran = sweep(&fx, answer(&fx, &[]));
+    ok(&ran);
+    assert_eq!(ran.doc()["withdrawn"], json!([]));
+    assert_eq!(fx.events("fermento-xel").last().unwrap()["kind"], "sweep-recorded");
+}
+
+#[test]
+fn refusal_record_id_collision_for_an_identifier_another_proposal_holds() {
+    let fx = published("collision");
+    let given = edit("**6.1.** Two.");
+    let two = points(&fx).into_iter().find(|p| p.number == 2).unwrap();
+    // The proposal the sweep would make, and another one the record already holds under its identifier.
+    let payload = json!({"point": {"number": 2, "digest": two.digest}, "target": given["target"], "base": given["base"],
+                         "units": given["units"], "keys": given["keys"], "result": given["result"]});
+    let id = format!("p-{}", &subject_digest(&payload).unwrap()[..8]);
+    let mut other = payload.clone();
+    other["id"] = json!(id);
+    other["result"] = json!("1".repeat(64));
+    let policy = sha256_hex(fs::read_to_string(fx.domain.join("settings.toml")).unwrap().as_bytes());
+    let agent = json!({"kind": "agent", "tool": "claude-code", "provider": "anthropic", "modelRequested": "m", "modelObserved": null});
+    let d = Draft {
+        kind: "proposal-recorded".into(),
+        actor: agent,
+        policy,
+        instance: "SHA256:fixture".into(),
+        say: None,
+        payload: other,
+    };
+    let mut s = Session::begin(&fx.domain, None, &fabrewk_core::identity::PolicyVerifier).unwrap();
+    s.append("fermento-xel", None, &d, None).unwrap();
+    s.finish(&fabrewk_core::identity::PolicyVerifier, &[]).unwrap();
+    let file = answer(&fx, &[(2, given)]);
+    refused(&fx, &["sweep", "xel", "--answer", file], "RECORD_ID_COLLISION", 1, "es");
 }
