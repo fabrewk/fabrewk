@@ -375,6 +375,20 @@ pub fn unswept(record: &Replay, alias: &str, tasks: &[&String]) -> Option<String
     })
 }
 
+/// The first sweep of `alias` that saw the end of every one of `tasks` (see [`unswept`]): the moment from which the
+/// stage was closable as far as that fermento goes; `None` when none did, or there is no task.
+pub fn first_complete<'a>(record: &'a Replay, alias: &str, tasks: &[&String]) -> Option<&'a Event> {
+    let events = record.streams.get(&format!("fermento-{alias}"))?;
+    let saw = |s: &Event| {
+        let heads = &s.value["payload"]["heads"];
+        tasks.iter().all(|t| {
+            let last = record.streams[*t].last();
+            last.is_some_and(|l| heads[t.as_str()] == serde_json::json!({"seq": l.seq, "digest": l.digest}))
+        })
+    };
+    events.iter().filter(|e| e.kind == "sweep-recorded").find(|s| saw(s)).filter(|_| !tasks.is_empty())
+}
+
 /// Whether a pending proposal no longer matches the input as its last sweep saw it (section 4): the point with its
 /// number is gone or its text differs; the same words under another number do not count.
 pub fn stale(p: &Proposal, sweep: Option<&Event>) -> bool {

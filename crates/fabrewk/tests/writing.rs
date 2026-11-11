@@ -1039,3 +1039,22 @@ fn refusal_private_folder_permissions_at_a_write_command() {
     let name = proposal(&fx, "plan.json", &file(json!({})));
     refused(&fx, &["propose", &name], "PRIVATE_FOLDER_PERMISSIONS", 1, "es");
 }
+
+#[test]
+fn p8c_6_a_lock_or_unversioned_area_that_is_a_link_is_refused_not_followed() {
+    let fx = published("lock-link");
+    let name = proposal(&fx, ".plan.json", &file(json!({})));
+    let _ = fs::remove_file(fx.domain.join("local/lock"));
+    // The lock is a link to a file outside the domain that does not exist.
+    std::os::unix::fs::symlink(fx.root.join("outside-lock"), fx.domain.join("local/lock")).unwrap();
+    refused(&fx, &["propose", &name], "RECORD_BROKEN", 1, "es");
+    assert!(!fx.root.join("outside-lock").exists());
+    fs::remove_file(fx.domain.join("local/lock")).unwrap();
+    // The unversioned area is a link to another place: the mark in it is not a regular file reached without one.
+    let elsewhere = fx.root.join("elsewhere");
+    fs::create_dir(&elsewhere).unwrap();
+    fs::remove_dir_all(fx.domain.join("local")).unwrap();
+    std::os::unix::fs::symlink(&elsewhere, fx.domain.join("local")).unwrap();
+    refused(&fx, &["propose", &name], "MARK_INVALID", 1, "es");
+    assert!(fs::read_dir(&elsewhere).unwrap().next().is_none());
+}

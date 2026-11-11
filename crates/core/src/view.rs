@@ -114,8 +114,9 @@ pub fn waits(record: &Replay) -> Vec<Wait> {
                         wait(Who::Integrator, "sweep", alias, ended.clone(), id.to_owned(), &[help]);
                     }
                     if missing.is_empty() {
-                        let swept = aliases.iter().filter_map(|a| fermento::last_sweep(record, a)).map(at);
-                        let since = swept.filter(|_| !names.is_empty()).chain([ended]).max().unwrap_or_default();
+                        // The sweeps that first saw every task's end, not later ones: the wait is already open.
+                        let swept = aliases.iter().filter_map(|a| fermento::first_complete(record, a, &names)).map(at);
+                        let since = swept.chain([ended]).max().unwrap_or_default();
                         wait(Who::Maestro, "stage-close", id, since, String::new(), &[cmd("close", id)]);
                     }
                 }

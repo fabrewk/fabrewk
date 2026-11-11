@@ -6,6 +6,7 @@ use super::event::{self, Class, Draft};
 use super::git::{self, Repo};
 use super::replay::{self, Replay, Verify, list_stream};
 use super::{Code, Error, canon, fault, io_at, mark, refuse};
+use crate::code::unlinked;
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
 
@@ -69,9 +70,17 @@ impl Session {
         }
         mark::check_mark(domain, record.as_ref().unwrap_or(&Replay::default()))?;
         let local = domain.join("local");
+        let path = local.join("lock");
+        // Neither the unversioned area nor the lock is followed to a place outside the domain (REQ-DOM-1, P8C-6).
+        if !unlinked(domain, "local/lock") {
+            return Err(refuse(
+                Code::RecordBroken,
+                Some(&path),
+                "the lock is reached through a link; it is not followed",
+            ));
+        }
         fs::create_dir_all(&local).map_err(io_at(&local))?;
         fault::pause("before-lock");
-        let path = local.join("lock");
         let lock = File::options().create(true).truncate(false).write(true).open(&path).map_err(io_at(&path))?;
         match lock.try_lock() {
             Ok(()) => {}

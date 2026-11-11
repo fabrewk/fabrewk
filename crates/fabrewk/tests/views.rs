@@ -200,6 +200,11 @@ fn req_view_1_status_shows_what_waits_for_whom_and_since_when_from_the_replay_al
     assert!(status.contains(&wait("stage-close", &stage, "", &swept)), "{status}");
     assert!(status.contains(&format!("`fabrewk close {stage}`")));
     assert!(status.contains(&say("en", "view.integrator-none", &[])));
+    // Another sweep, with nothing changed, does not restart a wait that was already open (P8C-5).
+    std::thread::sleep(std::time::Duration::from_millis(1100));
+    sweep(&fx);
+    assert_ne!(at(&fx, "fermento-xel"), swept);
+    assert!(read(&fx, "STATUS.md").contains(&wait("stage-close", &stage, "", &swept)), "{}", read(&fx, "STATUS.md"));
     ok(&fx.run(&["close", &stage, "--say", SAY, "--json"]));
     let status = read(&fx, "STATUS.md");
     assert!(status.contains(&format!("### {waits_for}\n\n{none}\n")), "{status}");
