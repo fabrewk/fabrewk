@@ -11,8 +11,9 @@ a person runs in their own terminal, unconfined. "Cell" is what one confined pro
 closes, which `config` must declare (6.38: no written instruction presented as a demonstrated protection).
 
 **State (session 29).** The maestro decided section 5 as recommended (D-075). Codex's first pass confirmed six
-blocking findings (P9O-1 to P9O-6), corrected here: T-02, T-28, 3.3, 3.4, 3.8 and S-4, S-5, S-8 to S-11. The review
-is recorded in R-038.
+blocking findings (P9O-1 to P9O-6), corrected here: T-02, T-28, 3.3, 3.4, 3.8 and S-4, S-5, S-9 to S-12. Its second
+pass closed them and confirmed one more (P9O-7: a new session keyring does not keep a cell from the host's keys),
+corrected in T-02, 3.3 and S-12 with a filter on the keyring system calls (P-13). The review is recorded in R-038.
 
 ## 0. Inputs and what was probed
 
@@ -59,12 +60,18 @@ Docker or Podman), in the session's scratch directory:
 - **P-11 (after P9O-1).** A key planted in the session's kernel keyring is found and read inside a `bwrap` cell with
   every namespace new. With `keyctl session -` run first, inside or outside the cell, it is not found, and neither is
   the user keyring's.
+- **P-13 (after P9O-7).** With a new session keyring, a cell still lists the host's keys in `/proc/keys`, reads by
+  its serial number a key its owner may read, and links the host's user keyring into its own session, after which it
+  reads a key of default permissions there. A seccomp filter of nine instructions that refuses `keyctl`, `add_key`
+  and `request_key`, given to `bwrap` on standard input (`--seccomp 0`), refuses each of those; a `bwrap` nested
+  under it runs and inherits the refusal; the cell's command then finds standard input closed, and reopens it. A
+  `/proc/keys` hidden by a mount keeps a nested `bwrap` from mounting its own `/proc`.
 - **P-12 (after P9O-2).** In a repository whose configuration sets `core.hooksPath` to a tracked directory, `git
   update-ref` runs that directory's `reference-transaction`; with `-c core.hooksPath=<an empty directory>` it runs
   nothing.
 
 The workspace forbids `unsafe` code and has four runtime crates, so the backend can call no system call of its own
-(Landlock, seccomp, `openat`, `kill`, `statvfs`): it drives programs.
+(Landlock, seccomp, `openat`, `kill`, `statvfs`): it drives programs, and `bwrap` loads a filter for it.
 
 ## 1. What is protected, from whom
 
@@ -108,13 +115,13 @@ of the machine with root; macOS and Windows (no backend, so dispatch refuses the
 | # | Threat | Control | Label | Shown by |
 | --- | --- | --- | --- | --- |
 | T-01 | An agent or a check reads the repository, `.git`, the domain, another repository, the home or the private folder | Only what the cell lists exists inside; the copy holds no `.git` and no `.brewstillery` at any depth | effective | REQ-SEC-1's probes, PD-22 |
-| T-02 | It reaches the person's signature or session: the SSH agent's socket, the session bus, the key store, the display's socket, the kernel keyring its process inherits | No `/run`, no host `/tmp`, no host home; the environment is built from empty; a new session keyring before the cell's command starts (3.3; P-11) | effective | Probes for each socket, for a planted variable and for a key planted in the session keyring |
+| T-02 | It reaches the person's signature or session: the SSH agent's socket, the session bus, the key store, the display's socket, the kernel keyring its process inherits | No `/run`, no host `/tmp`, no host home; the environment is built from empty; the kernel's three keyring system calls refused by a filter (3.3; P-11, P-13) | effective | Probes for each socket and for a planted variable; a key planted in the host's session keyring and one in its user keyring, their serial numbers given to the probe, are neither found, read nor linked |
 | T-03 | Through a shared network namespace it reaches the host's abstract sockets (the X server: keys read and typed into the person's terminal) and loopback services (the editor's, `sshd`) | A private network namespace with outbound connections only (section 3.5) | effective with option B; residual with option A | Probes: no abstract socket, the host's loopback closed |
 | T-04 | It reaches the local network and the Internet: sends the copy anywhere, attacks other machines | None in the first core | residual | Declared by `config` |
 | T-05 | It reads its tool's credential and sends it out | The credential bound is the tool's only; the tool's own sandbox keeps the model's commands from the network (3.6) | cooperative (the tool's control); residual | Declared; the preflight shows the tool's sandbox starts |
 | T-06 | It writes outside its copy, or leaves something that outlives the attempt | Only the attempt's directories are writable; they are deleted when it ends; everything else is read-only or absent | effective | Probes; nothing of the attempt remains |
 | T-07 | It gains privileges or touches host processes: setuid programs, `ptrace`, signals, devices | No new privileges, a PID namespace, a minimal `/dev` | effective | Probes |
-| T-08 | It exploits the kernel through what a user namespace opens, or through system calls no filter refuses | Nested namespaces only where a tool's own sandbox needs them; no seccomp filter (a later hardening) | residual | Declared |
+| T-08 | It exploits the kernel through what a user namespace opens, or through system calls no filter refuses | Nested namespaces only where a tool's own sandbox needs them; the filter refuses the keyring calls only (a wider one is a later hardening) | residual | Declared |
 | T-09 | It outlives its time limit or its end | Ending Fabrewk's direct child ends every process of the cell; it dies with Fabrewk (3.7) | effective | A process in its own session that ignores signals is gone after the limit, and after Fabrewk is killed |
 | T-10 | It exhausts memory, processors or disk | The time limit; a cap on the stream kept; free space checked before each copy (S-3). None for memory | residual for memory and for disk during a run | Declared; R-022's lesson |
 | T-11 | The tree it leaves attacks what reads it: links out of the copy, special files, a nested `.git`, `.gitattributes` that convert or filter, `.gitignore` edited to hide files, names that are not text | Section 3.8's rules: read after the cell is dead, nothing followed, nothing in the tree read as configuration | effective | PD-16, PD-18 to PD-21 and S-2's new cases |
@@ -130,7 +137,7 @@ of the machine with root; macOS and Windows (no backend, so dispatch refuses the
 | T-21 | An extension writes the record or reaches a key | Confined: the repository read-only, one writable area; its requests validated by the outer core, never signed as a person | effective on Linux | REQ-EXT-3, REQ-EXT-4 |
 | T-22 | The tool obeys what it finds: user settings, hooks, MCP servers, skills, the tree's instruction files | An empty home (effective); each adapter turns off the tool's discovery as far as the tool allows; the packet is the only instruction (REQ-RUN-8) | effective for the home; cooperative for the tool's flags | PD-22's markers; REQ-SEC-6 |
 | T-23 | Fabrewk's own launch leaks: a secret in a command line, the person's environment inherited | No secret in any argument; the environment built from empty; credentials are files | effective | A probe for a planted variable; a test on the arguments |
-| T-24 | Host paths are visible inside (the person's name, where the repository is) | None | residual, names only | Declared |
+| T-24 | Names of the host are visible inside: the paths of what is bound (the person's name, where the repository is), the descriptions and serial numbers of the host's keys (`/proc/keys`) | None | residual, names only | Declared |
 | T-25 | An unconfined process of the same user races a write (P8C-8) or edits the domain | None by code | cooperative | Declared (M-3) |
 | T-26 | No backend, a broken one, or a tool's new version that does not fit it | Dispatch refuses (`CONFINEMENT_UNAVAILABLE`); a preflight per tool and version | effective | REQ-SEC-2, PD-27 |
 | T-28 | After integration, Fabrewk's own Git commands run or obey what the candidate brought: a hook in a tracked hooks directory run by the record commit's `update-ref` (P-12), a filter or conversion chosen by the candidate's `.gitattributes` when the working tree is written | Every Git command Fabrewk runs names an empty hooks directory and no file-system monitor; the working tree is written from the objects' bytes, with no filter or conversion (3.8 rule 9; S-11) | effective | P-12 as a test through `accept`; a candidate's `.gitattributes` with a configured filter leaves the bytes |
@@ -194,10 +201,14 @@ contract and is not built in phase 9.
 ### 3.3 What every cell holds (Linux, bubblewrap)
 
 - New user, mount, PID, IPC, UTS and cgroup namespaces; a new session, so no terminal is shared; no new privileges; a
-  fixed host name. A new session keyring, joined before the cell's command starts: namespaces do not detach the one a
-  process inherits (P-11). The standard library cannot join one, so a program does (`keyctl session` of `keyutils`
-  here, one more program the backend detects and without which it refuses); part 9a fixes it with the planted-key
-  probe. The user's identifier inside is the person's own, so Fabrewk can read and delete what the cell wrote.
+  fixed host name.
+- No use of the kernel's keyrings: namespaces neither detach the session keyring a process inherits (P-11) nor keep
+  it from the host's keys, which stay the same user's (P-13), so `bwrap` loads a seccomp filter that refuses
+  `keyctl`, `add_key` and `request_key`, in the cell and in anything nested in it. The filter is a constant of the
+  backend for each architecture it supports (ARM64 first; a platform counts only when tested), and a process of
+  another architecture is ended. It reaches `bwrap` on standard input, the one descriptor the standard library
+  passes besides the two output channels; the cell's command starts with standard input reopened on `/dev/null`.
+  `/proc/keys` is not hidden (P-13), so the keys' names stay visible (T-24). The user's identifier inside is the person's own, so Fabrewk can read and delete what the cell wrote.
 - `/usr` read-only, and `/bin`, `/sbin`, `/lib`, `/lib64` as the host has them (links recreated, directories bound
   read-only). A new `/proc` and a minimal `/dev`.
 - Of `/etc`, a list: the certificate stores, the dynamic loader's cache and configuration, the alternatives. A
@@ -304,8 +315,7 @@ belongs with the pilot's measurements of what the tools need. With B, `config` d
 
 ### 3.9 Preflight and detection
 
-`bwrap`, `pasta` and the program that joins a session keyring are the backend's programs, detected at every start
-like `git` (REQ-SET-8). The backend has a
+`bwrap` and `pasta` are the backend's programs, detected at every start like `git` (REQ-SET-8). The backend has a
 probe of its own, run before a dispatch when its programs' versions are not yet verified by use: an empty cell that
 reads a planted file it must not see, and must fail to. Each adapter's preflight (REQ-SEC-1, PD-27) runs, under each
 role's cell without network or credential, the tool's version, its helper programs and its own sandbox creating a
@@ -374,8 +384,10 @@ own; nothing built in phases 7 and 8 changes but where named.
   empty hooks directory and turns the file-system monitor off; the working tree is brought to a candidate by
   writing each touched path from its object's bytes. This changes `record/git.rs`'s one command builder, built in
   phase 7; part 9b makes the change with P-12 as its test, before any candidate can exist.
-- **S-12 (after P9O-1).** REQ-SEC-1 gains: a cell's command starts with a session keyring of its own; its criterion
-  gains the planted-key probe.
+- **S-12 (after P9O-1 and P9O-7).** REQ-SEC-1 gains: no process of a cell can use the kernel's keyring system calls.
+  Its criterion gains: a key planted in the host's session keyring and one of default permissions in its user
+  keyring, their serial numbers given to the probe, are neither found, read nor linked, from the cell and from a
+  sandbox nested in it.
 
 ## 5. What the maestro decides
 
