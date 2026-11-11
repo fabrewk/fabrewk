@@ -400,31 +400,36 @@ fn req_fer_3_a_decided_proposal_whose_point_is_gone_is_left_as_it_was() {
 
 #[test]
 fn refusal_record_id_collision_for_an_identifier_another_proposal_holds() {
-    let fx = published("collision");
-    let given = edit("**6.1.** Two.");
-    let two = points(&fx).into_iter().find(|p| p.number == 2).unwrap();
-    // The proposal the sweep would make, and another one the record already holds under its identifier.
-    let payload = json!({"point": {"number": 2, "digest": two.digest}, "target": given["target"], "base": given["base"],
-                         "units": given["units"], "keys": given["keys"], "result": given["result"]});
-    let id = format!("p-{}", &subject_digest(&json!({"fermento": "xel", "proposal": payload})).unwrap()[..8]);
-    let mut other = payload.clone();
-    other["id"] = json!(id);
-    other["result"] = json!("1".repeat(64));
-    let policy = sha256_hex(fs::read_to_string(fx.domain.join("settings.toml")).unwrap().as_bytes());
-    let agent = json!({"kind": "agent", "tool": "claude-code", "provider": "anthropic", "modelRequested": "m", "modelObserved": null});
-    let d = Draft {
-        kind: "proposal-recorded".into(),
-        actor: agent,
-        policy,
-        instance: "SHA256:fixture".into(),
-        say: None,
-        payload: other,
-    };
-    let mut s = Session::begin(&fx.domain, None, &fabrewk_core::identity::PolicyVerifier).unwrap();
-    s.append("fermento-xel", None, &d, None).unwrap();
-    s.finish(&fabrewk_core::identity::PolicyVerifier, &[]).unwrap();
-    let file = answer(&fx, &[(2, given)]);
-    refused(&fx, &["sweep", "xel", "--answer", file], "RECORD_ID_COLLISION", 1, "es");
+    // The record holds the identifier the sweep would make: for another edit in the same fermento, and for the very
+    // same edit in another maintainer's (a hash collision across aliases is a collision, not a repeated sweep).
+    for (name, stream, result) in
+        [("collision", "fermento-xel", "1".repeat(64)), ("collision-alias", "fermento-ana", H.to_owned())]
+    {
+        let fx = published(name);
+        let given = edit("**6.1.** Two.");
+        let two = points(&fx).into_iter().find(|p| p.number == 2).unwrap();
+        let payload = json!({"point": {"number": 2, "digest": two.digest}, "target": given["target"], "base": given["base"],
+                             "units": given["units"], "keys": given["keys"], "result": given["result"]});
+        let id = format!("p-{}", &subject_digest(&json!({"fermento": "xel", "proposal": payload})).unwrap()[..8]);
+        let mut other = payload.clone();
+        other["id"] = json!(id);
+        other["result"] = json!(result);
+        let policy = sha256_hex(fs::read_to_string(fx.domain.join("settings.toml")).unwrap().as_bytes());
+        let agent = json!({"kind": "agent", "tool": "claude-code", "provider": "anthropic", "modelRequested": "m", "modelObserved": null});
+        let d = Draft {
+            kind: "proposal-recorded".into(),
+            actor: agent,
+            policy,
+            instance: "SHA256:fixture".into(),
+            say: None,
+            payload: other,
+        };
+        let mut s = Session::begin(&fx.domain, None, &fabrewk_core::identity::PolicyVerifier).unwrap();
+        s.append(stream, None, &d, None).unwrap();
+        s.finish(&fabrewk_core::identity::PolicyVerifier, &[]).unwrap();
+        let file = answer(&fx, &[(2, given)]);
+        refused(&fx, &["sweep", "xel", "--answer", file], "RECORD_ID_COLLISION", 1, "es");
+    }
 }
 
 #[test]

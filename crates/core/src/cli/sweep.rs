@@ -134,7 +134,7 @@ fn plan(cx: &Cx, alias: &str, answer: &Value, path: &Path, record: &Replay) -> R
         fermento::check("proposal-recorded", &payload)?;
         // The same edit swept again is the proposal already on record; an identifier two different edits share is not.
         match known.get(&id) {
-            Some(Proposal { payload: old, .. }) if *old == payload => continue,
+            Some(Proposal { alias: from, payload: old, .. }) if from == alias && *old == payload => continue,
             Some(_) => {
                 return Err(refuse(Code::RecordIdCollision, Some(path), format!("{id} names another proposal")).into());
             }
