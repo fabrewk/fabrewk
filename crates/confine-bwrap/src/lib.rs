@@ -96,9 +96,15 @@ const ETC: [&str; 9] = [
 /// The address a cell asks for names, which `pasta` forwards to the host's resolver (P-5).
 const DNS: &str = "169.254.0.53";
 
-/// The cell's command: it waits for one line on standard input, then becomes the command with standard input on
-/// `/dev/null`, without the variables the shells set.
-const WRAPPER: &str = "read -r _ && exec /usr/bin/env -u PWD -u SHLVL -u _ \"$@\" </dev/null";
+/// Where a cell reads its environment, written by Fabrewk as shell assignments (P9A-4).
+const ENVIRONMENT: &str = "/etc/cell-environment";
+
+/// The cell's command: it waits for one line on standard input, takes the cell's environment from its file, and
+/// becomes the command with standard input on `/dev/null`, without the variables the shells set. Every process of the
+/// host it passes through, `sh` and `bwrap`, runs with an empty environment, so that no variable of the cell (the
+/// dynamic loader's among them) acts outside it, and no value is in an argument (T-23).
+const WRAPPER: &str = "read -r _ && set -a && . /etc/cell-environment && set +a && \
+    exec /usr/bin/env -u PWD -u SHLVL -u _ \"$@\" </dev/null";
 
 fn unavailable(path: Option<&Path>, detail: impl Into<String>) -> Error {
     Error::Refused { code: Code::ConfinementUnavailable, path: path.map(Path::to_path_buf), detail: detail.into() }
@@ -122,7 +128,7 @@ fn etc_files(network: Network, uid: u32, gid: u32) -> [(&'static str, String); 5
 }
 
 /// `bwrap`'s arguments for `cell`, with the written files of `/etc` in `etc`. No value of the environment is in them
-/// (T-23): it reaches `bwrap` by inheritance.
+/// (T-23): the cell reads it from a file.
 pub fn arguments(cell: &Cell, etc: &Path) -> Vec<OsString> {
     let mut a: Vec<OsString> = Vec::new();
     let mut put = |items: &[&dyn AsRef<std::ffi::OsStr>]| a.extend(items.iter().map(|i| i.as_ref().to_owned()));
@@ -154,6 +160,7 @@ pub fn arguments(cell: &Cell, etc: &Path) -> Vec<OsString> {
     for (name, _) in etc_files(cell.network, 0, 0) {
         put(&[&"--ro-bind", &etc.join(name), &format!("/etc/{name}")]);
     }
+    put(&[&"--ro-bind", &etc.join("environment"), &ENVIRONMENT]);
     put(&[&"--bind", &cell.home, &"/home/agent", &"--bind", &cell.tmp, &"/tmp"]);
     let mut hidden = Vec::new();
     for m in &cell.mounts {
@@ -173,6 +180,28 @@ pub fn arguments(cell: &Cell, etc: &Path) -> Vec<OsString> {
     put(&[&"--", &"/bin/sh", &"-c", &WRAPPER, &"cell"]);
     a.extend(cell.argv.iter().cloned());
     a
+}
+
+/// The cell's environment as shell assignments, each value single-quoted; a name that is not a shell variable's
+/// refuses.
+fn environment(cell: &Cell) -> Result<Vec<u8>, Error> {
+    use std::os::unix::ffi::OsStrExt;
+    let mut out = Vec::new();
+    for (name, value) in &cell.env {
+        let n = name.as_bytes();
+        let valid = n.first().is_some_and(|c| c.is_ascii_alphabetic() || *c == b'_')
+            && n.iter().all(|c| c.is_ascii_alphanumeric() || *c == b'_');
+        if !valid {
+            return Err(unavailable(None, format!("{}: not a name a cell's environment can hold", name.display())));
+        }
+        out.extend_from_slice(n);
+        out.extend_from_slice(b"='");
+        for b in value.as_bytes() {
+            out.extend_from_slice(if *b == b'\'' { b"'\\''" } else { std::slice::from_ref(b) });
+        }
+        out.extend_from_slice(b"'\n");
+    }
+    Ok(out)
 }
 
 /// The first child of process `pid`, as the host's `/proc` lists it.
@@ -261,6 +290,9 @@ fn start(cell: &Cell, programs: &Programs, scratch: &Path, evidence: &Path) -> R
     for (name, text) in etc_files(cell.network, meta.uid(), meta.gid()) {
         fs::write(etc.join(name), text).map_err(io(&etc.join(name)))?;
     }
+    let file = etc.join("environment");
+    let mut env = fs::File::options().write(true).create_new(true).mode(0o600).open(&file).map_err(io(&file))?;
+    env.write_all(&environment(cell)?).map_err(io(&file))?;
     let filter = scratch.join("filter");
     fs::write(&filter, FILTER.concat()).map_err(io(&filter))?;
     let mut child = Command::new("/bin/sh")
@@ -269,7 +301,6 @@ fn start(cell: &Cell, programs: &Programs, scratch: &Path, evidence: &Path) -> R
         .arg(bwrap)
         .args(arguments(cell, &etc))
         .env_clear()
-        .envs(cell.env.iter().map(|(k, v)| (k, v)))
         .current_dir("/")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())

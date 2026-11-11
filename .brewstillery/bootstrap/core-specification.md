@@ -854,7 +854,11 @@ texts are (P7D3B-2); the documents carry each text as it is, JSON escaping it.
 - How `bwrap` and `pasta` compose, settled by test (candidate (a)): `bwrap` is Fabrewk's direct child, started
   through `sh -c 'exec "$@" 3<"$0"'` only to open the filter on descriptor 3 (3.3 had it on standard input, which
   instead carries one line that releases the command), with `--die-with-parent`. Its command is a wrapper that reads
-  that line and becomes the command, with standard input on `/dev/null` and without `PWD`, `SHLVL` and `_`. For a cell
+  that line, takes the cell's environment from a file Fabrewk wrote (`0600`, read-only inside at
+  `/etc/cell-environment`, one single-quoted assignment per variable; a name that is not a shell variable's refuses),
+  and becomes the command, with standard input on `/dev/null` and without `PWD`, `SHLVL` and `_`. `sh` and `bwrap`
+  run on the host with an empty environment: 3.3's inheritance would have given the cell's variables, the dynamic
+  loader's among them, to processes of the host before any confinement (P9A-4). For a cell
   with a network, `pasta` runs in the foreground as Fabrewk's second child, joins the wrapper's namespaces once it has
   replaced `bwrap`'s code, and the line is written once a default route through a device other than `lo` exists;
   Fabrewk ends `pasta` after the cell. After the direct child is ended, Fabrewk waits for the cell's first process to

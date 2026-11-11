@@ -55,7 +55,8 @@ pub struct Cell {
     pub network: Network,
     /// Whether it may make namespaces of its own, for a tool's own sandbox.
     pub nested: bool,
-    /// The whole environment; nothing of Fabrewk's own is inherited.
+    /// The whole environment of the command; nothing of Fabrewk's own is inherited, and none of it reaches a process
+    /// of the host.
     pub env: Vec<(OsString, OsString)>,
     pub cwd: PathBuf,
     pub argv: Vec<OsString>,

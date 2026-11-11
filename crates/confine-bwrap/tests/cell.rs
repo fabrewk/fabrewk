@@ -376,6 +376,44 @@ fn nothing_of_fabrewks_own_environment_or_arguments_reaches_a_cell() {
     assert!(args.iter().any(|a| a == "--die-with-parent") && args.iter().any(|a| a == "--new-session"));
 }
 
+#[test]
+fn p9a_4_the_cells_environment_reaches_its_command_and_no_process_of_the_host() {
+    let fx = fixture("loader");
+    // A library the host's loader would try, and fail, to load; inside the cell its path does not exist.
+    let junk = fx.repo.parent().unwrap().join("preload.so");
+    std::fs::write(&junk, "not a library").unwrap();
+    let odd = "it's \"quoted\"\n  and $spaced `on` two lines\\";
+    let script = "printf '%s|%s' \"$LD_PRELOAD\" \"$ODD\"";
+    let (ran, out, scratch) = run(
+        &fx,
+        "loader",
+        |s| {
+            let mut c = cell(s, Network::Outbound, true, &["/bin/sh", "-c", script]);
+            c.env.push(("LD_PRELOAD".into(), junk.clone().into()));
+            c.env.push(("ODD".into(), odd.into()));
+            c
+        },
+        limits(30),
+    );
+    let err = std::fs::read_to_string(&ran.stderr.path).unwrap();
+    assert_eq!((ran.end, out), (End::Exited(0), format!("{}|{odd}", junk.display())), "{err}");
+    // Only the cell's own processes met the variable: the library was not found there, never read on the host.
+    assert!(err.contains("cannot open shared object file"), "{err}");
+    assert!(!err.contains("ELF") && !err.contains("too short"), "{err}");
+    scratch.remove().unwrap();
+    // A name no shell can hold refuses before any process starts.
+    for bad in ["A-B", "1A", "A=B", ""] {
+        let name = unique("bad-name");
+        let scratch = Scratch::create(&fx.domain, &name).unwrap();
+        let evidence = confine::evidence(&fx.domain, &name).unwrap();
+        let mut c = cell(&scratch, Network::None, false, &["/usr/bin/true"]);
+        c.env.push((bad.into(), "x".into()));
+        let u = confine::run(&BACKEND, &programs(), &c, &scratch, &evidence, limits(30)).unwrap_err();
+        assert_eq!((u.error.code(), u.ended), (Some(Code::ConfinementUnavailable), true), "{bad}");
+        scratch.remove().unwrap();
+    }
+}
+
 // ---- T-09: a cell ends at its limit and with Fabrewk ----------------------------------------------------------------
 
 /// The host's processes whose command line holds `marker`, with those lines.
