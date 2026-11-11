@@ -75,11 +75,13 @@ impl Programs {
 }
 
 /// A started cell: Fabrewk's direct child, whose end ends the cell; what the backend started beside it, ended after
-/// it; and the host's identifier of the cell's first process, gone only once every process of the cell has ended.
+/// it; the host's identifier of the cell's first process, gone only once every process of the cell has ended; and,
+/// when the backend could not finish starting it, why: the runner then keeps its output and ends it unreleased.
 pub struct Started {
     pub child: Child,
     pub beside: Vec<Child>,
     pub first: Option<u32>,
+    pub failed: Option<Error>,
 }
 
 /// A confinement backend (`confinement-design.md` 3.2): the programs it drives, how it starts and ends a cell, and
@@ -88,7 +90,8 @@ pub struct Backend {
     pub name: &'static str,
     pub programs: &'static [Program],
     /// Starts a cell, writing what it needs in the scratch directory and any output of its own in the evidence
-    /// directory; gives its direct child with both output channels piped and its command released.
+    /// directory, files `0600`; gives its direct child with both output channels piped and its command released.
+    /// Once a process exists it never ends it itself: a failure after that is `Started::failed`, with the command held.
     pub start: fn(&Cell, &Programs, &Path, &Path) -> Result<Started, Error>,
     /// Ends a started cell if it has not ended, and returns once every process of it has ended.
     pub stop: fn(&mut Started) -> Result<(), Error>,
@@ -185,6 +188,20 @@ pub struct Kept {
     pub capped: bool,
 }
 
+/// Why a run gave no result, and whether its cell is known to have ended: only then may anything of its directories be
+/// read or removed (principle 4).
+#[derive(Debug, Clone)]
+pub struct Unfinished {
+    pub error: Error,
+    pub ended: bool,
+}
+
+impl Unfinished {
+    fn ended(error: Error) -> Unfinished {
+        Unfinished { error, ended: true }
+    }
+}
+
 /// A finished run: how it ended, its two channels as kept, and its whole seconds, from start to the cell's end.
 #[derive(Debug, Clone)]
 pub struct Ran {
@@ -238,8 +255,8 @@ fn keep(pipe: Option<impl Read>, mut file: File, cap: u64, over: &AtomicBool) ->
 
 /// Runs `cell` under `backend` (`confinement-design.md` 3.2, 3.7): its standard output and error kept in `evidence`
 /// as `stdout` and `stderr` (files `0600`), the cell ended at its time limit or once a channel passes its bytes, and
-/// nothing returned before every process of the cell has ended. Only a failure of the backend's `stop` leaves the
-/// cell possibly running (`TOOL_FAILED`): then nothing of its directories may be read or removed.
+/// nothing returned before every process of the cell has ended. When the backend cannot show that it ended, the
+/// failure says so, its readers are left unwaited, and nothing of its directories may be read or removed.
 pub fn run(
     backend: &Backend,
     programs: &Programs,
@@ -247,14 +264,19 @@ pub fn run(
     scratch: &Scratch,
     evidence: &Path,
     limits: Limits,
-) -> Result<Ran, Error> {
+) -> Result<Ran, Unfinished> {
+    if cell.argv.is_empty() {
+        return Err(Unfinished::ended(refuse(Code::ToolFailed, None, "a cell was described with no command")));
+    }
     let mut files = Vec::new();
     for name in ["stdout", "stderr"] {
         let path = evidence.join(name);
-        files.push((File::options().write(true).create_new(true).mode(0o600).open(&path).map_err(io_at(&path))?, path));
+        let file = File::options().write(true).create_new(true).mode(0o600).open(&path).map_err(io_at(&path));
+        files.push((file.map_err(Unfinished::ended)?, path));
     }
     let begun = Instant::now();
-    let mut started = (backend.start)(cell, programs, &scratch.root, evidence)?;
+    // No process exists when the backend refuses to start.
+    let mut started = (backend.start)(cell, programs, &scratch.root, evidence).map_err(Unfinished::ended)?;
     let over = Arc::new(AtomicBool::new(false));
     let pipes: [Option<Box<dyn Read + Send>>; 2] = [
         started.child.stdout.take().map(|p| Box::new(p) as Box<dyn Read + Send>),
@@ -268,7 +290,11 @@ pub fn run(
             (std::thread::spawn(move || keep(pipe, file, limits.bytes, &over)), path)
         })
         .collect();
+    let failed = started.failed.take();
     let waited = loop {
+        if failed.is_some() {
+            break Ok(End::Signalled);
+        }
         match started.child.try_wait() {
             Ok(Some(status)) => break Ok(status.code().map_or(End::Signalled, End::Exited)),
             Ok(None) if over.load(Ordering::SeqCst) => break Ok(End::OutputCapped),
@@ -278,17 +304,21 @@ pub fn run(
         }
     };
     // A cell not shown ended may still hold its channels open, so its readers are left, not waited for.
-    (backend.stop)(&mut started)?;
+    (backend.stop)(&mut started).map_err(|error| Unfinished { error, ended: false })?;
     let seconds = begun.elapsed().as_secs();
     let mut kept = Vec::new();
     for (reader, path) in readers {
         let (digest, bytes, capped) = reader
             .join()
             .unwrap_or_else(|_| Err(std::io::Error::other("the output's reader stopped")))
-            .map_err(io_at(&path))?;
+            .map_err(io_at(&path))
+            .map_err(Unfinished::ended)?;
         kept.push(Kept { path, digest, bytes, capped });
     }
-    let end = waited.map_err(io_at(evidence))?;
+    if let Some(error) = failed {
+        return Err(Unfinished::ended(error));
+    }
+    let end = waited.map_err(io_at(evidence)).map_err(Unfinished::ended)?;
     let end = if kept.iter().any(|k| k.capped) { End::OutputCapped } else { end };
     let stderr = kept.pop().expect("two channels");
     Ok(Ran { end, stdout: kept.pop().expect("two channels"), stderr, seconds })
@@ -324,13 +354,15 @@ fn probe(backend: &Backend, programs: &Programs, domain: &Path) -> Result<(), Er
     let limits = Limits { time: Duration::from_secs(30), bytes: 1 << 16 };
     let ran = run(backend, programs, &cell, &scratch, &evidence, limits);
     // A cell the backend could not show ended keeps its directories, unread (principle 4).
-    if ran.as_ref().is_err_and(|e| e.code() == Some(Code::ToolFailed)) {
+    if ran.as_ref().is_err_and(|u| !u.ended) {
         return Err(unavailable(Some(&evidence), format!("{}'s probe did not end", backend.name)));
     }
     let written = fs::read(scratch.work.join("probe")).ok();
     scratch.remove()?;
-    let ran = ran
-        .map_err(|e| unavailable(Some(&evidence), format!("{}'s probe could not run: {}", backend.name, e.detail())))?;
+    let ran = ran.map_err(|u| {
+        let words = format!("{}'s probe could not run: {}", backend.name, u.error.detail());
+        unavailable(Some(&evidence), words)
+    })?;
     let out = fs::read(&ran.stdout.path).map_err(io_at(&ran.stdout.path))?;
     if ran.end == End::Exited(0) && out == b"unseen\nwritten\n" && written.as_deref() == Some(b"written\n") {
         return Ok(());

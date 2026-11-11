@@ -19,7 +19,7 @@ use fabrewk_core::{Code, Error};
 use std::ffi::OsString;
 use std::fs;
 use std::io::Write;
-use std::os::unix::fs::MetadataExt;
+use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
@@ -219,7 +219,7 @@ fn attach(first: u32, pasta: &Path, evidence: &Path, deadline: Instant) -> Resul
         return Err(unavailable(None, "the cell's command did not start"));
     };
     let log = evidence.join("network");
-    let err = fs::File::options().write(true).create_new(true).open(&log).map_err(io(&log))?;
+    let err = fs::File::options().write(true).create_new(true).mode(0o600).open(&log).map_err(io(&log))?;
     let ns = |kind: &str| format!("/proc/{command}/ns/{kind}");
     let fixed = ["-f", "--quiet", "--config-net", "-t", "none", "-u", "none", "-T", "none", "-U", "none"];
     let mut helper = Command::new(pasta)
@@ -283,13 +283,15 @@ fn start(cell: &Cell, programs: &Programs, scratch: &Path, evidence: &Path) -> R
         first = first_child(child.id());
         first.is_some() || !matches!(child.try_wait(), Ok(None))
     });
-    let mut started = Started { child, beside: Vec::new(), first };
+    let mut started = Started { child, beside: Vec::new(), first, failed: None };
     if let (Network::Outbound, Some(first)) = (cell.network, first) {
         match attach(first, pasta, evidence, deadline) {
             Ok(helper) => started.beside.push(helper),
+            // The command stays held: its standard input closes with no line, and the runner ends the cell.
             Err(e) => {
-                let _ = stop(&mut started);
-                return Err(e);
+                started.failed = Some(e);
+                drop(started.child.stdin.take());
+                return Ok(started);
             }
         }
     }

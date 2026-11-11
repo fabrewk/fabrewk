@@ -5,7 +5,9 @@
 
 mod common;
 
-use fabrewk_core::confine::{self, Access, Backend, Cell, End, Limits, Mount, Network, Programs, Scratch, Started};
+use fabrewk_core::confine::{
+    self, Access, Backend, Cell, End, Limits, Mount, Network, Programs, Scratch, Started, Unfinished,
+};
 use fabrewk_core::detect::{Detection, Found, How, Program, Space};
 use fabrewk_core::record::{Code, Error, sha256_hex};
 use std::collections::BTreeMap;
@@ -32,7 +34,7 @@ fn unconfined(cell: &Cell, _: &Programs, _: &Path, _: &Path) -> Result<Started, 
         .stderr(Stdio::piped())
         .spawn()
         .unwrap();
-    Ok(Started { child, beside: Vec::new(), first: None })
+    Ok(Started { child, beside: Vec::new(), first: None, failed: None })
 }
 
 fn stop(s: &mut Started) -> Result<(), Error> {
@@ -76,7 +78,7 @@ fn cell(scratch: &Scratch, script: &str) -> Cell {
     }
 }
 
-fn run(d: &Path, name: &str, script: &str, limits: Limits) -> Result<confine::Ran, Error> {
+fn run(d: &Path, name: &str, script: &str, limits: Limits) -> Result<confine::Ran, Unfinished> {
     let scratch = Scratch::create(d, name).unwrap();
     let evidence = confine::evidence(d, name).unwrap();
     let programs =
@@ -169,6 +171,19 @@ fn a_run_past_its_time_or_its_bytes_is_ended_and_says_so() {
 }
 
 #[test]
+fn a_cell_with_no_command_is_refused_before_it_starts() {
+    let d = domain("confine-empty");
+    let scratch = Scratch::create(&d, "empty").unwrap();
+    let evidence = confine::evidence(&d, "empty").unwrap();
+    let b = Backend { start: never, ..UNCONFINED };
+    let programs = confine::available(Some(&b), &mut detection(Some("2026-11-10T00:00:00Z"), true), &d).unwrap();
+    let mut c = cell(&scratch, "true");
+    c.argv.clear();
+    let u = confine::run(&b, &programs, &c, &scratch, &evidence, limits(30, 10)).unwrap_err();
+    assert_eq!((u.error.code(), u.ended), (Some(Code::ToolFailed), true));
+}
+
+#[test]
 fn a_run_ended_by_a_signal_says_so() {
     let d = domain("confine-signal");
     let ran = run(&d, "signal", "kill -KILL $$", limits(30, 10)).unwrap();
@@ -198,30 +213,66 @@ fn removing_a_scratch_follows_no_link_and_reopens_what_a_cell_closed() {
     assert_eq!(std::fs::read_to_string(outside.join("kept")).unwrap(), "kept");
 }
 
-/// A backend that cannot show its cell ended: it leaves the process running.
+/// Backends that cannot show their cell ended, by a refusal or by an operating-system error: the process runs on.
 fn left_running(_: &mut Started) -> Result<(), Error> {
     Err(Error::Refused { code: Code::ToolFailed, path: None, detail: "the cell did not end".into() })
 }
 
+fn left_unknown(_: &mut Started) -> Result<(), Error> {
+    Err(Error::Io { path: "bwrap".into(), error: std::io::Error::other("wait failed") })
+}
+
 #[test]
-fn a_cell_the_backend_cannot_show_ended_is_neither_waited_for_nor_read_nor_removed() {
-    let d = domain("confine-unproven");
-    let b = Backend { stop: left_running, ..UNCONFINED };
-    let scratch = Scratch::create(&d, "running").unwrap();
-    let evidence = confine::evidence(&d, "running").unwrap();
+fn p9a_1_a_cell_the_backend_cannot_show_ended_is_neither_waited_for_nor_read_nor_removed() {
+    for (n, stop) in [left_running as fn(&mut Started) -> Result<(), Error>, left_unknown].into_iter().enumerate() {
+        let d = domain(&format!("confine-unproven-{n}"));
+        let b = Backend { stop, ..UNCONFINED };
+        let scratch = Scratch::create(&d, "running").unwrap();
+        let evidence = confine::evidence(&d, "running").unwrap();
+        let programs = confine::available(Some(&b), &mut detection(Some("2026-11-10T00:00:00Z"), true), &d).unwrap();
+        let begun = Instant::now();
+        // The process holds both channels open for five seconds; the runner does not wait for them.
+        let c = cell(&scratch, "exec sleep 5");
+        let u = confine::run(&b, &programs, &c, &scratch, &evidence, limits(0, 10)).unwrap_err();
+        assert!(!u.ended, "{n}");
+        assert!(begun.elapsed() < Duration::from_secs(3), "{:?}", begun.elapsed());
+        // Its probe keeps its directories, unread, and refuses.
+        let e = confine::available(Some(&b), &mut detection(None, true), &d).unwrap_err();
+        assert_eq!(e.code(), Some(Code::ConfinementUnavailable));
+        assert!(e.detail().contains("did not end"), "{}", e.detail());
+        let left: Vec<_> = std::fs::read_dir(d.join("local/tmp")).unwrap().flatten().map(|e| e.file_name()).collect();
+        assert_eq!(left.len(), 2, "the run's and the probe's directories stay: {left:?}");
+    }
+}
+
+/// A backend that starts its cell's process, then fails to finish starting it.
+fn half_started(cell: &Cell, programs: &Programs, scratch: &Path, evidence: &Path) -> Result<Started, Error> {
+    let mut started = unconfined(cell, programs, scratch, evidence)?;
+    // The cell wrote before the backend's failure, as `bwrap` does before `pasta` fails.
+    std::thread::sleep(Duration::from_millis(300));
+    started.failed = Some(Error::Refused { code: Code::ConfinementUnavailable, path: None, detail: "no net".into() });
+    Ok(started)
+}
+
+#[test]
+fn p9a_3_a_cell_that_failed_to_start_keeps_its_output_and_is_ended() {
+    let d = domain("confine-half");
+    let b = Backend { start: half_started, ..UNCONFINED };
     let programs = confine::available(Some(&b), &mut detection(Some("2026-11-10T00:00:00Z"), true), &d).unwrap();
+    let scratch = Scratch::create(&d, "half").unwrap();
+    let evidence = confine::evidence(&d, "half").unwrap();
+    let c = cell(&scratch, "echo early-diagnostic >&2; exec sleep 600");
     let begun = Instant::now();
-    // The process holds both channels open for five seconds; the runner does not wait for them.
-    let e =
-        confine::run(&b, &programs, &cell(&scratch, "exec sleep 5"), &scratch, &evidence, limits(0, 10)).unwrap_err();
-    assert_eq!(e.code(), Some(Code::ToolFailed));
-    assert!(begun.elapsed() < Duration::from_secs(3), "{:?}", begun.elapsed());
-    // Its probe keeps its directories, unread, and refuses.
-    let e = confine::available(Some(&b), &mut detection(None, true), &d).unwrap_err();
-    assert_eq!(e.code(), Some(Code::ConfinementUnavailable));
-    assert!(e.detail().contains("did not end"), "{}", e.detail());
-    let left: Vec<_> = std::fs::read_dir(d.join("local/tmp")).unwrap().flatten().map(|e| e.file_name()).collect();
-    assert_eq!(left.len(), 2, "the run's and the probe's directories stay: {left:?}");
+    let u = confine::run(&b, &programs, &c, &scratch, &evidence, limits(30, 100)).unwrap_err();
+    assert!(u.ended && begun.elapsed() < Duration::from_secs(10));
+    assert_eq!(u.error.code(), Some(Code::ConfinementUnavailable));
+    assert_eq!(std::fs::read_to_string(evidence.join("stderr")).unwrap(), "early-diagnostic\n");
+    // And when its end cannot be shown either, the failure says so.
+    let b = Backend { start: half_started, stop: left_unknown, ..UNCONFINED };
+    let scratch = Scratch::create(&d, "half-unknown").unwrap();
+    let evidence = confine::evidence(&d, "half-unknown").unwrap();
+    let u = confine::run(&b, &programs, &cell(&scratch, "exec sleep 3"), &scratch, &evidence, limits(30, 10));
+    assert!(!u.unwrap_err().ended);
 }
 
 #[test]

@@ -256,6 +256,38 @@ fn an_agents_cell_sees_and_writes_only_what_it_lists_and_reaches_nothing_of_the_
     let root = scratch.root.clone();
     scratch.remove().unwrap();
     assert!(!root.exists());
+    // P9A-2: pasta's own output is evidence too, readable by its owner only.
+    let runs = std::fs::read_dir(fx.domain.join("local/evidence")).unwrap().flatten().collect::<Vec<_>>();
+    let network = runs[0].path().join("network");
+    assert_eq!(mode(&network), 0o600);
+}
+
+#[test]
+fn p9a_2_p9a_3_a_network_that_does_not_come_up_refuses_ends_the_cell_and_keeps_both_outputs() {
+    let fx = fixture("no-network");
+    let fake = fx.repo.parent().unwrap().join("pasta");
+    std::fs::write(&fake, "#!/bin/sh\necho fake-pasta-failed >&2\nexit 1\n").unwrap();
+    std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let mut d = detection(Some("2026-11-11T00:00:00Z"), &[]);
+    d.found.get_mut(&(Space::Program, "pasta".into())).unwrap().as_mut().unwrap().path = fake;
+    let programs = confine::available(Some(&BACKEND), &mut d, &fx.domain).unwrap();
+    let name = unique("no-network");
+    let scratch = Scratch::create(&fx.domain, &name).unwrap();
+    let evidence = confine::evidence(&fx.domain, &name).unwrap();
+    let marker = unique("held-command");
+    let script = format!("echo {marker}; sleep 600");
+    let c = cell(&scratch, Network::Outbound, true, &["/bin/sh", "-c", &script]);
+    let u = confine::run(&BACKEND, &programs, &c, &scratch, &evidence, limits(60)).unwrap_err();
+    assert!(u.ended);
+    let Error::Refused { code, path, detail } = u.error else { panic!() };
+    assert_eq!((code, path.as_deref()), (Code::ConfinementUnavailable, Some(evidence.join("network").as_path())));
+    assert!(!detail.contains("fake-pasta-failed"), "{detail}");
+    assert_eq!(std::fs::read_to_string(evidence.join("network")).unwrap(), "fake-pasta-failed\n");
+    assert_eq!(mode(&evidence.join("network")), 0o600);
+    // The command was never released, and nothing of the cell remains.
+    assert_eq!(std::fs::read_to_string(evidence.join("stdout")).unwrap(), "");
+    assert_eq!(holding(&marker), vec![]);
+    scratch.remove().unwrap();
 }
 
 #[test]
@@ -520,8 +552,8 @@ fn an_absent_program_refuses_and_a_cell_with_a_network_that_may_not_nest_refuses
     let scratch = Scratch::create(&fx.domain, &name).unwrap();
     let evidence = confine::evidence(&fx.domain, &name).unwrap();
     let c = cell(&scratch, Network::Outbound, false, &["/usr/bin/true"]);
-    let e = confine::run(&BACKEND, &programs(), &c, &scratch, &evidence, limits(30)).unwrap_err();
-    assert_eq!(e.code(), Some(Code::ConfinementUnavailable));
+    let u = confine::run(&BACKEND, &programs(), &c, &scratch, &evidence, limits(30)).unwrap_err();
+    assert_eq!((u.error.code(), u.ended), (Some(Code::ConfinementUnavailable), true));
     scratch.remove().unwrap();
 }
 
