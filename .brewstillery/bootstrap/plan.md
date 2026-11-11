@@ -15,7 +15,7 @@ integrator, with Codex checking its fidelity against the archived original (D-03
 in session 11: AD-4, AD-5 and AD-7 rewritten and AD-12 to AD-15 added for what D-032 still needed; Codex accepted the
 file at its second pass (R-018). The maintainer decided AD-4 to AD-15 as recommended (D-036), and Codex re-checked
 the decided file (R-019). Phase 5 is closed (D-037). Phase 6 is split into parts 6a and 6b, and the size budget is frozen at phase 7's start (D-038, section "Parts"). Codex
-accepted both parts at its fifth pass (R-021); the maestro approved the text and phase 6 is closed (D-040). Phase 7 is split into parts 7a to 7d (D-041, section "Parts"); every part was accepted and phase 7 is closed (D-070). Phase 8 was split into 8a, 8b and 8c (D-072), all done. Phase 9 opened with its design and its cut into 9a to 9i (D-075, D-076, section "Parts").
+accepted both parts at its fifth pass (R-021); the maestro approved the text and phase 6 is closed (D-040). Phase 7 is split into parts 7a to 7d (D-041, section "Parts"); every part was accepted and phase 7 is closed (D-070). Phase 8 was split into 8a, 8b and 8c (D-072); all were accepted and phase 8 is closed (D-077). Phase 9 opened with its design and its cut into 9a to 9i (D-075, D-076, section "Parts").
 
 **Rule for every phase (alambique 6.48, D-003).** A phase that does not pass is corrected and retried; it never
 ends the project. Before each retry the progress measure is fixed (proposed: confirmed blocking findings, and
@@ -93,7 +93,7 @@ Codex (GPT-6.1 Sol), effort high, reviews each part. The cut between 7b, 7c and 
 | 7d3a | The write path and the policy and proposal commands: required arguments and options with a value, the write context (lock, mark, record branch, commit of what is left, `DOMAIN_NOT_IGNORED`, the machine key), signing with Git's signing key, `--say`, `--say-lang`, `AGENT_ENVIRONMENT`, `adopt`, `propose`, the record's refusal tests through the command line (D-047, D-053, D-062) | REQ-TASK-4, REQ-REG-5, REQ-REG-10 to REQ-REG-12, REQ-SET-4, REQ-SET-5, REQ-ID-3, REQ-DOM-7 and the record's codes through the command line, REQ-SEC-7 for its markers; 7d2 | Their criteria; PD-30 to PD-32 for `adopt`'s move, PD-46 through the command line; as 7a | Done, session 23 (R-031): six Codex passes, confirmed blocking 5, 5, 5, 3, 2, 0; P7D3A-1 to P7D3A-22 corrected or settled by the maestro (D-063 to D-065); mutants caught, none equivalent |
 | 7d3b | The task commands: `authorize` with `--seen` (PD-37, `TASK_CHANGED`), `reject`, `run` up to confinement with `--say` (D-053 point 4, D-062) | TASK-1 to TASK-3 through the command line, REQ-GATE-7 for `authorize`; 7d3a | Their criteria; PD-30 to PD-32 for every person's move, PD-37 (authorize); `MOVE_NOT_ALLOWED`, `DEPENDENCY_OPEN`, `LOCK_HELD` through `run`; as 7a | Done, session 25 (R-034): three Codex passes, confirmed blocking 2, 1, 0; P7D3B-1 to P7D3B-4 corrected; mutants caught, none equivalent; the core's ceiling kept at 7,500 until phase 9 (D-069) |
 
-**Phase 8 (D-072).** Split where its inputs separate. Every part runs on Sonnet 5.5, effort high, and delivers code, so Codex (GPT-6.1 Sol), effort medium, reviews each part.
+**Phase 8 (D-072), closed (D-077).** Split where its inputs separate. Every part runs on Sonnet 5.5, effort high, and delivers code, so Codex (GPT-6.1 Sol), effort medium, reviews each part.
 
 | Part | Delivers | Inputs | Acceptance (checkable) | State |
 | --- | --- | --- | --- | --- |
@@ -103,8 +103,7 @@ Codex (GPT-6.1 Sol), effort high, reviews each part. The cut between 7b, 7c and 
 
 **Phase 9 (D-075).** Opened in session 29 with the threat model, the confinement's design and this cut, in
 `confinement-design.md` (its section 6 holds each part's inputs by requirement); Codex reviewed the design before any
-code and accepted it at its fourth pass, confirmed blocking 6, 1, 1, 0 (R-038; the amendments, D-075 and D-076). Split where its inputs separate. Part 9a runs on Fable 5.2, effort high, and parts 9b to 9i on Opus 5.5,
-effort high; every part delivers code, so Codex (GPT-6.1 Sol), effort high, reviews each. The core's ceiling is 11,000
+code and accepted it at its fourth pass, confirmed blocking 6, 1, 1, 0 (R-038; the amendments, D-075 and D-076). Split where its inputs separate. Every part runs on Opus 5.5, effort high (D-078; D-075 had part 9a on Fable 5.2); every part delivers code, so Codex (GPT-6.1 Sol), effort high, reviews each. The core's ceiling is 11,000
 counted lines, measured again at each part. The permission and the budget to run the real tools are asked when part
 9c starts.
 

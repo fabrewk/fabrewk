@@ -3512,3 +3512,45 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   ends the cell (the design's 3.7, part 9a's); whether each tool rewrites its credential (3.6, parts 9c and 9d); the
   permission and the budget to run the real tools (asked when part 9c starts). The maestro has not closed phase 8
   by a decision of its own, as D-070 closed phase 7.
+
+## D-077 — Phase 8 closed
+
+- Status: decided
+- Decided: 2026-11-11
+- Origin: maintainer XEL in session 29's chat, after the integrator reported that no decision of the maestro closed
+  phase 8 as D-070 closed phase 7: "De los pendientes, registra el cierre de la fase 7 con estas mismas palabras, fue
+  error mío." Phase 7 was already closed (D-070) and the pending item named phase 8, so the integrator reads it as
+  phase 8's close; the maestro may correct that reading.
+- Decision: phase 8 (core, part 2) is closed. Its parts 8a, 8b and 8c are done (R-035 to R-037), each meeting the
+  plan's acceptance for row 8: tests green in a clean clone, the past-defect cases its part covers held, every mutant
+  caught or removed, within the size budget (D-069, D-074), and Codex's review accepted. Phase 9 was opened in the same
+  session (D-075).
+- Consequences: `plan.md` and `STATUS.md`. What phase 8 left to phase 9 stays where the record put it: the usage
+  record's shape (now S-5, D-076) and P8C-8 (declared, D-075 point 3).
+- Sources: chat of session 29; `plan.md` row 8 and "Phase 8"; D-070, D-072 to D-074; R-035 to R-037.
+- Supersedes: none.
+
+## D-078 — Part 9a on Opus 5.5; D-071's calibration ends with the opening
+
+- Status: decided
+- Decided: 2026-11-11
+- Origin: maintainer XEL in session 29's chat, reporting what the opening spent and asking the integrator to check
+  whether part 9a should still run on Fable: "Con esta sola etapa consumió el 23% de su propia cuota semanal y nos dejó
+  con el 94% consumido de la cuota de sesión de 5h. Dicho esto, abrir la fase 9a en fable-5.2 esfuerzo alto no sería
+  recomendable hasta tener fresca la ventana de 5h, o si consideras justificado recalibrar su uso para continar con
+  9a, verificalo." Then, to the integrator's question: "Opus 5.5 alto (Recomendado)".
+- Decision:
+  1. Part 9a runs on Opus 5.5, effort high, like parts 9b to 9i; Codex (GPT-6.1 Sol), effort high, reviews.
+  2. D-071's calibration ends with the opening. Its measure: the opening (design, probes, four Codex passes, the
+     amendments) spent 23 % of Fable's weekly allotment and left 94 % of the five-hour window spent. Codex rejected
+     the design three times (confirmed blocking 6, 1, 1, 0), on the class of edge that cost phase 7's hard parts
+     their passes, so no clear gain over Opus shows; what Fable added of its own was probing the machine before
+     designing (the desktop's socket, the kernel's keys). Fable keeps no standing role; using it again is the
+     maestro's decision.
+- Reason: a part of code costs more than an opening (code, tests, mutation, several reviews); the integrator
+  estimated 40 % to 70 % of the weekly allotment for part 9a, with the risk of running out mid-part, while the design
+  already writes down everything 9a builds. The alternatives offered: Fable once the five-hour window renews (D-075
+  as decided), or Opus with a short Fable session for the design's open point 3.7.
+- Consequences: `plan.md` ("Phase 9"); `confinement-design.md` (section 6's row 9a); `STATUS.md` (the handover).
+- Sources: chat of session 29; D-071, D-075; R-038.
+- Supersedes: D-075 point 7 for part 9a's model; D-071 point 2 for phase 9's closing report on Fable, now given here.

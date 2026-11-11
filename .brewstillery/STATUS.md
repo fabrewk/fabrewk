@@ -7,7 +7,7 @@ view generated from that registry. Technical files are in English by default (D-
 
 **Phases 0 to 7 are closed (D-037, D-040, D-070). Phase 7 (the first code) was split into parts 7a, 7b, 7c1, 7c2a,
 7c2b, 7d1, 7d2, 7s, 7d3a and 7d3b (D-041, D-047, D-048, D-050, D-053, D-059, D-062), the last the task commands
-(D-068, D-069, R-034); phase 8, the core's part 2, was split into 8a, 8b and 8c (D-072) and all three are closed (the maestro closes the phase itself); phase 9 is open: its design is accepted and it is cut into parts 9a to 9i (D-075, D-076); part 9a is next.** The repository holds the first code at its root: a
+(D-068, D-069, R-034); phase 8, the core's part 2, was split into 8a, 8b and 8c (D-072) and all three are closed, and so is the phase (D-077); phase 9 is open: its design is accepted and it is cut into parts 9a to 9i (D-075, D-076); part 9a is next.** The repository holds the first code at its root: a
 Cargo workspace with one crate per ring (`crates/core`, `crates/fabrewk`, the binary, which runs the core's command
 surface) and the size counter `tools/budget`, the licence files, `deny.toml` and a root `.gitignore` with `/target`.
 The record is built in `crates/core/src/record/`, the settings in `crates/core/src/settings/`, identity in
@@ -308,7 +308,7 @@ repository, is imported into the single registry at production and then stays re
   abstract socket and the loopback listeners, a way to the terminal where the person signs; under `pasta` it reaches
   neither. The maestro decided (D-075): a private network with outbound connections only for agents (`pasta`; the
   local network and the Internet stay open, declared); the core's ceiling at 11,000; P8C-8 declared cooperative with
-  no crate; nine parts; part 9a on Fable 5.2 and the others on Opus 5.5. Codex (GPT-6.1 Sol, high) reviewed the
+  no crate; nine parts; part 9a on Fable 5.2 and the others on Opus 5.5 (part 9a moved to Opus 5.5 after the session, D-078). Codex (GPT-6.1 Sol, high) reviewed the
   design four times (confirmed blocking 6, 1, 1, 0): the kernel's keyrings, which namespaces do not isolate (a filter
   now refuses the keyring calls, cryptographic sockets and `io_uring`; the rest is declared); a tracked Git hook run
   by Fabrewk's own ref update after integration (Fabrewk's Git now runs no hook); instruction files nested under a
@@ -326,8 +326,8 @@ repository, is imported into the single registry at production and then stays re
   design's sections 3.1 to 3.5, 3.7, 3.9 and 3.10; REQ-SEC-1, REQ-SEC-2, REQ-REG-13, REQ-SEC-5 with S-1, S-7, S-10 and
   S-12. The permission and the budget to run the real tools are asked when part 9c starts.
 - **Start prompt:** `Eres el integrador de Fabrewk; fase 9, parte 9a: el contrato de la celda y el backend de
-  bubblewrap con red privada; empieza por .brewstillery/STATUS.md`. Model and effort: Claude Code on Fable 5.2
-  (`claude-fable-5-2`), effort high (D-075); Codex GPT-6.1 Sol, effort high, reviews. Read the skills `verify-part` and
+  bubblewrap con red privada; empieza por .brewstillery/STATUS.md`. Model and effort: Claude Code on Opus 5.5
+  (`claude-opus-5-5`), effort high (D-078); Codex GPT-6.1 Sol, effort high, reviews. Read the skills `verify-part` and
   `codex-review` before the checks and the review, and `sharp-edges` for the contract. `verify-part`'s `ulimit -v
   1000000` no longer fits the core's build: 1,600,000 was used (the skill is the maestro's to change). When waiting
   for Codex, wait on the launching command itself, not on a search by its command line (R-038).
