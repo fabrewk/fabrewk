@@ -10,8 +10,9 @@ a person runs in their own terminal, unconfined. "Cell" is what one confined pro
 `effective` or `cooperative` as REQ-SEC-5 defines them; a **residual risk** is a threat no control of the first core
 closes, which `config` must declare (6.38: no written instruction presented as a demonstrated protection).
 
-**State (session 29).** The maestro decided section 5 as recommended (D-075); Codex's review of this file is
-recorded in R-038.
+**State (session 29).** The maestro decided section 5 as recommended (D-075). Codex's first pass confirmed six
+blocking findings (P9O-1 to P9O-6), corrected here: T-02, T-28, 3.3, 3.4, 3.8 and S-4, S-5, S-8 to S-11. The review
+is recorded in R-038.
 
 ## 0. Inputs and what was probed
 
@@ -54,6 +55,13 @@ Docker or Podman), in the session's scratch directory:
   --setting-sources --strict-mcp-config --permission-mode --tools`; `codex exec --json --output-schema --sandbox
   --ephemeral --ignore-user-config --ignore-rules --skip-git-repo-check`, and `codex sandbox`). What each flag does
   was not verified.
+
+- **P-11 (after P9O-1).** A key planted in the session's kernel keyring is found and read inside a `bwrap` cell with
+  every namespace new. With `keyctl session -` run first, inside or outside the cell, it is not found, and neither is
+  the user keyring's.
+- **P-12 (after P9O-2).** In a repository whose configuration sets `core.hooksPath` to a tracked directory, `git
+  update-ref` runs that directory's `reference-transaction`; with `-c core.hooksPath=<an empty directory>` it runs
+  nothing.
 
 The workspace forbids `unsafe` code and has four runtime crates, so the backend can call no system call of its own
 (Landlock, seccomp, `openat`, `kill`, `statvfs`): it drives programs.
@@ -100,7 +108,7 @@ of the machine with root; macOS and Windows (no backend, so dispatch refuses the
 | # | Threat | Control | Label | Shown by |
 | --- | --- | --- | --- | --- |
 | T-01 | An agent or a check reads the repository, `.git`, the domain, another repository, the home or the private folder | Only what the cell lists exists inside; the copy holds no `.git` and no `.brewstillery` at any depth | effective | REQ-SEC-1's probes, PD-22 |
-| T-02 | It reaches the person's signature or session: the SSH agent's socket, the session bus, the key store, the display's socket | No `/run`, no host `/tmp`, no host home; the environment is built from empty | effective | Probes for each socket and for a planted variable |
+| T-02 | It reaches the person's signature or session: the SSH agent's socket, the session bus, the key store, the display's socket, the kernel keyring its process inherits | No `/run`, no host `/tmp`, no host home; the environment is built from empty; a new session keyring before the cell's command starts (3.3; P-11) | effective | Probes for each socket, for a planted variable and for a key planted in the session keyring |
 | T-03 | Through a shared network namespace it reaches the host's abstract sockets (the X server: keys read and typed into the person's terminal) and loopback services (the editor's, `sshd`) | A private network namespace with outbound connections only (section 3.5) | effective with option B; residual with option A | Probes: no abstract socket, the host's loopback closed |
 | T-04 | It reaches the local network and the Internet: sends the copy anywhere, attacks other machines | None in the first core | residual | Declared by `config` |
 | T-05 | It reads its tool's credential and sends it out | The credential bound is the tool's only; the tool's own sandbox keeps the model's commands from the network (3.6) | cooperative (the tool's control); residual | Declared; the preflight shows the tool's sandbox starts |
@@ -114,7 +122,7 @@ of the machine with root; macOS and Windows (no backend, so dispatch refuses the
 | T-13 | The model's own commands forge events in the stream the audit reads | The tool's own sandbox | cooperative | Declared: the audit detects a lazy or failed review, not a hostile one (PD-26's stated limit) |
 | T-14 | Text an agent wrote (a finding, a summary) steers a person or the integrator when shown | Shown verbatim, labelled, escaped and bounded; a person's move needs a signature and words | effective for the move; cooperative for the integrator | PD-37, PD-30 to PD-32 |
 | T-15 | A candidate changes files outside its lane, protected names, or what defines its checks | The lane guard, the change-set guard and the integration guard; protected paths only when listed literally | effective | PD-15, PD-16, `PROTECTED_PATH_WILDCARD` |
-| T-16 | A candidate plants instructions or automatic configuration for the next agent, the integrator or Git (`AGENTS.md`, `.claude/`, `.gitattributes`) | Those paths protected by default (S-4); `accept` shows every file | effective as REQ-GATE-9 is | S-4's test |
+| T-16 | A candidate plants instructions or automatic configuration for the next agent, the integrator or the person's Git, at the root or in any directory (`src/AGENTS.md`, `src/.claude/`, a nested `.gitattributes`, a hook in a tracked hooks directory) | Those names protected at any depth and the hooks directory protected, by default (S-4): changed only when a maestro listed the path literally; `accept` shows every file | effective as REQ-GATE-9 is | S-4's tests, `src/**` with a nested instruction file among them |
 | T-17 | A candidate makes its checks pass without proving anything (it edits the tests, or ends them early) | Protected paths, lanes, the review, the person's acceptance | residual: a check proves what its protected files make it prove | Declared |
 | T-18 | A candidate's text steers its reviewer | A reviewer of another provider preferred (REQ-GATE-4); checks independent of both; the person's acceptance | residual | Declared |
 | T-19 | A check, which runs the builder's code, attacks the host or sends the copy out | Confined as an agent, without network or credential, on a fresh copy never read back | effective | REQ-GATE-2's probe |
@@ -125,6 +133,7 @@ of the machine with root; macOS and Windows (no backend, so dispatch refuses the
 | T-24 | Host paths are visible inside (the person's name, where the repository is) | None | residual, names only | Declared |
 | T-25 | An unconfined process of the same user races a write (P8C-8) or edits the domain | None by code | cooperative | Declared (M-3) |
 | T-26 | No backend, a broken one, or a tool's new version that does not fit it | Dispatch refuses (`CONFINEMENT_UNAVAILABLE`); a preflight per tool and version | effective | REQ-SEC-2, PD-27 |
+| T-28 | After integration, Fabrewk's own Git commands run or obey what the candidate brought: a hook in a tracked hooks directory run by the record commit's `update-ref` (P-12), a filter or conversion chosen by the candidate's `.gitattributes` when the working tree is written | Every Git command Fabrewk runs names an empty hooks directory and no file-system monitor; the working tree is written from the objects' bytes, with no filter or conversion (3.8 rule 9; S-11) | effective | P-12 as a test through `accept`; a candidate's `.gitattributes` with a configured filter leaves the bytes |
 | T-27 | Fabrewk is interrupted during a dispatch | The cell dies with it; the next write command ends the attempt as unknown (REQ-RUN-5) | effective | The crash suite, PD-08 |
 
 ## 3. The confinement design
@@ -137,7 +146,9 @@ of the machine with root; macOS and Windows (no backend, so dispatch refuses the
    description into the operating system's. Agents, checks, the preflight and extensions are four descriptions, not
    four mechanisms.
 3. **What comes back is data.** No program runs outside a cell on what a cell wrote, except those that read it as
-   bytes. Nothing in an agent's tree is configuration for Git or for Fabrewk.
+   bytes. Nothing in an agent's tree is configuration for Git or for Fabrewk, in the copy and, for Fabrewk's own
+   commands, after integration too: once a person accepted a candidate its files are theirs, and what their own
+   tools then run is what they accepted.
 4. **Dead before read.** Fabrewk reads what a cell left only when every process of the cell has ended.
 5. **Refuse, never fall back.** A backend that is absent or does not pass its own probe, a program it needs that is
    missing, a tool whose preflight fails: each refuses the dispatch. No role runs with less confinement than its
@@ -183,14 +194,20 @@ contract and is not built in phase 9.
 ### 3.3 What every cell holds (Linux, bubblewrap)
 
 - New user, mount, PID, IPC, UTS and cgroup namespaces; a new session, so no terminal is shared; no new privileges; a
-  fixed host name. The user's identifier inside is the person's own, so Fabrewk can read and delete what the cell wrote.
+  fixed host name. A new session keyring, joined before the cell's command starts: namespaces do not detach the one a
+  process inherits (P-11). The standard library cannot join one, so a program does (`keyctl session` of `keyutils`
+  here, one more program the backend detects and without which it refuses); part 9a fixes it with the planted-key
+  probe. The user's identifier inside is the person's own, so Fabrewk can read and delete what the cell wrote.
 - `/usr` read-only, and `/bin`, `/sbin`, `/lib`, `/lib64` as the host has them (links recreated, directories bound
   read-only). A new `/proc` and a minimal `/dev`.
 - Of `/etc`, a list: the certificate stores, the dynamic loader's cache and configuration, the alternatives. A
   `passwd`, `group`, `hosts`, `nsswitch.conf` and `resolv.conf` written by Fabrewk into the attempt's directory and
   bound from there. The list is fixed in part 9a by the probes; a tool or a check that needs more fails visibly.
 - A home (`/home/agent`), a `/tmp` and, where the role has one, `/work`: three directories of the attempt, under
-  `local/tmp/<attempt>/`, on disk (AD-8: no machine-wide temporary directory; on this machine `/tmp` is memory).
+  `local/tmp/<attempt>/`, on disk (AD-8: no machine-wide temporary directory; on this machine `/tmp` is memory). They
+  are the only places an agent or a check can write, and all three are deleted when the attempt ends (S-10 says so
+  in REQ-SEC-1's criterion, which names `/work` alone). An extension's home and `/tmp` are directories inside its own
+  area, `local/ext/<name>/`, so it writes nowhere else (REQ-EXT-4, AD-8).
 - Nothing else: no `/run`, `/var`, `/sys`, `/home/<person>`, `/root`, `/opt`, `/mnt` or `/media`.
 - The environment the cell lists and no other: `PATH`, `HOME`, `TMPDIR`, a language, and what the adapter adds.
   `bwrap` receives it by inheritance from a cleared command, so no value appears in an argument.
@@ -203,12 +220,14 @@ contract and is not built in phase 9.
 | Reviewing agent | A fresh copy of the candidate, writable, never read back | The same | The same | Outbound | The same |
 | Check | A fresh copy of the candidate, writable, never read back | — | None | None; outbound only when the check declares it and the policy permits it (REQ-GATE-2) | No |
 | Preflight | An empty directory with the role's permissions | The tool's release | None | None | As the role's |
-| Extension | The repository read-only at its own path; `local/` hidden except `local/ext/<name>/`, writable, and what a reading command reads (`local/cache/`), read-only | The `fabrewk` executable | None | None, unless `extensions.<name>.network` | No |
+| Extension | The repository read-only at its own path; `local/` hidden except `local/ext/<name>/`, writable (its home and `/tmp` inside it), and what a reading command reads (`local/cache/`), read-only | The `fabrewk` executable; the extension's program, as found, at its own path (S-9) | None | None, unless `extensions.<name>.network` | No |
 
 A required tool (`profiles.<name>.requiredTools`, `checks.<name>.tools`) is present for a dispatch only when the
 cell shows it: its executable, as it resolves, lies under the system directories. A tool that lives in the person's
 home is absent inside and refused (`TOOL_MISSING`), saying why (S-6). The pilot's module is Python, whose tools are
-system packages; a machine key that declares a tool's directory is proposed when a project needs it.
+system packages; a machine key that declares a tool's directory is proposed when a project needs it. The same holds
+for an extension: its program is bound, and an interpreter or a support file it needs must lie under the system
+directories or in the repository; otherwise it fails to start, and Fabrewk says why (S-9).
 
 ### 3.5 The network
 
@@ -278,10 +297,15 @@ belongs with the pilot's measurements of what the tools need. With B, `config` d
    result its role's schema admits come back from them.
 8. The stream is read by its adapter's one grammar; the result is validated against the role's schema by the core
    (REQ-RUN-8); texts are bounded in length, recorded verbatim and escaped wherever shown.
+9. After integration: Fabrewk writes a touched path of the working tree from the object's bytes, with no filter,
+   conversion or checkout command; every Git command Fabrewk runs, in every command and phase, names an empty hooks
+   directory and turns the file-system monitor off, so that no file a candidate brought runs as a hook of Fabrewk's
+   own ref updates (P-12; S-11).
 
 ### 3.9 Preflight and detection
 
-`bwrap` and `pasta` are the backend's programs, detected at every start like `git` (REQ-SET-8). The backend has a
+`bwrap`, `pasta` and the program that joins a session keyring are the backend's programs, detected at every start
+like `git` (REQ-SET-8). The backend has a
 probe of its own, run before a dispatch when its programs' versions are not yet verified by use: an empty cell that
 reads a planted file it must not see, and must fail to. Each adapter's preflight (REQ-SEC-1, PD-27) runs, under each
 role's cell without network or credential, the tool's version, its helper programs and its own sandbox creating a
@@ -315,18 +339,43 @@ own; nothing built in phases 7 and 8 changes but where named.
   code `DISK_LOW`; before a dispatch it halts the task as REQ-TASK-5's codes do. The free space is asked of `df -Pk`,
   a POSIX program, which joins the core's programs. REQ-DOM-5 gains: `status` shows how much `local/evidence/` and
   `local/tmp/` hold.
-- **S-4.** `gate.protectedPaths`' default gains `.gitattributes`, `.gitmodules` and the instruction files each
-  built-in adapter declares for its tool (Claude Code: `CLAUDE.md`, `.claude/`; Codex: `AGENTS.md`, `.codex/`,
-  `.agents/`), so that a task changes them only when a maestro listed them literally (REQ-GATE-9).
-- **S-5.** `attempt-ended`'s `usage` is exactly `seconds` (an integer, Fabrewk's own measure of the attempt) and
-  `tokens`: `null` when the tool reports none, or exactly `input`, `output` and `cached`, each an integer or `null`
-  (REQ-RUN-7, PD-39). The view's sum follows it (R-037, interpretation 6). Fixed with the code in part 9e.
+- **S-4 (corrected after P9O-2 and P9O-3).** A new key, `gate.protectedNames` (a list of names, direction N): a
+  changed path with a component equal to one of them must match an allowed-files entry that holds no wildcard, at
+  any depth; otherwise the change set refuses it, and the integration's recomputation again
+  (`PROTECTED_PATH_WILDCARD`). Its default is `.gitattributes`, `.gitmodules` and the names each built-in adapter
+  declares for its tool's instructions (Claude Code: `CLAUDE.md`, `.claude`; Codex: `AGENTS.md`, `.codex`,
+  `.agents`). The guard is on paths, not on patterns, so `*.md` and `src/**` stay valid lanes (PD-15) and refuse
+  only the change that reaches such a name. `gate.protectedPaths`' default gains the directory the repository's
+  `core.hooksPath` names when it lies inside the working tree, read at each guard. Tests: `src/**` with a fake that
+  writes `src/AGENTS.md`, `src/.claude/settings.json` and `src/.gitattributes`; the same paths listed literally.
+- **S-5 (corrected after P9O-6).** `attempt-ended`'s `usage` is exactly `seconds` and `tokens`. `seconds` is
+  Fabrewk's own measure, from the start of the attempt's process to the end Fabrewk observed: an integer, or `null`
+  when Fabrewk did not observe the end (an attempt ended as `unknown` by a later command, REQ-RUN-5). `tokens` is
+  `null` when the tool reports none, or exactly `input`, `output` and `cached`, each an integer or `null` (PD-39).
+  REQ-RUN-7 is amended to say that time is Fabrewk's measure and tokens the tool's report, each unknown, never zero,
+  when not observed. Against the `minutes` limit an unknown duration counts as the whole time the attempt was
+  allowed, which it cannot have passed, since its cell ends at that limit or with Fabrewk. A view shows a sum with an
+  unknown part as unknown (R-037, interpretation 6). Fixed with the code in part 9e.
 - **S-6.** REQ-RUN-2: a required tool is present for a dispatch only when the role's cell shows it (3.4); otherwise
   `TOOL_MISSING`, whose words say that the tool lives outside what the confinement shows.
 - **S-7.** REQ-SEC-5's criterion gains: `config` lists the residual risks of 3.10, and a test fails when a backend or
   an adapter declares one with no words in every catalogue.
 - **S-8 (with M-3).** P8C-8 is closed as declared: the race needs an unconfined process of the same user, so the
   lock's control is labelled cooperative, as `LOCK_HELD` already is, and no crate is added.
+- **S-9 (after P9O-4).** REQ-EXT-4 gains: the extension's cell holds its program, read-only, at the path where it was
+  found; an interpreter or support file outside the system directories and the repository is absent, and an
+  extension that then fails to start is `TOOL_FAILED`, whose words say so. Its criterion gains a permitted extension
+  installed outside the repository and the system directories that runs, and one whose interpreter is outside both
+  that fails so.
+- **S-10 (after P9O-5).** REQ-SEC-1's text and criterion: the writable places of an agent's or a check's cell are
+  `/work`, its home and its `/tmp`, the attempt's three directories, all deleted when it ends; a probe fails to write
+  anywhere else. REQ-EXT-4 is unchanged: an extension's home and `/tmp` lie inside `local/ext/<name>/`.
+- **S-11 (after P9O-2).** A new sentence in REQ-REG-10 and REQ-GATE-8: every Git command Fabrewk runs names an
+  empty hooks directory and turns the file-system monitor off; the working tree is brought to a candidate by
+  writing each touched path from its object's bytes. This changes `record/git.rs`'s one command builder, built in
+  phase 7; part 9b makes the change with P-12 as its test, before any candidate can exist.
+- **S-12 (after P9O-1).** REQ-SEC-1 gains: a cell's command starts with a session keyring of its own; its criterion
+  gains the planted-key probe.
 
 ## 5. What the maestro decides
 
@@ -343,7 +392,8 @@ own; nothing built in phases 7 and 8 changes but where named.
 
 **Decided (D-075), as recommended.** The maestro decided: B for the network; 11,000 for the core; P8C-8 declared with
 no crate; S-2 to S-7 as drafted; Codex reviews this file in session 29; part 9a on Fable 5.2 and the others on
-Opus 5.5.
+Opus 5.5. What the review changed in S-4 and S-5, and S-9 to S-12, which it added, are the maestro's to approve
+again (recorded with R-038).
 
 Not asked now: the permission and the budget to run the real tools (plan row 9), due when part 9c starts.
 
@@ -355,14 +405,14 @@ names. Codex is GPT-6.1 Sol.
 
 | Part | Delivers | Inputs | Acceptance (checkable) | Model |
 | --- | --- | --- | --- | --- |
-| 9a | The cell's contract and the runner in the core; the bubblewrap backend with the network of M-1; its own probe; the evidence store; `CONFINEMENT_UNAVAILABLE` for an absent or failing backend; the residual risks in `config` | Sections 3.1 to 3.5, 3.7, 3.9, 3.10; REQ-SEC-1 (the cell), REQ-SEC-2, REQ-REG-13, REQ-SEC-5; S-1, S-7 | REQ-SEC-1's probes as an agent, a check and an extension would be confined (T-01 to T-03, T-06, T-07, T-23); T-09's test; REQ-SEC-2 at the library's level; PD-28 with a fixture program; 3.7's open point settled by test | Fable 5.2 high |
-| 9b | The attempt's copy and the candidate: the export, the walk and the change set, the three guards on it, the credential scan in a candidate, the candidate commit, the free-space refusal | Section 3.8; REQ-RUN-3, REQ-RUN-4, REQ-SEC-3 (change set); S-2, S-3; `record/git.rs`, `task.rs`, `scan.rs` | PD-16 (change set), PD-18 to PD-21, PD-22 (the export), PD-45; `LANE_VIOLATION`, `CREDENTIAL_SUSPECTED` in a candidate, `DISK_LOW`; S-2's tests | Opus 5.5 high |
+| 9a | The cell's contract and the runner in the core; the bubblewrap backend with the network of M-1; its own probe; the evidence store; `CONFINEMENT_UNAVAILABLE` for an absent or failing backend; the residual risks in `config` | Sections 3.1 to 3.5, 3.7, 3.9, 3.10; REQ-SEC-1 (the cell), REQ-SEC-2, REQ-REG-13, REQ-SEC-5; S-1, S-7 | REQ-SEC-1's probes as an agent, a check and an extension would be confined (T-01 to T-03, the planted key included, T-06, T-07, T-23; S-10, S-12); T-09's test; REQ-SEC-2 at the library's level; PD-28 with a fixture program; 3.7's open point settled by test | Fable 5.2 high |
+| 9b | The attempt's copy and the candidate: the export, the walk and the change set, the three guards on it, the credential scan in a candidate, the candidate commit, the free-space refusal | Section 3.8; REQ-RUN-3, REQ-RUN-4, REQ-SEC-3 (change set); S-2, S-3, S-4 (the protected names on the change set), S-11 (Fabrewk's Git runs no hook); `record/git.rs`, `task.rs`, `scan.rs` | PD-16 (change set), PD-18 to PD-21, PD-22 (the export), PD-45; `LANE_VIOLATION`, `CREDENTIAL_SUSPECTED` in a candidate, `DISK_LOW`; the tests of S-2, S-4 and S-11 | Opus 5.5 high |
 | 9c | The adapter's contract and the Claude Code module: launch per role, the packet and the role's result schema, usage, markers, protected instruction files, its preflight and its stream audit | Sections 3.6, 3.9; REQ-RUN-7, REQ-RUN-8, REQ-SEC-1 (adapter), REQ-SEC-7, REQ-SET-9 (dispatch), REQ-GATE-4 (audit); S-4; the tool's own documentation; one recorded real stream (the maestro's permission and budget) | PD-25, PD-26 and PD-27 for this adapter; `REVIEW_INVALID`; the credential question of 3.6 answered by test; the fixture home's settings byte-identical (REQ-SEC-6) | Opus 5.5 high |
 | 9d | The Codex module, the same contract: launch per role, its machine rule, its preflight and its stream audit | As 9c, for Codex; 6.38's rule of this machine | PD-25, PD-26 and PD-27 for this adapter; the launch refused in a directory that holds other repositories | Opus 5.5 high |
 | 9e | The run, building side: `run` past confinement, attempts and their recovery, the checks before dispatch, the halts, the events' payloads, exit status 4 | REQ-RUN-1, REQ-RUN-2, REQ-RUN-5 to REQ-RUN-7, REQ-TASK-3 (`BASE_MOVED` at `run`), REQ-TASK-5 (building side), REQ-SET-9; S-5, S-6; 9a to 9c | PD-08 to PD-10, PD-21 (the failed export recorded), PD-28, PD-29, PD-39 (record); `TOOL_MISSING`, `BUDGET_EXHAUSTED`, `OUTCOME_UNKNOWN`, `ATTEMPT_REPLACED`; a fake builder reaches a recorded candidate | Opus 5.5 high |
 | 9f | Checks, review and verification: the gate, evidence identities, the reviewer's dispatch, rounds, revalidation | REQ-GATE-1 to REQ-GATE-6, REQ-GATE-10, REQ-RUN-9, REQ-TASK-5 (the rest); 9d, 9e | PD-07, PD-23, PD-25 and PD-26 through the flow, PD-33 (moves), PD-46 (gate); `EVIDENCE_STALE`, `NO_PROGRESS`, `ROUNDS_EXHAUSTED`, `PROVIDER_MISSING`, `REVIEW_UNEXAMINED` | Opus 5.5 high |
-| 9g | Acceptance and integration: `accept`, the three checks of the preconditions, the move, the working tree, `reject` saying where the branch is | REQ-GATE-7, REQ-GATE-8; D-068 point 3; 9f | PD-11 to PD-14, PD-16 (integration), PD-37 (accept), PD-44; `BASE_MOVED`, `WORKTREE_DIRTY`, `MERGE_IN_PROGRESS`; `MOVE_NOT_ALLOWED` for `accept` | Opus 5.5 high |
-| 9h | Extensions: the runner, the variables, the requests, their cell, exit status 10 | REQ-EXT-1 to REQ-EXT-5, REQ-CLI-3; AD-5's contract; 9a | Their criteria; `EXTENSION_DIGEST`, `EXTENSION_OUTPUT_INVALID`; REQ-SEC-2 for extensions | Opus 5.5 high |
+| 9g | Acceptance and integration: `accept`, the three checks of the preconditions, the move, the working tree, `reject` saying where the branch is | REQ-GATE-7, REQ-GATE-8; D-068 point 3; S-4 and S-11 at integration (3.8 rule 9); 9f | PD-11 to PD-14, PD-16 (integration), PD-37 (accept), PD-44; T-28's two tests; `BASE_MOVED`, `WORKTREE_DIRTY`, `MERGE_IN_PROGRESS`; `MOVE_NOT_ALLOWED` for `accept` | Opus 5.5 high |
+| 9h | Extensions: the runner, the variables, the requests, their cell, exit status 10 | REQ-EXT-1 to REQ-EXT-5, REQ-CLI-3; AD-5's contract; S-9; 9a | Their criteria, S-9's two cases included; `EXTENSION_DIGEST`, `EXTENSION_OUTPUT_INVALID`; REQ-SEC-2 for extensions | Opus 5.5 high |
 | 9i | The whole: the flows F-1 to F-3 with fake tools, the crash suite over F-1, one real dispatch per provider with its preflight first, the phase's close | 11.5; plan row 9; every part | 11.5's flows and crash suite; the real dispatches' receipts; every criterion of section 13 for phase 9 met; D-071's comparison reported | Opus 5.5 high |
 
 Order: 9a, 9b, 9c, 9d, 9e, 9f, 9g, 9h, 9i. 9b needs no confinement and may run before 9a. `run` keeps refusing
