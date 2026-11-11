@@ -1,14 +1,14 @@
 //! `fabrewk check` (section 6; part 7d2, D-055): every verification of this phase, each finding with its code, its
 //! severity and its control's label; it exits 3 when any finding is an error. It only reads. A verification that
-//! cannot run, for a tool missing or failing or a file that does not read, is `CHECK_UNKNOWN`, never a pass. C5, C6,
-//! C7 and C12 are declared with phase 8.
+//! cannot run, for a tool missing or failing or a file that does not read, is `CHECK_UNKNOWN`, never a pass. C6 and
+//! C12 come with part 8a; C5 and C7 are declared with the later parts of phase 8.
 
 use super::{Cx, FOUND, Failed, Out};
 use crate::code::{Code::*, Error, normal, refuse};
-use crate::domain;
 use crate::record::{self, Publication, Repo};
-use crate::settings::{self, Level, is_alias};
+use crate::settings::{self, Level, RESERVED, is_alias};
 use crate::table::Control::{self, Cooperative, Effective};
+use crate::{domain, fermento, identity};
 use serde_json::{Value, json};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -42,6 +42,7 @@ pub const CHECKS: &[Check] = &[
         control: Effective,
     },
     Check { id: "C4", codes: &[RecordAbsent, RecordRollback, MarkInvalid], control: Effective },
+    Check { id: "C6", codes: &[SeparatorMissing, SeparatorAmbiguous, SeparatorDamaged], control: Effective },
     Check {
         id: "C8",
         codes: &[DomainUnknownEntry, AliasInvalid, GitignoreChanged, DomainNotIgnored],
@@ -50,6 +51,7 @@ pub const CHECKS: &[Check] = &[
     Check { id: "C9", codes: &[CredentialSuspected], control: Cooperative },
     Check { id: "C10", codes: &[RecordUncommitted], control: Effective },
     Check { id: "C11", codes: &[PrivateFolderPermissions], control: Effective },
+    Check { id: "C12", codes: &[MaintainerUnlisted, FermentoMissing], control: Effective },
 ];
 
 /// A control's name in the catalogue and in `--json`.
@@ -241,6 +243,30 @@ pub(super) fn run(cx: &Cx) -> Result<Out, Failed> {
     found.extend(domain::check_gitignore(d).err().map(|e| ("C8", unknown(e))));
     if let Some(mode) = mode {
         found.extend(domain::check_ignored(d, mode).err().map(|e| ("C8", unknown(e))));
+    }
+    // C6 and C12: each maintainer's directory is listed in the policy and holds a fermento, whose separator stands
+    // once (REQ-FER-1, REQ-FER-9). A directory that cannot be listed is C1's `CHECK_UNKNOWN`.
+    let listed: Option<BTreeSet<String>> =
+        cx.policy.as_ref().map(|p| identity::maintainers(&p.settings).into_iter().map(|m| m.alias).collect());
+    let dirs = std::fs::read_dir(d).into_iter().flatten().flatten();
+    let mut aliases: Vec<String> = dirs
+        .filter(|e| e.file_type().is_ok_and(|t| t.is_dir()))
+        .filter_map(|e| e.file_name().into_string().ok())
+        .filter(|n| is_alias(n) && !RESERVED.contains(&n.as_str()))
+        .collect();
+    aliases.sort();
+    for alias in aliases {
+        if listed.as_ref().is_some_and(|l| !l.contains(&alias)) {
+            found.push((
+                "C12",
+                refuse(MaintainerUnlisted, Some(&d.join(&alias)), "the policy in force does not list it"),
+            ));
+        }
+        match fermento::open(d, &alias) {
+            Ok(_) => {}
+            Err(e) if e.code() == Some(FermentoMissing) => found.push(("C12", e)),
+            Err(e) => found.push(("C6", unknown(e))),
+        }
     }
     // C9: what looks like a credential, reading only what is cited in a maintainer's directory.
     let cited = cited(d);

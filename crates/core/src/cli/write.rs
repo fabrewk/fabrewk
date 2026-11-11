@@ -9,6 +9,7 @@
 use super::{Cx, Failed, Options, get};
 use crate::code::{Code, Error, refuse};
 use crate::detect::{self, Space};
+use crate::fermento;
 use crate::identity::{self, GitSigner, PolicyVerifier};
 use crate::record::{Draft, Head, Publication, Replay, Repo, Say, Session};
 use crate::settings::{self, Policy, Val};
@@ -75,16 +76,19 @@ pub(super) fn words(cx: &Cx, policy: &Policy, alias: &str, options: &Options) ->
     }
     let lang = match &options.say_lang {
         Some(lang) => lang.clone(),
-        None => {
-            let personal = cx.personal_of(alias)?;
-            let eff = settings::effective(policy, personal.as_ref(), None, &[], &[])?;
-            match eff.values.get("languages.agentInteraction") {
-                Some((Val::Str(s), _)) => s.clone(),
-                _ => "en".to_owned(),
-            }
-        }
+        None => interaction_lang(cx, policy, alias)?,
     };
     Ok(Say { text, lang })
+}
+
+/// The language a maintainer talks to agents in (`languages.agentInteraction`), `en` when none is set.
+pub(super) fn interaction_lang(cx: &Cx, policy: &Policy, alias: &str) -> Result<String, Failed> {
+    let personal = cx.personal_of(alias)?;
+    let eff = settings::effective(policy, personal.as_ref(), None, &[], &[])?;
+    Ok(match eff.values.get("languages.agentInteraction") {
+        Some((Val::Str(s), _)) => s.clone(),
+        _ => "en".to_owned(),
+    })
 }
 
 /// What a command's guards allow it to write: its events in order, by stream, the signer of the person's among them,
@@ -93,7 +97,16 @@ pub(super) struct Plan<T> {
     pub events: Vec<(String, Draft)>,
     pub signer: Option<GitSigner>,
     pub sealed: bool,
+    pub view: Option<View>,
     pub out: T,
+}
+
+/// A maintainer's fermento whose answer the command rewrites from the record once its events are written (REQ-FER-3):
+/// the digest of the input it planned on, and the answer from the record as it then is.
+pub(super) struct View {
+    pub alias: String,
+    pub digest: String,
+    pub answer: Box<dyn Fn(&Replay) -> String>,
 }
 
 /// What a write command wrote: each event's stream and head, and the record commit, if the mode commits.
@@ -164,12 +177,31 @@ pub(super) fn run<T>(cx: &Cx, plan: impl Fn(&Replay) -> Result<Plan<T>, Failed>)
         pending.install()?;
     }
     session.commit_uncommitted(&PolicyVerifier)?;
+    if let Some(v) = &planned.view {
+        crate::record::fault::pause("before-view");
+        fermento::current(&cx.domain, &v.alias, &v.digest)?;
+    }
     crate::record::fault::pause("before-append");
     let mut written = Vec::new();
     for (stream, p) in prepared {
         written.push((stream, session.write(p)?));
     }
-    let commit = session.finish_held(&PolicyVerifier, &[])?;
+    // The fermento's answer is generated from the record these events made; the input is checked once more first, and
+    // a change now leaves the events written and the answer not, as a failed record commit leaves its events (D-065).
+    let mut views = Vec::new();
+    if let Some(v) = &planned.view {
+        let rest = "; this command's events are written and not committed, and the next sweep writes the answer";
+        let late = |e: Error| match e {
+            Error::Refused { code, path, detail } => Error::Refused { code, path, detail: format!("{detail}{rest}") },
+            other => other,
+        };
+        let record = crate::record::replay(&cx.domain, &PolicyVerifier).map_err(|mut e| late(e.remove(0)))?;
+        let bytes = fermento::compose(&cx.domain, &v.alias, &v.digest, &(v.answer)(&record)).map_err(late)?;
+        let path = std::path::PathBuf::from(&v.alias).join("fermento.md");
+        crate::record::write_atomic(&cx.domain.join(&path), &bytes)?;
+        views.push(path);
+    }
+    let commit = session.finish_held(&PolicyVerifier, &views)?;
     crate::record::fault::pause("before-caches");
     // The caches a write command keeps, from the policy in force once it wrote, under the lock (REQ-ID-2, REQ-SET-8).
     let after = session.record().ok_or_else(|| refuse(Code::RecordAbsent, Some(&cx.domain), "no event"))?;

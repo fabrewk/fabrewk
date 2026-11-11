@@ -26,7 +26,8 @@ const READ: &[&str] = &["json", "help"];
 
 /// The options that take a value, with the word their help shows for it (D-062); only `widen` may be given more than
 /// once. Every other option is a switch.
-pub const VALUES: [(&str, &str); 4] = [("say", "words"), ("say-lang", "tag"), ("widen", "key"), ("seen", "digest")];
+pub const VALUES: [(&str, &str); 5] =
+    [("say", "words"), ("say-lang", "tag"), ("widen", "key"), ("seen", "digest"), ("answer", "file")];
 
 /// The refusals every write command may give before its own (part 7d3a): the record's, the lock's, the repository's,
 /// the domain's, the private folder's and the tools'.
@@ -174,6 +175,35 @@ pub const COMMANDS: &[Command] = &[
         ],
         schemas: &[],
     },
+    Command {
+        name: "sweep",
+        arg: Some("alias"),
+        required: true,
+        flags: &["answer", "json", "help"],
+        moves: &["sweep-recorded", "proposal-recorded", "proposal-withdrawn"],
+        refusals: &[
+            AliasInvalid,
+            MaintainerUnlisted,
+            FermentoMissing,
+            SeparatorMissing,
+            SeparatorAmbiguous,
+            SeparatorDamaged,
+            AnswerInvalid,
+            PointChanged,
+            InputUncommitted,
+            InputChanged,
+        ],
+        schemas: &["fabrewk.swept/1"],
+    },
+    Command {
+        name: "discard",
+        arg: Some("proposal"),
+        required: true,
+        flags: &["say", "say-lang", "json", "help"],
+        moves: &["proposal-discarded"],
+        refusals: &[AgentEnvironment, ProposalUnknown, MoveNotAllowed, RoleForbidden, WordsMissing, WordsCopied],
+        schemas: &["fabrewk.discarded/1"],
+    },
 ];
 
 /// The catalogue key of an option's words: `flag.<name>`, but `flag.then-run` for `--run`, since a catalogue field
@@ -224,6 +254,8 @@ pub struct Options {
     pub seen: Option<String>,
     /// `authorize --run`: start the run in the same command.
     pub run: bool,
+    /// The file of the integrator's answer (`sweep --answer`, REQ-FER-3).
+    pub answer: Option<String>,
 }
 
 /// A command line the declaration does not accept: the catalogue's message, the word at fault, and the command whose
@@ -294,6 +326,7 @@ pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Parsed, Usage> 
                         continue;
                     }
                     "seen" => &mut options.seen,
+                    "answer" => &mut options.answer,
                     _ if !crate::settings::is_tag(&value) => return Err(usage("usage.tag", value, command)),
                     _ => &mut options.say_lang,
                 };
@@ -335,6 +368,9 @@ pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Parsed, Usage> 
         (Some(c), false, _) if c.flags.contains(&"seen") && options.seen.is_none() => {
             Err(usage("usage.needed", "--seen", Some(c)))
         }
+        (Some(c), false, _) if c.flags.contains(&"answer") && options.answer.is_none() => {
+            Err(usage("usage.needed", "--answer", Some(c)))
+        }
         (Some(command), false, _) => Ok(Parsed::Run { command, arg, json, options }),
         (None, true, true) => Err(usage("usage.flag", "--version", None)),
         (None, false, false) => Err(usage("usage.none", "", None)),
@@ -352,7 +388,7 @@ pub fn synopsis(c: &Command) -> String {
     let mut out = format!("fabrewk {}{arg}", c.name);
     for f in c.flags.iter().filter(|f| **f != "help") {
         out += &match VALUES.iter().find(|v| v.0 == *f) {
-            Some((f @ ("say" | "seen"), word)) => format!(" --{f} <{word}>"),
+            Some((f @ ("say" | "seen" | "answer"), word)) => format!(" --{f} <{word}>"),
             Some(("widen", word)) => format!(" [--widen <{word}>]…"),
             Some((f, word)) => format!(" [--{f} <{word}>]"),
             None => format!(" [--{f}]"),
@@ -361,22 +397,37 @@ pub fn synopsis(c: &Command) -> String {
     out
 }
 
+/// A file's fields as help and the reference print them, in `lang`: each with its depth, whether it may be absent
+/// and its type.
+fn format_rows(lang: &str, rows: Vec<crate::task::FormatLine>) -> String {
+    let t = |k: &str, of: &str| say(lang, k, &[("of", of)]);
+    let ty = |chain: &[&str]| chain.iter().rev().fold(String::new(), |of, w| t(&format!("type.{w}"), &of));
+    let mut out = String::new();
+    for (depth, field, optional, chain) in rows {
+        let optional = if optional { format!(" {}", t("format.optional", "")) } else { String::new() };
+        out += &format!("{}{field}{optional}: {}\n", "  ".repeat(depth), ty(&chain));
+    }
+    out
+}
+
 /// The format of `propose`'s file, in `lang`: the stage, then the tasks, each field with its type (part 7d3a).
 pub fn file_format(lang: &str) -> String {
     let t = |k: &str, of: &str| say(lang, k, &[("of", of)]);
-    let ty = |chain: &[&str]| chain.iter().rev().fold(String::new(), |of, w| t(&format!("type.{w}"), &of));
     let [stage, task] = crate::task::file_format();
-    let mut out = format!("{}\n", t("format.stage", ""));
-    let lines = |rows: Vec<crate::task::FormatLine>, out: &mut String| {
-        for (depth, field, optional, chain) in rows {
-            let optional = if optional { format!(" {}", t("format.optional", "")) } else { String::new() };
-            *out += &format!("{}{field}{optional}: {}\n", "  ".repeat(depth), ty(&chain));
-        }
-    };
-    lines(stage, &mut out);
+    let mut out = format!("{}\n{}", t("format.stage", ""), format_rows(lang, stage));
     out += &format!("{}\n  name {}: {}\n", t("format.tasks", ""), t("format.optional", ""), t("format.name", ""));
-    lines(task, &mut out);
-    out
+    out + &format_rows(lang, task)
+}
+
+/// The format of `sweep`'s answer file, in `lang` (part 8a).
+pub fn answer_format(lang: &str) -> String {
+    let rows = crate::task::format_of(&crate::fermento::ANSWER);
+    format!(
+        "{}\n{}\n{}",
+        say(lang, "format.answer", &[]),
+        format_rows(lang, rows),
+        say(lang, "format.answer-note", &[])
+    )
 }
 
 /// An option as help lists it: `--say <words>`, `--json`.
@@ -428,6 +479,9 @@ pub fn help(lang: &str, command: Option<&Command>) -> String {
             if c.name == "propose" {
                 out += &format!("\n{}:\n{}", t("help.format"), file_format(lang));
             }
+            if c.name == "sweep" {
+                out += &format!("\n{}:\n{}", t("help.format"), answer_format(lang));
+            }
             let refusals = refusals(c);
             if !refusals.is_empty() {
                 let rows: Vec<_> = refusals.iter().map(|r| (r.to_string(), t(&format!("code.{r}.reason")))).collect();
@@ -472,6 +526,9 @@ pub fn fish() -> String {
         }
         if c.name == "propose" {
             out += "complete -c fabrewk -n '__fish_seen_subcommand_from propose' -F\n";
+        }
+        if c.name == "sweep" {
+            out += "complete -c fabrewk -n '__fish_seen_subcommand_from sweep' -l answer -r -F\n";
         }
     }
     let words: Vec<&str> = keys().collect();
@@ -529,6 +586,9 @@ pub fn reference(lang: &str, checks: &[(String, String, String)]) -> String {
         out += &format!("\n{} {}\n", t("reference.documents"), schemas.join(", "));
         if c.name == "propose" {
             out += &format!("\n{}\n\n```text\n{}```\n", t("help.format"), file_format(lang));
+        }
+        if c.name == "sweep" {
+            out += &format!("\n{}\n\n```text\n{}```\n", t("help.format"), answer_format(lang));
         }
         let refusals = refusals(c);
         if !refusals.is_empty() {

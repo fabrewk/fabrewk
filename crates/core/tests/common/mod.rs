@@ -121,6 +121,11 @@ impl Fixture {
         KeySigner(self.keys.join("xel"))
     }
 
+    /// The record as it replays now; panics if it does not.
+    pub fn replay(&self) -> Replay {
+        fabrewk_core::record::replay(&self.domain, &self.verifier()).unwrap()
+    }
+
     pub fn stranger(&self) -> KeySigner {
         KeySigner(self.keys.join("stranger"))
     }

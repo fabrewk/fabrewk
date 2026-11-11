@@ -26,7 +26,13 @@ pub(super) fn run(cx: &Cx, options: &Options) -> Result<Out, Failed> {
             say: Some(say),
             payload: adoption.payload(&Default::default()),
         };
-        Ok(Plan { events: vec![("project".into(), draft)], signer: Some(signer), sealed: true, out: adoption })
+        Ok(Plan {
+            events: vec![("project".into(), draft)],
+            signer: Some(signer),
+            sealed: true,
+            view: None,
+            out: adoption,
+        })
     };
     let (adoption, written) = write::run(cx, plan)?;
     let mut text = cx.t("adopt.done", &[("digest", &adoption.digest[..12])]) + "\n";

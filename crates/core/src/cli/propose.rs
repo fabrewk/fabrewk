@@ -22,8 +22,10 @@ fn invalid(path: &Path, why: impl Into<String>) -> Error {
     refuse(Code::TaskInvalid, Some(path), why)
 }
 
-/// The file as JSON: a regular file outside every Fabrewk domain, at most [`MAX_FILE`] bytes (`TASK_INVALID`).
-fn read(path: &Path) -> Result<Value, Error> {
+/// The file as JSON: a regular file outside every Fabrewk domain, at most [`MAX_FILE`] bytes, else refused with `code`
+/// (`TASK_INVALID` for `propose`'s file, `ANSWER_INVALID` for `sweep`'s).
+pub(super) fn read(path: &Path, code: Code) -> Result<Value, Error> {
+    let invalid = |path: &Path, why: &str| refuse(code, Some(path), why.to_owned());
     let meta = std::fs::metadata(path).map_err(|_| invalid(path, "cannot be read"))?;
     if !meta.is_file() || crate::code::in_a_domain(path) {
         return Err(invalid(path, "not a regular file outside every Fabrewk domain"));
@@ -32,7 +34,7 @@ fn read(path: &Path) -> Result<Value, Error> {
         return Err(invalid(path, "larger than 1 MiB"));
     }
     let bytes = std::fs::read(path).map_err(|_| invalid(path, "cannot be read"))?;
-    serde_json::from_slice(&bytes).map_err(|e| invalid(path, format!("not JSON (line {})", e.line())))
+    serde_json::from_slice(&bytes).map_err(|e| invalid(path, &format!("not JSON (line {})", e.line())))
 }
 
 /// A payload's layer of settings, as `effective` takes it.
@@ -165,12 +167,18 @@ fn plan(cx: &Cx, path: &Path, file: &Value, record: &Replay) -> Result<Plan<Prop
         out.push((id.clone(), name, payload["goal"].as_str().unwrap_or_default().to_owned()));
         events.push((format!("task-{id}"), draft("task-proposed", payload)));
     }
-    Ok(Plan { events, signer: None, sealed: false, out: Proposed { stage: (stage_id, new, goal), tasks: out } })
+    Ok(Plan {
+        events,
+        signer: None,
+        sealed: false,
+        view: None,
+        out: Proposed { stage: (stage_id, new, goal), tasks: out },
+    })
 }
 
 pub(super) fn run(cx: &Cx, file: &str) -> Result<Out, Failed> {
     let path = cx.root.join(file);
-    let value = read(&path)?;
+    let value = read(&path, Code::TaskInvalid)?;
     let (proposed, written) = write::run(cx, |record| plan(cx, &path, &value, record))?;
     let (id, new, goal) = &proposed.stage;
     let key = if *new { "propose.stage" } else { "propose.added" };

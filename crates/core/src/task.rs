@@ -12,7 +12,7 @@ use std::collections::BTreeSet;
 
 /// A payload field's type. A wrong JSON type, a missing or an unknown field fails the shape; a value outside its set
 /// (an empty or blank text, a tag that is not one, a count below 1, a malformed identifier) fails the content.
-enum T {
+pub(crate) enum T {
     Text,
     Tag,
     Count,
@@ -21,6 +21,10 @@ enum T {
     Id(char),
     Base,
     Value,
+    /// A text from a closed set.
+    One(&'static [&'static str]),
+    /// `null`, or a value of the type.
+    Nullable(&'static T),
     List(&'static T),
     Map(&'static T),
     /// An object's fields; a name starting with `?` may be absent.
@@ -82,7 +86,7 @@ const TASK_REJECTED: T = T::Obj(&[("task", T::Id('t')), ("head", HEAD)]);
 
 /// Holds `v` to `t`: a failure of shape is the error, where; the first failure of content is kept in `content`, so
 /// that a payload is refused for its shape whenever its shape fails.
-fn fit(t: &T, v: &Value, at: &str, content: &mut Option<String>) -> Result<(), String> {
+pub(crate) fn fit(t: &T, v: &Value, at: &str, content: &mut Option<String>) -> Result<(), String> {
     let mut ok = |good: bool| {
         if !good && content.is_none() {
             *content = Some(at.to_owned());
@@ -98,6 +102,9 @@ fn fit(t: &T, v: &Value, at: &str, content: &mut Option<String>) -> Result<(), S
         (T::Id(c), Value::String(s)) => ok(is_id(s, *c)),
         (T::Base, Value::String(s)) => ok(is_hex(s, 40) || is_hex(s, 64)),
         (T::Value, v) if value(v).is_some() => Ok(()),
+        (T::One(set), Value::String(s)) => ok(set.contains(&s.as_str())),
+        (T::Nullable(_), Value::Null) => Ok(()),
+        (T::Nullable(t), v) => fit(t, v, at, content),
         (T::List(t), Value::Array(a)) => {
             a.iter().enumerate().try_for_each(|(i, v)| fit(t, v, &format!("{at}[{i}]"), content))
         }
@@ -321,6 +328,11 @@ pub type FormatLine = (usize, &'static str, bool, Vec<&'static str>);
 /// The format of `propose`'s file (section 5; part 7d3a): every field of a stage's payload and of a task's, but the
 /// nonce, which `propose` draws, and a task's stage, which the file's stage gives. Help and the reference render it.
 pub fn file_format() -> [Vec<FormatLine>; 2] {
+    [format_of(&STAGE), format_of(&TASK)]
+}
+
+/// The lines of a file's format from its schema: every field but the nonce and a task's stage, which `propose` fills.
+pub(crate) fn format_of(schema: &T) -> Vec<FormatLine> {
     fn chain(t: &T) -> Vec<&'static str> {
         let word = match t {
             T::Text => "text",
@@ -329,7 +341,10 @@ pub fn file_format() -> [Vec<FormatLine>; 2] {
             T::Bool => "bool",
             T::Hex(_) => "hex",
             T::Id('s') => "stage-id",
+            T::Id('p') => "proposal-id",
             T::Id(_) => "task-id",
+            T::One(_) => "text",
+            T::Nullable(inner) => return [vec!["nullable"], chain(inner)].concat(),
             T::Base => "base",
             T::Value => "value",
             T::Obj(_) => "object",
@@ -351,8 +366,7 @@ pub fn file_format() -> [Vec<FormatLine>; 2] {
             walk(ty, depth + 1, out);
         }
     }
-    let [mut stage, mut task] = [Vec::new(), Vec::new()];
-    walk(&STAGE, 1, &mut stage);
-    walk(&TASK, 1, &mut task);
-    [stage, task]
+    let mut lines = Vec::new();
+    walk(schema, 1, &mut lines);
+    lines
 }

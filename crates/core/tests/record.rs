@@ -1226,7 +1226,8 @@ fn req_reg_2_an_observed_model_may_be_any_string() {
     // P7B-5: `modelObserved` is a string or null, the empty string included.
     let f = Fixture::new("observed", false);
     let mut s = begin(&f, None);
-    let mut draft = agent("sweep-recorded", json!({}));
+    let sweep = json!({"input": "0".repeat(64), "points": [], "heads": {}, "skills": []});
+    let mut draft = agent("sweep-recorded", sweep);
     draft.actor["modelObserved"] = json!("");
     s.append("fermento-xel", None, &draft, None).unwrap();
     s.finish(&f.verifier(), &[]).unwrap();

@@ -7,6 +7,7 @@ pub mod cli;
 mod code;
 pub mod detect;
 pub mod domain;
+pub mod fermento;
 pub mod identity;
 pub mod machine;
 pub mod record;

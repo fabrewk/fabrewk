@@ -52,10 +52,12 @@ Documents with --json: `fabrewk.check/1`
 | C2 | A policy is adopted, and the project file equals it or its change is pending. | `POLICY_ABSENT`, `POLICY_PENDING` | effective |
 | C3 | The record replays: versions, digests, canonical form, chains, forks, transitions, signatures, identifiers. | `RECORD_VERSION_UNKNOWN`, `RECORD_BROKEN`, `RECORD_DIGEST_MISMATCH`, `RECORD_NONCANONICAL`, `RECORD_FORK`, `RECORD_TRANSITION_INVALID`, `ATTEMPT_ENDED`, `RECORD_SIGNATURE_INVALID`, `RECORD_ID_COLLISION` | effective |
 | C4 | The record is present and has not rolled back: effective where Git's history is walked, cooperative on one machine. | `RECORD_ABSENT`, `RECORD_ROLLBACK`, `MARK_INVALID` | effective |
+| C6 | Each fermento has its separator exactly once outside fenced code blocks, inside a rendering Fabrewk writes. | `SEPARATOR_MISSING`, `SEPARATOR_AMBIGUOUS`, `SEPARATOR_DAMAGED` | effective |
 | C8 | The domain's entries, the aliases, its ignore file, and the product's ignore rule. | `DOMAIN_UNKNOWN_ENTRY`, `ALIAS_INVALID`, `GITIGNORE_CHANGED`, `DOMAIN_NOT_IGNORED` | effective |
 | C9 | No file looks like a credential: a heuristic. | `CREDENTIAL_SUSPECTED` | cooperative |
 | C10 | The record's files are committed where the publication mode commits them. | `RECORD_UNCOMMITTED` | effective |
 | C11 | The private folder gives access to its owner only. | `PRIVATE_FOLDER_PERMISSIONS` | effective |
+| C12 | Every maintainer directory has a fermento and is listed in the policy. | `MAINTAINER_UNLISTED`, `FERMENTO_MISSING` | effective |
 
 ## `fabrewk adopt --say <words> [--say-lang <tag>] [--widen <key>]… [--json]`
 
@@ -337,6 +339,133 @@ Refusals
 - `HEAD_DETACHED`: Git's head names no branch, so there is no record branch.
 - `PRIVATE_FOLDER_PERMISSIONS`: The private folder gives access to someone other than its owner, so Fabrewk does not read it.
 - `SETTINGS_INVALID`: A settings file does not read or validate.
+- `RECORD_HEAD_MOVED`: Something wrote in the record without its lock while this command ran; this command wrote nothing.
+- `RECORD_COMMIT_RACE`: The branch moved while Fabrewk committed the record; its events are written but not committed.
+- `TOOL_FAILED`: An external tool failed; what it printed is kept as evidence, never shown here.
+- `TOOL_MISSING`: A tool this needs is not on this machine.
+
+## `fabrewk sweep <alias> --answer <file> [--json]`
+
+Records the integrator's answer to one maintainer's fermento: what it recommends and the edits it drafts, and writes the answer below the separator.
+
+- `<alias>`: The maintainer, by alias.
+- `--answer <file>`: The JSON file with the integrator's answer; its format is below.
+- `--json`: Gives the output as one JSON document with a schema field.
+- `--help`: Shows this help.
+
+Moves it may cause: `sweep-recorded` (sweep recorded), `proposal-recorded` (proposal recorded), `proposal-withdrawn` (proposal withdrawn).
+
+Documents with --json: `fabrewk.swept/1`
+
+The file's format
+
+```text
+The answer file: an object with these fields
+  agent: an object with these fields
+    tool: text
+    provider: text
+    model: text
+  points: a list, each item an object with these fields
+    number: a whole number, 1 or more
+    digest: hexadecimal digits
+    recommendation: an object with these fields
+      point: text
+      clarify: text
+      destination: text
+    edit (optional): an object with these fields
+      target: text
+      base: hexadecimal digits
+      units: a list, each item an object with these fields
+        kind: text
+        n (optional): a whole number, 1 or more
+        m (optional): a whole number, 1 or more
+        text: text, or null
+      keys: a list, each item an object with these fields
+        point: text
+        key: text
+      result: hexadecimal digits
+
+An edit's unit is the opening (kind opening), a section (kind section, n), a point (kind point, n and m) or a rule (kind rule, n; a text of null removes it); target is alambique or rules, and a rules edit holds rule units only.```
+
+Refusals
+
+- `ALIAS_INVALID`: A name that is not a valid alias: lowercase letters, digits and single hyphens, starting with a letter, at most 32 characters, and not a reserved name.
+- `MAINTAINER_UNLISTED`: That alias is no maintainer of the policy in force.
+- `FERMENTO_MISSING`: The maintainer has no fermento.md.
+- `SEPARATOR_MISSING`: The fermento has no separator line outside fenced code blocks.
+- `SEPARATOR_AMBIGUOUS`: The separator's marker stands on more than one line outside fenced code blocks.
+- `SEPARATOR_DAMAGED`: The lines around the separator's marker are not a rendering Fabrewk writes, or the file is not valid text.
+- `ANSWER_INVALID`: The answer file does not have the shape sweep reads, or one of its texts would break the separator.
+- `POINT_CHANGED`: A point of the answer does not exist in the fermento, changed since it was read, or has no recommendation.
+- `INPUT_UNCOMMITTED`: The fermento's input differs from the committed one, and the sweep's commit would carry your edit.
+- `INPUT_CHANGED`: The fermento's input changed while the sweep ran.
+- `RECORD_ABSENT`: There is no record here.
+- `POLICY_ABSENT`: No policy is adopted, so there is no effective configuration and no maintainer.
+- `RECORD_BROKEN`: The record is broken: its files are not one unbroken chain.
+- `RECORD_DIGEST_MISMATCH`: An event file's content is not the one its name records.
+- `RECORD_NONCANONICAL`: An event file is not in canonical form, so its digest cannot be trusted.
+- `RECORD_FORK`: Two events stand at the same place of one stream: two clones wrote there.
+- `RECORD_TRANSITION_INVALID`: An event stands where the transition table does not allow it.
+- `ATTEMPT_ENDED`: The record ends an attempt that is not open.
+- `RECORD_SIGNATURE_INVALID`: A person's event is not signed by the key and role the policy gives its signer.
+- `RECORD_VERSION_UNKNOWN`: An event is not of a schema this version of Fabrewk knows.
+- `RECORD_ID_COLLISION`: Two stages or two tasks were given the same identifier.
+- `RECORD_ROLLBACK`: The record lost events it held before: a rollback.
+- `MARK_INVALID`: This machine's mark of the record (local/cache/heads.json) is damaged or names an event the record does not hold there.
+- `CHECK_UNKNOWN`: A verification could not run, so its result is unknown, and an unknown result is never a pass.
+- `DOMAIN_NOT_IGNORED`: The product's repository does not ignore .brewstillery/, so a commit there would publish it.
+- `NOT_A_REPOSITORY`: This is not the root of the repository's main working tree.
+- `HEAD_DETACHED`: Git's head names no branch, so there is no record branch.
+- `PRIVATE_FOLDER_PERMISSIONS`: The private folder gives access to someone other than its owner, so Fabrewk does not read it.
+- `SETTINGS_INVALID`: A settings file does not read or validate.
+- `LOCK_HELD`: Another Fabrewk command holds the lock of this repository's record, or another task is running: one writer and one run at a time.
+- `RECORD_HEAD_MOVED`: Something wrote in the record without its lock while this command ran; this command wrote nothing.
+- `RECORD_COMMIT_RACE`: The branch moved while Fabrewk committed the record; its events are written but not committed.
+- `TOOL_FAILED`: An external tool failed; what it printed is kept as evidence, never shown here.
+- `TOOL_MISSING`: A tool this needs is not on this machine.
+
+## `fabrewk discard <proposal> --say <words> [--say-lang <tag>] [--json]`
+
+A maestro discards a pending proposal, saying why.
+
+- `<proposal>`: The proposal, by its identifier (p-…).
+- `--say <words>`: Your own words for this decision, kept verbatim and signed. Words copied from an example, such as “I agree.”, are refused.
+- `--say-lang <tag>`: The language tag of your words; by default, your languages.agentInteraction.
+- `--json`: Gives the output as one JSON document with a schema field.
+- `--help`: Shows this help.
+
+Moves it may cause: `proposal-discarded` (proposal discarded).
+
+Documents with --json: `fabrewk.discarded/1`
+
+Refusals
+
+- `AGENT_ENVIRONMENT`: This runs inside an agent or an extension, whose markers are in the environment, and only a person makes this move. The check is cooperative: a process can clear its environment.
+- `PROPOSAL_UNKNOWN`: No proposal of the record has that identifier.
+- `MOVE_NOT_ALLOWED`: The transition table does not allow this move from the subject's state.
+- `ROLE_FORBIDDEN`: The key signing this move holds no role in the policy that may make it.
+- `WORDS_MISSING`: A person's move needs your own words, given with --say: not empty, and valid UTF-8 text.
+- `WORDS_COPIED`: The words given are the example that help prints, not your own.
+- `RECORD_ABSENT`: There is no record here.
+- `POLICY_ABSENT`: No policy is adopted, so there is no effective configuration and no maintainer.
+- `RECORD_BROKEN`: The record is broken: its files are not one unbroken chain.
+- `RECORD_DIGEST_MISMATCH`: An event file's content is not the one its name records.
+- `RECORD_NONCANONICAL`: An event file is not in canonical form, so its digest cannot be trusted.
+- `RECORD_FORK`: Two events stand at the same place of one stream: two clones wrote there.
+- `RECORD_TRANSITION_INVALID`: An event stands where the transition table does not allow it.
+- `ATTEMPT_ENDED`: The record ends an attempt that is not open.
+- `RECORD_SIGNATURE_INVALID`: A person's event is not signed by the key and role the policy gives its signer.
+- `RECORD_VERSION_UNKNOWN`: An event is not of a schema this version of Fabrewk knows.
+- `RECORD_ID_COLLISION`: Two stages or two tasks were given the same identifier.
+- `RECORD_ROLLBACK`: The record lost events it held before: a rollback.
+- `MARK_INVALID`: This machine's mark of the record (local/cache/heads.json) is damaged or names an event the record does not hold there.
+- `CHECK_UNKNOWN`: A verification could not run, so its result is unknown, and an unknown result is never a pass.
+- `DOMAIN_NOT_IGNORED`: The product's repository does not ignore .brewstillery/, so a commit there would publish it.
+- `NOT_A_REPOSITORY`: This is not the root of the repository's main working tree.
+- `HEAD_DETACHED`: Git's head names no branch, so there is no record branch.
+- `PRIVATE_FOLDER_PERMISSIONS`: The private folder gives access to someone other than its owner, so Fabrewk does not read it.
+- `SETTINGS_INVALID`: A settings file does not read or validate.
+- `LOCK_HELD`: Another Fabrewk command holds the lock of this repository's record, or another task is running: one writer and one run at a time.
 - `RECORD_HEAD_MOVED`: Something wrote in the record without its lock while this command ran; this command wrote nothing.
 - `RECORD_COMMIT_RACE`: The branch moved while Fabrewk committed the record; its events are written but not committed.
 - `TOOL_FAILED`: An external tool failed; what it printed is kept as evidence, never shown here.

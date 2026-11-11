@@ -49,6 +49,7 @@ say-lang = "La etiqueta de idioma de tus palabras; por omisión, tu languages.ag
 widen = "Nombra una ampliación de autoridad que hace este movimiento, por su ruta de clave; una vez por cada una."
 seen = "El digest que status imprimió de lo que leíste; si el sujeto cambió desde entonces, el movimiento se niega."
 then-run = "Inicia la ejecución en el mismo comando, después de la autorización."
+answer = "El archivo JSON con la respuesta del integrador; su formato va abajo."
 
 [command.status]
 summary = "Muestra la salud del registro, la política vigente y el estado de cada etapa y tarea."
@@ -88,6 +89,8 @@ stage = "stage: un objeto con estos campos, o el identificador (s-…) de una et
 tasks = "tasks: una lista de una tarea o más, cada una un objeto con estos campos"
 name = "un nombre para la tarea, que una tarea posterior del archivo puede dar entre sus dependencias"
 optional = "(opcional)"
+answer = "El archivo de la respuesta: un objeto con estos campos"
+answer-note = "La unidad de una edición es la apertura (kind opening), una sección (kind section, n), un punto (kind point, n y m) o una regla (kind rule, n; un texto null la quita); target es alambique o rules, y una edición de rules lleva solo unidades de regla."
 
 [type]
 text = "texto"
@@ -102,6 +105,8 @@ value = "el valor de un ajuste"
 object = "un objeto con estos campos"
 list = "una lista, cada elemento {of}"
 map = "un objeto cuyos campos tienen cada uno {of}"
+nullable = "{of}, o null"
+proposal-id = "el identificador de una propuesta (p-…)"
 
 [adopt]
 done = "El archivo del proyecto es ahora la política vigente (digest {digest}). Sus cambios frente a la política que reemplaza:"
@@ -185,6 +190,8 @@ C11 = "La carpeta privada da acceso solo a su dueño."
 finding = "{check} ({severity}, {control}): {about}"
 passed = "La verificación pasó sin errores; advertencias: {warnings}."
 failed = "La verificación encontró problemas; errores: {errors}, advertencias: {warnings}."
+C6 = "Cada fermento tiene su separador una sola vez fuera de bloques de código, dentro de una versión que Fabrewk escribe."
+C12 = "Cada directorio de mantenedor tiene un fermento y está listado en la política."
 
 [severity]
 error = "error"
@@ -612,3 +619,101 @@ next = "Escribe tus propias palabras para esta decisión con --say."
 [code.WORDS_MISSING]
 reason = "Un movimiento de persona necesita tus propias palabras, dadas con --say: no vacías y en texto UTF-8 válido."
 next = "Di con --say, con tus palabras, por qué lo decides."
+
+[command.sweep]
+summary = "Registra la respuesta del integrador al fermento de un mantenedor: lo que recomienda y las ediciones que redacta, y escribe la respuesta debajo del separador."
+arg = "El mantenedor, por su alias."
+
+[command.discard]
+summary = "Un maestro descarta una propuesta pendiente, diciendo por qué."
+arg = "La propuesta, por su identificador (p-…)."
+
+[sweep]
+done = "Se barrió el fermento de {alias}: {points} puntos respondidos, {recorded} propuestas registradas, {withdrawn} retiradas."
+
+[discard]
+done = "Se descartó la propuesta {id}. La respuesta del fermento lo muestra en el siguiente barrido."
+
+[fermento]
+separator = """
+<!-- fabrewk:fermento-separator v1 -->
+################################################################################
+## ▼▼▼ FIN DE LA ENTRADA DE {alias} — RESPUESTAS DE LOS AGENTES DEBAJO ▼▼▼
+## El mantenedor no edita a partir de esta línea.
+################################################################################
+"""
+heading = "Respuesta del integrador"
+none = "Sin recomendaciones vigentes: tu entrada no tiene puntos y nada espera a un maestro."
+point = "{number}. {point}"
+destination = "Destino: {destination}"
+proposals = "Propuestas para un maestro"
+proposal = "Punto {number}, una propuesta para {target} ({state})"
+discard = "Para descartarla, un maestro corre:"
+words = "tus palabras"
+removed = "quitada"
+key = "Clave de estado: el punto {point} pasa a {key}."
+reference = "Referencia: {id}"
+skills = "Skills que las herramientas cargan desde fuera del proyecto"
+skills-about = "Fabrewk solo lista sus nombres y no toca ninguna; conservarlas o quitarlas lo decide el dueño del equipo."
+skill-names = "{tool}: {names}"
+skill-none = "{tool}: ninguna"
+skill-unknown = "{tool}: desconocido, no se pudo listar una carpeta"
+skill-shadow = "{tool} carga una skill llamada {name}, que es también una skill aprobada de este proyecto."
+
+[fermento.state]
+pending = "pendiente"
+stale = "obsoleta: el punto cambió desde que se redactó"
+
+[fermento.target]
+alambique = "el alambique"
+rules = "las reglas del proyecto"
+
+[fermento.unit]
+opening = "La apertura, reemplazada completa:"
+section = "La sección {n}, reemplazada completa:"
+point = "El punto {n}.{m}, reemplazado completo:"
+rule = "Regla R{n}"
+
+[code.ANSWER_INVALID]
+reason = "El archivo de la respuesta no tiene la forma que lee sweep, o uno de sus textos rompería el separador."
+next = "Corrige el archivo al formato que imprime sweep --help."
+
+[code.FERMENTO_MISSING]
+reason = "El mantenedor no tiene fermento.md."
+next = "Crea el fermento del mantenedor con el bloque del separador; Fabrewk nunca escribe la entrada de un mantenedor."
+
+[code.INPUT_CHANGED]
+reason = "La entrada del fermento cambió mientras corría el barrido."
+next = "Corre el barrido otra vez cuando el fermento esté guardado."
+
+[code.INPUT_UNCOMMITTED]
+reason = "La entrada del fermento difiere de la que está en un commit, y el commit del barrido llevaría tu edición."
+next = "Haz commit del fermento y corre el barrido otra vez."
+
+[code.MAINTAINER_UNLISTED]
+reason = "Ese alias no es mantenedor de la política vigente."
+next = "Lista al mantenedor en el archivo del proyecto y adóptalo:"
+run = "fabrewk config"
+
+[code.POINT_CHANGED]
+reason = "Un punto de la respuesta no existe en el fermento, cambió desde que se leyó, o no tiene recomendación."
+next = "Lee el fermento otra vez y responde cada punto como está ahora."
+
+[code.PROPOSAL_UNKNOWN]
+reason = "Ninguna propuesta del registro tiene ese identificador."
+next = "Toma el identificador de la respuesta del fermento."
+
+[code.SEPARATOR_AMBIGUOUS]
+reason = "La marca del separador está en más de una línea fuera de los bloques de código."
+next = "Deja un solo bloque separador; no se escribió nada."
+run = "fabrewk check"
+
+[code.SEPARATOR_DAMAGED]
+reason = "Las líneas alrededor de la marca del separador no son una versión que Fabrewk escribe, o el archivo no es texto válido."
+next = "Restaura el bloque del separador como Fabrewk lo escribe; no se escribió nada."
+run = "fabrewk check"
+
+[code.SEPARATOR_MISSING]
+reason = "El fermento no tiene línea de separador fuera de los bloques de código."
+next = "Restaura el bloque del separador entre tu entrada y las respuestas; no se escribió nada."
+run = "fabrewk check"

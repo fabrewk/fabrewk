@@ -226,7 +226,7 @@ pub(crate) fn check(v: &Value, stream: &str, seq: u64) -> Result<Class, (Code, &
     if kind == "publication-decided" {
         publication_payload(&o["payload"])?;
     }
-    if !crate::task::shape(kind, &o["payload"]) {
+    if !crate::task::shape(kind, &o["payload"]) || !crate::fermento::shape(kind, &o["payload"]) {
         return Err((Unknown, "payload"));
     }
     Ok(class)

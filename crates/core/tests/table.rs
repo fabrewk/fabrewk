@@ -757,6 +757,7 @@ fn refusal_limit_unobservable() {
         executable: "fake",
         version: &[],
         tokens,
+        skills: &[],
     };
     let reporting = [fake("claude-code", true), fake("codex", true)];
     let silent = [fake("claude-code", true), fake("codex", false)];

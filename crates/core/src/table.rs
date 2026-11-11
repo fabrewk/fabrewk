@@ -1,6 +1,6 @@
 //! The transition table (REQ-TASK-1, REQ-SEC-5; core-specification section 4; part 7d1, D-053): every state, move,
 //! actor, guard, refusal and control label, declared once. Commands evaluate a move's guards in the order it lists
-//! them; the replay holds every stage and task stream to it. Proposals are held to it with the sweep (phase 8); the
+//! them; the replay holds every stage and task stream to it. Proposals are held to it by [`crate::fermento::proposals`] (part 8a); the
 //! `project` stream's order is `apply`'s (phase 10).
 
 use crate::code::{Code, Error, refuse};
@@ -138,7 +138,9 @@ fn invalid(e: &Event, why: impl Into<String>) -> Error {
 /// attempt is `ATTEMPT_ENDED` (PD-10); an attempt that starts while another is open, or a move out of `running` with
 /// one open, is `RECORD_TRANSITION_INVALID`, as is every other failure: each attempt ends exactly once (REQ-RUN-1).
 pub fn validate(record: &Replay) -> Result<(), Vec<Error>> {
-    current(record).map(drop)
+    let mut errors = current(record).err().unwrap_or_default();
+    errors.extend(crate::fermento::proposals(record).err().unwrap_or_default());
+    if errors.is_empty() { Ok(()) } else { Err(errors) }
 }
 
 /// The state of every stage and task stream after its events, held to the table as [`validate`] holds them.

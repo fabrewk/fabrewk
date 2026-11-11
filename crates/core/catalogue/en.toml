@@ -55,6 +55,7 @@ say-lang = "The language tag of your words; by default, your languages.agentInte
 widen = "Names a widening of authority this move makes, by its key path; give it once for each."
 seen = "The digest that status printed of what you read; if the subject changed since, the move is refused."
 then-run = "Starts the run in the same command, after the authorization."
+answer = "The JSON file with the integrator's answer; its format is below."
 
 [command.status]
 about = "The command that shows the state"
@@ -104,6 +105,8 @@ stage = "stage: an object with these fields, or the identifier (s-…) of a stag
 tasks = "tasks: a list of one task or more, each an object with these fields"
 name = "a name for the task, which a later task of the file may give among its dependencies"
 optional = "(optional)"
+answer = "The answer file: an object with these fields"
+answer-note = "An edit's unit is the opening (kind opening), a section (kind section, n), a point (kind point, n and m) or a rule (kind rule, n; a text of null removes it); target is alambique or rules, and a rules edit holds rule units only."
 
 [type]
 about = "The types of the fields of propose's file; {of} is the type a list or a map holds"
@@ -119,6 +122,8 @@ value = "a setting's value"
 object = "an object with these fields"
 list = "a list, each item {of}"
 map = "an object whose fields each hold {of}"
+nullable = "{of}, or null"
+proposal-id = "a proposal's identifier (p-…)"
 
 [adopt]
 about = "What adopt reports"
@@ -212,6 +217,8 @@ C11 = "The private folder gives access to its owner only."
 finding = "{check} ({severity}, {control}): {about}"
 passed = "The check passed with no error; warnings: {warnings}."
 failed = "The check found problems; errors: {errors}, warnings: {warnings}."
+C6 = "Each fermento has its separator exactly once outside fenced code blocks, inside a rendering Fabrewk writes."
+C12 = "Every maintainer directory has a fermento and is listed in the policy."
 
 [severity]
 about = "How grave a finding is"
@@ -708,3 +715,119 @@ next = "Write your own words for this decision with --say."
 about = "A person's move without words: none given, empty, or not UTF-8 (REQ-TASK-4)"
 reason = "A person's move needs your own words, given with --say: not empty, and valid UTF-8 text."
 next = "Say with --say, in your own words, why you decide it."
+
+[command.sweep]
+about = "The command that records the integrator's answer to a fermento"
+summary = "Records the integrator's answer to one maintainer's fermento: what it recommends and the edits it drafts, and writes the answer below the separator."
+arg = "The maintainer, by alias."
+
+[command.discard]
+about = "The command that discards a proposal"
+summary = "A maestro discards a pending proposal, saying why."
+arg = "The proposal, by its identifier (p-…)."
+
+[sweep]
+about = "What sweep reports"
+done = "Swept the fermento of {alias}: {points} points answered, {recorded} proposals recorded, {withdrawn} withdrawn."
+
+[discard]
+about = "What discard reports"
+done = "Discarded the proposal {id}. The fermento's answer shows it at the next sweep."
+
+[fermento]
+about = "Words of the fermento's separator and of the answer a sweep writes"
+separator = """
+<!-- fabrewk:fermento-separator v1 -->
+################################################################################
+## ▼▼▼ END OF {alias}'S INPUT — THE AGENTS' ANSWERS BELOW ▼▼▼
+## The maintainer does not edit from this line on.
+################################################################################
+"""
+heading = "Integrator's answer"
+none = "No current recommendations: your input has no points, and nothing waits for a maestro."
+point = "{number}. {point}"
+destination = "Destination: {destination}"
+proposals = "Proposals for a maestro"
+proposal = "Point {number}, a proposal for {target} ({state})"
+discard = "To discard it, a maestro runs:"
+words = "your words"
+removed = "removed"
+key = "Status key: point {point} becomes {key}."
+reference = "Reference: {id}"
+skills = "Skills the tools load from outside the project"
+skills-about = "Fabrewk only lists their names and touches none; keeping or removing them is the machine owner's decision."
+skill-names = "{tool}: {names}"
+skill-none = "{tool}: none"
+skill-unknown = "{tool}: unknown, a folder could not be listed"
+skill-shadow = "{tool} loads a skill named {name}, which is also an approved skill of this project."
+
+[fermento.state]
+about = "A proposal's state in the answer"
+pending = "pending"
+stale = "stale: the point changed since it was drafted"
+
+[fermento.target]
+about = "What a proposal edits"
+alambique = "the alambique"
+rules = "the project's rules"
+
+[fermento.unit]
+about = "Which unit of the alambique, or which rule, a drafted text replaces"
+opening = "The opening, replaced whole:"
+section = "Section {n}, replaced whole:"
+point = "Point {n}.{m}, replaced whole:"
+rule = "Rule R{n}"
+
+[code.ANSWER_INVALID]
+about = "A sweep's answer file that does not have its shape, or would break the separator (REQ-FER-3)"
+reason = "The answer file does not have the shape sweep reads, or one of its texts would break the separator."
+next = "Correct the file to the format that sweep --help prints."
+
+[code.FERMENTO_MISSING]
+about = "A maintainer with no fermento to sweep (REQ-FER-9, C12)"
+reason = "The maintainer has no fermento.md."
+next = "Create the maintainer's fermento with the separator block; Fabrewk never writes a maintainer's input."
+
+[code.INPUT_CHANGED]
+about = "The fermento's input changed while a sweep ran (REQ-FER-3)"
+reason = "The fermento's input changed while the sweep ran."
+next = "Run the sweep again once the fermento is saved."
+
+[code.INPUT_UNCOMMITTED]
+about = "A sweep where the mode commits and the input is not the committed one (REQ-FER-3)"
+reason = "The fermento's input differs from the committed one, and the sweep's commit would carry your edit."
+next = "Commit the fermento, then run the sweep again."
+
+[code.MAINTAINER_UNLISTED]
+about = "A maintainer the policy does not list (C12)"
+reason = "That alias is no maintainer of the policy in force."
+next = "List the maintainer in the project file and adopt it:"
+run = "fabrewk config"
+
+[code.POINT_CHANGED]
+about = "An answer whose points are not the fermento's as it stands (REQ-FER-3)"
+reason = "A point of the answer does not exist in the fermento, changed since it was read, or has no recommendation."
+next = "Read the fermento again and answer every point as it stands now."
+
+[code.PROPOSAL_UNKNOWN]
+about = "A proposal that the record does not hold (section 7)"
+reason = "No proposal of the record has that identifier."
+next = "Take the identifier from the fermento's answer."
+
+[code.SEPARATOR_AMBIGUOUS]
+about = "A fermento whose separator marker stands on more than one line (REQ-FER-1)"
+reason = "The separator's marker stands on more than one line outside fenced code blocks."
+next = "Leave one separator block; nothing was written."
+run = "fabrewk check"
+
+[code.SEPARATOR_DAMAGED]
+about = "A fermento whose separator block is not one Fabrewk writes (REQ-FER-1)"
+reason = "The lines around the separator's marker are not a rendering Fabrewk writes, or the file is not valid text."
+next = "Restore the separator block as Fabrewk writes it; nothing was written."
+run = "fabrewk check"
+
+[code.SEPARATOR_MISSING]
+about = "A fermento with no separator outside fenced code blocks (REQ-FER-1)"
+reason = "The fermento has no separator line outside fenced code blocks."
+next = "Restore the separator block between your input and the answers; nothing was written."
+run = "fabrewk check"

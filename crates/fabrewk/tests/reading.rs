@@ -436,7 +436,7 @@ fn refusal_credential_suspected_at_check_reads_only_what_is_cited() {
     let x = fx.domain.join("xel");
     fs::write(
         x.join("fermento.md"),
-        "# Fermento\n\nSee [the notes](notes.txt \"notes\") and ![a capture](./img/cap.txt#top).\n",
+        fermento("# Fermento\n\nSee [the notes](notes.txt \"notes\") and ![a capture](./img/cap.txt#top).\n\n"),
     )
     .unwrap();
     fs::create_dir(x.join("img")).unwrap();
@@ -723,6 +723,7 @@ fn p7d2_2_a_citing_file_that_is_a_link_or_not_regular_is_never_read() {
     let x = fx.domain.join("xel");
     fs::write(x.join("uncited.md"), "[notes](uncited.txt)\n").unwrap();
     fs::write(x.join("uncited.txt"), format!("{token}\n")).unwrap();
+    fs::remove_file(x.join("fermento.md")).unwrap();
     std::os::unix::fs::symlink("uncited.md", x.join("fermento.md")).unwrap();
     assert!(finding_of(&check_within(&fx), "C9").is_empty());
     fs::remove_file(x.join("fermento.md")).unwrap();

@@ -80,6 +80,14 @@ pub fn policy_text(keys: &Path) -> String {
     )
 }
 
+/// The input of the fixtures' fermento: two points.
+pub const INPUT: &str = "# Fermento\n\n## Proposals\n\n1. First point.\n\n2. Second point,\n   on two lines.\n\n";
+
+/// A fermento made of `input` and the separator block of the catalogue's `en` (REQ-FER-1).
+pub fn fermento(input: &str) -> String {
+    format!("{input}{}", fabrewk_core::fermento::block("en", "xel"))
+}
+
 /// `xel`'s personal file: agents and messages in `es-MX`.
 pub const PERSONAL: &str = "[maintainer]\nalias = \"xel\"\n\n[languages]\nagentInteraction = \"es-MX\"\n";
 
@@ -102,6 +110,7 @@ impl Fx {
         std::fs::write(fx.domain.join(".gitignore"), "local/\n").unwrap();
         std::fs::write(fx.domain.join("settings.toml"), policy_text(&fx.keys)).unwrap();
         std::fs::write(fx.domain.join("xel/settings.toml"), PERSONAL).unwrap();
+        std::fs::write(fx.domain.join("xel/fermento.md"), fermento(INPUT)).unwrap();
         std::fs::write(fx.root.join("README.md"), "fixture\n").unwrap();
         fx.git(&["init", "-q", "-b", "main"]);
         for (k, v) in [("user.name", "Fixture"), ("user.email", "fixture@example.invalid"), ("commit.gpgsign", "false")]

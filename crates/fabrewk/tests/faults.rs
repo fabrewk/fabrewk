@@ -353,3 +353,62 @@ fn refusal_task_changed_when_the_language_changes_before_the_lock() {
         assert_eq!(fx.events(&format!("task-{task}")).len(), 1, "{ran:?}");
     }
 }
+
+/// The fixture's answer to its fermento, one recommendation for each point as it stands.
+fn answer_for(fx: &Fx) -> String {
+    let (text, parts) = fabrewk_core::fermento::open(&fx.domain, "xel").unwrap();
+    let rows: Vec<Value> = fabrewk_core::fermento::points(&text[..parts.input_end])
+        .iter()
+        .map(|p| {
+            let rec = json!({"point": "About", "clarify": "Say it.", "destination": "alambique"});
+            json!({"number": p.number, "digest": p.digest, "recommendation": rec})
+        })
+        .collect();
+    let doc = json!({"agent": {"tool": "claude-code", "provider": "anthropic", "model": "m"}, "points": rows});
+    fs::write(fx.root.join("answer.json"), serde_json::to_vec(&doc).unwrap()).unwrap();
+    text
+}
+
+#[test]
+fn refusal_input_changed() {
+    for json in [false, true] {
+        let fx = Fx::new(&format!("input-changed-{json}"), "published");
+        let text = answer_for(&fx);
+        let dir = tmp("input-changed-steps");
+        let mut argv = vec!["sweep", "xel", "--answer", "answer.json"];
+        argv.extend(json.then_some("--json"));
+        let child = paused(&fx, &argv, "before-view", &dir);
+        // The maintainer saves an edit of the input while the sweep waits: the sweep writes nothing, theirs stays.
+        let edited = text.replacen("First point.", "First point, edited.", 1);
+        fs::write(fx.domain.join("xel/fermento.md"), &edited).unwrap();
+        let before = fx.snapshot();
+        let ran = resume(child, "before-view", &dir);
+        says(&ran, "INPUT_CHANGED", json);
+        assert_eq!(fx.snapshot(), before, "nothing written after the input changed");
+        assert!(fx.events("fermento-xel").is_empty());
+    }
+}
+
+#[test]
+fn refusal_input_changed_after_the_events_leaves_them_and_the_maintainers_edit() {
+    let fx = Fx::new("input-changed-late", "published");
+    let text = answer_for(&fx);
+    let dir = tmp("input-changed-late-steps");
+    let argv = ["sweep", "xel", "--answer", "answer.json", "--json"];
+    let child = paused(&fx, &argv, "before-append", &dir);
+    let edited = text.replacen("First point.", "First point, edited.", 1);
+    fs::write(fx.domain.join("xel/fermento.md"), &edited).unwrap();
+    let ran = resume(child, "before-append", &dir);
+    says(&ran, "INPUT_CHANGED", true);
+    let detail = ran.doc()["refusals"][0]["detail"].as_str().unwrap().to_owned();
+    assert!(detail.contains("events are written") && detail.contains("next sweep"), "{detail}");
+    // The sweep's event stays; the answer was not written over the maintainer's edit.
+    assert_eq!(fx.events("fermento-xel").len(), 1);
+    assert_eq!(fs::read_to_string(fx.domain.join("xel/fermento.md")).unwrap(), edited);
+    // Once they commit, the next sweep commits the event left, answers the edited input and checks clean.
+    fx.commit("edited");
+    answer_for(&fx);
+    assert_eq!(fx.run(&["sweep", "xel", "--answer", "answer.json"]).status, 0);
+    assert_eq!(fx.events("fermento-xel").len(), 2);
+    assert_eq!(fx.run(&["check"]).status, 0);
+}

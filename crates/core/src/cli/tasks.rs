@@ -328,7 +328,7 @@ fn authorize_plan(cx: &Cx, id: &str, options: &Options, record: &Replay) -> Resu
         tasks: b.tasks.iter().map(|(n, e)| (n[5..].to_owned(), goal(e))).collect(),
         widened,
     };
-    Ok(Plan { events: vec![(stream, draft)], signer: Some(signer), sealed: false, out })
+    Ok(Plan { events: vec![(stream, draft)], signer: Some(signer), sealed: false, view: None, out })
 }
 
 /// `fabrewk authorize <stage|task> --seen <digest> --say <words> [--widen <key>]… [--run]`.
@@ -379,7 +379,13 @@ pub(super) fn reject(cx: &Cx, id: &str, options: &Options) -> Result<Out, Failed
             say,
             payload,
         };
-        Ok(Plan { out: stream[5..].to_owned(), events: vec![(stream, draft)], signer: Some(signer), sealed: false })
+        Ok(Plan {
+            out: stream[5..].to_owned(),
+            events: vec![(stream, draft)],
+            signer: Some(signer),
+            sealed: false,
+            view: None,
+        })
     };
     let (task, written) = write::run(cx, plan)?;
     let mut text = cx.t("reject.done", &[("id", &task)]) + "\n";

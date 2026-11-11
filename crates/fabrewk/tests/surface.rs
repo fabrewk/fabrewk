@@ -71,7 +71,7 @@ fn req_cli_1_every_command_appears_in_help_completions_and_reference() {
         assert!(posix.contains(&format!("        {}) ", c.name)), "posix: {}", c.name);
     }
     // Only the commands that exist (D-053 point 3): nothing of a later phase.
-    for later in ["accept", "sweep", "approve", "discard", "close"] {
+    for later in ["accept", "approve", "close"] {
         assert!(COMMANDS.iter().all(|c| c.name != later), "{later}");
         assert!(!fish.contains(&format!("-a {later} ")) && !posix.contains(&format!(" {later})")), "{later}");
     }
@@ -97,7 +97,20 @@ fn req_cli_1_the_completions_run_in_their_shells() {
         String::from_utf8(out.stdout).unwrap().lines().map(str::to_owned).collect::<Vec<_>>()
     };
     assert_eq!(complete("fabrewk st", 1), ["status"]);
-    let all = ["status", "config", "check", "adopt", "propose", "authorize", "reject", "run", "--help", "--version"];
+    let all = [
+        "status",
+        "config",
+        "check",
+        "adopt",
+        "propose",
+        "authorize",
+        "reject",
+        "run",
+        "sweep",
+        "discard",
+        "--help",
+        "--version",
+    ];
     assert_eq!(complete("fabrewk ''", 1), all);
     assert_eq!(complete("fabrewk authorize --s", 2), ["--seen", "--say", "--say-lang"]);
     assert_eq!(complete("fabrewk adopt --w", 2), ["--widen"]);
@@ -116,6 +129,9 @@ fn req_cli_1_the_parser_accepts_exactly_the_declaration() {
         let mut base = if c.required { vec![c.name, "x-1"] } else { vec![c.name] };
         if c.flags.contains(&"seen") {
             base.extend(["--seen", "d"]);
+        }
+        if c.flags.contains(&"answer") {
+            base.extend(["--answer", "a.json"]);
         }
         let with = |more: &[&'static str]| [base.clone(), more.to_vec()].concat();
         let mut ok = vec![base.clone(), vec![c.name, "--help"]];
@@ -149,6 +165,10 @@ fn req_cli_1_the_parser_accepts_exactly_the_declaration() {
             bad.push(vec![c.name, "x-1"]);
             bad.push(vec![c.name, "x-1", "--seen"]);
             bad.push(with(&["--seen", "e"]));
+        }
+        if c.flags.contains(&"answer") {
+            bad.push(vec![c.name, "x-1"]);
+            bad.push(vec![c.name, "x-1", "--answer"]);
         }
         if !c.flags.contains(&"run") {
             bad.push(with(&["--run"]));
@@ -232,10 +252,54 @@ fn keys(text: &str) -> BTreeSet<String> {
 /// Every message the code can render, by key, with a value for each placeholder.
 fn rendered(lang: &str) -> Vec<(String, String)> {
     let params: Vec<(&str, &str)> = [
-        "word", "path", "check", "about", "severity", "control", "errors", "warnings", "streams", "events", "digest",
-        "mode", "id", "state", "goal", "stage", "what", "kind", "by", "at", "moves", "alias", "role", "tool", "name",
-        "touch", "tools", "from", "version", "verified", "seq", "stream", "commit", "of", "keys", "n", "build",
+        "word",
+        "path",
+        "check",
+        "about",
+        "severity",
+        "control",
+        "errors",
+        "warnings",
+        "streams",
+        "events",
+        "digest",
+        "mode",
+        "id",
+        "state",
+        "goal",
+        "stage",
+        "what",
+        "kind",
+        "by",
+        "at",
+        "moves",
+        "alias",
+        "role",
+        "tool",
+        "name",
+        "touch",
+        "tools",
+        "from",
+        "version",
+        "verified",
+        "seq",
+        "stream",
+        "commit",
+        "of",
+        "keys",
+        "n",
+        "build",
         "review",
+        "key",
+        "destination",
+        "number",
+        "point",
+        "target",
+        "names",
+        "m",
+        "points",
+        "recorded",
+        "withdrawn",
     ]
     .iter()
     .map(|p| (*p, "x"))
@@ -352,7 +416,8 @@ fn printed() -> Vec<String> {
     for c in COMMANDS {
         let arg = if c.required { " x" } else { "" };
         let seen = if c.flags.contains(&"seen") { " --seen d" } else { "" };
-        out.push(format!("fabrewk {}{arg}{seen}", c.name));
+        let answer = if c.flags.contains(&"answer") { " --answer a.json" } else { "" };
+        out.push(format!("fabrewk {}{arg}{seen}{answer}", c.name));
         out.push(format!("fabrewk {} --help", c.name));
     }
     out.extend(["fabrewk --help", "fabrewk --version"].map(str::to_owned));
@@ -374,7 +439,8 @@ fn pd_38_every_printed_command_parses_and_runs_in_fish_and_sh() {
     let mut flags: BTreeSet<&str> = PROGRAM_FLAGS.into_iter().collect();
     flags.extend(COMMANDS.iter().flat_map(|c| c.flags.iter().copied()));
     for (lang, text) in CATALOGUES {
-        for (k, v) in messages(text).into_iter().filter(|(k, _)| !k.ends_with(".about")) {
+        // The separator's marker is an HTML comment, which holds `--` and names no option.
+        for (k, v) in messages(text).into_iter().filter(|(k, _)| !k.ends_with(".about") && k != "fermento.separator") {
             for named in v.split("--").skip(1) {
                 let name: String = named.chars().take_while(|c| c.is_ascii_lowercase() || *c == '-').collect();
                 assert!(flags.contains(name.as_str()), "{lang} {k} names --{name}");

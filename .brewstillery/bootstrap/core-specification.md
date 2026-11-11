@@ -496,6 +496,12 @@ ignored. The exclude line is `/.brewstillery/`, added once to the file `git rev-
 - **REQ-FER-9.** Fabrewk reads from a maintainer's space only its `fermento.md`, its `settings.toml` and the files the
   fermento or the alambique cite. Of the rest it reads names alone, for `check`'s credential scan (REQ-SEC-3), never
   their content. (6.9; alambique, agents' rules)
+- **REQ-FER-10.** A sweep records, in `sweep-recorded`, the skills the tools load from outside the project: for each
+  tool of the machine's profile, the names, never the content, found in the user folders its module declares in its
+  contract (D-052; fake modules until phase 9). The answer shows them from the event and warns for each one that bears
+  the name of a skill in `.brewstillery/skills/`; whether one contradicts the project's rules is for the integrator to
+  say in its recommendation, since no code can judge it. Fabrewk touches none of them, and a folder that cannot be
+  listed is shown as unknown, never as empty. (6.38; D-061, D-072)
 
 ### VIEW: generated views
 
@@ -766,7 +772,7 @@ named are fixed in phase 7 with the code and recorded in this file.
 | `project` | `policy-adopted` | person, signed | the project file's content and digest, the seal of every other stream's head (D-050), the widenings named |
 | `project` | `installed` | fabrewk | the receipt: every file written and its digest |
 | `alambique` | `alambique-baseline` | person, signed | the alambique's digest at `apply` (or at the bootstrap's import) |
-| `fermento-<alias>` | `sweep-recorded` | agent | the input's digest, per point its number, text digest and recommendation, the stage and task heads seen |
+| `fermento-<alias>` | `sweep-recorded` | agent | the input's digest, per point its number, text digest and recommendation, the stage and task heads seen, the skills the tools load from outside the project (names only, REQ-FER-10) |
 | `fermento-<alias>` | `proposal-recorded` | agent | identifier, point number and text digest, target (`alambique` or `rules`), base digest, units and their new text, status-key changes, predicted result digest |
 | `fermento-<alias>` | `proposal-withdrawn` | fabrewk | identifier, why (point gone) |
 | `alambique` or `rules` (its target) | `proposal-incorporated` | person, signed | identifier, resulting digest; for `rules`, the rules' new text |
@@ -1011,6 +1017,7 @@ the requirements above:
 | `TERMINAL_REQUIRED` | `onboard` without a terminal | the agent route: `fabrewk assess` |
 | `NOT_A_REPOSITORY` | not inside a Git working tree | run it at the repository's root |
 | `PROPOSAL_UNKNOWN` | no such proposal | `fabrewk status` |
+| `ANSWER_INVALID` | a sweep's answer file does not have the shape `--help` prints, or one of its texts would break the separator (D-072) | correct the file; `fabrewk sweep --help` prints its format |
 | `POLICY_PENDING` | the file differs from the adopted policy (a warning) | `fabrewk adopt --say …` |
 | `GITIGNORE_CHANGED` | `.brewstillery/.gitignore` differs from what Fabrewk wrote | restore it |
 | `MAINTAINER_UNLISTED`, `FERMENTO_MISSING` | a maintainer directory and the policy disagree | `fabrewk adopt` or create the fermento |
@@ -1018,7 +1025,7 @@ the requirements above:
 | `RECORD_HEAD_MOVED` | a stream's head moved under the lock, so something wrote without it; nothing was written (D-047) | run the command again |
 
 All codes, in one list: `AGENT_ENVIRONMENT`, `ALAMBIQUE_CHANGED`, `ALAMBIQUE_UNAPPROVED`, `ALIAS_INVALID`,
-`ALIAS_MISMATCH`, `ATTEMPT_ENDED`, `ATTEMPT_REPLACED`, `BASE_MOVED`, `BUDGET_EXHAUSTED`, `CHECK_DUPLICATE`,
+`ALIAS_MISMATCH`, `ANSWER_INVALID`, `ATTEMPT_ENDED`, `ATTEMPT_REPLACED`, `BASE_MOVED`, `BUDGET_EXHAUSTED`, `CHECK_DUPLICATE`,
 `CHECK_UNKNOWN`, `CONFINEMENT_UNAVAILABLE`, `CREDENTIAL_SUSPECTED`, `DEPENDENCY_OPEN`, `DOMAIN_NOT_IGNORED`,
 `DOMAIN_UNKNOWN_ENTRY`, `EVIDENCE_STALE`, `EXTENSION_DIGEST`, `EXTENSION_OUTPUT_INVALID`, `FERMENTO_MISSING`,
 `GITIGNORE_CHANGED`, `HEAD_DETACHED`, `INPUT_CHANGED`, `INPUT_UNCOMMITTED`, `KEY_UNKNOWN`, `LANE_VIOLATION`,
@@ -1306,6 +1313,7 @@ One test per code (11.2 rule 4), with the requirement that defines the code and 
 | `ALAMBIQUE_UNAPPROVED` | REQ-FER-7 | A byte of the alambique changed by hand, then `check`, `run`, `accept` and `close` | 8 |
 | `ALIAS_INVALID` | REQ-DOM-3 | Aliases `Xel`, `9a`, `a--b`, `a-`, 33 characters, and each reserved name; a domain directory with such a name at `check` (a reserved name at the domain's top is a listed entry or `DOMAIN_UNKNOWN_ENTRY`, D-051) | 7 |
 | `ALIAS_MISMATCH` | REQ-SET-3 | `maintainer.alias = "ana"` in `xel/settings.toml` | 7 |
+| `ANSWER_INVALID` | REQ-FER-3 | A sweep's answer that is not JSON, holds a field of the wrong type or an unknown one, names a point twice, holds an edit with no unit or a unit its target does not take, or holds the separator's marker as a line of a text (D-072) | 8 |
 | `ATTEMPT_ENDED` | REQ-RUN-1 | A second `attempt-ended` for one attempt | 7 |
 | `ATTEMPT_REPLACED` | REQ-RUN-5 | A result for an attempt a later one replaced (PD-08) | 9 |
 | `BASE_MOVED` | REQ-GATE-8, REQ-TASK-3 | The product tree changed after acceptance (PD-13); a dependent task's `run` after another product change followed its dependency's integration | 9 |
@@ -1534,6 +1542,7 @@ Where a criterion names a case or a code, its test in 11.3 or 11.4 is part of th
 | REQ-FER-7 | `ALAMBIQUE_UNAPPROVED`'s test; `approve alambique` records the difference as `direct-edit-approved` and the check passes after it | 8 |
 | REQ-FER-8 | A proposal state typed by hand into the fermento's answer is overwritten at the next sweep, and typed into the alambique is `ALAMBIQUE_UNAPPROVED`; the replay's states are unchanged in both | 8 |
 | REQ-FER-9 | Uncited files of a maintainer's space made unreadable (mode `000`): every command, `check` included, succeeds; no event or view holds any text of an uncited file | 8 |
+| REQ-FER-10 | A fake module whose user folder holds a skill named like an approved one: the sweep records its name and the answer warns; a folder made unreadable is shown as unknown; no file under the folder is written or changed and no content of one reaches an event or a view | 8 |
 
 ### VIEW
 
@@ -1607,7 +1616,7 @@ A criterion assigned to two phases is first met with what the earlier one builds
   record, settings, identity, the transition table and the command surface: REG, SET, ID, TASK (but TASK-5 and TASK-6),
   CLI, BUD, DOM-2 to DOM-5 and DOM-7 on fixture records, VIEW-4, SEC-3 at `check`, SEC-4, SEC-5; the crash suite on the
   record; PD-01 to PD-06, PD-10 (record), PD-15, PD-17, PD-24, PD-30 to PD-32, PD-34 to PD-38, PD-46 (record).
-- **Phase 8 (core, part 2).** FER, VIEW-1 to VIEW-3, TASK-6; the views of PD-33 and PD-39; PD-40 to PD-43.
+- **Phase 8 (core, part 2).** FER (REQ-FER-10 included, D-072), VIEW-1 to VIEW-3, TASK-6; C5, C6, C7 and C12; the views of PD-33 and PD-39; PD-40 to PD-43. Cut into 8a, 8b and 8c (D-072).
 - **Phase 9 (adapters and confinement).** RUN (RUN-9 included), GATE, TASK-5, SEC-1, SEC-2, SEC-3 in the change set, SEC-7, EXT, SET-9's
   dispatch; PD-07 to PD-14, PD-16, PD-18 to PD-29, PD-33, PD-44 to PD-46; the flows F-1 to F-3 with fake tools; one real
   dispatch per provider, preflight first.

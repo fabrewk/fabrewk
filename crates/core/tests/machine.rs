@@ -15,9 +15,15 @@ use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
-const CLAUDE: Program =
-    Program { adapter: Some("claude-code"), executable: "fake-claude", version: &["--version"], tokens: false };
-const BACKEND: Program = Program { adapter: None, executable: "fake-bwrap", version: &["--version"], tokens: false };
+const CLAUDE: Program = Program {
+    adapter: Some("claude-code"),
+    executable: "fake-claude",
+    version: &["--version"],
+    tokens: false,
+    skills: &[],
+};
+const BACKEND: Program =
+    Program { adapter: None, executable: "fake-bwrap", version: &["--version"], tokens: false, skills: &[] };
 
 /// A policy whose text is `text`, as an adoption would give it.
 fn policy(dir: &Path, text: &str) -> Policy {

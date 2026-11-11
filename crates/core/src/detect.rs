@@ -28,12 +28,15 @@ pub struct Program {
     pub version: &'static [&'static str],
     /// Whether the tool reports the tokens it used, so that a token limit can be observed (REQ-RUN-7).
     pub tokens: bool,
+    /// The folders, relative to the user's home, from which the tool loads skills that are not the project's; a sweep
+    /// lists their names (REQ-FER-10, D-072).
+    pub skills: &'static [&'static str],
 }
 
 /// The core's own programs (AD-4), found in `PATH` only, as the core runs them. `ssh-keygen` prints no version.
 pub const CORE: [Program; 2] = [
-    Program { adapter: None, executable: "git", version: &["--version"], tokens: false },
-    Program { adapter: None, executable: "ssh-keygen", version: &[], tokens: false },
+    Program { adapter: None, executable: "git", version: &["--version"], tokens: false, skills: &[] },
+    Program { adapter: None, executable: "ssh-keygen", version: &[], tokens: false, skills: &[] },
 ];
 
 /// How a present program was found: in `PATH`, or where `machine.toml` declares it.
