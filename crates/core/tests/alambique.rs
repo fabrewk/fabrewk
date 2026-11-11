@@ -186,7 +186,17 @@ fn person(kind: &str, payload: Value) -> Draft {
 /// Appends `drafts` to `stream` and finishes; the code of the first refusal if the record no longer replays.
 fn put(f: &Fixture, stream: &str, drafts: &[Draft]) -> Result<(), Code> {
     let code = |e: fabrewk_core::Error| e.code().unwrap();
-    let mut s = Session::begin(&f.domain, None, &f.verifier()).map_err(code)?;
+    // A fixture of another test, running `git` or `ssh-keygen` meanwhile, can hold a copy of the lock's descriptor for
+    // the instant between its `fork` and its `exec`: no other writer works in this fixture, so a lock held is waited for.
+    let mut began = Session::begin(&f.domain, None, &f.verifier());
+    for _ in 0..40 {
+        if !matches!(&began, Err(e) if e.code() == Some(Code::LockHeld)) {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(25));
+        began = Session::begin(&f.domain, None, &f.verifier());
+    }
+    let mut s = began.map_err(code)?;
     let mut head = s.head(stream).unwrap();
     for d in drafts {
         let signer = d.say.is_some().then(|| f.signer());
