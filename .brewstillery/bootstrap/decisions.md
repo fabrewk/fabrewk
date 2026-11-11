@@ -3423,3 +3423,92 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   `core-specification.md` RUN, GATE, SEC, EXT and section 13; the probes of the design's section 0.
 - Supersedes: D-074 point 1 for the ceiling's figure; `core-specification.md` REQ-SEC-1's sentence "The shared network
   is a stated residual risk".
+
+## D-076 — Phase 9's opening: the amendments Codex's review changed or added, approved
+
+- Status: decided
+- Decided: 2026-11-11
+- Origin: maintainer XEL in session 29's chat, after Codex accepted the design at its fourth pass, answering the
+  integrator's question on the two amendments the review changed and the four it added: "Aprobar las seis
+  (Recomendado)".
+- Decision: the amendments of `confinement-design.md`'s section 4 are approved as Codex accepted them.
+  1. S-4, rewritten: a new key `gate.protectedNames` (direction N), names protected at any depth, enforced on changed
+     paths at the change set and again at integration (`PROTECTED_PATH_WILDCARD`), so that `*.md` and `src/**` stay
+     valid lanes; its default is `.gitattributes`, `.gitmodules` and each built-in adapter's instruction names;
+     `gate.protectedPaths`' default gains the hooks directory when the repository's configuration places it inside
+     the working tree.
+  2. S-5, rewritten: `usage.seconds` is Fabrewk's own measure, an integer or `null` when Fabrewk did not observe the
+     attempt's end; an unknown duration counts as the attempt's whole allowed time against `minutes`; REQ-RUN-7 says
+     that time is Fabrewk's measure and tokens the tool's report.
+  3. S-9: an extension's cell holds its program, read-only, where it was found; an interpreter or support file
+     outside the system directories and the repository is absent, and the failure is `TOOL_FAILED` with words.
+  4. S-10: an agent's or a check's cell writes only in `/work`, its home and its `/tmp`, the attempt's three
+     directories, deleted when it ends; an extension's home and `/tmp` lie inside its own area.
+  5. S-11: every Git command Fabrewk runs names an empty hooks directory and turns the file-system monitor off, and
+     the working tree is written from the objects' bytes. This changes the one command builder of
+     `crates/core/src/record/git.rs`, built in phase 7; part 9b makes the change with its test.
+  6. S-12: a filter loaded with each cell refuses the kernel's keyring system calls, cryptographic sockets and
+     `io_uring`, in the cell and in what nests in it; what another kernel interface may do with a key's serial number
+     is a residual risk `config` declares.
+- Consequences: `core-specification.md` (the four paragraphs "as phase 9's opening amended it" under RUN, GATE, SEC
+  and EXT, with S-1 to S-3 and S-6 to S-8 of D-075; `attempt-ended`'s `usage` in section 3; `DISK_LOW` in sections 7
+  and 11.4; `limits.freeDiskMegabytes` and `gate.protectedNames` in section 8; the criteria "Amended at phase 9's
+  opening" in section 12; section 13); `confinement-design.md`; `plan.md`.
+- Sources: chat of session 29; Codex's four reports (R-038); D-075; `confinement-design.md` section 4.
+- Supersedes: D-075 point 4 for S-4 and S-5 as first drafted.
+
+## R-038 — Session 29, phase 9's opening: the threat model, the confinement's design and the cut
+
+- Status: recorded
+- Date: 2026-11-11
+- Who: integrator Claude Code, `claude-fable-5-2`, effort high (D-071). Reviewer: Codex `codex-cli 0.166.0`,
+  `gpt-6.1-sol`, effort high, launched as the `codex-review` skill says (a disposable clone under
+  `target/review-9-design/`, `workspace-write`, no network, a user scope capped at 3 GB; no registry copy, since
+  nothing was built). No subagent.
+- Start: HEAD `ae80923`, tree clean but an untracked `.vscode/`.
+- Read: `STATUS.md`, `AGENTS.md`, `plan.md`, `ALAMBIQUE.md`, `xel/fermento.md` (no proposal), both settings files;
+  `core-specification.md` (TASK, RUN, GATE, SEC, EXT, BUD, DOM, REG-5, REG-13, SET-8, SET-9, sections 3 to 8, 11.2 to
+  11.6, 12, 13); `architecture-decisions.md` AD-5, AD-6, AD-8; this file (D-032, D-067 to D-074, R-037);
+  `past-defect-cases.md` PD-20 to PD-30; `harness-verdicts.md`'s observations; the skill `codex-review`; the
+  workspace's manifests, `main.rs`, `lib.rs`, `detect.rs`, `record/git.rs`'s command builder, `tools/budget`.
+- Probed, in the session's scratch directory, with nothing written in the repository: the design's P-1 to P-14
+  (bubblewrap 0.13.1, `pasta` of 2026-10-02, `keyctl`, Git). No model was called by the integrator; no file of the
+  private folder or of a tool's credentials was read (their names and modes only); the network was used for three
+  outbound connections and two name lookups from inside the probes. Keys planted in the session's and the user's
+  kernel keyrings for P-11, P-13 and P-14 were removed. A probe of P-8 left a confined loop running after its
+  `pasta` was killed; it was ended by killing its `bwrap`.
+- Decided by the maestro: D-075 (before the review) and D-076 (after it).
+- Written: `.brewstillery/bootstrap/confinement-design.md`; `core-specification.md` (the amendments S-1 to S-12, as
+  D-076's consequences list them); `tools/budget` (the core's ceiling at 11,000, two tests, the comment); `plan.md`
+  ("Phase 9" and its head); `STATUS.md`; D-075, D-076, this entry.
+- Codex, four passes, confirmed blocking findings by pass: 6, 1, 1, 0. Each was checked by the integrator before its
+  correction.
+  - Pass 1 (`a975dbf`): P9O-1, a cell inherits the session's kernel keyring (reproduced, P-11); P9O-2, a tracked hook
+    under `core.hooksPath`, changed by a candidate, runs at Fabrewk's own `update-ref` after integration (reproduced,
+    P-12); P9O-3, instruction files nested under a wildcard lane escaped the protected paths, which match from the
+    root (read in `task.rs`); P9O-4, the extension's program was not in its cell; P9O-5, a writable home and `/tmp`
+    contradicted REQ-SEC-1's and REQ-EXT-4's criteria; P9O-6, a duration that must be an integer cannot be recorded
+    for an attempt ended after a crash.
+  - Pass 2 (`23911ad`): the six closed; P9O-7, with a new session keyring a cell still reads a host key by its
+    serial number and links the host's user keyring (reproduced, P-13).
+  - Pass 3 (`c73c234`): P9O-7 closed; P9O-8, a key used through a cryptographic socket by its serial number, with no
+    keyring call (not reproduced on this machine, whose kernel offers that socket no algorithm; accepted as a gap in
+    the claim, P-14). Corrected by widening the filter and by narrowing the claim to the routes it names (T-29).
+  - Pass 4 (`d01a75d`): **accept**, no finding; the plan's "Phase 9" agrees with the design's section 6.
+- D-071's calibration, for the opening: a design by Fable 5.2 was rejected three times on the same class of edge that
+  cost phase 7 its passes (what the operating system really isolates, and what runs after a boundary was checked);
+  the last two passes were one topic, the kernel's keys, closed only when the claim was narrowed instead of the
+  mechanism widened. The comparable measure is part 9a's, the first code on Fable. Fable's weekly allotment as spent
+  is not observable from the session; the maestro reads it in their account.
+- A slip of the integrator: it waited for Codex's first pass with a loop that searched the process table for Codex's
+  command line, which the loop's own command line contained, so the loop never ended; the pass had finished 15
+  minutes earlier. The maestro noticed that no Codex process was running. The later passes were waited for on the
+  launching command itself. Noted in `STATUS.md`'s handover; the `codex-review` skill's text is the maestro's to
+  change.
+- Checks: `cargo test --locked -p budget` green after the ceiling's change; `cargo test --locked -p fabrewk-core
+  --lib` and `--test table` green after the specification's amendments (the tests that read it). The other suites,
+  the clean clone and the mutation run were not run: no ring's code changed.
+- Not done: any code of phase 9; the composition of `bwrap` and `pasta` under which ending Fabrewk's direct child
+  ends the cell (the design's 3.7, part 9a's); whether each tool rewrites its credential (3.6, parts 9c and 9d); the
+  permission and the budget to run the real tools (asked when part 9c starts). The maestro has not closed phase 8
+  by a decision of its own, as D-070 closed phase 7.

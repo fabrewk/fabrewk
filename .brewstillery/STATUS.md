@@ -7,7 +7,7 @@ view generated from that registry. Technical files are in English by default (D-
 
 **Phases 0 to 7 are closed (D-037, D-040, D-070). Phase 7 (the first code) was split into parts 7a, 7b, 7c1, 7c2a,
 7c2b, 7d1, 7d2, 7s, 7d3a and 7d3b (D-041, D-047, D-048, D-050, D-053, D-059, D-062), the last the task commands
-(D-068, D-069, R-034); phase 8, the core's part 2, was split into 8a, 8b and 8c (D-072) and all three are closed (the maestro closes the phase itself); phase 9 is next.** The repository holds the first code at its root: a
+(D-068, D-069, R-034); phase 8, the core's part 2, was split into 8a, 8b and 8c (D-072) and all three are closed (the maestro closes the phase itself); phase 9 is open: its design is accepted and it is cut into parts 9a to 9i (D-075, D-076); part 9a is next.** The repository holds the first code at its root: a
 Cargo workspace with one crate per ring (`crates/core`, `crates/fabrewk`, the binary, which runs the core's command
 surface) and the size counter `tools/budget`, the licence files, `deny.toml` and a root `.gitignore` with `/target`.
 The record is built in `crates/core/src/record/`, the settings in `crates/core/src/settings/`, identity in
@@ -16,7 +16,7 @@ domain's layout in `domain.rs`, the transition table in `table.rs`, the payloads
 credential scan in `scan.rs`, the fermento in `fermento.rs`, the alambique and the rules in `alambique.rs`, and the command surface in `crates/core/src/cli/` with its catalogue in
 `crates/core/catalogue/` (`en`, `es`); `fabrewk status`, `fabrewk config` and `fabrewk check` read, and `fabrewk
 adopt`, `fabrewk propose`, `fabrewk authorize`, `fabrewk reject`, `fabrewk sweep`, `fabrewk discard`, `fabrewk approve`, `fabrewk close` and `fabrewk run` (up to confinement) write, through one
-write path in `crates/core/src/cli/write.rs`. The skills the maestro approved are in `.brewstillery/skills/`, listed in `AGENTS.md`. The core counts 7,630 of 8,000 lines, formatted at width 120 (D-049, D-054, D-074). No `data/` exists in this
+write path in `crates/core/src/cli/write.rs`. The skills the maestro approved are in `.brewstillery/skills/`, listed in `AGENTS.md`. The core counts 7,630 of 11,000 lines, formatted at width 120 (D-049, D-054, D-074, D-075). No `data/` exists in this
 repository, whose project file still holds bootstrap keys, so `fabrewk check` here reports them. The domain is
 `.brewstillery/`, hidden (D-032).
 
@@ -30,6 +30,9 @@ repository, whose project file still holds bootstrap keys, so `fabrewk check` he
 5. `.brewstillery/settings.toml` (project) and `.brewstillery/xel/settings.toml` (personal; never grants authority).
 6. `.brewstillery/bootstrap/core-specification.md`: the frozen specification phases 7 to 10 build, its tests and
    acceptance criteria (D-040).
+7. `.brewstillery/bootstrap/confinement-design.md`: phase 9's threat model, the confinement's design, what it
+   amended in the specification and the cut into parts (D-075, D-076). Every part of phase 9 starts from the sections
+   its row names.
 
 ## Evidence
 
@@ -299,16 +302,35 @@ repository, is imported into the single registry at production and then stays re
   +495 lines (7,630): phase 9's core will cross 8,000, which the maestro decides when it starts (D-069). A flake of
   8b's library tests (a lock held by another fixture's `fork`) was fixed. An untracked `.vscode/settings.json` made by
   the editor is not in any commit.
-- **Next: phase 9 (plan row 9), the opening.** Adapters and confinement. Its opening session makes the threat model, the
-  confinement backend's design and the cut into parts, before any code, and asks the maestro the core's ceiling with
-  phase 8's measure (D-069); it runs on Claude Fable 5.2, effort high, as a calibration (D-071). P8C-8 and the usage
-  record's shape (`attempt-ended`'s `usage.tokens`, read by the views) are its inputs.
-- **Start prompt:** `Eres el integrador de Fabrewk; fase 9, apertura: modelo de amenazas, diseño del confinamiento y
-  corte en partes; empieza por .brewstillery/STATUS.md`. Model and effort: Claude Code on Fable 5.2
-  (`claude-fable-5-2`), effort high; the parts' code on Opus 5.5, effort high, unless that design says otherwise;
-  Codex GPT-6.1 Sol, effort high, reviews (plan row 9). Read the skills `verify-part` and `codex-review` before the
-  checks and the review. `verify-part`'s `ulimit -v 1000000` no longer fits the core's build: 1,600,000 was used (the
-  skill is the maestro's to change).
+- **Phase 9 opened (session 29, D-075, D-076, R-038).** `.brewstillery/bootstrap/confinement-design.md` holds the
+  threat model (29 threats, each with its control, its label and what shows it), the confinement's design and the cut.
+  Probed on this machine before designing: with the host's network shared, a confined process reaches the X server's
+  abstract socket and the loopback listeners, a way to the terminal where the person signs; under `pasta` it reaches
+  neither. The maestro decided (D-075): a private network with outbound connections only for agents (`pasta`; the
+  local network and the Internet stay open, declared); the core's ceiling at 11,000; P8C-8 declared cooperative with
+  no crate; nine parts; part 9a on Fable 5.2 and the others on Opus 5.5. Codex (GPT-6.1 Sol, high) reviewed the
+  design four times (confirmed blocking 6, 1, 1, 0): the kernel's keyrings, which namespaces do not isolate (a filter
+  now refuses the keyring calls, cryptographic sockets and `io_uring`; the rest is declared); a tracked Git hook run
+  by Fabrewk's own ref update after integration (Fabrewk's Git now runs no hook); instruction files nested under a
+  wildcard lane (`gate.protectedNames`, at any depth); an extension's program missing from its cell; the writable
+  places of a cell; an unknown duration after a crash. The maestro approved the twelve amendments (S-1 to S-12, D-075
+  and D-076), now in `core-specification.md` under "as phase 9's opening amended it" and in section 12's last table;
+  new: REQ-RUN-10, `DISK_LOW`, `limits.freeDiskMegabytes`, `gate.protectedNames`. No ring's code changed; only the
+  ceiling in `tools/budget` (its tests green, and the core's tests that read the specification). One point is left
+  to part 9a by test: how `bwrap` and `pasta` compose so that ending Fabrewk's direct child ends the cell (killing
+  `pasta` does not; killing `bwrap` does); if no composition holds, the choice returns to the maestro. An untracked
+  `.vscode/` made by the editor is in no commit.
+- **Next: part 9a (plan, "Phase 9").** The cell's contract and the runner in the core, the bubblewrap backend
+  (`crates/confine-bwrap`, a ring of 400 lines) with the private network and the filter, its probe, the evidence
+  store, `CONFINEMENT_UNAVAILABLE` for an absent or failing backend, the residual risks in `config`. Inputs: the
+  design's sections 3.1 to 3.5, 3.7, 3.9 and 3.10; REQ-SEC-1, REQ-SEC-2, REQ-REG-13, REQ-SEC-5 with S-1, S-7, S-10 and
+  S-12. The permission and the budget to run the real tools are asked when part 9c starts.
+- **Start prompt:** `Eres el integrador de Fabrewk; fase 9, parte 9a: el contrato de la celda y el backend de
+  bubblewrap con red privada; empieza por .brewstillery/STATUS.md`. Model and effort: Claude Code on Fable 5.2
+  (`claude-fable-5-2`), effort high (D-075); Codex GPT-6.1 Sol, effort high, reviews. Read the skills `verify-part` and
+  `codex-review` before the checks and the review, and `sharp-edges` for the contract. `verify-part`'s `ulimit -v
+  1000000` no longer fits the core's build: 1,600,000 was used (the skill is the maestro's to change). When waiting
+  for Codex, wait on the launching command itself, not on a search by its command line (R-038).
 
 Carried without blocking, with destinations, in D-013. A phase that does not pass is corrected and retried; it
 never ends the project (D-003).

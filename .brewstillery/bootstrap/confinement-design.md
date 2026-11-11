@@ -16,7 +16,9 @@ pass closed them and confirmed one more (P9O-7: a new session keyring does not k
 corrected in T-02, 3.3 and S-12 with a filter on the keyring system calls (P-13). Its third pass closed that and
 confirmed one more (P9O-8: a key used through a cryptographic socket, by its serial number, with no keyring call),
 corrected by widening the filter and by narrowing the claim: the kernel's keys are now T-29, with what stays open
-declared (P-14). The review is recorded in R-038.
+declared (P-14). Codex accepted at its fourth pass (confirmed blocking findings 6, 1, 1, 0). The maestro then
+approved the amendments the review changed or added (D-076), and all are written into `core-specification.md`. The
+review is recorded in R-038.
 
 ## 0. Inputs and what was probed
 
@@ -418,8 +420,8 @@ own; nothing built in phases 7 and 8 changes but where named.
 
 **Decided (D-075), as recommended.** The maestro decided: B for the network; 11,000 for the core; P8C-8 declared with
 no crate; S-2 to S-7 as drafted; Codex reviews this file in session 29; part 9a on Fable 5.2 and the others on
-Opus 5.5. What the review changed in S-4 and S-5, and S-9 to S-12, which it added, are the maestro's to approve
-again (recorded with R-038).
+Opus 5.5. After Codex's review the maestro approved S-4 and S-5 as corrected and S-9 to S-12, which the review
+added (D-076).
 
 Not asked now: the permission and the budget to run the real tools (plan row 9), due when part 9c starts.
 

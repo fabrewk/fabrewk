@@ -396,6 +396,31 @@ ignored. The exclude line is `/.brewstillery/`, added once to the file `git rev-
   candidate (after `authorize` from `accepted`). It is a round: it counts against the round limit (REQ-RUN-2) and ends
   as a round does, verified or with a reject that starts a building round. (6.41, 6.43; PD-07)
 
+**The dispatch, as phase 9's opening amended it (D-075, D-076; `confinement-design.md`, sections 3.8 and 4).**
+
+- **REQ-RUN-2 (S-6).** A required tool is present for a dispatch only when the role's cell shows it: its executable,
+  as it resolves, lies under the system directories the cell holds. Otherwise `TOOL_MISSING`, whose words say that the
+  tool lives outside what the confinement shows.
+- **REQ-RUN-3 (S-2).** Nothing is read from an attempt's directories until every process of its cell has ended.
+  Fabrewk walks the copy itself and follows nothing: a directory is entered, a regular file read, a link's target taken
+  as written; any other entry (a pipe, a socket, a device) is never opened and, outside the base's ignored paths, is
+  refused (`LANE_VIOLATION`). An entry named `.git` or `.brewstillery`, of any kind and at any depth, is refused
+  before any Git command sees the copy (`PROTECTED_PATH`), and so is a name Git's protections for other file systems
+  refuse. Contents are hashed without filters or conversions, and the temporary index is built from those
+  identifiers; no command that reads the copy's `.gitattributes`, `.gitignore` or `.gitmodules` runs on it. The
+  base's ignore rules are the base tree's own files, never the copy's. A changed path that is not valid text is
+  refused (`LANE_VIOLATION`). A reviewer's and a check's copies are deleted unread.
+- **REQ-RUN-7 (S-5).** Time is Fabrewk's own measure, from the start of the attempt's process to the end Fabrewk
+  observed; tokens are the tool's report; each is unknown, never zero, when not observed. `attempt-ended`'s `usage`
+  is exactly `seconds` (an integer, or `null` when Fabrewk did not observe the end, as for an attempt ended `unknown`
+  by a later command) and `tokens` (`null`, or exactly `input`, `output` and `cached`, each an integer or `null`).
+  Against the `minutes` limit an unknown duration counts as the whole time the attempt was allowed. A view shows a
+  sum with an unknown part as unknown.
+- **REQ-RUN-10 (S-3; 6.4, 6.41, D-067).** Before each copy (an attempt's, a review's, a check's) Fabrewk reads the
+  free space of the file system that holds `local/`, as the POSIX program `df -Pk` reports it, and refuses when it is
+  below `limits.freeDiskMegabytes` (`DISK_LOW`); a free space that cannot be read refuses too. Before a dispatch
+  `DISK_LOW` halts the task, as REQ-TASK-5's codes do. `df` joins the core's programs (REQ-SET-8).
+
 ### GATE: checks, review, verification and integration
 
 - **REQ-GATE-1.** A candidate's required checks are the union of its profile's checks and those its stage approved.
@@ -455,6 +480,19 @@ ignored. The exclude line is `/.brewstillery/`, added once to the file `git rev-
   Agents never see `.brewstillery/`, so no task changes the settings. (6.13)
 - **REQ-GATE-10.** Every identity is recomputed on the exact final state before the branch moves; nothing integrates
   on an earlier stamp. (6.43; PB-3)
+
+**The gate, as phase 9's opening amended it (D-076; `confinement-design.md`, section 4).**
+
+- **REQ-GATE-9 (S-4).** `gate.protectedNames` lists names protected at any depth: a changed path with a component
+  equal to one of them must match an allowed-files entry that holds no wildcard; otherwise the change set refuses
+  it, and the integration's recomputation again (`PROTECTED_PATH_WILDCARD`). The guard is on paths, not on patterns:
+  `*.md` and `src/**` stay valid lanes and refuse only the change that reaches such a name. Its default is
+  `.gitattributes`, `.gitmodules` and the names each built-in adapter declares for its tool's instructions (Claude
+  Code: `CLAUDE.md`, `.claude`; Codex: `AGENTS.md`, `.codex`, `.agents`). `gate.protectedPaths`' default gains the
+  directory the repository's `core.hooksPath` names when it lies inside the working tree, read at each guard.
+- **REQ-REG-10, REQ-GATE-8 (S-11).** Every Git command Fabrewk runs names an empty hooks directory and turns the
+  file-system monitor off. The working tree is brought to a candidate by writing each touched path from its object's
+  bytes, with no filter, conversion or checkout command.
 
 ### FER: fermentos, sweeps, proposals and the alambique
 
@@ -741,7 +779,7 @@ texts are (P7D3B-2); the documents carry each text as it is, JSON escaping it.
 - **REQ-SEC-1.** On Linux every agent and check runs under bubblewrap: system read-only, an empty home, only the tool's
   binary and its own credential, the exported copy writable at `/work`, the repository, `.brewstillery/`, the private
   folder and the SSH agent's socket invisible; network only for an agent's provider, never for a check unless REQ-GATE-2
-  allows it. The shared network is a stated residual risk. Each adapter carries its tool's machine rules and checks them
+  allows it. The shared network is a stated residual risk (amended by D-075: a private network, below). Each adapter carries its tool's machine rules and checks them
   at every launch (Codex never starts in a directory that holds other repositories). Before a provider's first
   dispatch on a machine, and whenever its tool's version changes, the adapter runs a preflight that calls no model:
   under the confinement and the copy permissions of each role, the tool, its helper programs and its own sandbox start
@@ -785,6 +823,22 @@ texts are (P7D3B-2); the documents carry each text as it is, JSON escaping it.
 - **REQ-SEC-7.** Agents' environment markers are declared by each adapter (for Claude Code, `CLAUDECODE`; for Codex, its
   sandbox variables; not re-checked) and, with `FABREWK_EXTENSION`, drive REQ-TASK-4's refusal. (AD-6)
 
+**Confinement, as phase 9's opening amended it (D-075, D-076; `confinement-design.md`, sections 3 and 4).**
+
+- **REQ-SEC-1 (S-1).** An agent's network is a private namespace with outbound connections only: nothing of the
+  host's loopback, addresses or abstract sockets is reachable from a cell. The open outbound network (the local
+  network, the Internet) is the stated residual risk; this replaces "the shared network". `pasta` joins `bwrap`
+  among the programs detected, and dispatch refuses where either is absent.
+- **REQ-SEC-1 (S-10).** The writable places of an agent's or a check's cell are `/work`, its home and its `/tmp`, the
+  attempt's three directories under `local/tmp/<attempt>/`, all deleted when it ends. An extension's home and `/tmp`
+  lie inside `local/ext/<name>/`.
+- **REQ-SEC-1 (S-12).** No process of a cell can call the kernel's keyring system calls, open a cryptographic socket
+  or use `io_uring`; a filter loaded with the cell refuses them, in the cell and in what nests in it. What another
+  kernel interface may do with a key's serial number is a stated residual risk.
+- **REQ-SEC-5 (S-7, S-8).** Beside the controls and their labels, `config` lists the residual risks each backend and
+  each adapter declares, worded in the catalogue. The lock's control against a directory swapped by an unconfined
+  process of the same user (P8C-8) is cooperative and declared; no crate is added for it.
+
 ### EXT: extensions
 
 - **REQ-EXT-1.** Extension `<name>` is the program `fabrewk-<name>`, run as `fabrewk <name> …`, only when
@@ -800,6 +854,10 @@ texts are (P7D3B-2); the documents carry each text as it is, JSON escaping it.
 - **REQ-EXT-4.** Confinement as AD-5 point 4; on a platform without a backend extensions refuse to run, as dispatch
   does. (AD-5)
 - **REQ-EXT-5.** An extension runs when called and ends; it opens no port. (6.49, AD-5)
+
+**Extensions, as phase 9's opening amended it (D-076, S-9).** An extension's cell holds its program, read-only, at
+the path where it was found. An interpreter or support file outside the system directories and the repository is
+absent; an extension that then fails to start is `TOOL_FAILED`, whose words say so.
 
 ### BUD: size, dependencies and build
 
@@ -934,6 +992,10 @@ creating nonce are fixed by the part that first builds each kind.
 - In the modes that commit, a write command runs at the root of the repository's main working tree; from a linked
   working tree or a subdirectory it refuses `NOT_A_REPOSITORY`, since there the domain, its lock and the index are
   another copy.
+
+- `attempt-ended`'s `usage`, as phase 9's opening fixed it (D-076, S-5): exactly `seconds` (an integer or `null`) and
+  `tokens` (`null`, or exactly `input`, `output` and `cached`, each an integer or `null`). The rest of the payloads
+  of phase 9's kinds is fixed by the part that first builds each.
 
 ## 4. States and transitions
 
@@ -1086,7 +1148,7 @@ the requirements above:
 
 All codes, in one list: `AGENT_ENVIRONMENT`, `ALAMBIQUE_CHANGED`, `ALAMBIQUE_MISSING`, `ALAMBIQUE_UNAPPROVED`, `ALIAS_INVALID`,
 `ALIAS_MISMATCH`, `ANSWER_INVALID`, `ATTEMPT_ENDED`, `ATTEMPT_REPLACED`, `BASE_MOVED`, `BUDGET_EXHAUSTED`, `CHECK_DUPLICATE`,
-`CHECK_UNKNOWN`, `CONFINEMENT_UNAVAILABLE`, `CREDENTIAL_SUSPECTED`, `DEPENDENCY_OPEN`, `DOMAIN_NOT_IGNORED`,
+`CHECK_UNKNOWN`, `CONFINEMENT_UNAVAILABLE`, `CREDENTIAL_SUSPECTED`, `DEPENDENCY_OPEN`, `DISK_LOW`, `DOMAIN_NOT_IGNORED`,
 `DOMAIN_UNKNOWN_ENTRY`, `EVIDENCE_STALE`, `EXTENSION_DIGEST`, `EXTENSION_OUTPUT_INVALID`, `FERMENTO_MISSING`,
 `GITIGNORE_CHANGED`, `HEAD_DETACHED`, `INPUT_CHANGED`, `INPUT_UNCOMMITTED`, `KEY_UNKNOWN`, `LANE_VIOLATION`,
 `LIMIT_UNOBSERVABLE`, `LOCK_HELD`, `MAINTAINER_UNLISTED`, `MARK_INVALID`, `MERGE_IN_PROGRESS`, `MODE_NOT_AVAILABLE`,
@@ -1127,10 +1189,12 @@ authority), N (narrows), — (neutral).
 | `profiles.<name>.checks`, `.requiredTools` | lists | empty | N | Checks run; tools verified at start |
 | `profiles.<name>.rounds`, `.dispatches`, `.minutes`, `.tokens` | integers | from `limits` | W | Limits |
 | `limits.rounds`, `.dispatches`, `.minutes` | integers | 3, 6, 120 | W | Defaults for profiles |
+| `limits.freeDiskMegabytes` | integer | 2048 | N | REQ-RUN-10 (D-075) |
 | `checks.<name>.command` | list of strings | required | — | The command, without a shell |
 | `checks.<name>.network`, `.minutes`, `.tools` | boolean, integer, list | `false`, 30, empty | W, W, — | REQ-GATE-2, REQ-GATE-3 |
 | `review.differentProvider` | `off`, `prefer`, `require` | `prefer` | N | REQ-GATE-4 (`off` is the widest) |
-| `gate.protectedPaths` | list of paths | `Cargo.toml`, `Cargo.lock`, `.github/` and every file a check's command names | N | REQ-GATE-9 |
+| `gate.protectedPaths` | list of paths | `Cargo.toml`, `Cargo.lock`, `.github/`, every file a check's command names and the hooks directory inside the working tree (D-076) | N | REQ-GATE-9 |
+| `gate.protectedNames` | list of names | `.gitattributes`, `.gitmodules` and each adapter's instruction names (D-076) | N | REQ-GATE-9 |
 | `git.signOff` | boolean | `false` | — | REQ-RUN-4 |
 | `extensions.<name>.digest`, `.network` | string, boolean | none, `false` | —, W | REQ-EXT-1, AD-5 |
 
@@ -1383,6 +1447,7 @@ One test per code (11.2 rule 4), with the requirement that defines the code and 
 | `CONFINEMENT_UNAVAILABLE` | REQ-SEC-2, REQ-SEC-1 | `run` with `bwrap` absent; a failed preflight (PD-27) | 9 |
 | `CREDENTIAL_SUSPECTED` | REQ-SEC-3 | Each pattern of REQ-SEC-3 in a file under the domain (`check`) and in a candidate (`run`); near misses (`AKIA` with 15 characters, `id_ed25519.pub`, `sk-` with 19) are not refused | 7, 9 |
 | `DEPENDENCY_OPEN` | REQ-TASK-3 | `run` on a task whose dependency is not integrated | 7 |
+| `DISK_LOW` | REQ-RUN-10 | `limits.freeDiskMegabytes` above the free space, before an attempt's copy and before a check's; a `df` that fails (D-075) | 9 |
 | `DOMAIN_NOT_IGNORED` | REQ-DOM-7 | `unpublished` with the exclude line removed: every write command, and `check` | 7 |
 | `DOMAIN_UNKNOWN_ENTRY` | REQ-DOM-2 | A file `notes.md` at the domain's top: a warning, `check` exits 0 if it is the only finding, the file kept | 7 |
 | `EVIDENCE_STALE` | REQ-GATE-3 | Each input of a check's identity changed after the check: tree, definition, policy, a named tool's version, platform | 9 |
@@ -1666,6 +1731,22 @@ Where a criterion names a case or a code, its test in 11.3 or 11.4 is part of th
 | REQ-BUD-4 | A test compares the direct runtime dependencies with the list of approved reasons; every build uses `--locked`; `cargo deny check licenses advisories` passes with the allowlist | 7 |
 | REQ-BUD-5 | `license = "MIT OR Apache-2.0"`, `LICENSE-MIT`, `LICENSE-APACHE` and `NOTICE` exist from the first code; a release's third-party notices equal a fresh generation from `Cargo.lock` | 7, 10 |
 
+### Amended at phase 9's opening (D-075, D-076)
+
+Each row adds to its requirement's criterion above; the part is the one of `plan.md`, "Phase 9".
+
+| Requirement | Also accepted when | Part |
+| --- | --- | --- |
+| REQ-SEC-1 | From a cell with a network: no abstract socket of the host and nothing on its loopback or its own address answers; `config` states the open outbound network as a residual risk. A probe writes in `/work`, its home and its `/tmp` and nowhere else, and the three are gone when the attempt ends. A key planted in the host's session keyring and one of default permissions in its user keyring, their serial numbers given to the probe, are neither found, read, linked nor used through a cryptographic socket, from the cell and from a sandbox nested in it. A process in its own session that ignores signals is gone after the time limit, and after Fabrewk is killed | 9a |
+| REQ-SEC-5 | `config` lists the residual risks; a test fails when a backend or an adapter declares one with no words in every catalogue | 9a |
+| REQ-RUN-2 | A required tool that resolves outside the cell's system directories: `TOOL_MISSING`, the fake CLI uncalled | 9e |
+| REQ-RUN-3 | A nested `.git` directory and a `.git` file (`PROTECTED_PATH`, no submodule entry); a `.gitattributes` that asks for a conversion (the candidate keeps the bytes); a `.gitignore` edited to hide a new file (the file is in the change set); a pipe and a socket left in the copy; a path that is not valid text | 9b |
+| REQ-RUN-7 | An attempt ended `unknown` by a later command records `seconds` as `null`, counts its whole allowed time against `minutes`, and the view shows the sum as unknown | 9e |
+| REQ-RUN-10 | `DISK_LOW`'s test; `status` shows the sizes of `local/evidence/` and `local/tmp/` | 9b |
+| REQ-GATE-9 | Allowed files `src/**` with a fake that writes `src/AGENTS.md`, `src/.claude/settings.json` and `src/.gitattributes`: each refused `PROTECTED_PATH_WILDCARD` at the change set, and at integration with the change-set guard off; the same paths listed literally are kept; a tracked hooks directory under a wildcard is refused | 9b, 9g |
+| REQ-REG-10, REQ-GATE-8 | A repository whose `core.hooksPath` is a tracked directory with a `reference-transaction` hook: no write command runs it; through `accept`, a candidate that changes it does not run; a candidate's `.gitattributes` naming a configured filter leaves the working tree's bytes those of the objects | 9b, 9g |
+| REQ-EXT-4 | A permitted extension installed outside the repository and the system directories runs; one whose interpreter lies outside both fails `TOOL_FAILED`, saying so | 9h |
+
 ## 13. What each later phase must show
 
 A phase's acceptance (plan rows 7 to 10) includes every criterion of section 12 assigned to it, every past-defect case
@@ -1679,7 +1760,7 @@ A criterion assigned to two phases is first met with what the earlier one builds
 - **Phase 8 (core, part 2).** FER (REQ-FER-10 included, D-072), VIEW-1 to VIEW-3, TASK-6; C5, C6, C7 and C12; the views of PD-33 and PD-39; PD-40 to PD-43. Cut into 8a, 8b and 8c (D-072).
 - **Phase 9 (adapters and confinement).** RUN (RUN-9 included), GATE, TASK-5, SEC-1, SEC-2, SEC-3 in the change set, SEC-7, EXT, SET-9's
   dispatch; PD-07 to PD-14, PD-16, PD-18 to PD-29, PD-33, PD-44 to PD-46; the flows F-1 to F-3 with fake tools; one real
-  dispatch per provider, preflight first.
+  dispatch per provider, preflight first. REQ-RUN-10 and the amendments of D-075 and D-076. Cut into 9a to 9i (D-075).
 - **Phase 10 (installation).** INS, DOM-1, DOM-6, SEC-6, BUD-5's release notices; F-1 from a real `apply`.
 - **Phases 11 and 12 (the pilot).** The pilot's specification picks its six provoked refusals (6.48, D-009) from 11.4
   and holds both arms to the same measures.

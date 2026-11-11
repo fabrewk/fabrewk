@@ -15,7 +15,7 @@ integrator, with Codex checking its fidelity against the archived original (D-03
 in session 11: AD-4, AD-5 and AD-7 rewritten and AD-12 to AD-15 added for what D-032 still needed; Codex accepted the
 file at its second pass (R-018). The maintainer decided AD-4 to AD-15 as recommended (D-036), and Codex re-checked
 the decided file (R-019). Phase 5 is closed (D-037). Phase 6 is split into parts 6a and 6b, and the size budget is frozen at phase 7's start (D-038, section "Parts"). Codex
-accepted both parts at its fifth pass (R-021); the maestro approved the text and phase 6 is closed (D-040). Phase 7 is split into parts 7a to 7d (D-041, section "Parts"); every part was accepted and phase 7 is closed (D-070).
+accepted both parts at its fifth pass (R-021); the maestro approved the text and phase 6 is closed (D-040). Phase 7 is split into parts 7a to 7d (D-041, section "Parts"); every part was accepted and phase 7 is closed (D-070). Phase 8 was split into 8a, 8b and 8c (D-072), all done. Phase 9 opened with its design and its cut into 9a to 9i (D-075, D-076, section "Parts").
 
 **Rule for every phase (alambique 6.48, D-003).** A phase that does not pass is corrected and retried; it never
 ends the project. Before each retry the progress measure is fixed (proposed: confirmed blocking findings, and
@@ -103,7 +103,7 @@ Codex (GPT-6.1 Sol), effort high, reviews each part. The cut between 7b, 7c and 
 
 **Phase 9 (D-075).** Opened in session 29 with the threat model, the confinement's design and this cut, in
 `confinement-design.md` (its section 6 holds each part's inputs by requirement); Codex reviewed the design before any
-code (R-038). Split where its inputs separate. Part 9a runs on Fable 5.2, effort high, and parts 9b to 9i on Opus 5.5,
+code and accepted it at its fourth pass, confirmed blocking 6, 1, 1, 0 (R-038; the amendments, D-075 and D-076). Split where its inputs separate. Part 9a runs on Fable 5.2, effort high, and parts 9b to 9i on Opus 5.5,
 effort high; every part delivers code, so Codex (GPT-6.1 Sol), effort high, reviews each. The core's ceiling is 11,000
 counted lines, measured again at each part. The permission and the budget to run the real tools are asked when part
 9c starts.
