@@ -71,10 +71,9 @@ fn req_cli_1_every_command_appears_in_help_completions_and_reference() {
         assert!(posix.contains(&format!("        {}) ", c.name)), "posix: {}", c.name);
     }
     // Only the commands that exist (D-053 point 3): nothing of a later phase.
-    for later in ["accept", "close"] {
-        assert!(COMMANDS.iter().all(|c| c.name != later), "{later}");
-        assert!(!fish.contains(&format!("-a {later} ")) && !posix.contains(&format!(" {later})")), "{later}");
-    }
+    let later = "accept";
+    assert!(COMMANDS.iter().all(|c| c.name != later), "{later}");
+    assert!(!fish.contains(&format!("-a {later} ")) && !posix.contains(&format!(" {later})")), "{later}");
 }
 
 #[test]
@@ -109,6 +108,7 @@ fn req_cli_1_the_completions_run_in_their_shells() {
         "sweep",
         "discard",
         "approve",
+        "close",
         "--help",
         "--version",
     ];
@@ -301,6 +301,13 @@ fn rendered(lang: &str) -> Vec<(String, String)> {
         "points",
         "recorded",
         "withdrawn",
+        "line",
+        "detail",
+        "since",
+        "code",
+        "dispatches",
+        "tokens",
+        "role",
     ]
     .iter()
     .map(|p| (*p, "x"))

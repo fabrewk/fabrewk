@@ -173,7 +173,9 @@ fn walk(subject: &str, state: Option<&str>, e: &Event, digest: &str) -> Result<&
         _ => x,
     };
     crate::task::check(&e.kind, &e.value["payload"]).map_err(content)?;
-    if ["stage-authorized", "task-authorized", "task-accepted", "task-rejected"].contains(&e.kind.as_str()) {
+    if ["stage-authorized", "stage-closed", "task-authorized", "task-accepted", "task-rejected"]
+        .contains(&e.kind.as_str())
+    {
         let p = &e.value["payload"];
         let id = &e.stream[subject.len() + 1..];
         let head = json!({"seq": e.seq - 1, "digest": e.value["prev"]});

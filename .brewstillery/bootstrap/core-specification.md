@@ -533,6 +533,35 @@ of its target, starts from the digest that stream holds and gives its predicted 
 units' (`RECORD_TRANSITION_INVALID`). (6) `ALAMBIQUE_UNAPPROVED` is evaluated by `run` before confinement; `accept`
 (phase 9) and `close` (8c) call the same function.
 
+**The views and the stage's close, as part 8c fixed them (D-074).** (1) `STATUS.md` and `RULES.md` are pure functions of
+the replay and the catalogue, in the project's canonical documentation language (`en` with no policy): the same record
+gives the same bytes, so a view holds no clock, no branch head and nothing read from outside the record; a time shown is
+the `at` of the event that began a wait. (2) Every write command, once its events are written and the record replays,
+writes both views (only a file that differs) and the record commit holds them with the events; a failure after the events
+leaves them written and says the next write command regenerates the views. A view that is absent, not a regular file,
+reached through a link or different from a fresh generation by one byte is `VIEW_STALE` at `check` (C5, effective); a
+record that does not replay leaves C5 `CHECK_UNKNOWN`; the reading commands never regenerate. (3) `STATUS.md` holds the
+record's counts, the policy in force, the publication mode and, only when it is `unpublished`, the warning; each stage
+with its tasks, a halted task with its code; what waits, under each maestro and under the integrator; the last
+integrated work; and each task's dispatches with its tokens as the tool reported them, unknown if any attempt did not
+report or has not ended, zero only when reported. What waits: a proposed stage (a maestro authorizes it); a task
+proposed into an authorized stage; an authorized task (run or reject); a halted or verified task (reject; accepting is
+phase 9's); a pending proposal (approve or discard); a stage whose tasks have all ended: one sweep per maintainer whose
+last sweep did not see every task's last event (the integrator) and, when none is missing, its close (a maestro). Each
+wait lists the commands that exist for it, without words, and never `authorize`, which needs the digest `status <id>`
+shows. (4) `status` lists the same waits, for whom and since when, in the person's language, and offers as next steps
+only the commands of the person who reads: a maestro's to a maestro, the integrator's to whoever is no maintainer, none
+to a maintainer with nothing to decide; its document is `fabrewk.status/2`, with `waiting`. (5) `RULES.md` holds the twelve
+base rules of the binary's catalogue (D-074) then the project rules of the stream `rules`, in the order of their numbers.
+(6) `close <stage> --say` is the maestro's move on an authorized stage: `MOVE_NOT_ALLOWED`, `ROLE_FORBIDDEN`, the words,
+then the table's guards in order: a task neither integrated nor rejected (`STAGE_OPEN_TASKS`); a maintainer of the policy
+whose last sweep did not record the last event of every task of the stage as its head (`SWEEP_MISSING`); the alambique
+as last approved (`ALAMBIQUE_UNAPPROVED`); events of the record not committed where the mode commits
+(`RECORD_UNCOMMITTED`). A stage with no task needs no sweep. The `stage-closed` payload binds the stage and its head, as
+a rejection does, and lists, for each maintainer, the sweep it relied on (`stage`, `head`, `sweeps`: `alias` and the
+sweep event's `head`). A task's identifier is a usage error, as is one the record does not hold. Its document is
+`fabrewk.closed/1`.
+
 ### VIEW: generated views
 
 - **REQ-VIEW-1.** `STATUS.md` is generated from the replay in the canonical documentation language: the open stage,
@@ -574,7 +603,7 @@ else `en`; a personal file that does not read is not used for the language. The 
 language in `crates/core/catalogue/` (`en`, the canonical one, holds every table's description in `about`; `es`); a
 command appears in it only in a `run` field, whole. A refusal prints its code and the catalogue's reason, where (a
 path relative to where the command ran), the core's detail (its technical note: a key path and line, a count; never
-a tool's own output) and the next step, with the command to run when there is one. Documents: `fabrewk.status/1`,
+a tool's own output) and the next step, with the command to run when there is one. Documents: `fabrewk.status/1` (`/2` since part 8c),
 `fabrewk.subject/1` (`/2` since part 7d3b), `fabrewk.config/1`, `fabrewk.value/1`, `fabrewk.check/1`, `fabrewk.refused/1`,
 `fabrewk.usage/1`, `fabrewk.internal/1`, `fabrewk.version/1`; their fields are pinned by a test. An error no refusal
 names (a file that does not read where a command needs it, a panic) is exit 70 with the catalogue's words. Help,
@@ -810,7 +839,7 @@ named are fixed in phase 7 with the code and recorded in this file.
 | `alambique` | `direct-edit-approved` | person, signed | old and new digests, the difference |
 | `stage-<id>` | `stage-proposed` | any | goal, tasks in order, budget, approved checks |
 | `stage-<id>` | `stage-authorized` | person, signed | each task's identifier, digest and head, widenings named |
-| `stage-<id>` | `stage-closed` | person, signed | the sweeps it relied on |
+| `stage-<id>` | `stage-closed` | person, signed | the stage and its head, and the sweeps it relied on (D-074) |
 | `task-<id>` | `task-proposed` | any | the fields of REQ-TASK-2 |
 | `task-<id>` | `task-authorized` | person, signed | task digest and head, limits, widenings named |
 | `task-<id>` | `run-started` | person, signed | who runs it, the authorization it relies on |
@@ -1006,8 +1035,8 @@ Read-only; prints every finding with its code and severity, and exits 3 if any i
 A check that cannot run (a tool missing, Git history unreadable) reports `CHECK_UNKNOWN` as an error; an unknown
 result is never a pass (6.43).
 
-As part 7d2 fixed it (D-053, D-055): `check` verifies C1 to C4 and C8 to C11; C5, C6, C7 and C12 are declared with
-phase 8, when views, separators and the alambique's approval exist. Warnings (`DOMAIN_UNKNOWN_ENTRY`,
+As part 7d2 fixed it (D-053, D-055): `check` verifies C1 to C4 and C8 to C11; C5, C6, C7 and C12 were declared with
+phase 8 (C6 and C12 came with part 8a, C7 with 8b, C5 with 8c), when views, separators and the alambique's approval exist. Warnings (`DOMAIN_UNKNOWN_ENTRY`,
 `POLICY_PENDING`) exit 0 when they are the only findings. C1 reads the project file, every `<alias>/settings.toml`
 and `machine.toml`; C2 compares the file with the policy in force; C3 reports each code the replay gives; C4 reports
 `RECORD_ABSENT`, the history walk where the mode commits, and the mark; C10 reports the record's files the record

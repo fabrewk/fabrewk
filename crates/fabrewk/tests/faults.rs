@@ -314,7 +314,13 @@ fn close_stage(fx: &Fx, stage: &str) {
     let head_json = json!({"seq": 1, "digest": head.digest});
     let payload = json!({"stage": stage, "digest": sha256_hex(&bytes), "head": head_json, "tasks": [], "shown": "0".repeat(64), "widened": []});
     let h = s.append(&stream, Some(&head), &draft("stage-authorized", payload), Some(&signer)).unwrap();
-    s.append(&stream, Some(&h), &draft("stage-closed", json!({})), Some(&signer)).unwrap();
+    s.append(
+        &stream,
+        Some(&h),
+        &draft("stage-closed", json!({"stage": stage, "head": {"seq": h.seq, "digest": h.digest}, "sweeps": []})),
+        Some(&signer),
+    )
+    .unwrap();
     s.finish(&fabrewk_core::identity::PolicyVerifier, &[]).unwrap();
 }
 

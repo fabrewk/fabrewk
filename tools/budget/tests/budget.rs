@@ -54,7 +54,7 @@ fn req_bud_2_a_ring_over_its_limit_is_reported() {
     assert_eq!(ring_problems(&[at, over]).len(), 1);
     assert_eq!(
         [RingKind::Core, RingKind::ToolAdapter, RingKind::Confinement, RingKind::Installer].map(RingKind::limit),
-        [7_500, 600, 400, 1_200]
+        [8_000, 600, 400, 1_200]
     );
 }
 

@@ -7,6 +7,7 @@
 mod adopt;
 mod approve;
 mod check;
+mod close;
 mod config;
 mod decl;
 mod propose;
@@ -21,6 +22,7 @@ pub use decl::{
     COMMANDS, Command, EXITS, Options, PROGRAM_FLAGS, Parsed, SCHEMAS, Usage, VALUES, answer_format, file_format, fish,
     flag_key, help, parse, posix, refusals, synopsis, writes,
 };
+pub(crate) use tasks::verbatim;
 pub use text::{CATALOGUES, get, messages, say};
 pub use write::EXTENSION_MARKER;
 
@@ -284,6 +286,7 @@ pub fn main(args: Vec<OsString>, modules: &'static [Program], markers: &'static 
                     "sweep" => sweep::sweep(&cx, arg.as_deref().unwrap_or_default(), &options),
                     "discard" => sweep::discard(&cx, arg.as_deref().unwrap_or_default(), &options),
                     "approve" => approve::approve(&cx, arg.as_deref().unwrap_or_default(), &options),
+                    "close" => close::close(&cx, arg.as_deref().unwrap_or_default(), &options),
                     _ => check::run(&cx),
                 },
                 Ok(Parsed::Version { .. }) => Ok(version()),

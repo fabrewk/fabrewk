@@ -364,6 +364,17 @@ pub fn last_sweep<'a>(record: &'a Replay, alias: &str) -> Option<&'a Event> {
     record.streams.get(&format!("fermento-{alias}"))?.iter().rev().find(|e| e.kind == "sweep-recorded")
 }
 
+/// Why `alias`'s last sweep did not see the end of `tasks` (task streams, all ended): it saw no head of one that is its
+/// last event (REQ-TASK-6); `None` when it saw them all, or there is no task.
+pub fn unswept(record: &Replay, alias: &str, tasks: &[&String]) -> Option<String> {
+    let heads = last_sweep(record, alias).map(|s| &s.value["payload"]["heads"]);
+    tasks.iter().find_map(|t| {
+        let last = record.streams[*t].last()?;
+        let seen = heads.is_some_and(|h| h[t.as_str()] == serde_json::json!({"seq": last.seq, "digest": last.digest}));
+        (!seen).then(|| format!("the last sweep of {alias} predates the end of {}", &t[5..]))
+    })
+}
+
 /// Whether a pending proposal no longer matches the input as its last sweep saw it (section 4): the point with its
 /// number is gone or its text differs; the same words under another number do not count.
 pub fn stale(p: &Proposal, sweep: Option<&Event>) -> bool {

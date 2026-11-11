@@ -16,5 +16,6 @@ pub mod scan;
 pub mod settings;
 pub mod table;
 pub mod task;
+pub mod view;
 
 pub use code::{Code, Error};

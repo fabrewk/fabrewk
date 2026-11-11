@@ -153,6 +153,13 @@ impl Fx {
         self.git(&["commit", "-q", "--allow-empty", "-m", message]);
     }
 
+    /// Writes the views a write command would have left for the record as it stands (REQ-VIEW-3): the helpers that
+    /// write events through the library call it, so that `check` finds the views fresh.
+    pub fn regen(&self) {
+        let record = fabrewk_core::record::replay(&self.domain, &fabrewk_core::identity::PolicyVerifier).unwrap();
+        fabrewk_core::view::write(&self.domain, &record).unwrap();
+    }
+
     pub fn signer(&self) -> KeySigner {
         KeySigner(self.keys.join("xel"))
     }
@@ -175,6 +182,7 @@ impl Fx {
         let d = self.draft("publication-decided", &digest, payload);
         s.append("project", Some(&head), &d, Some(&self.signer())).unwrap();
         s.finish(&fabrewk_core::identity::PolicyVerifier, &[]).unwrap();
+        self.regen();
     }
 
     /// Writes the baseline `apply` would: the digest of the alambique as it stands, approved by `xel`.
@@ -186,6 +194,7 @@ impl Fx {
         let d = self.draft("alambique-baseline", &policy, json!({"digest": digest}));
         s.append("alambique", head.as_ref(), &d, Some(&self.signer())).unwrap();
         s.finish(&fabrewk_core::identity::PolicyVerifier, &[]).unwrap();
+        self.regen();
     }
 
     /// Writes `text` as the alambique and its baseline; in `published` mode commits both.
@@ -232,6 +241,7 @@ impl Fx {
         let (task, d) = draft("task-proposed", task);
         s.append(&task, None, &d, None).unwrap();
         s.finish(&fabrewk_core::identity::PolicyVerifier, &[]).unwrap();
+        self.regen();
         (stage["stage-".len()..].to_owned(), task["task-".len()..].to_owned())
     }
 

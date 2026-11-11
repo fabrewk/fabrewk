@@ -68,7 +68,7 @@ pub const COMMANDS: &[Command] = &[
         flags: READ,
         moves: &[],
         refusals: &[],
-        schemas: &["fabrewk.status/1", "fabrewk.subject/2"],
+        schemas: &["fabrewk.status/2", "fabrewk.subject/2"],
     },
     Command {
         name: "config",
@@ -226,6 +226,25 @@ pub const COMMANDS: &[Command] = &[
             UnitAmbiguous,
         ],
         schemas: &["fabrewk.approved/1"],
+    },
+    Command {
+        name: "close",
+        arg: Some("stage"),
+        required: true,
+        flags: &["say", "say-lang", "json", "help"],
+        moves: &["stage-closed"],
+        refusals: &[
+            AgentEnvironment,
+            MoveNotAllowed,
+            RoleForbidden,
+            WordsMissing,
+            WordsCopied,
+            StageOpenTasks,
+            SweepMissing,
+            AlambiqueUnapproved,
+            RecordUncommitted,
+        ],
+        schemas: &["fabrewk.closed/1"],
     },
 ];
 

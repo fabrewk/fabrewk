@@ -6,7 +6,9 @@
 use super::{COMMANDS, Cx, Failed, Out, Usage};
 use crate::code::Code;
 use crate::domain;
-use crate::record::{Event, Publication, Replay, StreamKind, stream_kind};
+use crate::identity;
+use crate::record::{Event, Replay, StreamKind, stream_kind};
+use crate::view::{self, mode_name};
 use crate::{settings, table};
 use serde_json::{Value, json};
 
@@ -17,25 +19,17 @@ pub(super) fn run(cx: &Cx, id: Option<&str>) -> Result<Out, Failed> {
     }
 }
 
-pub(crate) fn mode_name(m: Publication) -> &'static str {
-    match m {
-        Publication::Published => "published",
-        Publication::OwnRepository => "own-repository",
-        Publication::Unpublished => "unpublished",
-    }
-}
-
 fn text_of<'a>(e: &'a Event, field: &str) -> &'a str {
     e.value["payload"][field].as_str().unwrap_or_default()
 }
 
 fn overview(cx: &Cx) -> Result<Out, Failed> {
     let mut doc = json!({
-        "schema": "fabrewk.status/1", "record": "absent", "problems": [], "policy": null, "mode": null,
-        "stages": [], "next": [],
+        "schema": "fabrewk.status/2", "record": "absent", "problems": [], "policy": null, "mode": null,
+        "stages": [], "waiting": [], "next": [],
     });
     let mut text = String::new();
-    let mut next = vec![];
+    let mut next: Vec<String> = vec![];
     match &cx.record {
         Err(errors) if errors.iter().all(|e| e.code() == Some(Code::RecordAbsent)) => {
             text += &cx.t("status.absent", &[])
@@ -49,19 +43,54 @@ fn overview(cx: &Cx) -> Result<Out, Failed> {
             text += "\n";
             text += &problems.iter().map(|p| cx.entry_text(p, "  ")).collect::<String>();
             doc["problems"] = json!(problems);
-            next.push("fabrewk check");
+            next.push("fabrewk check".into());
         }
         Ok(record) => {
-            next.push("fabrewk check");
+            next.push("fabrewk check".into());
             if let Some(pending) = record_lines(cx, record, &mut doc, &mut text) {
-                next.extend(pending.then_some("fabrewk config"));
+                next.extend(pending.then(|| "fabrewk config".to_owned()));
             }
+            next.extend(waiting(cx, record, &mut doc, &mut text));
         }
     }
     text = text.trim_end().to_owned() + "\n";
-    text += &cx.next(&next);
+    text += &cx.next(&next.iter().map(String::as_str).collect::<Vec<_>>());
     doc["next"] = json!(next);
     Ok(Out::new(doc, text))
+}
+
+/// What waits and for whom (REQ-VIEW-1, PD-33), in the person's language; gives the commands for the person who
+/// reads: a maestro's for a maestro, the integrator's for whoever is no maintainer, none for a maintainer with nothing
+/// to decide.
+fn waiting(cx: &Cx, record: &Replay, doc: &mut Value, text: &mut String) -> Vec<String> {
+    let all = view::waits(record);
+    let role = cx
+        .policy
+        .as_ref()
+        .zip(cx.person.as_deref())
+        .and_then(|(p, a)| identity::maintainers(&p.settings).into_iter().find(|m| m.alias == a).map(|m| m.role));
+    *text += &format!("{}\n", cx.t("status.waiting", &[]));
+    let (mut commands, mut list) = (Vec::new(), Vec::new());
+    for w in &all {
+        let (who, key) = match w.who {
+            view::Who::Maestro => ("maestro", "status.waits-maestro"),
+            view::Who::Integrator => ("integrator", "status.waits-integrator"),
+        };
+        let line = cx.t(&format!("view.wait.{}", w.what), &[("id", &w.id), ("detail", &w.detail), ("since", &w.since)]);
+        *text += &format!("  {}\n", cx.t(key, &[("line", &super::tasks::verbatim(&line, "    "))]));
+        let mine = match w.who {
+            view::Who::Maestro => role.as_deref() == Some("maestro"),
+            view::Who::Integrator => role.is_none(),
+        };
+        commands
+            .extend(w.commands.iter().filter(|_| mine).filter(|c| !commands.contains(*c)).cloned().collect::<Vec<_>>());
+        list.push(json!({"who": who, "what": w.what, "id": w.id, "since": w.since, "detail": w.detail}));
+    }
+    if all.is_empty() {
+        *text += &format!("  {}\n", cx.t("status.waits-none", &[]));
+    }
+    doc["waiting"] = json!(list);
+    commands
 }
 
 /// The lines of a record that replays; gives whether the project file has changes not adopted, if a policy is.

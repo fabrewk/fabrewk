@@ -12,7 +12,7 @@ Muestra la salud del registro, la política vigente y el estado de cada etapa y 
 
 Movimientos que puede causar: ninguno.
 
-Documentos con --json: `fabrewk.status/1`, `fabrewk.subject/2`
+Documentos con --json: `fabrewk.status/2`, `fabrewk.subject/2`
 
 ## `fabrewk config [<key>] [--json]`
 
@@ -52,6 +52,7 @@ Documentos con --json: `fabrewk.check/1`
 | C2 | Hay una política adoptada, y el archivo del proyecto es igual a ella o su cambio está pendiente. | `POLICY_ABSENT`, `POLICY_PENDING` | efectivo |
 | C3 | El registro se reproduce: versiones, resúmenes, forma canónica, cadenas, bifurcaciones, transiciones, firmas, identificadores. | `RECORD_VERSION_UNKNOWN`, `RECORD_BROKEN`, `RECORD_DIGEST_MISMATCH`, `RECORD_NONCANONICAL`, `RECORD_FORK`, `RECORD_TRANSITION_INVALID`, `ATTEMPT_ENDED`, `RECORD_SIGNATURE_INVALID`, `RECORD_ID_COLLISION` | efectivo |
 | C4 | El registro existe y no ha retrocedido: efectivo donde se recorre la historia de Git, cooperativo en un solo equipo. | `RECORD_ABSENT`, `RECORD_ROLLBACK`, `MARK_INVALID` | efectivo |
+| C5 | STATUS.md y RULES.md son lo que da una generación nueva a partir del registro. | `VIEW_STALE` | efectivo |
 | C6 | Cada fermento tiene su separador una sola vez fuera de bloques de código, dentro de una versión que Fabrewk escribe. | `SEPARATOR_MISSING`, `SEPARATOR_AMBIGUOUS`, `SEPARATOR_DAMAGED` | efectivo |
 | C7 | El alambique es el texto que un maestro aprobó por última vez. | `ALAMBIQUE_UNAPPROVED` | efectivo |
 | C8 | Las entradas del dominio, los alias, su archivo de ignorados y la regla de ignorados del producto. | `DOMAIN_UNKNOWN_ENTRY`, `ALIAS_INVALID`, `GITIGNORE_CHANGED`, `DOMAIN_NOT_IGNORED` | efectivo |
@@ -501,6 +502,56 @@ Rechazos
 - `ALAMBIQUE_UNAPPROVED`: El alambique no es el texto que un maestro aprobó por última vez: cambió a mano, o nunca se aprobó.
 - `ALAMBIQUE_MISSING`: No hay ALAMBIQUE.md, o no es un archivo regular al que se llegue sin enlaces, o no es texto válido.
 - `UNIT_AMBIGUOUS`: Una unidad de la edición está dos veces o ninguna en el alambique, o dos unidades se traslapan, o una regla que quita no existe.
+- `RECORD_ABSENT`: Aquí no hay registro.
+- `POLICY_ABSENT`: No hay una política adoptada, así que no hay configuración efectiva ni mantenedores.
+- `RECORD_BROKEN`: El registro está roto: sus archivos no forman una sola cadena sin cortes.
+- `RECORD_DIGEST_MISMATCH`: El contenido de un archivo de evento no es el que su nombre registra.
+- `RECORD_NONCANONICAL`: Un archivo de evento no está en forma canónica, así que no se puede confiar en su resumen.
+- `RECORD_FORK`: Dos eventos ocupan el mismo lugar de un flujo: dos clones escribieron ahí.
+- `RECORD_TRANSITION_INVALID`: Un evento está donde la tabla de transiciones no lo permite.
+- `ATTEMPT_ENDED`: El registro termina un intento que no está abierto.
+- `RECORD_SIGNATURE_INVALID`: El evento de una persona no está firmado con la llave y el rol que la política da a quien firma.
+- `RECORD_VERSION_UNKNOWN`: Un evento no es de un esquema que esta versión de Fabrewk conozca.
+- `RECORD_ID_COLLISION`: Dos etapas o dos tareas recibieron el mismo identificador.
+- `RECORD_ROLLBACK`: El registro perdió eventos que tenía antes: un retroceso.
+- `MARK_INVALID`: La marca del registro de este equipo (local/cache/heads.json) está dañada o nombra un evento que el registro no tiene en ese lugar.
+- `CHECK_UNKNOWN`: Una verificación no pudo correr, así que su resultado es desconocido, y un resultado desconocido nunca es un pase.
+- `DOMAIN_NOT_IGNORED`: El repositorio del producto no ignora .brewstillery/, así que un commit ahí lo publicaría.
+- `NOT_A_REPOSITORY`: Esta no es la raíz del árbol de trabajo principal del repositorio.
+- `HEAD_DETACHED`: El head de Git no nombra ninguna rama, así que no hay rama del registro.
+- `PRIVATE_FOLDER_PERMISSIONS`: La carpeta privada da acceso a alguien más que su dueño, así que Fabrewk no la lee.
+- `SETTINGS_INVALID`: Un archivo de ajustes no se lee o no valida.
+- `LOCK_HELD`: Otro comando de Fabrewk tiene el candado del registro de este repositorio, u otra tarea está en ejecución: un escritor y una ejecución a la vez.
+- `RECORD_HEAD_MOVED`: Algo escribió en el registro sin su candado mientras corría este comando; este comando no escribió nada.
+- `RECORD_COMMIT_RACE`: La rama se movió mientras Fabrewk confirmaba el registro; sus eventos están escritos pero no confirmados.
+- `TOOL_FAILED`: Una herramienta externa falló; lo que imprimió se guarda como evidencia y nunca se muestra aquí.
+- `TOOL_MISSING`: Una herramienta que esto necesita no está en este equipo.
+
+## `fabrewk close <stage> --say <words> [--say-lang <tag>] [--json]`
+
+Un maestro cierra una etapa autorizada cuando todas sus tareas terminaron, cada fermento se barrió después de la última, el alambique es el aprobado por última vez y el registro está confirmado.
+
+- `<stage>`: La etapa, por su identificador (s-…).
+- `--say <words>`: Tus propias palabras para esta decisión, guardadas tal cual y firmadas. Se rechazan las copiadas de un ejemplo, como «Estoy de acuerdo.».
+- `--say-lang <tag>`: La etiqueta de idioma de tus palabras; por omisión, tu languages.agentInteraction.
+- `--json`: Da la salida como un solo documento JSON con un campo schema.
+- `--help`: Muestra esta ayuda.
+
+Movimientos que puede causar: `stage-closed` (etapa cerrada).
+
+Documentos con --json: `fabrewk.closed/1`
+
+Rechazos
+
+- `AGENT_ENVIRONMENT`: Esto corre dentro de un agente o una extensión, cuyos marcadores están en el entorno, y solo una persona hace este movimiento. El control es cooperativo: un proceso puede limpiar su entorno.
+- `MOVE_NOT_ALLOWED`: La tabla de transiciones no permite este movimiento desde el estado del sujeto.
+- `ROLE_FORBIDDEN`: La llave que firma este movimiento no tiene en la política ningún rol que pueda hacerlo.
+- `WORDS_MISSING`: Un movimiento de persona necesita tus propias palabras, dadas con --say: no vacías y en texto UTF-8 válido.
+- `WORDS_COPIED`: Las palabras dadas son el ejemplo que imprime la ayuda, no las tuyas.
+- `STAGE_OPEN_TASKS`: Una tarea de la etapa no ha terminado: no está ni integrada ni rechazada.
+- `SWEEP_MISSING`: El fermento de un mantenedor no se barrió después de que terminó la última tarea de la etapa.
+- `ALAMBIQUE_UNAPPROVED`: El alambique no es el texto que un maestro aprobó por última vez: cambió a mano, o nunca se aprobó.
+- `RECORD_UNCOMMITTED`: Algunos archivos del registro no están confirmados en la rama del registro.
 - `RECORD_ABSENT`: Aquí no hay registro.
 - `POLICY_ABSENT`: No hay una política adoptada, así que no hay configuración efectiva ni mantenedores.
 - `RECORD_BROKEN`: El registro está roto: sus archivos no forman una sola cadena sin cortes.

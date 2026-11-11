@@ -12,7 +12,7 @@ Shows the record's health, the policy in force and the state of each stage and t
 
 Moves it may cause: none.
 
-Documents with --json: `fabrewk.status/1`, `fabrewk.subject/2`
+Documents with --json: `fabrewk.status/2`, `fabrewk.subject/2`
 
 ## `fabrewk config [<key>] [--json]`
 
@@ -52,6 +52,7 @@ Documents with --json: `fabrewk.check/1`
 | C2 | A policy is adopted, and the project file equals it or its change is pending. | `POLICY_ABSENT`, `POLICY_PENDING` | effective |
 | C3 | The record replays: versions, digests, canonical form, chains, forks, transitions, signatures, identifiers. | `RECORD_VERSION_UNKNOWN`, `RECORD_BROKEN`, `RECORD_DIGEST_MISMATCH`, `RECORD_NONCANONICAL`, `RECORD_FORK`, `RECORD_TRANSITION_INVALID`, `ATTEMPT_ENDED`, `RECORD_SIGNATURE_INVALID`, `RECORD_ID_COLLISION` | effective |
 | C4 | The record is present and has not rolled back: effective where Git's history is walked, cooperative on one machine. | `RECORD_ABSENT`, `RECORD_ROLLBACK`, `MARK_INVALID` | effective |
+| C5 | STATUS.md and RULES.md are what a fresh generation from the record gives. | `VIEW_STALE` | effective |
 | C6 | Each fermento has its separator exactly once outside fenced code blocks, inside a rendering Fabrewk writes. | `SEPARATOR_MISSING`, `SEPARATOR_AMBIGUOUS`, `SEPARATOR_DAMAGED` | effective |
 | C7 | The alambique is the text a maestro last approved. | `ALAMBIQUE_UNAPPROVED` | effective |
 | C8 | The domain's entries, the aliases, its ignore file, and the product's ignore rule. | `DOMAIN_UNKNOWN_ENTRY`, `ALIAS_INVALID`, `GITIGNORE_CHANGED`, `DOMAIN_NOT_IGNORED` | effective |
@@ -501,6 +502,56 @@ Refusals
 - `ALAMBIQUE_UNAPPROVED`: The alambique is not the text a maestro last approved: it changed by hand, or it was never approved.
 - `ALAMBIQUE_MISSING`: There is no ALAMBIQUE.md, or it is not a regular file reached without a link, or it is not valid text.
 - `UNIT_AMBIGUOUS`: A unit of the edit is found twice or not at all in the alambique, or two units overlap, or a rule it removes does not exist.
+- `RECORD_ABSENT`: There is no record here.
+- `POLICY_ABSENT`: No policy is adopted, so there is no effective configuration and no maintainer.
+- `RECORD_BROKEN`: The record is broken: its files are not one unbroken chain.
+- `RECORD_DIGEST_MISMATCH`: An event file's content is not the one its name records.
+- `RECORD_NONCANONICAL`: An event file is not in canonical form, so its digest cannot be trusted.
+- `RECORD_FORK`: Two events stand at the same place of one stream: two clones wrote there.
+- `RECORD_TRANSITION_INVALID`: An event stands where the transition table does not allow it.
+- `ATTEMPT_ENDED`: The record ends an attempt that is not open.
+- `RECORD_SIGNATURE_INVALID`: A person's event is not signed by the key and role the policy gives its signer.
+- `RECORD_VERSION_UNKNOWN`: An event is not of a schema this version of Fabrewk knows.
+- `RECORD_ID_COLLISION`: Two stages or two tasks were given the same identifier.
+- `RECORD_ROLLBACK`: The record lost events it held before: a rollback.
+- `MARK_INVALID`: This machine's mark of the record (local/cache/heads.json) is damaged or names an event the record does not hold there.
+- `CHECK_UNKNOWN`: A verification could not run, so its result is unknown, and an unknown result is never a pass.
+- `DOMAIN_NOT_IGNORED`: The product's repository does not ignore .brewstillery/, so a commit there would publish it.
+- `NOT_A_REPOSITORY`: This is not the root of the repository's main working tree.
+- `HEAD_DETACHED`: Git's head names no branch, so there is no record branch.
+- `PRIVATE_FOLDER_PERMISSIONS`: The private folder gives access to someone other than its owner, so Fabrewk does not read it.
+- `SETTINGS_INVALID`: A settings file does not read or validate.
+- `LOCK_HELD`: Another Fabrewk command holds the lock of this repository's record, or another task is running: one writer and one run at a time.
+- `RECORD_HEAD_MOVED`: Something wrote in the record without its lock while this command ran; this command wrote nothing.
+- `RECORD_COMMIT_RACE`: The branch moved while Fabrewk committed the record; its events are written but not committed.
+- `TOOL_FAILED`: An external tool failed; what it printed is kept as evidence, never shown here.
+- `TOOL_MISSING`: A tool this needs is not on this machine.
+
+## `fabrewk close <stage> --say <words> [--say-lang <tag>] [--json]`
+
+A maestro closes an authorized stage once every task has ended, every fermento was swept after the last of them, the alambique is as last approved and the record is committed.
+
+- `<stage>`: The stage, by its identifier (s-…).
+- `--say <words>`: Your own words for this decision, kept verbatim and signed. Words copied from an example, such as “I agree.”, are refused.
+- `--say-lang <tag>`: The language tag of your words; by default, your languages.agentInteraction.
+- `--json`: Gives the output as one JSON document with a schema field.
+- `--help`: Shows this help.
+
+Moves it may cause: `stage-closed` (stage closed).
+
+Documents with --json: `fabrewk.closed/1`
+
+Refusals
+
+- `AGENT_ENVIRONMENT`: This runs inside an agent or an extension, whose markers are in the environment, and only a person makes this move. The check is cooperative: a process can clear its environment.
+- `MOVE_NOT_ALLOWED`: The transition table does not allow this move from the subject's state.
+- `ROLE_FORBIDDEN`: The key signing this move holds no role in the policy that may make it.
+- `WORDS_MISSING`: A person's move needs your own words, given with --say: not empty, and valid UTF-8 text.
+- `WORDS_COPIED`: The words given are the example that help prints, not your own.
+- `STAGE_OPEN_TASKS`: A task of the stage has not ended: it is neither integrated nor rejected.
+- `SWEEP_MISSING`: A maintainer's fermento was not swept after the last task of the stage ended.
+- `ALAMBIQUE_UNAPPROVED`: The alambique is not the text a maestro last approved: it changed by hand, or it was never approved.
+- `RECORD_UNCOMMITTED`: Some of the record's files are not committed on the record branch.
 - `RECORD_ABSENT`: There is no record here.
 - `POLICY_ABSENT`: No policy is adopted, so there is no effective configuration and no maintainer.
 - `RECORD_BROKEN`: The record is broken: its files are not one unbroken chain.

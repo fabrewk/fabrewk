@@ -1,7 +1,7 @@
 //! `fabrewk check` (section 6; part 7d2, D-055): every verification of this phase, each finding with its code, its
 //! severity and its control's label; it exits 3 when any finding is an error. It only reads. A verification that
-//! cannot run, for a tool missing or failing or a file that does not read, is `CHECK_UNKNOWN`, never a pass. C6, C12
-//! and C7 come with parts 8a and 8b; C5 is declared with the views (8c).
+//! cannot run, for a tool missing or failing or a file that does not read, is `CHECK_UNKNOWN`, never a pass. C5 to C7
+//! and C12 come with phase 8.
 
 use super::{Cx, FOUND, Failed, Out};
 use crate::code::{Code::*, Error, normal, refuse};
@@ -42,6 +42,7 @@ pub const CHECKS: &[Check] = &[
         control: Effective,
     },
     Check { id: "C4", codes: &[RecordAbsent, RecordRollback, MarkInvalid], control: Effective },
+    Check { id: "C5", codes: &[ViewStale], control: Effective },
     Check { id: "C6", codes: &[SeparatorMissing, SeparatorAmbiguous, SeparatorDamaged], control: Effective },
     Check { id: "C7", codes: &[AlambiqueUnapproved], control: Effective },
     Check {
@@ -249,6 +250,12 @@ pub(super) fn run(cx: &Cx) -> Result<Out, Failed> {
     match record {
         Ok(r) => found.extend(alambique::check(r, d).err().map(|e| ("C7", unknown(e)))),
         Err(_) if !absent => found.push(("C7", refuse(CheckUnknown, Some(d), "the record does not replay"))),
+        Err(_) => {}
+    }
+    // C5: the views are what a fresh generation gives (REQ-VIEW-3).
+    match record {
+        Ok(r) => found.extend(crate::view::stale(d, r).into_iter().map(|e| ("C5", unknown(e)))),
+        Err(_) if !absent => found.push(("C5", refuse(CheckUnknown, Some(d), "the record does not replay"))),
         Err(_) => {}
     }
     // C6 and C12: each maintainer's directory is listed in the policy and holds a fermento, whose separator stands

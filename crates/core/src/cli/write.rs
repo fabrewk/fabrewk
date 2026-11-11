@@ -12,7 +12,7 @@ use crate::detect::{self, Space};
 use crate::identity::{self, GitSigner, PolicyVerifier};
 use crate::record::{Draft, Head, Publication, Replay, Repo, Say, Session};
 use crate::settings::{self, Policy, Val};
-use crate::{alambique, fermento};
+use crate::{alambique, fermento, view};
 use crate::{domain, machine};
 use std::collections::BTreeMap;
 
@@ -227,17 +227,19 @@ pub(super) fn run<T>(cx: &Cx, plan: impl Fn(&Replay) -> Result<Plan<T>, Failed>)
         }
         session.commit_alone(&path, &a.message).map_err(late)?;
     }
-    // The fermento's answer is generated from the record these events made; the input is checked once more first, and
-    // a change now leaves the events written and the answer not.
+    // The views are generated from the record these events made: the fermento's answer, whose input is checked once
+    // more first, and `STATUS.md` and `RULES.md` (REQ-VIEW-3). A change now leaves the events written and the views not.
     let mut views = Vec::new();
+    let late_view = late("the next write command regenerates the views");
+    let record = crate::record::replay(&cx.domain, &PolicyVerifier).map_err(|mut e| late_view(e.remove(0)))?;
     if let Some(v) = &planned.view {
         let late = late("the next sweep writes the answer");
-        let record = crate::record::replay(&cx.domain, &PolicyVerifier).map_err(|mut e| late(e.remove(0)))?;
         let bytes = fermento::compose(&cx.domain, &v.alias, &v.digest, &(v.answer)(&record)).map_err(late)?;
         let path = std::path::PathBuf::from(&v.alias).join("fermento.md");
         crate::record::write_atomic(&cx.domain.join(&path), &bytes)?;
         views.push(path);
     }
+    views.extend(view::write(&cx.domain, &record).map_err(late_view)?);
     let commit = session.finish_held(&PolicyVerifier, &views)?;
     crate::record::fault::pause("before-caches");
     // The caches a write command keeps, from the policy in force once it wrote, under the lock (REQ-ID-2, REQ-SET-8).

@@ -10,6 +10,7 @@ use fabrewk_core::detect::Program;
 use fabrewk_core::record::{Code, Draft, Head, Replay, replay, sha256_hex, subject_digest};
 use fabrewk_core::settings::{self, Effective, Level, Policy};
 use fabrewk_core::table::{self, Control};
+use fabrewk_core::view::{self, Who};
 use fabrewk_core::{scan, task};
 use proptest::prelude::*;
 use serde_json::{Value, json};
@@ -917,4 +918,83 @@ fn req_sec_3_this_repository_passes_the_scan() {
 fn req_sec_3_no_regular_expression_crate() {
     let lock = fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../Cargo.lock")).unwrap();
     assert!(!lock.lines().any(|l| l == "name = \"regex\"" || l == "name = \"regex-automata\""));
+}
+
+// ---- Part 8c: what the views make of a task's attempts (PD-39, PD-40) -------------------------------------------------
+
+fn id_of(t: &Task) -> String {
+    t.stream["task-".len()..].to_owned()
+}
+
+/// `STATUS.md`'s usage line for the task, as the view words it.
+fn usage_line(t: &Task, dispatches: usize, tokens: &str) -> String {
+    let n = dispatches.to_string();
+    fabrewk_core::cli::say("en", "view.usage-line", &[("id", &id_of(t)), ("dispatches", &n), ("tokens", tokens)])
+}
+
+fn running(name: &str) -> Task {
+    let t = Task::new(name);
+    t.authorize();
+    t.next(&person("run-started", "Corre.", json!({})));
+    t
+}
+
+#[test]
+fn pd_39_the_view_shows_tokens_as_reported_unknown_when_a_part_is_not_and_zero_only_when_reported() {
+    let unknown = fabrewk_core::cli::say("en", "view.unknown", &[]);
+    let cases: [(&str, Vec<Value>, Option<&str>); 6] = [
+        ("reported-none", vec![json!({"usage": {"tokens": null}})], None),
+        ("reported-absent", vec![json!({})], None),
+        ("reported-zero", vec![json!({"usage": {"tokens": 0}})], Some("0")),
+        ("reported-sum", vec![json!({"usage": {"tokens": 5}}), json!({"usage": {"tokens": 7}})], Some("12")),
+        ("reported-mix", vec![json!({"usage": {"tokens": 5}}), json!({"usage": {"tokens": null}})], None),
+        ("reported-zero-and-none", vec![json!({"usage": {"tokens": 0}}), json!({})], None),
+    ];
+    for (name, ends, tokens) in cases {
+        let t = running(&format!("view-usage-{name}"));
+        for end in &ends {
+            t.next(&fabrewk("attempt-started", json!({})));
+            t.next(&fabrewk("attempt-ended", end.clone()));
+        }
+        let status = view::status(&t.f.replay(), "en");
+        assert!(status.contains(&usage_line(&t, ends.len(), tokens.unwrap_or(&unknown))), "{name}: {status}");
+    }
+    // An attempt that never ended is unknown, whatever the earlier ones reported.
+    let t = running("view-usage-open");
+    t.next(&fabrewk("attempt-started", json!({})));
+    t.next(&fabrewk("attempt-ended", json!({"usage": {"tokens": 3}})));
+    t.next(&fabrewk("attempt-started", json!({})));
+    assert!(view::status(&t.f.replay(), "en").contains(&usage_line(&t, 2, &unknown)));
+    // A task with no dispatch has no line.
+    let t = running("view-usage-none");
+    let status = view::status(&t.f.replay(), "en");
+    assert!(status.contains(&fabrewk_core::cli::say("en", "view.usage-none", &[])), "{status}");
+}
+
+#[test]
+fn pd_40_a_task_waits_for_the_maestro_since_its_halt_and_not_while_it_runs() {
+    let t = running("view-halt");
+    t.next(&fabrewk("attempt-started", json!({})));
+    // The stage of the fixture is not authorized, so it waits; the running task does not.
+    assert!(view::waits(&t.f.replay()).iter().all(|w| w.id != id_of(&t)), "a running task waits for no one");
+    t.next(&fabrewk("attempt-ended", json!({"usage": {"tokens": 1}})));
+    let halt = t.next(&fabrewk("task-halted", json!({"code": "NO_PROGRESS"})));
+    let at: Value = serde_json::from_slice(&fs::read(halt).unwrap()).unwrap();
+    let waits: Vec<_> = view::waits(&t.f.replay()).into_iter().filter(|w| w.id == id_of(&t)).collect();
+    assert_eq!(waits.len(), 1, "{waits:?}");
+    let w = &waits[0];
+    assert_eq!(
+        (w.who, w.what, w.detail.as_str(), w.since.as_str()),
+        (Who::Maestro, "task-halted", "NO_PROGRESS", at["at"].as_str().unwrap())
+    );
+    assert_eq!(w.commands, [format!("fabrewk status {}", id_of(&t)), format!("fabrewk reject {}", id_of(&t))]);
+    let status = view::status(&t.f.replay(), "en");
+    assert!(status.contains(&fabrewk_core::cli::say("en", "view.halted", &[("code", "NO_PROGRESS")])), "{status}");
+    // Authorized again, then run to a candidate that is verified: it waits to be accepted, with no halt code.
+    let t = running("view-verified");
+    t.next(&fabrewk("attempt-started", json!({})));
+    t.next(&fabrewk("attempt-ended", json!({})));
+    t.next(&fabrewk("task-verified", json!({})));
+    let waits: Vec<_> = view::waits(&t.f.replay()).into_iter().filter(|w| w.id == id_of(&t)).collect();
+    assert_eq!((waits[0].what, waits[0].detail.as_str()), ("task-verified", ""));
 }

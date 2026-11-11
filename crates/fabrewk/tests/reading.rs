@@ -578,8 +578,8 @@ const PINNED: &[(&str, &str)] = &[
         ":object .refusals:array .refusals[]:object .refusals[].code:string .refusals[].detail:string .refusals[].next:string .refusals[].path:null|string .refusals[].reason:string .refusals[].run:null|string .schema:string",
     ),
     (
-        "fabrewk.status/1",
-        ":object .mode:null|string .next:array .next[]:string .policy:null|object .policy.digest:string .policy.pending:bool|null .problems:array .problems[]:object .problems[].code:string .problems[].detail:string .problems[].next:string .problems[].path:null|string .problems[].reason:string .problems[].run:null|string .record:string .schema:string .stages:array .stages[]:object .stages[].goal:string .stages[].id:string .stages[].state:string .stages[].tasks:array .stages[].tasks[]:object .stages[].tasks[].goal:string .stages[].tasks[].id:string .stages[].tasks[].state:string",
+        "fabrewk.status/2",
+        ":object .mode:null|string .next:array .next[]:string .policy:null|object .policy.digest:string .policy.pending:bool|null .problems:array .problems[]:object .problems[].code:string .problems[].detail:string .problems[].next:string .problems[].path:null|string .problems[].reason:string .problems[].run:null|string .record:string .schema:string .stages:array .stages[]:object .stages[].goal:string .stages[].id:string .stages[].state:string .stages[].tasks:array .stages[].tasks[]:object .stages[].tasks[].goal:string .stages[].tasks[].id:string .stages[].tasks[].state:string .waiting:array .waiting[]:object .waiting[].detail:string .waiting[].id:string .waiting[].since:string .waiting[].what:string .waiting[].who:string",
     ),
     (
         "fabrewk.subject/2",

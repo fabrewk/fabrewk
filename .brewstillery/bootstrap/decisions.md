@@ -3273,3 +3273,33 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   maestro's to decide (D-069), and 8c should not start without that decision if it will cross.
 - Not done: part 8c; the base text of `RULES.md` (to draft for the maestro's approval when 8c starts); `accept`
   (phase 9) and `close` (8c) call `alambique::check`.
+
+## D-074 — Part 8c: the core's ceiling at 8,000, the base text of `RULES.md`, and the command names left for the rebuild
+
+- Status: decided
+- Decided: 2026-11-11
+- Origin: maintainer XEL in session 28's chat, answering the integrator's two questions before any code: ceiling
+  "8,000 ahora (Recomendado)", and on the base rules "De acuerdo en todo", with a new wording of the first rule and a
+  proposal on command names (quoted below). The integrator had read the specification's VIEW, TASK-6 and section 4,
+  the code of `status`, `check`, the write path, the table and the fermento, and estimated +300 to +500 counted lines
+  against the 7,135 of 7,500 (R-036).
+- Decision:
+  1. The core's ceiling is 8,000 counted lines (`tools/budget/src/budget.rs`, its tests). Phase 9 keeps its own
+     decision when it starts (D-069).
+  2. The base text of `RULES.md` is the twelve rules the integrator drafted (authority; start at `STATUS.md`; the
+     alambique; the fermentos; cited material; settings; a person's moves; commands; the domain; languages; reports;
+     dispatched agents), in the binary's catalogue in `en` and `es`, with the first rule worded as the maestro said:
+     the highest authority is what Git permits (on a local host the user owns their machine; in what is published,
+     whoever holds the push permission); the alambique with the fermentos is the workbench that gives the plan its
+     authoritative form, so it may change and must always agree with what the plan describes as authority; the chat is
+     the most direct channel for extraordinary changes and stands above them, so a maestro may ask an agent in chat
+     for a change with express authorization, but the change is always sketched in the alambique (through a
+     fermento or not) so that it enters the plan as authority; an agent makes no change that is not signed as the
+     maestro's authorization. The root `AGENTS.md` of this repository keeps its own "Authority" line until production.
+  3. Command names are not changed in the bootstrap. The maestro proposes, for the rebuild after the pilot (6.53),
+     that `sweep` be named after the analogy "fermento -> alambique -> destilado" (for example `distill`); it is
+     recorded here and not in the alambique, which the maestro edits when they decide it.
+- Consequences: `tools/budget` (ceiling, tests, the comment); `crates/core/catalogue` (the base rules); `plan.md`
+  (row 8c); `STATUS.md`. The alternatives offered for the ceiling: 8,500, or keep 7,500 and stop at the measure.
+- Sources: chat of session 28; `STATUS.md`'s "Next"; D-054, D-069, D-072, D-073; `core-specification.md` REQ-VIEW-2.
+- Supersedes: none.

@@ -90,8 +90,9 @@ fn req_set_5_adopt_records_the_policy_its_widenings_and_its_seal() {
     let digest = sha256_hex(&fs::read(newest(&fx, "project")).unwrap());
     assert_eq!(message, format!("fabrewk: record\n\nFabrewk-Event: {digest}"));
     let files = fx.git(&["show", "--name-only", "--format=", "HEAD"]);
-    assert!(files.lines().all(|f| f.starts_with(".brewstillery/data/events/project/")), "{files}");
-    assert_eq!(files.lines().count(), 2, "the event and its signature: {files}");
+    let events = |f: &&str| f.starts_with(".brewstillery/data/events/project/");
+    assert!(files.lines().all(|f| events(&f) || f == ".brewstillery/STATUS.md"), "{files}");
+    assert_eq!(files.lines().filter(events).count(), 2, "the event and its signature: {files}");
     // `--json` gives the adoption's document.
     fx.edit_policy(&policy_with(&fx, "\n[limits]\nrounds = 4\nminutes = 30\n"));
     let doc = fx.run(&["adopt", "--say", SAY, "--json"]).doc();
@@ -292,8 +293,9 @@ fn req_reg_10_one_record_commit_leaves_the_persons_edits_alone() {
     assert_eq!(fs::read_to_string(fx.root.join("README.md")).unwrap(), "unstaged\n");
     assert_eq!(fx.git(&["rev-parse", "HEAD~1"]), head, "one commit");
     let files = fx.git(&["show", "--name-only", "--format=", "HEAD"]);
-    assert_eq!(files.lines().count(), 2, "{files}");
-    assert!(files.lines().all(|f| f.starts_with(".brewstillery/data/events/")), "{files}");
+    let events = |f: &&str| f.starts_with(".brewstillery/data/events/");
+    assert_eq!(files.lines().filter(events).count(), 2, "{files}");
+    assert!(files.lines().all(|f| events(&f) || f == ".brewstillery/STATUS.md"), "{files}");
     let trailers = fx.git(&["log", "-1", "--format=%B"]).matches("Fabrewk-Event: ").count();
     assert_eq!(trailers, 2);
 }
@@ -475,7 +477,13 @@ fn refusal_stage_closed() {
     });
     let payload = json!({"stage": stage, "digest": digest, "head": {"seq": 1, "digest": head.digest}, "tasks": [], "shown": "0".repeat(64), "widened": []});
     let h = s.append(&stream, Some(&head), &draft("stage-authorized", payload), Some(&signer)).unwrap();
-    s.append(&stream, Some(&h), &draft("stage-closed", json!({})), Some(&signer)).unwrap();
+    s.append(
+        &stream,
+        Some(&h),
+        &draft("stage-closed", json!({"stage": stage, "head": {"seq": h.seq, "digest": h.digest}, "sweeps": []})),
+        Some(&signer),
+    )
+    .unwrap();
     s.finish(&fabrewk_core::identity::PolicyVerifier, &[]).unwrap();
     fx.commit("closed");
     let mut plan = file(json!({}));

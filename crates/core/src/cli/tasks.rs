@@ -61,7 +61,7 @@ fn tasks_of<'a>(record: &'a Replay, id: &str) -> Vec<Stream<'a>> {
     out
 }
 
-fn head(events: &[Event]) -> Value {
+pub(super) fn head(events: &[Event]) -> Value {
     let last = events.last().expect("a stream holds its creation");
     json!({"seq": last.seq, "digest": last.digest})
 }
@@ -69,7 +69,7 @@ fn head(events: &[Event]) -> Value {
 /// A text as `status` shows it: verbatim, but for what could move the terminal or reorder the line (control
 /// characters, bidirectional marks, line and paragraph separators), shown as escapes, and with every line after the
 /// first indented, so that no text passes for another field.
-pub(super) fn verbatim(s: &str, indent: &str) -> String {
+pub(crate) fn verbatim(s: &str, indent: &str) -> String {
     let one = |c: char| match c {
         '\n' => format!("\n{indent}"),
         c if super::text::hidden(c) => super::text::escape(c),
