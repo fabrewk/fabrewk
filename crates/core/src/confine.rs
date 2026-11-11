@@ -237,7 +237,6 @@ fn keep(pipe: Option<impl Read>, mut file: File, cap: u64, over: &AtomicBool) ->
             let n = match pipe.read(&mut buf) {
                 Ok(0) => break,
                 Ok(n) => n,
-                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
                 Err(e) => return Err(e),
             };
             let room = usize::try_from(cap - kept).unwrap_or(usize::MAX).min(n);

@@ -137,11 +137,11 @@ pub fn arguments(cell: &Cell, etc: &Path) -> Vec<OsString> {
         put(&[&"--unshare-user", &"--disable-userns"]);
     }
     put(&[&"--ro-bind", &"/usr", &"/usr"]);
+    // As the host has them: a link is made again, anything else bound read-only where it exists.
     for dir in ["/bin", "/sbin", "/lib", "/lib64"] {
         match fs::read_link(dir) {
             Ok(target) => put(&[&"--symlink", &target, &dir]),
-            Err(_) if Path::new(dir).is_dir() => put(&[&"--ro-bind", &dir, &dir]),
-            Err(_) => {}
+            Err(_) => put(&[&"--ro-bind-try", &dir, &dir]),
         }
     }
     put(&[&"--proc", &"/proc"]);
@@ -209,16 +209,19 @@ fn first_child(pid: u32) -> Option<u32> {
     fs::read_to_string(format!("/proc/{pid}/task/{pid}/children")).ok()?.split_whitespace().next()?.parse().ok()
 }
 
-/// Whether the network namespace of process `pid` has a default route, IPv4 or IPv6, through a device that is not
-/// the loopback (a new namespace holds IPv6's unreachable default on `lo`).
+/// Whether the network namespace of process `pid` has a default route.
 fn routed(pid: u32) -> bool {
     let table = |name: &str| fs::read_to_string(format!("/proc/{pid}/net/{name}")).unwrap_or_default();
+    default_route(&table("route"), &table("ipv6_route"))
+}
+
+/// Whether the kernel's tables `route` and `ipv6_route` hold a default route, IPv4 or IPv6, through a device that is
+/// not the loopback (a new namespace holds IPv6's unreachable default on `lo`).
+fn default_route(route: &str, ipv6_route: &str) -> bool {
     let fields = |l: &str| l.split_whitespace().map(str::to_owned).collect::<Vec<_>>();
-    let v4 = table("route").lines().skip(1).map(fields).any(|f| f.len() > 1 && f[0] != "lo" && f[1] == "00000000");
-    let v6 = table("ipv6_route")
-        .lines()
-        .map(fields)
-        .any(|f| f.len() == 10 && f[0] == "0".repeat(32) && f[1] == "00" && f[9] != "lo");
+    let v4 = route.lines().skip(1).map(fields).any(|f| f.len() > 1 && f[0] != "lo" && f[1] == "00000000");
+    let v6 =
+        ipv6_route.lines().map(fields).any(|f| f.len() == 10 && f[0] == "0".repeat(32) && f[1] == "00" && f[9] != "lo");
     v4 || v6
 }
 
@@ -349,4 +352,35 @@ fn stop(s: &mut Started) -> Result<(), Error> {
     }
     let detail = "bwrap: the cell's first process had not ended 10 seconds after the cell's end";
     Err(Error::Refused { code: Code::ToolFailed, path: None, detail: detail.into() })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::default_route;
+
+    const HEAD: &str = "Iface\tDestination\tGateway \tFlags\tRefCnt\tUse\tMetric\tMask\t\tMTU\tWindow\tIRTT\n";
+    const LO6: &str = "00000000000000000000000000000000 00 00000000000000000000000000000000 00 \
+                       00000000000000000000000000000000 ffffffff 00000001 00000000 00200200       lo\n";
+    const NET6: &str = "00000000000000000000000000000000 00 00000000000000000000000000000000 00 \
+                        fe800000000000000000000000000001 00000400 00000001 00000000 00000003     wld0\n";
+
+    #[test]
+    fn a_default_route_counts_only_through_a_device_other_than_the_loopback() {
+        let v4 = format!("{HEAD}wld0\t00000000\tFD000A0A\t0003\t0\t0\t600\t00000000\t0\t0\t0\n");
+        let v4_lo = format!("{HEAD}lo\t00000000\t00000000\t0001\t0\t0\t0\t00000000\t0\t0\t0\n");
+        let v4_net = format!("{HEAD}wld0\t000A0A0A\t00000000\t0001\t0\t0\t600\t00FFFFFF\t0\t0\t0\n");
+        let v6_net = "00000000000000000000000000000000 40 00000000000000000000000000000000 00 \
+                      00000000000000000000000000000000 00000100 00000001 00000000 00000001     wld0\n";
+        assert!(default_route(&v4, ""));
+        assert!(default_route(HEAD, NET6));
+        assert!(default_route(&v4, LO6));
+        for (route, v6) in [(HEAD, LO6), (v4_lo.as_str(), ""), (v4_net.as_str(), v6_net), ("", ""), (HEAD, "")] {
+            assert!(!default_route(route, v6), "{route}{v6}");
+        }
+        // A line with too few fields is no route, never a fault; nor is the header taken for one.
+        assert!(!default_route(&format!("{HEAD}x\n"), "x 00\n"));
+        assert!(!default_route("lo 00000000\n", ""));
+        assert!(!default_route("wld0 00000000\n", ""));
+        assert!(default_route("Iface Destination\nwld0 00000000\n", ""));
+    }
 }

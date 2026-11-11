@@ -161,7 +161,9 @@ fn a_run_past_its_time_or_its_bytes_is_ended_and_says_so() {
     assert!(begun.elapsed() < Duration::from_secs(10));
     assert_eq!((ran.end, std::fs::read_to_string(&ran.stdout.path).unwrap().as_str()), (End::TimedOut, "begun"));
     assert!(ran.failure("fake").detail().contains("time limit"));
+    let begun = Instant::now();
     let ran = run(&d, "loud", "printf 0123456789abcdef; exec sleep 600", limits(30, 10)).unwrap();
+    assert!(begun.elapsed() < Duration::from_secs(10), "ended when its bytes passed, not at its time");
     assert_eq!((ran.end, ran.stdout.bytes, ran.stdout.capped), (End::OutputCapped, 10, true));
     assert_eq!(std::fs::read_to_string(&ran.stdout.path).unwrap(), "0123456789");
     assert!(ran.failure("fake").detail().contains("bytes kept"));
