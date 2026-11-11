@@ -99,10 +99,13 @@ pub fn waits(record: &Replay) -> Vec<Wait> {
                 "proposed" => wait(Who::Maestro, "stage-authorize", id, last, String::new(), &[cmd("status", id)]),
                 "authorized" => {
                     let tasks = tasks_of(record, id);
-                    if tasks.is_empty() || tasks.iter().any(|(n, _)| !terminal(state(n))) {
+                    if tasks.iter().any(|(n, _)| !terminal(state(n))) {
                         continue;
                     }
-                    let ended = tasks.iter().filter_map(|(_, e)| e.last().map(at)).max().unwrap_or_default();
+                    // Both start when the last of what they need has happened: the tasks' ends and the stage's
+                    // authorization, and for the maestro the sweeps that complete the required ones.
+                    let ended =
+                        tasks.iter().filter_map(|(_, e)| e.last().map(at)).chain([last]).max().unwrap_or_default();
                     let names: Vec<&String> = tasks.iter().map(|(n, _)| *n).collect();
                     let missing: Vec<&String> =
                         aliases.iter().filter(|a| fermento::unswept(record, a, &names).is_some()).collect();
@@ -111,7 +114,9 @@ pub fn waits(record: &Replay) -> Vec<Wait> {
                         wait(Who::Integrator, "sweep", alias, ended.clone(), id.to_owned(), &[help]);
                     }
                     if missing.is_empty() {
-                        wait(Who::Maestro, "stage-close", id, ended, String::new(), &[cmd("close", id)]);
+                        let swept = aliases.iter().filter_map(|a| fermento::last_sweep(record, a)).map(at);
+                        let since = swept.filter(|_| !names.is_empty()).chain([ended]).max().unwrap_or_default();
+                        wait(Who::Maestro, "stage-close", id, since, String::new(), &[cmd("close", id)]);
                     }
                 }
                 _ => {}

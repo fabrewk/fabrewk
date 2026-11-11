@@ -358,8 +358,14 @@ pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), Error> {
     let name = path.file_name().map(|n| n.to_string_lossy()).unwrap_or_default();
     let tmp = dir.join(format!(".{name}.tmp"));
     fault::point();
+    // Whatever stands at the temporary name, a link included, is removed, not followed, and the file is created anew
+    // (`O_EXCL`): the write never leaves the directory (P8C-1).
     let write = || -> std::io::Result<()> {
-        let mut file = File::create(&tmp)?;
+        match fs::remove_file(&tmp) {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(e),
+            _ => {}
+        }
+        let mut file = File::options().write(true).create_new(true).open(&tmp)?;
         std::io::Write::write_all(&mut file, bytes)?;
         file.sync_all()
     };
