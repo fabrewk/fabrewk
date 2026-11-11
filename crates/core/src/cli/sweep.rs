@@ -49,7 +49,13 @@ fn plan(cx: &Cx, alias: &str, answer: &Value, path: &Path, record: &Replay) -> R
     let digest = fermento::input_digest(&text, &parts);
     // Where the mode commits, the commit holds the fermento whole: the input in it must be the input committed.
     if let Some(repo) = Repo::for_domain(&cx.domain, st.mode) {
-        let held = crate::record::committed(&repo, &Path::new(alias).join("fermento.md"))?;
+        let file = Path::new(alias).join("fermento.md");
+        let held = crate::record::committed(&repo, &file)?;
+        // The commit puts the fermento in the person's index: an edit of it staged there is theirs, and is not lost.
+        if held != crate::record::staged(&repo, &file)? {
+            let why = "a staged edit of the fermento would be lost; commit or unstage it, and the sweep will commit the answer";
+            return Err(refuse(Code::InputUncommitted, Some(&cx.domain.join(&file)), why).into());
+        }
         let held = held.and_then(|b| String::from_utf8(b).ok());
         let held = held.and_then(|t| Some(fermento::input_digest(&t, &fermento::split(&t, alias).ok()?)));
         if held.as_deref() != Some(digest.as_str()) {
@@ -121,7 +127,9 @@ fn plan(cx: &Cx, alias: &str, answer: &Value, path: &Path, record: &Replay) -> R
         for field in ["target", "base", "units", "keys", "result"] {
             payload[field] = edit[field].clone();
         }
-        let id = format!("p-{}", &subject_digest(&payload).unwrap_or_default()[..8]);
+        // Two maintainers' identical edits are two proposals: the identifier also names the fermento they stand in.
+        let id =
+            format!("p-{}", &subject_digest(&json!({"fermento": alias, "proposal": payload})).unwrap_or_default()[..8]);
         payload["id"] = json!(id);
         fermento::check("proposal-recorded", &payload)?;
         // The same edit swept again is the proposal already on record; an identifier two different edits share is not.

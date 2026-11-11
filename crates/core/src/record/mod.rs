@@ -29,7 +29,7 @@ pub use crate::code::{Code, Error};
 pub(crate) use crate::code::{io_at, refuse};
 pub(crate) use event::{is_hex, is_id, is_name};
 pub(crate) use git::{
-    check_git_locks, check_ident, check_main_worktree, committed, exclude_file, ignores, signing_key,
+    check_git_locks, check_ident, check_main_worktree, committed, exclude_file, ignores, signing_key, staged,
 };
 pub(crate) use sign::sign_with;
 pub(crate) use store::write_atomic;

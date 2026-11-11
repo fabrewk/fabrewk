@@ -34,7 +34,11 @@ fn text(fx: &Fx) -> String {
 
 /// The points of the fermento as it stands.
 fn points(fx: &Fx) -> Vec<Point> {
-    let (text, parts) = fermento::open(&fx.domain, "xel").unwrap();
+    points_of(fx, "xel")
+}
+
+fn points_of(fx: &Fx, alias: &str) -> Vec<Point> {
+    let (text, parts) = fermento::open(&fx.domain, alias).unwrap();
     fermento::points(&text[..parts.input_end])
 }
 
@@ -46,7 +50,11 @@ fn edit(text: &str) -> Value {
 /// The answer for every point of the fermento as it stands, with `edits` by point number; written outside the
 /// domain as `answer.json`.
 fn answer(fx: &Fx, edits: &[(u32, Value)]) -> &'static str {
-    let rows: Vec<Value> = points(fx)
+    answer_of(fx, "xel", edits)
+}
+
+fn answer_of(fx: &Fx, alias: &str, edits: &[(u32, Value)]) -> &'static str {
+    let rows: Vec<Value> = points_of(fx, alias)
         .iter()
         .map(|p| {
             let rec = json!({"point": format!("About {}", p.number), "clarify": "Say it in one line.", "destination": "alambique 6.1"});
@@ -398,7 +406,7 @@ fn refusal_record_id_collision_for_an_identifier_another_proposal_holds() {
     // The proposal the sweep would make, and another one the record already holds under its identifier.
     let payload = json!({"point": {"number": 2, "digest": two.digest}, "target": given["target"], "base": given["base"],
                          "units": given["units"], "keys": given["keys"], "result": given["result"]});
-    let id = format!("p-{}", &subject_digest(&payload).unwrap()[..8]);
+    let id = format!("p-{}", &subject_digest(&json!({"fermento": "xel", "proposal": payload})).unwrap()[..8]);
     let mut other = payload.clone();
     other["id"] = json!(id);
     other["result"] = json!("1".repeat(64));
@@ -431,4 +439,44 @@ fn req_fer_1_a_directory_that_is_no_maintainers_is_no_finding_of_c6_or_c12() {
     for code in ["MAINTAINER_UNLISTED", "FERMENTO_MISSING", "SEPARATOR_MISSING"] {
         assert!(!ran.stdout.contains(code), "{code}: {ran:?}");
     }
+}
+
+#[test]
+fn refusal_input_uncommitted_for_an_edit_staged_while_the_working_copy_is_as_committed() {
+    let fx = published("staged-input");
+    let original = text(&fx);
+    fs::write(fermento_path(&fx), original.replace("First point.", "First, staged.")).unwrap();
+    fx.git(&["add", ".brewstillery/xel/fermento.md"]);
+    fs::write(fermento_path(&fx), &original).unwrap();
+    let staged = fx.git(&["diff", "--cached"]);
+    assert!(staged.contains("First, staged."));
+    let file = answer(&fx, &[]);
+    let before = log(&fx);
+    let e = refused(&fx, &["sweep", "xel", "--answer", file], "INPUT_UNCOMMITTED", 1, "es");
+    assert!(e["detail"].as_str().unwrap().contains("staged"), "{e}");
+    // Nothing was written, and the person's staged edit stands as it was (REQ-REG-10, PD-41).
+    assert_eq!((log(&fx), text(&fx)), (before, original));
+    assert_eq!(fx.git(&["diff", "--cached"]), staged);
+}
+
+#[test]
+fn req_fer_4_two_maintainers_with_the_same_edit_have_two_proposals() {
+    let fx = published("two-maintainers");
+    let ana = format!("\n[maintainers.ana]\nrole = \"contributor\"\nkey = \"{}\"\n", public(&fx.keys, "stranger"));
+    fx.edit_policy(&format!("{}{ana}", fs::read_to_string(fx.domain.join("settings.toml")).unwrap()));
+    ok(&fx.run(&["adopt", "--say", SAY, "--widen", "maintainers.ana"]));
+    fs::create_dir(fx.domain.join("ana")).unwrap();
+    fs::write(fx.domain.join("ana/fermento.md"), format!("{INPUT}{}", fermento::block("en", "ana"))).unwrap();
+    fx.commit("ana's fermento");
+    let mut ids = Vec::new();
+    for alias in ["xel", "ana"] {
+        let file = answer_of(&fx, alias, &[(2, edit("**6.1.** Same."))]);
+        let ran = fx.run(&["sweep", alias, "--answer", file, "--json"]);
+        ok(&ran);
+        let id = ran.doc()["proposals"][0].as_str().unwrap().to_owned();
+        let zone = fs::read_to_string(fx.domain.join(alias).join("fermento.md")).unwrap();
+        assert!(zone.contains(&format!("fabrewk discard {id}")), "{alias}: {zone}");
+        ids.push(id);
+    }
+    assert_ne!(ids[0], ids[1]);
 }

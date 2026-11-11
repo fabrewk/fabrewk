@@ -326,7 +326,9 @@ fn req_fer_4_the_answer_is_generated_from_the_events_in_the_maintainers_language
     // The proposal shows its state and the command that discards it first, its identifier only in that command and
     // after the text, as a reference; the drafted text is fenced by a fence longer than any backticks it holds.
     let proposal = &en[en.find("### Proposals for a maestro").unwrap()..];
-    assert!(proposal.contains("**Point 2, a proposal for the alambique (pending)**\n\nTo discard it, a maestro runs:\n\n    fabrewk discard p-1234abcd --say \"<your words>\"\n\n"), "{proposal}");
+    assert!(proposal.contains("**Point 2, a proposal for the alambique (pending)**\n\nTo discard it, a maestro runs this, saying why with --say:\n\n    fabrewk discard p-1234abcd\n\n"), "{proposal}");
+    // PD-32: the command is printed without words, so running it as printed refuses.
+    assert!(!proposal.contains("--say \"") && !proposal.contains("<your words>"), "{proposal}");
     assert!(
         proposal.contains("Point 6.1, replaced whole:\n\n````\n**6.1.** New text with ``` inside.\n````\n\n"),
         "{proposal}"
@@ -346,7 +348,10 @@ fn req_fer_4_the_answer_is_generated_from_the_events_in_the_maintainers_language
         ),
         "{es}"
     );
-    assert!(es.contains("Para descartarla, un maestro corre:") && es.contains("pendiente"), "{es}");
+    assert!(
+        es.contains("Para descartarla, un maestro corre esto, diciendo por qué con --say:") && es.contains("pendiente"),
+        "{es}"
+    );
     // No generated line is the separator's marker, so the next sweep finds it once.
     assert!(!en.lines().any(|l| l == MARKER) && !es.lines().any(|l| l == MARKER));
     // Another maintainer's fermento has nothing to show.
@@ -617,4 +622,17 @@ fn refusal_fermento_missing_is_only_for_a_file_that_is_not_there() {
     std::fs::write(domain.join("xel"), "not a directory").unwrap();
     let got = fermento::read(&domain, "xel").unwrap_err().code();
     assert_ne!(got, Some(Code::FermentoMissing));
+}
+
+#[test]
+fn req_fer_1_a_break_is_a_line_feed_or_a_carriage_return_and_a_line_feed() {
+    let marker = block("xel");
+    // A fence closed by a line that ends in CRLF closes, so the separator after it stands outside.
+    let closed = format!("```\ncode\n```\r\n{marker}");
+    assert!(split(&closed).is_ok());
+    // The same, a document broken only by CRLF, and a fence left open by it.
+    let all = format!("# Fermento\n\n1. One.\n\n```\ncode\n```\n\n{marker}").replace('\n', "\r\n");
+    let parts = fermento::split(&all, "xel").unwrap();
+    assert_eq!(fermento::points(&all[..parts.input_end]).len(), 1);
+    assert_eq!(split(&format!("```\r\ncode\r\n{marker}")), Err(Code::SeparatorMissing));
 }

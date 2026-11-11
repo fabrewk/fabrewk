@@ -164,7 +164,9 @@ ignored. The exclude line is `/.brewstillery/`, added once to the file `git rev-
   `digest16` the first 16 hexadecimal digits of the file's SHA-256. Streams: `project`, `alambique`,
   `rules`, `fermento-<alias>`, `stage-<id>`, `task-<id>`, `ext-<name>`. A stage, task or proposal identifier is a letter, a
   hyphen and the first 8 hexadecimal digits of the digest of the payload that creates it, which holds a random nonce of
-  16 bytes (`s-…`, `t-…`, `p-…`); `check` refuses two subjects with one identifier (`RECORD_ID_COLLISION`). (6.26,
+  16 bytes (`s-…`, `t-…`, `p-…`); `check` refuses two subjects with one identifier (`RECORD_ID_COLLISION`). A proposal's identifier is instead
+  the first 8 hexadecimal digits of the digest of its fermento's alias and its payload without `id`, so that the same
+  edit swept again is the proposal already recorded and two maintainers' identical edits are two (part 8a, P8A-3). (6.26,
   AD-1)
 - **REQ-REG-2.** Every event (schema version 1) has these fields: `schema`; `stream`; `seq`; `prev` (the full digest of
   the stream's previous event, `null` only at `seq` 1); `kind`; `at` (UTC, RFC 3339, informative: order comes from

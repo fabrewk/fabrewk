@@ -103,6 +103,13 @@ pub(crate) fn committed(repo: &Repo, path: &Path) -> Result<Option<Vec<u8>>, Err
     Ok(out.status.success().then_some(out.stdout))
 }
 
+/// The bytes of `path`, relative to the domain, as the person's index holds them; `None` if the index lacks it.
+pub(crate) fn staged(repo: &Repo, path: &Path) -> Result<Option<Vec<u8>>, Error> {
+    let spec = format!(":{}", repo.prefix.join(path).to_string_lossy());
+    let out = run(command(repo, &os(&["cat-file", "blob", &spec])), b"")?;
+    Ok(out.status.success().then_some(out.stdout))
+}
+
 /// Whether the repository ignores `path`, relative to its root, by `git check-ignore` (REQ-DOM-7): a tracked path is
 /// not ignored.
 pub(crate) fn ignores(repo: &Repo, path: &Path) -> Result<bool, Error> {

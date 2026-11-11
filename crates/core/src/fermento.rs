@@ -24,14 +24,15 @@ pub struct Parts {
     pub after: usize,
 }
 
-/// The lines of `text` with the byte offset each starts at; a final line without a break is a line.
+/// The lines of `text` with the byte offset each starts at; a final line without a break is a line, and a break is
+/// `\n` or `\r\n` (CommonMark), neither part of the line.
 fn lines(text: &str) -> Vec<(usize, &str)> {
     let mut at = 0;
     text.split_inclusive('\n')
         .map(|l| {
             let start = at;
             at += l.len();
-            (start, l.strip_suffix('\n').unwrap_or(l))
+            (start, l.strip_suffix('\n').map_or(l, |l| l.strip_suffix('\r').unwrap_or(l)))
         })
         .collect()
 }
@@ -409,7 +410,7 @@ pub fn answer(record: &Replay, alias: &str, lang: &str) -> String {
         let target = t(&format!("target.{}", p.payload["target"].as_str().unwrap_or_default()), &[]);
         let state = t(&format!("state.{}", if stale(p, sweep) { "stale" } else { "pending" }), &[]);
         out += &format!("**{}**\n\n", t("proposal", &[("number", &n), ("state", &state), ("target", &target)]));
-        out += &format!("{}\n\n    fabrewk discard {} --say \"<{}>\"\n\n", t("discard", &[]), p.id, t("words", &[]));
+        out += &format!("{}\n\n    fabrewk discard {}\n\n", t("discard", &[]), p.id);
         for u in p.payload["units"].as_array().into_iter().flatten() {
             let (kind, num) = (u["kind"].as_str().unwrap_or_default(), |k: &str| u[k].to_string());
             let label = t(&format!("unit.{kind}"), &[("n", &num("n")), ("m", &num("m"))]);
