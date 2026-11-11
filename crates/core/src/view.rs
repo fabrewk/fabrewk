@@ -150,10 +150,8 @@ pub fn waits(record: &Replay) -> Vec<Wait> {
     }
     let proposals = fermento::proposals(record).unwrap_or_default();
     for p in proposals.values().filter(|p| p.state == "pending") {
-        let recorded = record
-            .streams
-            .get(&format!("fermento-{}", p.alias))
-            .and_then(|s| s.iter().find(|e| e.kind == "proposal-recorded" && text(e, "id") == p.id));
+        let recorded =
+            record.streams.get(&format!("fermento-{}", p.alias)).and_then(|s| s.iter().find(|e| text(e, "id") == p.id));
         let since = recorded.map(at).unwrap_or_default();
         wait(Who::Maestro, "proposal", &p.id, since, p.alias.clone(), &[cmd("approve", &p.id), cmd("discard", &p.id)]);
     }

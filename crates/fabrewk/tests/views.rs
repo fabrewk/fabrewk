@@ -177,6 +177,8 @@ fn req_view_1_status_shows_what_waits_for_whom_and_since_when_from_the_replay_al
     assert!(status.contains(&format!("`fabrewk status {stage}`")));
     // The task is not asked for while its stage waits: the stage's authorization covers it.
     assert!(!status.contains("was proposed into an authorized stage"), "{status}");
+    // A gap of seconds, so that the authorization is told from the proposal by its time.
+    std::thread::sleep(std::time::Duration::from_millis(1100));
     authorize(&fx, &stage);
     let since = std::cmp::max(at(&fx, &format!("stage-{stage}")), at(&fx, &format!("task-{task}")));
     let status = read(&fx, "STATUS.md");
@@ -488,6 +490,7 @@ fn refusal_close_of_a_proposed_stage_a_task_an_unknown_id_a_stranger_and_an_agen
     }
     let ran = fx.run(&["close", &task, "--say", SAY]);
     assert!(ran.stderr.contains(&say("es", "usage.task", &[("word", &task)])), "{ran:?}");
+    assert_eq!(fx.run(&["close", &task, "--say", SAY, "--json"]).doc()["run"], "fabrewk close --help");
     // Words are the person's own.
     authorize(&fx, &stage);
     ok(&fx.run(&["reject", &task, "--say", SAY, "--json"]));
@@ -529,14 +532,10 @@ fn req_view_1_a_pending_proposal_waits_for_the_maestro_until_it_is_decided() {
     let swept = fx.run(&["sweep", "xel", "--answer", "answer.json", "--json"]);
     ok(&swept);
     let id = swept.doc()["proposals"][0].as_str().unwrap().to_owned();
-    let line = say(
-        "en",
-        "view.wait.proposal",
-        &[("id", &id), ("detail", "xel"), ("since", &at(&fx, "fermento-xel").as_str())],
-    );
-    // The proposal was recorded by the sweep's second event; the wait starts there, not at the sweep.
+    // The wait starts at the event that recorded the proposal.
     let recorded = fx.events("fermento-xel").into_iter().find(|e| e["kind"] == "proposal-recorded").unwrap();
-    let line = line.replace(&at(&fx, "fermento-xel"), recorded["at"].as_str().unwrap());
+    let since = recorded["at"].as_str().unwrap();
+    let line = say("en", "view.wait.proposal", &[("id", &id), ("detail", "xel"), ("since", since)]);
     let status = read(&fx, "STATUS.md");
     assert!(status.contains(&line), "{line}\n{status}");
     assert!(status.contains(&format!("`fabrewk approve {id}`")) && status.contains(&format!("`fabrewk discard {id}`")));
@@ -549,4 +548,45 @@ fn req_view_1_a_pending_proposal_waits_for_the_maestro_until_it_is_decided() {
     ok(&fx.run(&["discard", &id, "--say", SAY, "--json"]));
     assert!(!read(&fx, "STATUS.md").contains(&format!("`fabrewk approve {id}`")));
     assert_eq!(fx.run(&["status", "--json"]).doc()["waiting"], json!([]));
+}
+
+#[test]
+fn c5_is_unknown_for_a_record_that_does_not_replay_and_silent_for_an_absent_one() {
+    let finding = |fx: &Fx| -> Vec<String> {
+        let doc = fx.run(&["check", "--json"]).doc();
+        let list = doc["findings"].as_array().unwrap().iter().filter(|f| f["check"] == "C5");
+        list.map(|f| f["code"].as_str().unwrap().to_owned()).collect()
+    };
+    let fx = published("c5-broken");
+    fs::write(fx.domain.join("data/events/project/000009-0000000000000000.json"), "{}").unwrap();
+    assert_eq!(finding(&fx), ["CHECK_UNKNOWN"]);
+    let bare = Fx::bare("c5-absent", "published");
+    assert_eq!(finding(&bare), Vec::<String>::new());
+}
+
+#[test]
+fn a_view_in_a_domain_reached_through_a_link_is_stale_and_replaced_by_a_write() {
+    let fx = published("view-linked-domain");
+    let record = fabrewk_core::record::replay(&fx.domain, &fabrewk_core::identity::PolicyVerifier).unwrap();
+    assert!(fabrewk_core::view::stale(&fx.domain, &record).is_empty());
+    let link = fx.root.join("linked");
+    std::os::unix::fs::symlink(&fx.domain, &link).unwrap();
+    let stale = fabrewk_core::view::stale(&link, &record);
+    assert_eq!(stale.len(), 2, "{stale:?}");
+    assert!(stale.iter().all(|e| e.code() == Some(fabrewk_core::Code::ViewStale)), "{stale:?}");
+}
+
+#[test]
+fn a_stage_closed_payload_holds_its_shape() {
+    use fabrewk_core::task::check;
+    let good = json!({"stage": "s-0123abcd", "head": {"seq": 2, "digest": H}, "sweeps": [{"alias": "xel", "head": {"seq": 1, "digest": H}}]});
+    assert!(check("stage-closed", &good).is_ok());
+    for bad in [json!({}), json!({"stage": "s-0123abcd", "head": {"seq": 2, "digest": H}}), {
+        let mut p = good.clone();
+        p["extra"] = json!(1);
+        p
+    }] {
+        let e = check("stage-closed", &bad).unwrap_err();
+        assert_eq!(e.code(), Some(fabrewk_core::Code::RecordVersionUnknown), "{bad}");
+    }
 }

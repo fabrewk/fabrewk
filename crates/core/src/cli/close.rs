@@ -59,14 +59,12 @@ pub(super) fn close(cx: &Cx, id: &str, options: &Options) -> Result<Out, Failed>
                 Ok(())
             }
             "ALAMBIQUE_UNAPPROVED" => alambique::check(record, &cx.domain),
-            "RECORD_UNCOMMITTED" => match Repo::for_domain(&cx.domain, st.mode).map(|r| record::uncommitted(&r)) {
-                Some(Ok(files)) if !files.is_empty() => {
-                    let why = format!("{} event or signature files not in the record branch's tip", files.len());
-                    Err(refuse(Code::RecordUncommitted, Some(&files[0]), why))
-                }
-                Some(Err(e)) => Err(e),
-                _ => Ok(()),
-            },
+            "RECORD_UNCOMMITTED" => {
+                let repo = Repo::for_domain(&cx.domain, st.mode);
+                let files = repo.map(|r| record::uncommitted(&r)).transpose()?.unwrap_or_default();
+                let why = format!("{} event or signature files not in the record branch's tip", files.len());
+                files.first().map_or(Ok(()), |f| Err(refuse(Code::RecordUncommitted, Some(f), why)))
+            }
             _ => Ok(()),
         })?;
         let payload = json!({"stage": &stream[6..], "head": head(&record.streams[&stream]), "sweeps": sweeps});
