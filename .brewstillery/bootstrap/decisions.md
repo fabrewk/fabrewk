@@ -3208,3 +3208,68 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Sources: chat of session 27; `STATUS.md`'s "Next"; D-053 point 3, D-065, D-068, D-069, D-072;
   `core-specification.md` sections 2 FER, 3 to 6, 12.
 - Supersedes: none.
+
+## R-036 — Session 27, part 8b: the alambique
+
+- Status: recorded
+- Date: 2026-11-11
+- Who: integrator Claude Code, `claude-sonnet-5-5`, effort high. Reviewer: Codex `codex-cli 0.166.0`, `gpt-6.1-sol`,
+  effort medium (plan row 8), launched as the `codex-review` skill says (a disposable clone under `target/review-8b/`
+  with a copy of the Cargo registry, `workspace-write`, no network, a user scope capped at 3 GB). No subagent.
+- Start: HEAD `cfb54b4`, tree clean.
+- Read: `STATUS.md`, `AGENTS.md`, `plan.md`, this file (D-072, R-035), `core-specification.md` (FER, sections 3 to 7 and
+  12), the skills `verify-part` and `codex-review`, and the code of the table, the fermento, the write path, `check`,
+  the declaration and the fixtures.
+- Decided before any code (D-073): the baseline rule, the commit of the alambique for a direct edit, the difference
+  as one hunk, `ALAMBIQUE_UNAPPROVED` before confinement.
+- Written: `crates/core/src/alambique.rs` (units replaced whole, the rules and their digest, the text last approved,
+  C7's function, `unchanged`, the difference, the replay's checks of the streams `alambique` and `rules`);
+  `crates/core/src/cli/approve.rs`; the write path's alambique step (`Plan.alambique`, guards before the machine key,
+  `Session::replayable`, `Session::commit_alone`, `commit_record` taking its message); payload schemas of
+  `alambique-baseline`, `direct-edit-approved`, `proposal-incorporated`; C7; the `run` guard; the approve line of the
+  fermento's answer; five codes (`ALAMBIQUE_CHANGED`, `ALAMBIQUE_MISSING` (new, to ratify), `ALAMBIQUE_UNAPPROVED`,
+  `PROPOSAL_STALE`, `UNIT_AMBIGUOUS`); catalogues in `en` and `es`; generated completions and reference; tests in
+  `crates/core/tests/alambique.rs`, `crates/fabrewk/tests/alambique.rs` and six in `faults.rs`; the paragraph "The
+  alambique and the rules, as part 8b fixed them" and the rows it touches in `core-specification.md`; `plan.md`,
+  `STATUS.md`, D-073, this entry.
+- Interpretations the maestro may want to read (none contradicts a requirement):
+  1. `ALAMBIQUE_MISSING` is new: `approve alambique` finds no regular file, or not valid text. To ratify.
+  2. `ALAMBIQUE_UNAPPROVED` joined the `proposal-incorporated` guards, after `ALAMBIQUE_CHANGED`, for an alambique
+     target: an edit drafted from text nobody approved would approve that text whole.
+  3. A proposal is stale against the fermento as the file stands at `approve`, not against the last sweep; "the
+     drafted text changed" is the units not giving the predicted result.
+  4. `keys` is shown, not checked: the predicted digest binds the whole text.
+  5. The rules are `R<n>`; their digest is that of their canonical JSON (`{}` for none); the `rules` event carries all
+     the rules after it; the replay holds both streams to their proposals (`RECORD_TRANSITION_INVALID`). `RULES.md`
+     follows in 8c.
+  6. A unit spans from its first line to the end of its last non-blank line; a section ends at any heading of level 1
+     or 2 (up to three spaces of indentation, a tab, or empty); a point at the next point or any heading.
+  7. Order: event, file, the alambique's commit, the record commit. Every guard that can refuse, `ALAMBIQUE_CHANGED`
+     (file, tip and index) among them, is evaluated before the machine key is put in place and before leftovers are
+     committed; the replay runs before the alambique's commit. A process killed between the event and the file leaves
+     C7 reporting the file; `approve alambique` is the recovery. An index the alambique's commit could not follow is
+     reported with the commit made and the command `git -C <repository> add <file>` (in words when a path is not plain).
+- Codex, three passes, confirmed blocking findings by pass: 5, 1, 0. Pass 1 (`b611049`): P8B-1 (the index not checked
+  again before the file is written), P8B-2 (a section ended only at `# ` or `## `), P8B-3 (a refusal after the machine
+  key was put in place), P8B-4 (an index the commit could not follow was left as a reversion), P8B-5 (the replay failed
+  after the alambique's commit). Pass 2 (`1ba880e`): all five closed; P8B-6 (the fix printed `git add` for the wrong
+  repository in `own-repository`). Pass 3 (`9399f8d`): **accept**. Each new test failed without its correction (the
+  five of pass 1 run with the sources stashed). Codex wrote its reports in Spanish; its sandbox cannot open an SSH
+  agent's socket, so it skipped that test, which passes here.
+- Clean clone of `2debde4`, rustup 1.99.1: 380 tests, `crash` 3 and `faults` 17 green; the musl release build, whose
+  `--version --json` lists no feature; `budget check --binary` exits 0: core 7,135 of 7,500 counted lines in 38 files,
+  4 direct runtime crates, 31 crates in the release build, the binary 2,167,144 bytes; `clippy --workspace
+  --all-targets -D warnings` with and without `fabrewk-core/fault-injection`, `fmt --check`, `cargo deny --offline
+  check licenses advisories` clean. A first clean clone with `CARGO_TARGET_DIR` set failed one test of the counter
+  (it expects the clone's own `target/`): leave it unset.
+- Mutation, with `--features fabrewk-core/fault-injection`, `--test-workspace true`, `--build-timeout 600`,
+  `ulimit -v 1600000`: at `9b69d90`, 197 mutants, 151 caught, 42 unviable, 3 missed (C7 with a record that does not
+  replay) and 1 timeout (C7's reason for a file gone), all killed by tests (8 of 8 caught on a rerun). Over pass 1's
+  corrections: 34 mutants, 24 caught, 9 unviable, 1 missed (the plain-path rule of the printed fix), killed by a
+  test; over `commit_alone` and `replayable`, 9 of 9 caught. No equivalent declared. One baseline build failed once
+  with `LOCK_HELD` in an 8a test and was not reproduced in five reruns or in the next baseline.
+- Size: the core grew from 6,662 to 7,135 counted lines (+473) with part 8b. Phase 8 with 8c (the views, `close`,
+  `VIEW_STALE`, who acts next; projected +300 to +500) will likely pass 7,500 before phase 9 starts: the ceiling is the
+  maestro's to decide (D-069), and 8c should not start without that decision if it will cross.
+- Not done: part 8c; the base text of `RULES.md` (to draft for the maestro's approval when 8c starts); `accept`
+  (phase 9) and `close` (8c) call `alambique::check`.

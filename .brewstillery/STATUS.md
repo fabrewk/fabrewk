@@ -7,16 +7,16 @@ view generated from that registry. Technical files are in English by default (D-
 
 **Phases 0 to 7 are closed (D-037, D-040, D-070). Phase 7 (the first code) was split into parts 7a, 7b, 7c1, 7c2a,
 7c2b, 7d1, 7d2, 7s, 7d3a and 7d3b (D-041, D-047, D-048, D-050, D-053, D-059, D-062), the last the task commands
-(D-068, D-069, R-034); phase 8, the core's part 2, is split into 8a, 8b and 8c (D-072); 8a is closed and 8b is next.** The repository holds the first code at its root: a
+(D-068, D-069, R-034); phase 8, the core's part 2, is split into 8a, 8b and 8c (D-072); 8a and 8b are closed and 8c is next.** The repository holds the first code at its root: a
 Cargo workspace with one crate per ring (`crates/core`, `crates/fabrewk`, the binary, which runs the core's command
 surface) and the size counter `tools/budget`, the licence files, `deny.toml` and a root `.gitignore` with `/target`.
 The record is built in `crates/core/src/record/`, the settings in `crates/core/src/settings/`, identity in
 `identity.rs`, the private folder and the machine file in `machine.rs`, detection and profiles in `detect.rs`, the
 domain's layout in `domain.rs`, the transition table in `table.rs`, the payloads and pattern guards in `task.rs`, the
-credential scan in `scan.rs`, the fermento in `fermento.rs`, and the command surface in `crates/core/src/cli/` with its catalogue in
+credential scan in `scan.rs`, the fermento in `fermento.rs`, the alambique and the rules in `alambique.rs`, and the command surface in `crates/core/src/cli/` with its catalogue in
 `crates/core/catalogue/` (`en`, `es`); `fabrewk status`, `fabrewk config` and `fabrewk check` read, and `fabrewk
 adopt`, `fabrewk propose`, `fabrewk authorize`, `fabrewk reject` and `fabrewk run` (up to confinement) write, through one
-write path in `crates/core/src/cli/write.rs`. The skills the maestro approved are in `.brewstillery/skills/`, listed in `AGENTS.md`. The core counts 6,662 of 7,500 lines, formatted at width 120 (D-049, D-054). No `data/` exists in this
+write path in `crates/core/src/cli/write.rs`. The skills the maestro approved are in `.brewstillery/skills/`, listed in `AGENTS.md`. The core counts 7,135 of 7,500 lines, formatted at width 120 (D-049, D-054). No `data/` exists in this
 repository, whose project file still holds bootstrap keys, so `fabrewk check` here reports them. The domain is
 `.brewstillery/`, hidden (D-032).
 
@@ -266,17 +266,33 @@ repository, is imported into the single registry at production and then stays re
   lines (6,662): phase 8 will likely pass 7,300 and phase 9's core the ceiling, which the maestro decides when phase 9
   starts (D-069). `verify-part`'s `ulimit -v 1000000` no longer fits the core's build (1,600,000 was used); the skill
   is the maestro's to change.
-- **Next: part 8b (plan row 8b), the alambique.** `approve` and its edits of `ALAMBIQUE.md` and of `rules`, the
-  alambique's baseline and last approved digest, `direct-edit-approved`, REQ-FER-5 to REQ-FER-7, C7 and
-  `ALAMBIQUE_UNAPPROVED` at `run`, `accept` and `close`, PD-41's `approve` half, and the `approve` command named in
-  the answer; with the `MOVE_NOT_ALLOWED` test of `approve` for a discarded proposal (D-053 point 3). Then 8c: the
-  views (`STATUS.md` and `RULES.md` generated, `VIEW_STALE`, C5), `close`, who acts next; its start drafts the base
-  text of `RULES.md` for the maestro's approval. When phase 9 starts, the maestro decides the core's ceiling with
-  phase 8's measure (D-069), and its opening session runs on Claude Fable 5.2, effort high, as a calibration (D-071).
-- **Start prompt:** `Eres el integrador de Fabrewk; fase 8, parte 8b: el alambique, approve y sus ediciones, y las
-  propuestas de rules; empieza por .brewstillery/STATUS.md`. Model and effort: Claude Code
-  on Sonnet 5.5, effort high; Codex GPT-6.1 Sol, effort medium, reviews the code (plan row 8). Read the skills
-  `verify-part` and `codex-review` before the checks and the review.
+- **Part 8b closed (session 27, D-073, R-036).** Before any code the maestro decided that with no baseline C7 passes for
+  no file and refuses a file nobody approved (`approve alambique` then records the baseline), that `approve alambique`
+  also commits the alambique alone, that a direct edit records its difference as one hunk, and that
+  `ALAMBIQUE_UNAPPROVED` is evaluated by `run` before confinement (D-073). 8b delivers `approve <proposal|alambique>
+  --say`: an alambique proposal applies its edit by whole units (opening, section, point; `UNIT_AMBIGUOUS`), checks
+  `PROPOSAL_STALE`, `ALAMBIQUE_CHANGED` (file, tip and index) and `ALAMBIQUE_UNAPPROVED`, and commits the alambique
+  alone with the person's Git as author and no co-author; a `rules` proposal records all the rules in the stream
+  `rules`; `alambique-baseline`, `direct-edit-approved`, C7, the replay's checks of both streams, and five codes
+  (`ALAMBIQUE_MISSING` to ratify). Codex reviewed three times (confirmed blocking 5, 1, 0): the index not checked
+  again before the file is written, a section that ended only at `# ` or `## `, a refusal after the machine key was
+  put in place, an index the commit could not follow, a replay failing after the alambique's commit, and the fix
+  printed for the wrong repository in `own-repository`. Mutation: 197 mutants, all missed ones killed, none
+  equivalent. Clean clone of `2debde4`: 380 tests, `crash` 3 and `faults` 17 green, musl build, `budget check`,
+  clippy, fmt, `cargo deny` clean. Measured at +473 lines (7,135): 8c will likely cross the ceiling of 7,500 before
+  phase 9; the maestro decides it (D-069), preferably before 8c starts.
+- **Next: part 8c (plan row 8c), the views and the stage's close.** `STATUS.md` and `RULES.md` generated and
+  regenerated by every write command, `VIEW_STALE` and C5, `close` (`STAGE_OPEN_TASKS`, `SWEEP_MISSING`,
+  `ALAMBIQUE_UNAPPROVED` through `alambique::check`, `RECORD_UNCOMMITTED`), who acts next (REQ-VIEW-1 to REQ-VIEW-3,
+  REQ-TASK-6; PD-33, PD-39, PD-40, PD-42, PD-43), with the `MOVE_NOT_ALLOWED` test of `close` of a closed stage (D-053
+  point 3). Its start drafts the base text of `RULES.md` for the maestro's approval, and asks the maestro the core's
+  ceiling if the measure says it will cross 7,500. When phase 9 starts, the maestro decides the ceiling with phase 8's
+  measure (D-069), and its opening session runs on Claude Fable 5.2, effort high, as a calibration (D-071).
+- **Start prompt:** `Eres el integrador de Fabrewk; fase 8, parte 8c: las vistas (STATUS.md y RULES.md generados),
+  close y quién actúa después; empieza por .brewstillery/STATUS.md`. Model and effort: Claude Code on Sonnet 5.5,
+  effort high; Codex GPT-6.1 Sol, effort medium, reviews the code (plan row 8). Read the skills `verify-part` and
+  `codex-review` before the checks and the review. `verify-part`'s `ulimit -v 1000000` no longer fits the core's build:
+  1,600,000 was used (the skill is the maestro's to change).
 
 Carried without blocking, with destinations, in D-013. A phase that does not pass is corrected and retried; it
 never ends the project (D-003).
