@@ -7,16 +7,16 @@ view generated from that registry. Technical files are in English by default (D-
 
 **Phases 0 to 7 are closed (D-037, D-040, D-070). Phase 7 (the first code) was split into parts 7a, 7b, 7c1, 7c2a,
 7c2b, 7d1, 7d2, 7s, 7d3a and 7d3b (D-041, D-047, D-048, D-050, D-053, D-059, D-062), the last the task commands
-(D-068, D-069, R-034); phase 8, the core's part 2, is next.** The repository holds the first code at its root: a
+(D-068, D-069, R-034); phase 8, the core's part 2, is split into 8a, 8b and 8c (D-072); 8a is closed and 8b is next.** The repository holds the first code at its root: a
 Cargo workspace with one crate per ring (`crates/core`, `crates/fabrewk`, the binary, which runs the core's command
 surface) and the size counter `tools/budget`, the licence files, `deny.toml` and a root `.gitignore` with `/target`.
 The record is built in `crates/core/src/record/`, the settings in `crates/core/src/settings/`, identity in
 `identity.rs`, the private folder and the machine file in `machine.rs`, detection and profiles in `detect.rs`, the
 domain's layout in `domain.rs`, the transition table in `table.rs`, the payloads and pattern guards in `task.rs`, the
-credential scan in `scan.rs`, and the command surface in `crates/core/src/cli/` with its catalogue in
+credential scan in `scan.rs`, the fermento in `fermento.rs`, and the command surface in `crates/core/src/cli/` with its catalogue in
 `crates/core/catalogue/` (`en`, `es`); `fabrewk status`, `fabrewk config` and `fabrewk check` read, and `fabrewk
 adopt`, `fabrewk propose`, `fabrewk authorize`, `fabrewk reject` and `fabrewk run` (up to confinement) write, through one
-write path in `crates/core/src/cli/write.rs`. The skills the maestro approved are in `.brewstillery/skills/`, listed in `AGENTS.md`. The core counts 5,859 of 7,500 lines, formatted at width 120 (D-049, D-054). No `data/` exists in this
+write path in `crates/core/src/cli/write.rs`. The skills the maestro approved are in `.brewstillery/skills/`, listed in `AGENTS.md`. The core counts 6,662 of 7,500 lines, formatted at width 120 (D-049, D-054). No `data/` exists in this
 repository, whose project file still holds bootstrap keys, so `fabrewk check` here reports them. The domain is
 `.brewstillery/`, hidden (D-032).
 
@@ -254,17 +254,28 @@ repository, is imported into the single registry at production and then stays re
   phase 8's measure (projected 6,650 to 6,950 after phase 8, 7,650 to 8,350 after phase 9's core). The maestro's
   fermento edit went in its own commit (`230ff56`); the answer has no current recommendation. Then the maestro closed
   phase 7 (D-070).
-- **Next: phase 8 (plan row 8), the core's part 2.** The separator checked by code (an ambiguous one stops with
-  nothing written), the answers zone, the sweep, and `STATUS.md` generated from the registry; with what phase 7 left
-  to it: `check`'s C5, C6, C7 and C12, `ALAMBIQUE_UNAPPROVED` and the views that say who acts next, `close`, `sweep`,
-  `approve` and `discard` with their `MOVE_NOT_ALLOWED` tests (D-053 points 1 and 3), and D-061's requirement on
-  skills loaded from outside the project, to propose when the phase starts. Its start decides whether it splits into
-  parts (D-019) and what the frozen specification already fixes for it. When phase 9 starts, the maestro decides the
-  core's ceiling with phase 8's measure (D-069), and its opening session runs on Claude Fable 5.2, effort high, as a
-  calibration measured against phase 7's passes (D-071).
-- **Start prompt:** `Eres el integrador de Fabrewk; fase 8, núcleo parte 2: el separador comprobado por código, la
-  zona de respuestas, el barrido y STATUS.md generado; empieza por .brewstillery/STATUS.md`. Model and effort: Claude
-  Code on Sonnet 5.5, effort high; Codex GPT-6.1 Sol, effort medium, reviews the code (plan row 8). Read the skills
+- **Part 8a closed (session 26, D-072, R-035).** Before any code the maestro cut phase 8 into 8a, 8b and 8c and chose
+  to record REQ-FER-10 (the skills loaded from outside the project) in `sweep-recorded` (D-072). 8a delivers the
+  separator finder outside fenced code (REQ-FER-1; an ambiguous or damaged one stops with nothing written), the
+  points and their digests, the proposals in the replay and the table, `sweep --answer <file>` and `discard <id>`
+  with the answer zone generated from the events in the maintainer's language, `check`'s C6 and C12, and ten codes
+  (`ANSWER_INVALID` to ratify). Codex reviewed three times (confirmed blocking 4, 1, 0): a CRLF fence, a staged edit
+  of the fermento, two maintainers' identical edits, a printed command carrying words, a hash collision across aliases.
+  Mutation: 15 of 318 survived the first run and were killed; none equivalent. Clean clone of `cf3db8d`: 358 tests,
+  `crash` 3 and `faults` 11 green, musl build, `budget check`, clippy, fmt, `cargo deny` clean. Measured at +803
+  lines (6,662): phase 8 will likely pass 7,300 and phase 9's core the ceiling, which the maestro decides when phase 9
+  starts (D-069). `verify-part`'s `ulimit -v 1000000` no longer fits the core's build (1,600,000 was used); the skill
+  is the maestro's to change.
+- **Next: part 8b (plan row 8b), the alambique.** `approve` and its edits of `ALAMBIQUE.md` and of `rules`, the
+  alambique's baseline and last approved digest, `direct-edit-approved`, REQ-FER-5 to REQ-FER-7, C7 and
+  `ALAMBIQUE_UNAPPROVED` at `run`, `accept` and `close`, PD-41's `approve` half, and the `approve` command named in
+  the answer; with the `MOVE_NOT_ALLOWED` test of `approve` for a discarded proposal (D-053 point 3). Then 8c: the
+  views (`STATUS.md` and `RULES.md` generated, `VIEW_STALE`, C5), `close`, who acts next; its start drafts the base
+  text of `RULES.md` for the maestro's approval. When phase 9 starts, the maestro decides the core's ceiling with
+  phase 8's measure (D-069), and its opening session runs on Claude Fable 5.2, effort high, as a calibration (D-071).
+- **Start prompt:** `Eres el integrador de Fabrewk; fase 8, parte 8b: el alambique, approve y sus ediciones, y las
+  propuestas de rules; empieza por .brewstillery/STATUS.md`. Model and effort: Claude Code
+  on Sonnet 5.5, effort high; Codex GPT-6.1 Sol, effort medium, reviews the code (plan row 8). Read the skills
   `verify-part` and `codex-review` before the checks and the review.
 
 Carried without blocking, with destinations, in D-013. A phase that does not pass is corrected and retried; it

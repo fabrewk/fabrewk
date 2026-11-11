@@ -3106,3 +3106,73 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Sources: chat of session 26; `STATUS.md`'s "Next"; D-019, D-053, D-061, D-069, D-070; `core-specification.md`
   sections 2 FER, VIEW, TASK-6, 3 to 6, 11.3 to 11.5, 12, 13.
 - Supersedes: none.
+
+## R-035 — Session 26, part 8a: the fermento and its answer
+
+- Status: recorded
+- Date: 2026-11-10
+- Who: integrator Claude Code, `claude-sonnet-5-5`, effort high. Reviewer: Codex `codex-cli 0.166.0`, `gpt-6.1-sol`,
+  effort medium (plan row 8), launched as the `codex-review` skill says (a disposable clone under `target/review-8a/`
+  with a copy of the Cargo registry, `workspace-write`, no network, a user scope capped at 3 GB). No subagent.
+- Start: HEAD `dfceb6c`, tree clean.
+- Read: `STATUS.md`, `AGENTS.md`, `plan.md`, this file (D-053, D-061, D-062 to D-071, R-031, R-034),
+  `core-specification.md` (sections 2 FER, VIEW, TASK-6, 3 to 6, 11.2 to 11.4, 12, 13), the skills `verify-part` and
+  `codex-review`, and the code of the table, the write path, the declaration, the catalogues and `check`, with their
+  tests.
+- Decided before any code (D-072): the cut into 8a, 8b and 8c, and REQ-FER-10 recorded in `sweep-recorded`.
+- Written: `crates/core/src/fermento.rs` (the separator finder outside fences, the points and their digests, the
+  payload schemas of `sweep-recorded` and `proposal-*`, the proposals' states derived from the record, the answer zone
+  generated from it, the skills listing); `crates/core/src/cli/sweep.rs` (`sweep`, `discard`); the view step of the
+  write path (`Plan.view`, `INPUT_CHANGED` checked before the events and again before the file); `check`'s C6 and
+  C12; the declaration of the two commands and of `--answer`; ten codes (`ANSWER_INVALID`, `FERMENTO_MISSING`,
+  `INPUT_CHANGED`, `INPUT_UNCOMMITTED`, `MAINTAINER_UNLISTED`, `POINT_CHANGED`, `PROPOSAL_UNKNOWN`,
+  `SEPARATOR_AMBIGUOUS`, `SEPARATOR_DAMAGED`, `SEPARATOR_MISSING`); the catalogues in `en` and `es`; the generated
+  completions and reference; tests in `crates/core/tests/fermento.rs` and `crates/fabrewk/tests/fermento.rs` (with two
+  property tests against a reference fence scanner) and two in `faults.rs`; `core-specification.md` (REQ-FER-10, the
+  new codes, REQ-REG-1's proposal identifier), `plan.md`, `STATUS.md`, D-072, this entry.
+- Interpretations the maestro may want to read (none contradicts a requirement):
+  1. `ANSWER_INVALID` is new: an answer file of the wrong shape or content (the same shape in a recorded payload stays
+     `RECORD_VERSION_UNKNOWN`). To ratify.
+  2. The agent that makes `sweep-recorded` and `proposal-recorded` is the one the answer file names (`agent`: tool,
+     provider, model; `modelObserved` null); `proposal-withdrawn` is made by `fabrewk`.
+  3. A proposal's identifier is `p-` and the first 8 hexadecimal digits of the digest of its fermento's alias and its
+     payload without `id`, not of a payload with a nonce: the same edit swept again is the proposal already recorded
+     (REQ-REG-1 says so now). A known identifier with another alias or another payload is `RECORD_ID_COLLISION`.
+  4. "Stale" is derived (the point's number or digest differs from the last sweep's), never recorded; a pending
+     proposal is withdrawn when no point of the input bears its number.
+  5. `discard` rewrites nothing: the next sweep regenerates the answer. Until 8b the answer names only `discard`.
+  6. "Input committed" is the digest of the input in the record branch's tip equal to the working file's, and, since
+     pass 1, the person's index holding the committed fermento as well (a staged edit is theirs). It is checked only
+     where the mode commits.
+  7. A line break is `\n` or `\r\n`; the command the answer prints for a discard carries no words (PD-32).
+  8. `Program.skills` (folders relative to the home, empty for the fake modules) joined the module contract of D-052.
+- Codex, three passes, confirmed blocking findings by pass: 4, 1, 0. Pass 1 (`871254f`): P8A-1 (a fence closed by a
+  CRLF line hid the separator), P8A-2 (the record commit overwrote the person's staged edit of the fermento while the
+  working copy equalled HEAD), P8A-3 (the identifier ignored the alias, so a second maintainer's identical edit
+  vanished), P8A-4 (the printed discard command carried placeholder words that signed as real ones). Pass 2
+  (`1066ceb`): all four closed; P8A-5 (a hash collision across aliases taken for a repeated sweep) confirmed and
+  corrected; P8A-6 (a sweep after the identifier's scheme changed duplicates an edit recorded with the earlier scheme)
+  not confirmed: it needs a record made by an intermediate commit of this part, and no record outside throwaway
+  fixtures exists (the repository has no `data/`). Pass 3 (`cf3db8d`): **accept**, P8A-6 not sustained. Each new test
+  failed without its correction (run with the sources stashed, and by Codex on its own variants). Codex wrote its
+  reports in Spanish; its sandbox cannot bind an SSH agent's socket, so it skipped that one test, which passes here.
+- Clean clone of `cf3db8d`, rustup 1.99.1: 358 tests green, and the fault suites (`crash` 3, `faults` 11); the musl
+  release build, whose `--version --json` lists no feature; `budget check --binary` exits 0: core 6,662 of 7,500
+  counted lines in 36 files, 4 direct runtime crates, 31 crates in the release build, the binary 2,036,072 bytes;
+  `clippy --workspace --all-targets -D warnings` with and without `fabrewk-core/fault-injection`, `fmt --check`,
+  `cargo deny --offline check licenses advisories` clean.
+- Mutation, with `--features fabrewk-core/fault-injection` and `--test-workspace true`, `--build-timeout 600`:
+  - At `5865455`: 318 mutants, 216 caught, 87 unviable, 13 missed, 2 timeouts. The 15 were killed by tests (the
+    heading's tab, the shape and content of each fermento kind in `check`, the replay's mapping of a bad sweep, an
+    alias other than the proposal's, a sweep naming no point with a proposal waiting, an unreadable fermento path
+    that is not a missing one, the dedup of a decided proposal and of an identifier another alias holds, and C6 and
+    C12 looking only at maintainers' directories); a run over them: 59 mutants, 36 caught, 22 unviable, one missed,
+    killed by one more test and run again alone: 2 of 2 caught. Over the corrections of pass 1 and 2: 27 mutants, 19
+    caught, 8 unviable. No equivalent declared.
+  - Lesson: with `ulimit -v 1000000` (`verify-part`) the first baseline build of the larger core failed for lack of
+    memory; the run used 1,600,000 kB. `verify-part` should say so; a skill is the maestro's to change.
+- Size: the core grew from 5,859 to 6,662 counted lines (+803) with part 8a alone. R-034 projected phase 8 as a
+  whole at +800 to +1,100 (6,650 to 6,950); with 8b and 8c still to build the core will likely pass 7,300, and the
+  core's part of phase 9 (+1,000 to +1,400) will exceed 7,500. The maestro decides the ceiling when phase 9 starts
+  (D-069); this measure is for that decision.
+- Not done: parts 8b and 8c; the base text of `RULES.md` (to draft for the maestro's approval when 8c starts).
