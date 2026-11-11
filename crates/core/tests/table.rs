@@ -942,13 +942,15 @@ fn running(name: &str) -> Task {
 #[test]
 fn pd_39_the_view_shows_tokens_as_reported_unknown_when_a_part_is_not_and_zero_only_when_reported() {
     let unknown = fabrewk_core::cli::say("en", "view.unknown", &[]);
-    let cases: [(&str, Vec<Value>, Option<&str>); 6] = [
+    let cases: [(&str, Vec<Value>, Option<&str>); 7] = [
         ("reported-none", vec![json!({"usage": {"tokens": null}})], None),
         ("reported-absent", vec![json!({})], None),
         ("reported-zero", vec![json!({"usage": {"tokens": 0}})], Some("0")),
         ("reported-sum", vec![json!({"usage": {"tokens": 5}}), json!({"usage": {"tokens": 7}})], Some("12")),
         ("reported-mix", vec![json!({"usage": {"tokens": 5}}), json!({"usage": {"tokens": null}})], None),
         ("reported-zero-and-none", vec![json!({"usage": {"tokens": 0}}), json!({})], None),
+        // A sum that does not fit is not a figure: unknown, and no panic.
+        ("reported-overflow", vec![json!({"usage": {"tokens": u64::MAX}}), json!({"usage": {"tokens": 1}})], None),
     ];
     for (name, ends, tokens) in cases {
         let t = running(&format!("view-usage-{name}"));

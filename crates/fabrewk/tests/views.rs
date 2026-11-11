@@ -148,6 +148,10 @@ fn pd_43_a_view_changed_absent_or_linked_is_stale_and_the_next_write_regenerates
     fs::rename(fx.domain.join("RULES.md"), &saved).unwrap();
     std::os::unix::fs::symlink(&saved, fx.domain.join("RULES.md")).unwrap();
     refused(&fx, &["check"], "VIEW_STALE", 3, "es");
+    // The link holds the very text a fresh generation gives, and the next write still replaces it with a file.
+    propose(&fx, "Other.");
+    assert!(fs::symlink_metadata(fx.domain.join("RULES.md")).unwrap().is_file());
+    ok(&fx.run(&["check"]));
 }
 
 // ---- REQ-VIEW-1: what STATUS.md holds -----------------------------------------------------------------------------------
@@ -499,4 +503,50 @@ fn refusal_close_of_a_proposed_stage_a_task_an_unknown_id_a_stranger_and_an_agen
     fx.git(&["config", "user.signingkey", stranger.to_str().unwrap()]);
     refused(&fx, &["close", &stage, "--say", SAY], "ROLE_FORBIDDEN", 1, "en");
     let _ = H;
+}
+
+#[test]
+fn req_view_1_a_pending_proposal_waits_for_the_maestro_until_it_is_decided() {
+    let fx = published("view-proposal");
+    fx.alambique(DOC, "published");
+    let text = fs::read_to_string(fx.domain.join("ALAMBIQUE.md")).unwrap();
+    let units = vec![json!({"kind": "point", "n": 1, "m": 2, "text": "**1.2. B:** rewritten."})];
+    let result = fabrewk_core::record::sha256_hex(fabrewk_core::alambique::apply(&text, &units).unwrap().as_bytes());
+    let edit = json!({"target": "alambique", "base": fabrewk_core::record::sha256_hex(text.as_bytes()), "keys": [], "result": result, "units": units});
+    let (fermento, parts) = fabrewk_core::fermento::open(&fx.domain, "xel").unwrap();
+    let rows: Vec<Value> = fabrewk_core::fermento::points(&fermento[..parts.input_end])
+        .iter()
+        .map(|p| {
+            let mut row = json!({"number": p.number, "digest": p.digest, "recommendation": {"point": "x", "clarify": "y", "destination": "alambique 6.1"}});
+            if p.number == 1 {
+                row["edit"] = edit.clone();
+            }
+            row
+        })
+        .collect();
+    let doc = json!({"agent": {"tool": "claude-code", "provider": "anthropic", "model": "claude-sonnet-5-5"}, "points": rows});
+    fs::write(fx.root.join("answer.json"), serde_json::to_vec(&doc).unwrap()).unwrap();
+    let swept = fx.run(&["sweep", "xel", "--answer", "answer.json", "--json"]);
+    ok(&swept);
+    let id = swept.doc()["proposals"][0].as_str().unwrap().to_owned();
+    let line = say(
+        "en",
+        "view.wait.proposal",
+        &[("id", &id), ("detail", "xel"), ("since", &at(&fx, "fermento-xel").as_str())],
+    );
+    // The proposal was recorded by the sweep's second event; the wait starts there, not at the sweep.
+    let recorded = fx.events("fermento-xel").into_iter().find(|e| e["kind"] == "proposal-recorded").unwrap();
+    let line = line.replace(&at(&fx, "fermento-xel"), recorded["at"].as_str().unwrap());
+    let status = read(&fx, "STATUS.md");
+    assert!(status.contains(&line), "{line}\n{status}");
+    assert!(status.contains(&format!("`fabrewk approve {id}`")) && status.contains(&format!("`fabrewk discard {id}`")));
+    let waits = fx.run(&["status", "--json"]).doc()["waiting"].clone();
+    assert_eq!(
+        (waits[0]["what"].as_str(), waits[0]["id"].as_str(), waits[0]["detail"].as_str()),
+        (Some("proposal"), Some(id.as_str()), Some("xel"))
+    );
+    // Discarded, it waits no more.
+    ok(&fx.run(&["discard", &id, "--say", SAY, "--json"]));
+    assert!(!read(&fx, "STATUS.md").contains(&format!("`fabrewk approve {id}`")));
+    assert_eq!(fx.run(&["status", "--json"]).doc()["waiting"], json!([]));
 }

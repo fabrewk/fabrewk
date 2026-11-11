@@ -165,7 +165,7 @@ pub fn waits(record: &Replay) -> Vec<Wait> {
 fn usage(events: &[Event]) -> Option<(usize, Option<u64>)> {
     let started = events.iter().filter(|e| e.kind == "attempt-started").count();
     let ended: Vec<&Event> = events.iter().filter(|e| e.kind == "attempt-ended").collect();
-    let tokens = ended.iter().map(|e| e.value["payload"]["usage"]["tokens"].as_u64()).sum::<Option<u64>>();
+    let tokens = ended.iter().try_fold(0u64, |sum, e| sum.checked_add(e.value["payload"]["usage"]["tokens"].as_u64()?));
     (started > 0).then_some((started, tokens.filter(|_| ended.len() == started)))
 }
 
@@ -292,7 +292,9 @@ pub fn write(domain: &Path, record: &Replay) -> Result<Vec<PathBuf>, Error> {
     let mut out = Vec::new();
     for (name, text) in fresh(record) {
         let path = domain.join(name);
-        if std::fs::read(&path).ok().as_deref() != Some(text.as_bytes()) {
+        // A view that is a link, or not a regular file, is replaced, as `stale` reports it.
+        let regular = std::fs::symlink_metadata(&path).is_ok_and(|m| m.is_file()) && unlinked(domain, name);
+        if !regular || std::fs::read(&path).ok().as_deref() != Some(text.as_bytes()) {
             crate::record::write_atomic(&path, text.as_bytes())?;
         }
         out.push(PathBuf::from(name));
