@@ -230,6 +230,10 @@ pub(super) fn run<T>(cx: &Cx, plan: impl Fn(&Replay) -> Result<Plan<T>, Failed>)
     // The views are generated from the record these events made: the fermento's answer, whose input is checked once
     // more first, and `STATUS.md` and `RULES.md` (REQ-VIEW-3). A change now leaves the events written and the views not.
     let mut views = Vec::new();
+    // The new events must replay before a view depends on them in a commit (PD-46); an alambique edit checked it above.
+    if planned.alambique.is_none() {
+        session.replayable(&PolicyVerifier)?;
+    }
     let late_view = late("the next write command regenerates the views");
     let record = crate::record::replay(&cx.domain, &PolicyVerifier).map_err(|mut e| late_view(e.remove(0)))?;
     if let Some(v) = &planned.view {

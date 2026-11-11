@@ -407,14 +407,6 @@ fn attempt(
         let Some(n) = now.as_deref() else {
             return Err(race());
         };
-        let mut changed = match &base {
-            Some(b) => os(&["diff-tree", "-r", "--name-only", "-z", b, n, "--"]),
-            None => os(&["ls-tree", "-r", "--name-only", "-z", n, "--"]),
-        };
-        changed.extend(rel.iter().map(OsStr::new));
-        if round == 1 || !git(repo, &changed, b"", None)?.is_empty() {
-            return Err(race());
-        }
         // The new head must descend from the one the command started from, which holds every event committed so far
         // (P7D3A-19), and is walked as the session's first one was: a head whose history drops or changes an event is
         // a rollback, never a base (P7D3A-16).
@@ -428,6 +420,14 @@ fn attempt(
                 }
                 _ => return Err(refuse(Code::ToolFailed, Some(&repo.root), "git merge-base failed")),
             }
+        }
+        let mut changed = match &base {
+            Some(b) => os(&["diff-tree", "-r", "--name-only", "-z", b, n, "--"]),
+            None => os(&["ls-tree", "-r", "--name-only", "-z", n, "--"]),
+        };
+        changed.extend(rel.iter().map(OsStr::new));
+        if round == 1 || !git(repo, &changed, b"", None)?.is_empty() {
+            return Err(race());
         }
         walk_history(repo, branch)?;
         base = now;

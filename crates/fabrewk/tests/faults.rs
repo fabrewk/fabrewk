@@ -588,3 +588,25 @@ fn an_alambique_commit_made_in_an_own_repository_names_that_repository_in_the_fi
     fx.git(&["-C", &domain, "add", "ALAMBIQUE.md"]);
     assert_eq!(inner(&["diff", "--cached", "--name-only"]), "");
 }
+
+#[test]
+fn req_view_3_a_command_stopped_before_its_commit_leaves_fresh_views_and_the_next_command_commits_them() {
+    let fx = ready("views-stopped");
+    let dir = tmp("views-stopped-steps");
+    let mut child = paused(&fx, &args(false), "before-commit", &dir);
+    // The events and the views are written and not committed: killed here, as a power cut would.
+    child.kill().unwrap();
+    child.wait().unwrap();
+    let status = fs::read_to_string(fx.domain.join("STATUS.md")).unwrap();
+    assert_eq!(fx.git(&["status", "--porcelain", "--", ".brewstillery/STATUS.md"]).chars().next(), Some(' '));
+    let doc = fx.run(&["check", "--json"]).doc();
+    let found: Vec<&str> = doc["findings"].as_array().unwrap().iter().map(|f| f["code"].as_str().unwrap()).collect();
+    assert!(found.contains(&"RECORD_UNCOMMITTED") && !found.contains(&"VIEW_STALE"), "{found:?}");
+    // The next command that writes commits the leftovers first, then its own events with the views.
+    fx.edit_policy(&(policy_text(&fx.keys) + "\n[limits]\nminutes = 50\n"));
+    assert_eq!(fx.run(&["adopt", "--say", SAY]).status, 0);
+    assert_eq!(fx.run(&["check"]).status, 0, "{:?}", fx.run(&["check"]));
+    let held = fx.git(&["show", "HEAD:.brewstillery/STATUS.md"]);
+    assert_eq!(held.trim_end(), fs::read_to_string(fx.domain.join("STATUS.md")).unwrap().trim_end());
+    assert_ne!(held.trim_end(), status.trim_end(), "the second adoption changed what the view shows");
+}
