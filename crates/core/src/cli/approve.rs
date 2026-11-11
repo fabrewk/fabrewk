@@ -8,7 +8,7 @@ use super::write::{self, Edit, Plan};
 use super::{Cx, Failed, Options, Out};
 use crate::alambique::{self, FILE};
 use crate::code::{Code, Error, refuse};
-use crate::record::{Draft, Publication, Replay, Repo, committed, sha256_hex, staged};
+use crate::record::{Draft, Replay, Repo, committed, sha256_hex};
 use crate::{fermento, table};
 use serde_json::{Value, json};
 use std::path::Path;
@@ -18,28 +18,6 @@ struct Approved {
     case: &'static str,
     id: String,
     digest: String,
-}
-
-/// The alambique's bytes, once the working tree, the last commit and the index all hold the text that starts at `base`.
-fn unchanged(cx: &Cx, mode: Publication, base: &str) -> Result<Vec<u8>, Error> {
-    let changed = |why: &str| refuse(Code::AlambiqueChanged, Some(&cx.domain.join(FILE)), why.to_owned());
-    let bytes = match alambique::read(&cx.domain) {
-        Ok(Some(bytes)) => bytes,
-        Ok(None) | Err(Error::Refused { code: Code::AlambiqueMissing, .. }) => {
-            return Err(changed("there is no alambique to start from"));
-        }
-        Err(e) => return Err(e),
-    };
-    if sha256_hex(&bytes) != base {
-        return Err(changed("the file is not the text the proposal starts from"));
-    }
-    if let Some(repo) = Repo::for_domain(&cx.domain, mode) {
-        let held = [committed(&repo, Path::new(FILE))?, staged(&repo, Path::new(FILE))?];
-        if held.iter().any(|h| h.as_deref() != Some(bytes.as_slice())) {
-            return Err(changed("the last commit or the index holds another text"));
-        }
-    }
-    Ok(bytes)
 }
 
 fn stale(why: impl Into<String>) -> Error {
@@ -73,7 +51,10 @@ fn proposal(cx: &Cx, id: &str, options: &Options, record: &Replay) -> Result<Pla
                     return Err(stale("another proposal changed the project rules since").into());
                 }
             }
-            ("ALAMBIQUE_CHANGED", "alambique") => file = unchanged(cx, st.mode, base)?,
+            ("ALAMBIQUE_CHANGED", "alambique") => {
+                let repo = Repo::for_domain(&cx.domain, st.mode);
+                file = alambique::unchanged(&cx.domain, repo.as_ref(), base, true)?;
+            }
             ("ALAMBIQUE_UNAPPROVED", "alambique") => alambique::check(record, &cx.domain)?,
             ("UNIT_AMBIGUOUS", "alambique") => {
                 let text = String::from_utf8(std::mem::take(&mut file));
@@ -96,7 +77,7 @@ fn proposal(cx: &Cx, id: &str, options: &Options, record: &Replay) -> Result<Pla
             None
         }
         None => Some(Edit {
-            before: Some(base.to_owned()),
+            before: base.to_owned(),
             bytes: Some(file),
             message: format!("alambique: proposal {}\n", p.id),
         }),
@@ -143,7 +124,7 @@ fn direct(cx: &Cx, options: &Options, record: &Replay) -> Result<Plan<Approved>,
     };
     let draft =
         Draft { kind: kind.into(), actor, policy: st.policy.digest.clone(), instance: String::new(), say, payload };
-    let edit = Edit { before: Some(digest.clone()), bytes: None, message: format!("alambique: {kind}\n") };
+    let edit = Edit { before: digest.clone(), bytes: None, message: format!("alambique: {kind}\n") };
     let case = if approved.is_some() { "direct" } else { "baseline" };
     let out = Approved { case, id: String::new(), digest };
     Ok(Plan {

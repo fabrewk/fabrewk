@@ -35,6 +35,15 @@ fn req_fer_6_the_opening_a_section_and_a_point_are_each_replaced_whole() {
     // A section runs to the next heading of level 1 or 2 outside fences: its subheading and its fence are inside it.
     let out = applied(DOC, &[unit("section", Some(1), None, "## 1. One\n\nGone.")]).unwrap();
     assert_eq!(out, "# Title\n\nOpening text.\n\n## 1. One\n\nGone.\n\n## 2. Two\n\n**2.1. D:** fourth.\n");
+    // Any heading of level 1 or 2 ends a section: with a tab, indented up to three spaces, or empty.
+    for heading in ["##\tOther", "   ## Other", "##", "# Other"] {
+        let text = format!("## 1. Section\nfirst\n\n{heading}\nKEEP\n");
+        let out = applied(&text, &[unit("section", Some(1), None, "## 1. Section\nnew")]).unwrap();
+        assert_eq!(out, format!("## 1. Section\nnew\n\n{heading}\nKEEP\n"), "{heading:?}");
+    }
+    // A heading of level 3 does not.
+    let out = applied("## 1. S\nfirst\n### Sub\nin\n", &[unit("section", Some(1), None, "## 1. S")]).unwrap();
+    assert_eq!(out, "## 1. S\n");
     // The last section runs to the end, and the final line break stays.
     let out = applied(DOC, &[unit("section", Some(2), None, "## 2. Two\n\nNone.")]).unwrap();
     assert!(out.ends_with("```\n\n## 2. Two\n\nNone.\n"), "{out}");

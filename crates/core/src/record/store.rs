@@ -275,6 +275,15 @@ impl Session {
         Ok(commit)
     }
 
+    /// Replays the record as it now stands, as the record commit does before it: a failure commits nothing (PD-46).
+    pub fn replayable(&self, verifier: &dyn Verify) -> Result<(), Error> {
+        let replay = replay::replay(&self.domain, verifier).map_err(|mut errors| errors.remove(0))?;
+        if fault::fails("replay-before-commit") {
+            return Err(refuse(Code::RecordBroken, None, "replay failed (fault injection)"));
+        }
+        mark::check_mark(&self.domain, &replay)
+    }
+
     /// Commits `file` (absolute) alone, in a commit of its own on the record branch with `message`, as the person's
     /// Git names its author and with no co-author (REQ-FER-5); nothing when the mode does not commit or the branch
     /// already holds the file as it is. The record commit that follows starts from it.
@@ -289,6 +298,15 @@ impl Session {
         }
         let commit = git::commit_record(repo, &self.domain, branch, start.as_deref(), &[file.to_path_buf()], message)?;
         *start = Some(commit.clone());
+        // The branch has moved; if the person's index could not follow (another Git held it), it still holds the text
+        // before, which the next `git commit` would take for a reversion: say so, with the commit made.
+        if git::staged(repo, rel)?.as_deref() != Some(bytes.as_slice()) {
+            let why = format!(
+                "the commit {commit} is made, but the index could not be brought to it; run git add {}",
+                file.strip_prefix(&repo.root).unwrap_or(file).display()
+            );
+            return Err(refuse(Code::ToolFailed, Some(file), why));
+        }
         Ok(Some(commit))
     }
 

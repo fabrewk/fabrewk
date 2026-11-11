@@ -381,10 +381,17 @@ fn refusal_input_changed() {
         // The maintainer saves an edit of the input while the sweep waits: the sweep writes nothing, theirs stays.
         let edited = text.replacen("First point.", "First point, edited.", 1);
         fs::write(fx.domain.join("xel/fermento.md"), &edited).unwrap();
-        let before = fx.snapshot();
+        // The key a first write prepares waits in the private folder under a temporary name, and a refusal removes it:
+        // the folder is left out of the comparison and must not exist after.
+        let outside = |mut s: std::collections::BTreeMap<PathBuf, (u32, Vec<u8>)>| {
+            s.retain(|k, _| !k.starts_with(&fx.home));
+            s
+        };
+        let before = outside(fx.snapshot());
         let ran = resume(child, "before-view", &dir);
         says(&ran, "INPUT_CHANGED", json);
-        assert_eq!(fx.snapshot(), before, "nothing written after the input changed");
+        assert_eq!(outside(fx.snapshot()), before, "nothing written after the input changed");
+        assert!(!fx.folder().exists(), "the private folder was made");
         assert!(fx.events("fermento-xel").is_empty());
     }
 }
@@ -448,4 +455,87 @@ fn refusal_alambique_changed_while_the_command_ran_writes_nothing() {
         assert_eq!(fx.events("alambique").len(), 1);
         assert_eq!(fs::read_to_string(fx.domain.join("ALAMBIQUE.md")).unwrap(), edited);
     }
+}
+
+const SMALL: &str = "# A\n\n## 1. S\n\n**1.1. A:** first.\n";
+
+#[test]
+fn refusal_alambique_changed_in_the_index_while_the_command_ran_writes_nothing() {
+    // P8B-1: the working file is restored to the drafted text, but the person staged another while the command waited.
+    let fx = Fx::new("alambique-staged", "published");
+    fx.alambique(SMALL, "published");
+    let id = alambique_proposal(&fx);
+    let dir = tmp("alambique-staged-steps");
+    let child = paused(&fx, &["approve", &id, "--say", SAY, "--json"], "before-alambique", &dir);
+    let edited = SMALL.replace("first.", "first, staged.");
+    fs::write(fx.domain.join("ALAMBIQUE.md"), &edited).unwrap();
+    fx.git(&["add", ".brewstillery/ALAMBIQUE.md"]);
+    fs::write(fx.domain.join("ALAMBIQUE.md"), SMALL).unwrap();
+    let (head, before) = (fx.git(&["rev-parse", "HEAD"]), fx.snapshot());
+    let ran = resume(child, "before-alambique", &dir);
+    says(&ran, "ALAMBIQUE_CHANGED", true);
+    assert_eq!((fx.git(&["rev-parse", "HEAD"]), fx.snapshot()), (head, before));
+    assert!(fx.git(&["show", ":.brewstillery/ALAMBIQUE.md"]).contains("staged"));
+}
+
+#[test]
+fn refusal_alambique_changed_on_a_fresh_machine_leaves_no_private_folder() {
+    // P8B-3: nothing was written before the refusal, the machine's identity included.
+    let fx = Fx::new("alambique-fresh", "published");
+    fx.alambique(SMALL, "published");
+    fs::write(fx.domain.join("ALAMBIQUE.md"), SMALL.replace("first.", "first, edited.")).unwrap();
+    fx.commit("edited");
+    assert!(!fx.folder().exists());
+    let dir = tmp("alambique-fresh-steps");
+    let child = paused(&fx, &["approve", "alambique", "--say", SAY, "--json"], "before-alambique", &dir);
+    fs::write(fx.domain.join("ALAMBIQUE.md"), SMALL.replace("first.", "first, edited again.")).unwrap();
+    let ran = resume(child, "before-alambique", &dir);
+    says(&ran, "ALAMBIQUE_CHANGED", true);
+    assert!(!fx.folder().exists(), "the private folder was made");
+    assert_eq!(fx.events("alambique").len(), 1);
+}
+
+#[test]
+fn pd_46_a_replay_that_fails_before_an_approval_commits_nothing() {
+    // P8B-5: not even the alambique's own commit, and the alambique is not written.
+    for json in [false, true] {
+        let fx = Fx::new(&format!("alambique-replay-{json}"), "published");
+        fx.alambique(SMALL, "published");
+        let id = alambique_proposal(&fx);
+        let head = fx.git(&["rev-parse", "HEAD"]);
+        let mut argv = vec!["approve", id.as_str(), "--say", SAY];
+        argv.extend(json.then_some("--json"));
+        let argv: Vec<std::ffi::OsString> = argv.iter().map(Into::into).collect();
+        let ran = fx.run_os(&argv, &[("FABREWK_FAULT_FAIL", std::ffi::OsStr::new("replay-before-commit"))]);
+        says(&ran, "RECORD_BROKEN", json);
+        assert_eq!(fx.git(&["rev-parse", "HEAD"]), head, "nothing committed");
+        assert_eq!(fs::read_to_string(fx.domain.join("ALAMBIQUE.md")).unwrap(), SMALL);
+    }
+}
+
+#[test]
+fn an_alambique_commit_made_is_reported_made_when_the_index_is_held_after_it() {
+    // P8B-4: the hook takes the index's lock once the ref moves; the person is told to bring the index to the commit,
+    // and the record is committed by the next write command.
+    use std::os::unix::fs::PermissionsExt;
+    let fx = Fx::new("alambique-index", "published");
+    fx.alambique(SMALL, "published");
+    let id = alambique_proposal(&fx);
+    let hook = fx.root.join(".git/hooks/reference-transaction");
+    fs::write(&hook, "#!/bin/sh\nif [ \"$1\" = committed ]; then touch .git/index.lock; fi\nexit 0\n").unwrap();
+    fs::set_permissions(&hook, fs::Permissions::from_mode(0o755)).unwrap();
+    let head = fx.git(&["rev-parse", "HEAD"]);
+    let ran = fx.run(&["approve", &id, "--say", SAY, "--json"]);
+    assert_eq!(ran.status, 1, "{ran:?}");
+    let detail = ran.doc()["refusals"][0]["detail"].as_str().unwrap().to_owned();
+    assert!(detail.contains("git add .brewstillery/ALAMBIQUE.md") && detail.contains("events are written"), "{detail}");
+    assert_ne!(fx.git(&["rev-parse", "HEAD"]), head, "the alambique's commit is made");
+    fs::remove_file(&hook).unwrap();
+    fs::remove_file(fx.root.join(".git/index.lock")).unwrap();
+    fx.git(&["add", ".brewstillery/ALAMBIQUE.md"]);
+    assert_eq!(fx.git(&["diff", "--cached", "--name-only"]), "");
+    // The events left are committed by the next write command, and the check passes.
+    answer_for(&fx);
+    assert_eq!(fx.run(&["sweep", "xel", "--answer", "answer.json"]).status, 0);
+    assert_eq!(fx.run(&["check"]).status, 0);
 }

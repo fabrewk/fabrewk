@@ -4,7 +4,7 @@
 
 use crate::code::{Code, Error, io_at, refuse, unlinked};
 use crate::fermento::{Proposal, fenced, heading, lines};
-use crate::record::{Event, Replay, sha256_hex, subject_digest};
+use crate::record::{Event, Replay, Repo, committed, sha256_hex, staged, subject_digest};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -53,7 +53,15 @@ fn span(text: &str, kind: &str, n: u64, m: u64) -> Result<(usize, usize), Error>
         "opening" => (0, once(&|l| section(l) == Some(1), "section 1".into())?),
         "section" => {
             let i = once(&|l| section(l) == Some(n), format!("section {n}"))?;
-            (i, after(i + 1, &|l| l.starts_with("# ") || l.starts_with("## ")).unwrap_or(t.len()))
+            (
+                i,
+                after(i + 1, &|l| {
+                    heading(l)
+                        && l.trim_start_matches(' ').starts_with('#')
+                        && !l.trim_start_matches(' ').starts_with("###")
+                })
+                .unwrap_or(t.len()),
+            )
         }
         _ => {
             let i = once(&|l| point(l) == Some((n, m)), format!("point {n}.{m}"))?;
@@ -139,6 +147,30 @@ pub fn read(domain: &Path) -> Result<Option<Vec<u8>>, Error> {
         Ok(_) => {}
     }
     std::fs::read(&path).map(Some).map_err(io_at(&path))
+}
+
+/// The alambique's bytes once it is the text that digests to `before`: the file must be, and with `strict` and a
+/// `repo` (a mode that commits) so must the record branch's tip and the person's index, which an edit starts from and a
+/// commit of the file alone would otherwise overwrite. Anything else is `ALAMBIQUE_CHANGED`.
+pub fn unchanged(domain: &Path, repo: Option<&Repo>, before: &str, strict: bool) -> Result<Vec<u8>, Error> {
+    let changed = |why: &str| refuse(Code::AlambiqueChanged, Some(&domain.join(FILE)), why.to_owned());
+    let bytes = match read(domain) {
+        Ok(Some(bytes)) => bytes,
+        Ok(None) | Err(Error::Refused { code: Code::AlambiqueMissing, .. }) => {
+            return Err(changed("there is no alambique to start from"));
+        }
+        Err(e) => return Err(e),
+    };
+    if sha256_hex(&bytes) != before {
+        return Err(changed("the file is not the text the command starts from"));
+    }
+    if let Some(repo) = repo.filter(|_| strict) {
+        let held = [committed(repo, Path::new(FILE))?, staged(repo, Path::new(FILE))?];
+        if held.iter().any(|h| h.as_deref() != Some(bytes.as_slice())) {
+            return Err(changed("the last commit or the index holds another text"));
+        }
+    }
+    Ok(bytes)
 }
 
 /// The alambique equals the text a maestro last approved (C7, REQ-FER-7): with no file and nothing approved it does;

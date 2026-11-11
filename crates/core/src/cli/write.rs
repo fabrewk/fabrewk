@@ -102,10 +102,10 @@ pub(super) struct Plan<T> {
     pub out: T,
 }
 
-/// The alambique's approval (REQ-FER-5): the digest of the file as the plan saw it (`None` for no file), the text to
+/// The alambique's approval (REQ-FER-5): the digest of the file as the plan saw it, the text to
 /// put there (`None` when the person's own is approved) and the message of the commit that holds it alone.
 pub(super) struct Edit {
-    pub before: Option<String>,
+    pub before: String,
     pub bytes: Option<Vec<u8>>,
     pub message: String,
 }
@@ -182,18 +182,12 @@ pub(super) fn run<T>(cx: &Cx, plan: impl Fn(&Replay) -> Result<Plan<T>, Failed>)
         heads.insert(stream.clone(), Some(p.head().clone()));
         prepared.push((stream, p));
     }
-    if let Some(pending) = pending {
-        pending.install()?;
-    }
-    session.commit_uncommitted(&PolicyVerifier)?;
-    // The alambique is the text the plan saw: checked here, with nothing written, and again once the events are.
+    // Every guard that can still refuse comes before the machine key is put in place or anything is committed: a
+    // refusal here writes nothing (11.2 rule 4). The alambique is the text the plan saw, in the file and, for an edit
+    // of it, in the record branch's tip and the person's index; it is checked again once the events are written.
+    let repo = Repo::for_domain(&cx.domain, mode);
     let unchanged = |edit: &Edit| -> Result<(), Error> {
-        let now = alambique::read(&cx.domain)?.map(|b| crate::record::sha256_hex(&b));
-        let path = cx.domain.join(alambique::FILE);
-        match now == edit.before {
-            true => Ok(()),
-            false => Err(refuse(Code::AlambiqueChanged, Some(&path), "the alambique changed while the command ran")),
-        }
+        alambique::unchanged(&cx.domain, repo.as_ref(), &edit.before, edit.bytes.is_some()).map(drop)
     };
     if let Some(a) = &planned.alambique {
         crate::record::fault::pause("before-alambique");
@@ -203,6 +197,10 @@ pub(super) fn run<T>(cx: &Cx, plan: impl Fn(&Replay) -> Result<Plan<T>, Failed>)
         crate::record::fault::pause("before-view");
         fermento::current(&cx.domain, &v.alias, &v.digest)?;
     }
+    if let Some(pending) = pending {
+        pending.install()?;
+    }
+    session.commit_uncommitted(&PolicyVerifier)?;
     crate::record::fault::pause("before-append");
     let mut written = Vec::new();
     for (stream, p) in prepared {
@@ -222,6 +220,8 @@ pub(super) fn run<T>(cx: &Cx, plan: impl Fn(&Replay) -> Result<Plan<T>, Failed>)
         let late = &late("the next approval shows what was decided");
         let path = cx.domain.join(alambique::FILE);
         unchanged(a).map_err(late)?;
+        // The new events must replay before anything depends on them in a commit (PD-46).
+        session.replayable(&PolicyVerifier).map_err(late)?;
         if let Some(bytes) = &a.bytes {
             crate::record::write_atomic(&path, bytes).map_err(late)?;
         }
