@@ -544,9 +544,38 @@ fn req_view_1_a_pending_proposal_waits_for_the_maestro_until_it_is_decided() {
         (waits[0]["what"].as_str(), waits[0]["id"].as_str(), waits[0]["detail"].as_str()),
         (Some("proposal"), Some(id.as_str()), Some("xel"))
     );
+    // A second proposal, from a later sweep, waits since its own sweep, not since the first one.
+    std::thread::sleep(std::time::Duration::from_millis(1100));
+    let units = vec![json!({"kind": "point", "n": 1, "m": 1, "text": "**1.1. A:** rewritten."})];
+    let result = fabrewk_core::record::sha256_hex(fabrewk_core::alambique::apply(&text, &units).unwrap().as_bytes());
+    let second = json!({"target": "alambique", "base": fabrewk_core::record::sha256_hex(text.as_bytes()), "keys": [], "result": result, "units": units});
+    let mut rows = doc["points"].clone();
+    rows[0]["edit"] = second;
+    fs::write(
+        fx.root.join("answer.json"),
+        serde_json::to_vec(&json!({"agent": doc["agent"], "points": rows})).unwrap(),
+    )
+    .unwrap();
+    fx.commit("first sweep");
+    let swept = fx.run(&["sweep", "xel", "--answer", "answer.json", "--json"]);
+    ok(&swept);
+    let other = swept.doc()["proposals"][0].as_str().unwrap().to_owned();
+    assert_ne!(other, id);
+    let recorded: Vec<Value> =
+        fx.events("fermento-xel").into_iter().filter(|e| e["kind"] == "proposal-recorded").collect();
+    assert_ne!(recorded[0]["at"], recorded[1]["at"]);
+    let status = read(&fx, "STATUS.md");
+    for (pid, e) in [(&id, &recorded[0]), (&other, &recorded[1])] {
+        let line =
+            say("en", "view.wait.proposal", &[("id", pid), ("detail", "xel"), ("since", e["at"].as_str().unwrap())]);
+        assert!(status.contains(&line), "{line}\n{status}");
+    }
     // Discarded, it waits no more.
     ok(&fx.run(&["discard", &id, "--say", SAY, "--json"]));
     assert!(!read(&fx, "STATUS.md").contains(&format!("`fabrewk approve {id}`")));
+    let waiting: Vec<Value> = fx.run(&["status", "--json"]).doc()["waiting"].as_array().unwrap().clone();
+    assert_eq!(waiting.iter().map(|w| w["id"].as_str().unwrap()).collect::<Vec<_>>(), [other.as_str()]);
+    ok(&fx.run(&["discard", &other, "--say", SAY, "--json"]));
     assert_eq!(fx.run(&["status", "--json"]).doc()["waiting"], json!([]));
 }
 

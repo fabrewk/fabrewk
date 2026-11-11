@@ -291,7 +291,7 @@ pub fn write(domain: &Path, record: &Replay) -> Result<Vec<PathBuf>, Error> {
     for (name, text) in fresh(record) {
         let path = domain.join(name);
         // A view that is a link, or not a regular file, is replaced, as `stale` reports it.
-        let regular = std::fs::symlink_metadata(&path).is_ok_and(|m| m.is_file()) && unlinked(domain, name);
+        let regular = std::fs::symlink_metadata(&path).is_ok_and(|m| m.is_file());
         if !regular || std::fs::read(&path).ok().as_deref() != Some(text.as_bytes()) {
             crate::record::write_atomic(&path, text.as_bytes())?;
         }
