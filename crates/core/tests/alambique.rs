@@ -313,20 +313,24 @@ fn req_fer_7_c7_passes_with_nothing_on_either_side_and_refuses_every_other_diffe
     let f = Fixture::new("check", false);
     let file = f.domain.join("ALAMBIQUE.md");
     let unapproved = |f: &Fixture| alambique::check(&f.replay_or_empty(), &f.domain).map_err(|e| e.code());
+    let why = |f: &Fixture| alambique::check(&f.replay_or_empty(), &f.domain).unwrap_err().detail();
     // Nothing approved and no file: nothing to approve.
     assert_eq!(unapproved(&f), Ok(()));
     // A file nothing approved.
     std::fs::write(&file, "text\n").unwrap();
     assert_eq!(unapproved(&f), Err(Some(Code::AlambiqueUnapproved)));
+    assert!(why(&f).contains("never approved"));
     put(&f, "alambique", &[person("alambique-baseline", json!({"digest": sha256_hex(b"text\n")}))]).unwrap();
     assert_eq!(unapproved(&f), Ok(()));
     // A byte changed, then restored; a file gone; a directory or a link in its place.
     std::fs::write(&file, "text \n").unwrap();
     assert_eq!(unapproved(&f), Err(Some(Code::AlambiqueUnapproved)));
+    assert!(why(&f).contains("differs"));
     std::fs::write(&file, "text\n").unwrap();
     assert_eq!(unapproved(&f), Ok(()));
     std::fs::remove_file(&file).unwrap();
     assert_eq!(unapproved(&f), Err(Some(Code::AlambiqueUnapproved)));
+    assert!(why(&f).contains("gone"));
     std::fs::create_dir(&file).unwrap();
     assert_eq!(unapproved(&f), Err(Some(Code::AlambiqueUnapproved)));
     std::fs::remove_dir(&file).unwrap();

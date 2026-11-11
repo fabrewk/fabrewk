@@ -813,7 +813,13 @@ fn p7d2_5_a_verifier_that_fails_is_unknown_not_a_bad_signature() {
         let path = std::ffi::OsString::from(format!("{}:{}", dir.display(), std::env::var("PATH").unwrap()));
         let doc = fx.run_with(&["check", "--json"], Some(&path)).doc();
         assert_eq!(finding_of(&doc, "C3"), ["CHECK_UNKNOWN"], "{name}: {doc}");
+        // A record that does not replay leaves C7 unknown too, never a pass.
+        assert_eq!(finding_of(&doc, "C7"), ["CHECK_UNKNOWN"], "{name}: {doc}");
     }
+    // With no record at all there is nothing to compare, and C7 says nothing.
+    let bare = Fx::bare("c7-no-record", "published");
+    let doc = bare.run(&["check", "--json"]).doc();
+    assert!(finding_of(&doc, "C7").is_empty(), "{doc}");
 }
 
 #[test]
