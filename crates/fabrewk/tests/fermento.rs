@@ -418,3 +418,17 @@ fn refusal_record_id_collision_for_an_identifier_another_proposal_holds() {
     let file = answer(&fx, &[(2, given)]);
     refused(&fx, &["sweep", "xel", "--answer", file], "RECORD_ID_COLLISION", 1, "es");
 }
+
+#[test]
+fn req_fer_1_a_directory_that_is_no_maintainers_is_no_finding_of_c6_or_c12() {
+    let fx = published("not-maintainers");
+    // One that cannot be an alias, and one a name the domain reserves for something else.
+    for dir in ["Notes", "skills", "bootstrap"] {
+        fs::create_dir_all(fx.domain.join(dir)).unwrap();
+    }
+    // C8 names them in its own way; C6 and C12 find nothing there.
+    let ran = fx.run(&["check"]);
+    for code in ["MAINTAINER_UNLISTED", "FERMENTO_MISSING", "SEPARATOR_MISSING"] {
+        assert!(!ran.stdout.contains(code), "{code}: {ran:?}");
+    }
+}
