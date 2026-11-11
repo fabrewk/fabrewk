@@ -3380,3 +3380,46 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   shape; the rename of `sweep` (proposed for after the pilot, D-074). `verify-part`'s `ulimit -v 1000000` still does not
   fit the core's build (1,600,000 was used): the skill is the maestro's to change. An untracked `.vscode/settings.json`
   that the editor created during the session is not part of the commits.
+
+## D-075 — Phase 9 opened: a private network for agents, the core's ceiling at 11,000, P8C-8 declared, six amendments, nine parts, Codex reviews the design, part 9a on Fable
+
+- Status: decided
+- Decided: 2026-11-11
+- Origin: maintainer XEL in session 29's chat, answering the integrator's six questions on
+  `.brewstillery/bootstrap/confinement-design.md` (its section 5) before any code: "B: red privada (Recomendado)";
+  "11,000 (Recomendado)"; "Declararlo, sin biblioteca (Recomendado)"; "Aprobar las seis (Recomendado)"; "Sí, en esta
+  sesión (Recomendado)"; "Fable 5.2 solo en 9a (Recomendado)". The integrator had probed this machine (the design's
+  section 0): with the host's network shared, a confined process reaches the X server's abstract socket and the
+  loopback listeners; under `pasta`, hardened, it reaches neither.
+- Decision:
+  1. An agent's network is a private namespace with outbound connections only, made with `pasta` (the design's 3.5,
+     option B; S-1): nothing of the host's loopback, addresses or abstract sockets is reachable from a cell; where
+     `pasta` is absent the dispatch refuses. The open outbound network (the local network, the Internet) and the
+     tool's credential readable by its agent are residual risks that `config` declares. Outbound connections only
+     through a proxy that admits the provider's hosts (option C) is designed after the pilot. If part 9a finds no
+     composition of `bwrap` and `pasta` in which ending Fabrewk's direct child ends the cell (the design's 3.7), the
+     choice returns to the maestro.
+  2. The core's ceiling is 11,000 counted lines (`tools/budget/src/budget.rs`, its tests), measured again at each
+     part; the alternatives offered were 11,500 and a raise per part. Each module of phase 9 is a ring at its kind's
+     frozen ceiling (D-041, D-042).
+  3. P8C-8 is closed as declared: the race on a directory above the lock needs an unconfined process of the same user,
+     so the control is cooperative (REQ-SEC-5), `config` says so, and no crate is added (S-8). The alternative offered
+     was a crate that opens each path component without following links.
+  4. The amendments S-2 to S-7 of the design's section 4 are approved as drafted: REQ-RUN-3's rules for reading what a
+     cell left; REQ-RUN-10, `DISK_LOW`, `limits.freeDiskMegabytes` and the sizes `status` shows (what D-067 left to
+     this phase); `gate.protectedPaths`' default with `.gitattributes`, `.gitmodules` and each adapter's instruction
+     files; `attempt-ended`'s `usage`; a required tool present only when its cell shows it; the residual risks listed
+     by `config`. Each is written into `core-specification.md` by this session after Codex's review of the design, and
+     built with its tests by the part the design names.
+  5. Phase 9 is cut into nine parts, 9a to 9i (the design's section 6; `plan.md`, "Phase 9").
+  6. Codex (GPT-6.1 Sol, effort high) reviews the design in this session, before part 9a.
+  7. Part 9a runs on Claude Fable 5.2, effort high; parts 9b to 9i on Opus 5.5, effort high; Codex reviews each
+     (D-071 point 1, which left this to the design).
+- Consequences: `confinement-design.md`; `tools/budget` (the ceiling, two tests, the comment); `core-specification.md`
+  (REQ-SEC-1, REQ-RUN-2, REQ-RUN-3, REQ-RUN-10, REQ-DOM-5, REQ-SEC-5's criterion, sections 3, 7 and 8); `plan.md`;
+  `STATUS.md`. Not decided here: the permission and the budget to run the real tools (plan row 9), asked when part 9c
+  starts.
+- Sources: chat of session 29; `STATUS.md`'s "Next"; D-032 point 14, D-067, D-069, D-071, D-074; R-037 (P8C-8);
+  `core-specification.md` RUN, GATE, SEC, EXT and section 13; the probes of the design's section 0.
+- Supersedes: D-074 point 1 for the ceiling's figure; `core-specification.md` REQ-SEC-1's sentence "The shared network
+  is a stated residual risk".
