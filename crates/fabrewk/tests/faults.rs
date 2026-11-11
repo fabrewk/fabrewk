@@ -528,7 +528,7 @@ fn an_alambique_commit_made_is_reported_made_when_the_index_is_held_after_it() {
     let ran = fx.run(&["approve", &id, "--say", SAY, "--json"]);
     assert_eq!(ran.status, 1, "{ran:?}");
     let detail = ran.doc()["refusals"][0]["detail"].as_str().unwrap().to_owned();
-    assert!(detail.contains("git add .brewstillery/ALAMBIQUE.md") && detail.contains("events are written"), "{detail}");
+    assert!(detail.contains(" add .brewstillery/ALAMBIQUE.md") && detail.contains("events are written"), "{detail}");
     assert_ne!(fx.git(&["rev-parse", "HEAD"]), head, "the alambique's commit is made");
     fs::remove_file(&hook).unwrap();
     fs::remove_file(fx.root.join(".git/index.lock")).unwrap();
@@ -538,4 +538,35 @@ fn an_alambique_commit_made_is_reported_made_when_the_index_is_held_after_it() {
     answer_for(&fx);
     assert_eq!(fx.run(&["sweep", "xel", "--answer", "answer.json"]).status, 0);
     assert_eq!(fx.run(&["check"]).status, 0);
+}
+
+#[test]
+fn an_alambique_commit_made_in_an_own_repository_names_that_repository_in_the_fix() {
+    // P8B-6: the command printed runs from where the person is, so it names the record's repository.
+    use std::os::unix::fs::PermissionsExt;
+    let fx = Fx::new("alambique-own", "own-repository");
+    let domain = fx.domain.to_str().unwrap().to_owned();
+    let inner = |args: &[&str]| fx.git(&[&["-C", domain.as_str()][..], args].concat());
+    inner(&["init", "-q", "-b", "main"]);
+    for (k, v) in [("user.name", "Fixture"), ("user.email", "fixture@example.invalid"), ("commit.gpgsign", "false")] {
+        inner(&["config", k, v]);
+    }
+    inner(&["config", "user.signingkey", fx.keys.join("xel.pub").to_str().unwrap()]);
+    fx.alambique(SMALL, "own-repository");
+    inner(&["add", "-A"]);
+    inner(&["commit", "-q", "-m", "record"]);
+    let id = alambique_proposal(&fx);
+    let hook = fx.domain.join(".git/hooks/reference-transaction");
+    fs::write(&hook, "#!/bin/sh\nif [ \"$1\" = committed ]; then touch .git/index.lock; fi\nexit 0\n").unwrap();
+    fs::set_permissions(&hook, fs::Permissions::from_mode(0o755)).unwrap();
+    let ran = fx.run(&["approve", &id, "--say", SAY, "--json"]);
+    assert_eq!(ran.status, 1, "{ran:?}");
+    let detail = ran.doc()["refusals"][0]["detail"].as_str().unwrap().to_owned();
+    let fix = format!("run git -C {domain} add ALAMBIQUE.md;");
+    assert!(detail.contains(&fix), "{detail}");
+    fs::remove_file(&hook).unwrap();
+    fs::remove_file(fx.domain.join(".git/index.lock")).unwrap();
+    // The command as printed, run from the product's root, brings that index to the commit.
+    fx.git(&["-C", &domain, "add", "ALAMBIQUE.md"]);
+    assert_eq!(inner(&["diff", "--cached", "--name-only"]), "");
 }

@@ -301,10 +301,15 @@ impl Session {
         // The branch has moved; if the person's index could not follow (another Git held it), it still holds the text
         // before, which the next `git commit` would take for a reversion: say so, with the commit made.
         if git::staged(repo, rel)?.as_deref() != Some(bytes.as_slice()) {
-            let why = format!(
-                "the commit {commit} is made, but the index could not be brought to it; run git add {}",
-                file.strip_prefix(&repo.root).unwrap_or(file).display()
-            );
+            // The repository is named, for in `own-repository` the record's is not the product's.
+            let (root, name) = (repo.root.display().to_string(), file.strip_prefix(&repo.root).unwrap_or(file));
+            let name = name.display().to_string();
+            let plain = |t: &str| t.chars().all(|c| c.is_ascii_alphanumeric() || "_./-+=,:@%~".contains(c));
+            let fix = match plain(&root) && plain(&name) {
+                true => format!("run git -C {root} add {name}"),
+                false => format!("stage {name} in the repository at {root}"),
+            };
+            let why = format!("the commit {commit} is made, but the index could not be brought to it; {fix}");
             return Err(refuse(Code::ToolFailed, Some(file), why));
         }
         Ok(Some(commit))
