@@ -326,7 +326,7 @@ fn req_fer_4_the_answer_is_generated_from_the_events_in_the_maintainers_language
     // The proposal shows its state and the command that discards it first, its identifier only in that command and
     // after the text, as a reference; the drafted text is fenced by a fence longer than any backticks it holds.
     let proposal = &en[en.find("### Proposals for a maestro").unwrap()..];
-    assert!(proposal.contains("**Point 2, a proposal for the alambique (pending)**\n\nTo discard it, a maestro runs this, saying why with --say:\n\n    fabrewk discard p-1234abcd\n\n"), "{proposal}");
+    assert!(proposal.contains("**Point 2, a proposal for the alambique (pending)**\n\nTo approve it, a maestro runs this, saying why with --say:\n\n    fabrewk approve p-1234abcd\n\nTo discard it, a maestro runs this, saying why with --say:\n\n    fabrewk discard p-1234abcd\n\n"), "{proposal}");
     // PD-32: the command is printed without words, so running it as printed refuses.
     assert!(!proposal.contains("--say \"") && !proposal.contains("<your words>"), "{proposal}");
     assert!(
@@ -334,7 +334,7 @@ fn req_fer_4_the_answer_is_generated_from_the_events_in_the_maintainers_language
         "{proposal}"
     );
     assert!(proposal.contains("Status key: point 6.1 becomes [decidido].\n\nReference: p-1234abcd\n\n"), "{proposal}");
-    assert_eq!(en.matches("p-1234abcd").count(), 2);
+    assert_eq!(en.matches("p-1234abcd").count(), 3);
     // The skills come from the event: the names, a warning for a name an approved skill bears, and `unknown`.
     let skills = &en[en.find("### Skills the tools load").unwrap()..];
     assert!(skills.contains("- claude: fermento, zeta\n  - claude loads a skill named fermento, which is also an approved skill of this project.\n"), "{skills}");
@@ -349,7 +349,9 @@ fn req_fer_4_the_answer_is_generated_from_the_events_in_the_maintainers_language
         "{es}"
     );
     assert!(
-        es.contains("Para descartarla, un maestro corre esto, diciendo por qué con --say:") && es.contains("pendiente"),
+        es.contains("Para descartarla, un maestro corre esto, diciendo por qué con --say:")
+            && es.contains("Para aprobarla, un maestro corre esto, diciendo por qué con --say:")
+            && es.contains("pendiente"),
         "{es}"
     );
     // No generated line is the separator's marker, so the next sweep finds it once.
@@ -382,6 +384,8 @@ fn req_fer_4_a_stale_proposal_and_a_decided_one() {
         "{en}"
     );
     assert!(en.contains("**Point 1, a proposal for the alambique (pending)**"), "{en}");
+    // A stale proposal can only be discarded: approving it would be refused.
+    assert!(en.contains("fabrewk approve p-bbbbbbbb") && !en.contains("fabrewk approve p-aaaaaaaa"), "{en}");
     // Discarded, a proposal leaves the answer; the order is by point, then identifier.
     write(&f, "fermento-xel", &[person("proposal-discarded", json!({"id": "p-aaaaaaaa"}))]);
     let record = f.replay();
@@ -571,7 +575,15 @@ fn req_reg_6_a_decision_in_the_alambique_belongs_to_no_fermento() {
         "fermento-xel",
         &[sweep(vec![recommendation(2, two)], json!([])), proposal("p-aaaaaaaa", 2, two, "**6.1.** A.")],
     );
-    write(&f, "alambique", &[person("proposal-incorporated", json!({"id": "p-aaaaaaaa"}))]);
+    // The stream opens with the baseline; the proposal starts from the text approved and gives the result it predicted.
+    write(
+        &f,
+        "alambique",
+        &[
+            person("alambique-baseline", json!({"digest": H})),
+            person("proposal-incorporated", json!({"id": "p-aaaaaaaa", "result": H})),
+        ],
+    );
     let all = fermento::proposals(&f.replay()).unwrap();
     assert_eq!(all["p-aaaaaaaa"].state, "incorporated");
 }

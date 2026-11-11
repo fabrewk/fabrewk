@@ -100,7 +100,7 @@ fn req_reg_4_apply_cites_the_first_adoption() {
         head = Some(s.append("project", head.as_ref(), &draft, Some(&f.signer())).unwrap());
     }
     s.append("project", head.as_ref(), &fabrewk("installed", json!({})), None).unwrap();
-    let baseline = moved("alambique-baseline", "xel", "maestro", &digest, json!({}));
+    let baseline = moved("alambique-baseline", "xel", "maestro", &digest, json!({"digest": digest}));
     s.append("alambique", None, &baseline, Some(&f.signer())).unwrap();
     s.finish(&PolicyVerifier, &[]).unwrap();
     let r = ok(&f);

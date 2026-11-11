@@ -218,6 +218,7 @@ finding = "{check} ({severity}, {control}): {about}"
 passed = "The check passed with no error; warnings: {warnings}."
 failed = "The check found problems; errors: {errors}, warnings: {warnings}."
 C6 = "Each fermento has its separator exactly once outside fenced code blocks, inside a rendering Fabrewk writes."
+C7 = "The alambique is the text a maestro last approved."
 C12 = "Every maintainer directory has a fermento and is listed in the policy."
 
 [severity]
@@ -726,6 +727,11 @@ about = "The command that discards a proposal"
 summary = "A maestro discards a pending proposal, saying why."
 arg = "The proposal, by its identifier (p-…)."
 
+[command.approve]
+about = "The command that approves a proposal or the alambique's direct edit"
+summary = "A maestro approves a proposal, which applies its edit and commits the alambique alone, or approves the alambique as it stands, saying why."
+arg = "A proposal, by its identifier (p-…), or the word alambique."
+
 [sweep]
 about = "What sweep reports"
 done = "Swept the fermento of {alias}: {points} points answered, {recorded} proposals recorded, {withdrawn} withdrawn."
@@ -733,6 +739,13 @@ done = "Swept the fermento of {alias}: {points} points answered, {recorded} prop
 [discard]
 about = "What discard reports"
 done = "Discarded the proposal {id}. The fermento's answer shows it at the next sweep."
+
+[approve]
+about = "What approve reports"
+alambique = "Approved the proposal {id}: the alambique is now {digest}."
+rules = "Approved the proposal {id}: the project rules are now {digest}. RULES.md follows with the views."
+direct = "Approved the alambique's direct edit: it is now {digest}."
+baseline = "Recorded the alambique's baseline: {digest}."
 
 [fermento]
 about = "Words of the fermento's separator and of the answer a sweep writes"
@@ -750,6 +763,7 @@ destination = "Destination: {destination}"
 proposals = "Proposals for a maestro"
 proposal = "Point {number}, a proposal for {target} ({state})"
 discard = "To discard it, a maestro runs this, saying why with --say:"
+approve = "To approve it, a maestro runs this, saying why with --say:"
 removed = "removed"
 key = "Status key: point {point} becomes {key}."
 reference = "Reference: {id}"
@@ -807,6 +821,32 @@ run = "fabrewk config"
 about = "An answer whose points are not the fermento's as it stands (REQ-FER-3)"
 reason = "A point of the answer does not exist in the fermento, changed since it was read, or has no recommendation."
 next = "Read the fermento again and answer every point as it stands now."
+
+[code.ALAMBIQUE_CHANGED]
+about = "The alambique is not the text a proposal starts from (REQ-FER-5)"
+reason = "The alambique, in the working tree, in the index or in the last commit, is not the text the proposal was drafted from."
+next = "Commit or revert the change to the alambique, ask for a new sweep of the point and approve the proposal it records; nothing was written."
+
+[code.ALAMBIQUE_MISSING]
+about = "There is no alambique to approve (REQ-FER-7)"
+reason = "There is no ALAMBIQUE.md, or it is not a regular file reached without a link, or it is not valid text."
+next = "Restore the alambique; nothing was written."
+
+[code.ALAMBIQUE_UNAPPROVED]
+about = "The alambique differs from its last approved version (REQ-FER-7, C7)"
+reason = "The alambique is not the text a maestro last approved: it changed by hand, or it was never approved."
+next = "A maestro reads the change and approves it, or reverts it:"
+run = "fabrewk approve alambique"
+
+[code.PROPOSAL_STALE]
+about = "A proposal that no longer matches the text it was drafted from (REQ-FER-5, REQ-FER-6)"
+reason = "The fermento's point is gone or changed, or another proposal changed the project rules since, or the drafted text does not give the result it predicts."
+next = "Ask for a new sweep, which drafts the edit again; nothing was written."
+
+[code.UNIT_AMBIGUOUS]
+about = "An edit's unit that the alambique does not hold exactly once (REQ-FER-6)"
+reason = "A unit of the edit is found twice or not at all in the alambique, or two units overlap, or a rule it removes does not exist."
+next = "Ask for a new sweep, which names the units as the alambique stands; nothing was written."
 
 [code.PROPOSAL_UNKNOWN]
 about = "A proposal that the record does not hold (section 7)"

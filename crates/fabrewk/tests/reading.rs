@@ -424,8 +424,18 @@ fn refusal_check_unknown() {
     fs::write(&alambique, "# Alambique\n").unwrap();
     fx.commit("alambique");
     fs::set_permissions(&alambique, fs::Permissions::from_mode(0o000)).unwrap();
+    // C7 reads the alambique to compare it, and C9 to scan it: neither can, and neither takes the other's place.
     let e = refused(&fx, &["check"], "CHECK_UNKNOWN", 3, "es");
-    assert_eq!(e["check"], "C9");
+    assert_eq!(e["check"], "C7");
+    let doc = fx.run(&["check", "--json"]).doc();
+    let unknown: Vec<&str> = doc["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|f| f["code"] == "CHECK_UNKNOWN")
+        .map(|f| f["check"].as_str().unwrap())
+        .collect();
+    assert_eq!(unknown, ["C7", "C9"]);
     fs::set_permissions(&alambique, fs::Permissions::from_mode(0o644)).unwrap();
 }
 
@@ -456,6 +466,7 @@ fn refusal_credential_suspected_at_check_reads_only_what_is_cited() {
         .as_array()
         .unwrap()
         .iter()
+        .filter(|f| f["check"] != "C7")
         .map(|f| format!("{} {}", f["code"].as_str().unwrap(), f["path"].as_str().unwrap()))
         .collect();
     let want: BTreeSet<String> =

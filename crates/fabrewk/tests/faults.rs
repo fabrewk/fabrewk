@@ -412,3 +412,40 @@ fn refusal_input_changed_after_the_events_leaves_them_and_the_maintainers_edit()
     assert_eq!(fx.events("fermento-xel").len(), 2);
     assert_eq!(fx.run(&["check"]).status, 0);
 }
+
+/// A proposal to replace point 1.1 of the fixture's alambique, swept; gives its identifier.
+fn alambique_proposal(fx: &Fx) -> String {
+    let text = fs::read_to_string(fx.domain.join("ALAMBIQUE.md")).unwrap();
+    let units = vec![json!({"kind": "point", "n": 1, "m": 1, "text": "**1.1. A:** new."})];
+    let result = sha256_hex(fabrewk_core::alambique::apply(&text, &units).unwrap().as_bytes());
+    let edit = json!({"target": "alambique", "base": sha256_hex(text.as_bytes()), "keys": [], "result": result, "units": units});
+    answer_for(fx);
+    let mut doc: Value = serde_json::from_slice(&fs::read(fx.root.join("answer.json")).unwrap()).unwrap();
+    doc["points"][0]["edit"] = edit;
+    fs::write(fx.root.join("answer.json"), serde_json::to_vec(&doc).unwrap()).unwrap();
+    let ran = fx.run(&["sweep", "xel", "--answer", "answer.json", "--json"]);
+    assert_eq!(ran.status, 0, "{ran:?}");
+    ran.doc()["proposals"][0].as_str().unwrap().to_owned()
+}
+
+#[test]
+fn refusal_alambique_changed_while_the_command_ran_writes_nothing() {
+    for json in [false, true] {
+        let fx = Fx::new(&format!("alambique-moved-{json}"), "published");
+        fx.alambique("# A\n\n## 1. S\n\n**1.1. A:** first.\n", "published");
+        let id = alambique_proposal(&fx);
+        let dir = tmp("alambique-moved-steps");
+        let mut argv = vec!["approve", &id, "--say", SAY];
+        argv.extend(json.then_some("--json"));
+        let child = paused(&fx, &argv, "before-alambique", &dir);
+        // The maestro saves an edit while the command waits: it writes nothing and theirs stays.
+        let edited = "# A\n\n## 1. S\n\n**1.1. A:** first, edited.\n";
+        fs::write(fx.domain.join("ALAMBIQUE.md"), edited).unwrap();
+        let before = fx.snapshot();
+        let ran = resume(child, "before-alambique", &dir);
+        says(&ran, "ALAMBIQUE_CHANGED", json);
+        assert_eq!(fx.snapshot(), before, "nothing written after the alambique changed");
+        assert_eq!(fx.events("alambique").len(), 1);
+        assert_eq!(fs::read_to_string(fx.domain.join("ALAMBIQUE.md")).unwrap(), edited);
+    }
+}

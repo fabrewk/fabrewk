@@ -5,6 +5,7 @@
 //! write nothing.
 
 mod adopt;
+mod approve;
 mod check;
 mod config;
 mod decl;
@@ -282,6 +283,7 @@ pub fn main(args: Vec<OsString>, modules: &'static [Program], markers: &'static 
                     "run" => tasks::run(&cx, arg.as_deref().unwrap_or_default(), &options),
                     "sweep" => sweep::sweep(&cx, arg.as_deref().unwrap_or_default(), &options),
                     "discard" => sweep::discard(&cx, arg.as_deref().unwrap_or_default(), &options),
+                    "approve" => approve::approve(&cx, arg.as_deref().unwrap_or_default(), &options),
                     _ => check::run(&cx),
                 },
                 Ok(Parsed::Version { .. }) => Ok(version()),

@@ -177,6 +177,26 @@ impl Fx {
         s.finish(&fabrewk_core::identity::PolicyVerifier, &[]).unwrap();
     }
 
+    /// Writes the baseline `apply` would: the digest of the alambique as it stands, approved by `xel`.
+    pub fn baseline(&self) {
+        let policy = sha256_hex(std::fs::read_to_string(self.domain.join("settings.toml")).unwrap().as_bytes());
+        let digest = sha256_hex(&std::fs::read(self.domain.join("ALAMBIQUE.md")).unwrap());
+        let mut s = Session::begin(&self.domain, None, &fabrewk_core::identity::PolicyVerifier).unwrap();
+        let head = s.head("alambique").unwrap();
+        let d = self.draft("alambique-baseline", &policy, json!({"digest": digest}));
+        s.append("alambique", head.as_ref(), &d, Some(&self.signer())).unwrap();
+        s.finish(&fabrewk_core::identity::PolicyVerifier, &[]).unwrap();
+    }
+
+    /// Writes `text` as the alambique and its baseline; in `published` mode commits both.
+    pub fn alambique(&self, text: &str, mode: &str) {
+        std::fs::write(self.domain.join("ALAMBIQUE.md"), text).unwrap();
+        self.baseline();
+        if mode == "published" {
+            self.commit("alambique");
+        }
+    }
+
     /// Proposes, as an agent, a stage with one task; gives their identifiers.
     pub fn stage_and_task(&self) -> (String, String) {
         self.stage_and_task_by(json!({"kind": "agent", "tool": "codex", "provider": "openai", "modelRequested": "gpt-6.1-sol", "modelObserved": null}))

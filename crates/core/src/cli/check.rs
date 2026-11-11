@@ -1,14 +1,14 @@
 //! `fabrewk check` (section 6; part 7d2, D-055): every verification of this phase, each finding with its code, its
 //! severity and its control's label; it exits 3 when any finding is an error. It only reads. A verification that
-//! cannot run, for a tool missing or failing or a file that does not read, is `CHECK_UNKNOWN`, never a pass. C6 and
-//! C12 come with part 8a; C5 and C7 are declared with the later parts of phase 8.
+//! cannot run, for a tool missing or failing or a file that does not read, is `CHECK_UNKNOWN`, never a pass. C6, C12
+//! and C7 come with parts 8a and 8b; C5 is declared with the views (8c).
 
 use super::{Cx, FOUND, Failed, Out};
 use crate::code::{Code::*, Error, normal, refuse};
 use crate::record::{self, Publication, Repo};
 use crate::settings::{self, Level, RESERVED, is_alias};
 use crate::table::Control::{self, Cooperative, Effective};
-use crate::{domain, fermento, identity};
+use crate::{alambique, domain, fermento, identity};
 use serde_json::{Value, json};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -43,6 +43,7 @@ pub const CHECKS: &[Check] = &[
     },
     Check { id: "C4", codes: &[RecordAbsent, RecordRollback, MarkInvalid], control: Effective },
     Check { id: "C6", codes: &[SeparatorMissing, SeparatorAmbiguous, SeparatorDamaged], control: Effective },
+    Check { id: "C7", codes: &[AlambiqueUnapproved], control: Effective },
     Check {
         id: "C8",
         codes: &[DomainUnknownEntry, AliasInvalid, GitignoreChanged, DomainNotIgnored],
@@ -243,6 +244,12 @@ pub(super) fn run(cx: &Cx) -> Result<Out, Failed> {
     found.extend(domain::check_gitignore(d).err().map(|e| ("C8", unknown(e))));
     if let Some(mode) = mode {
         found.extend(domain::check_ignored(d, mode).err().map(|e| ("C8", unknown(e))));
+    }
+    // C7: the alambique is the text a maestro last approved (REQ-FER-7).
+    match record {
+        Ok(r) => found.extend(alambique::check(r, d).err().map(|e| ("C7", unknown(e)))),
+        Err(_) if !absent => found.push(("C7", refuse(CheckUnknown, Some(d), "the record does not replay"))),
+        Err(_) => {}
     }
     // C6 and C12: each maintainer's directory is listed in the policy and holds a fermento, whose separator stands
     // once (REQ-FER-1, REQ-FER-9). A directory that cannot be listed is C1's `CHECK_UNKNOWN`.

@@ -147,7 +147,7 @@ fn plan(cx: &Cx, alias: &str, answer: &Value, path: &Path, record: &Replay) -> R
     let lang = super::catalogue(&lang);
     let name = alias.to_owned();
     let view = View { alias: name.clone(), digest, answer: Box::new(move |r| fermento::answer(r, &name, lang)) };
-    Ok(Plan { events, signer: None, sealed: false, view: Some(view), out })
+    Ok(Plan { events, signer: None, sealed: false, view: Some(view), alambique: None, out })
 }
 
 /// `fabrewk sweep <alias> --answer <file>`.
@@ -200,7 +200,7 @@ pub(super) fn discard(cx: &Cx, id: &str, options: &Options) -> Result<Out, Faile
             payload: json!({"id": p.id}),
         };
         let events = vec![(format!("fermento-{}", p.alias), draft)];
-        Ok(Plan { events, signer: Some(signer), sealed: false, view: None, out: p.id.clone() })
+        Ok(Plan { events, signer: Some(signer), sealed: false, view: None, alambique: None, out: p.id.clone() })
     };
     let (id, written) = write::run(cx, plan)?;
     let mut text = cx.t("discard.done", &[("id", &id)]) + "\n";

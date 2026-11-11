@@ -17,7 +17,7 @@ use std::sync::LazyLock;
 const TABLE: &str = "
 task | task-proposed | - | proposed | anyone | STAGE_CLOSED~ TASK_INVALID~ PROTECTED_PATH~ PROTECTED_PATH_WILDCARD~
 task | task-authorized ^stage-authorized | proposed halted verified accepted | authorized | maestro say | ROLE_FORBIDDEN WORDS_MISSING WORDS_COPIED~ TASK_CHANGED PROTECTED_PATH PROTECTED_PATH_WILDCARD WIDENING_UNNAMED LIMIT_UNOBSERVABLE
-task | run-started +attempt-started | authorized verified | running | maestro say | POLICY_ABSENT DEPENDENCY_OPEN BASE_MOVED LOCK_HELD~ REQ-RUN-2~ CONFINEMENT_UNAVAILABLE ALAMBIQUE_UNAPPROVED
+task | run-started +attempt-started | authorized verified | running | maestro say | POLICY_ABSENT DEPENDENCY_OPEN BASE_MOVED LOCK_HELD~ REQ-RUN-2~ ALAMBIQUE_UNAPPROVED CONFINEMENT_UNAVAILABLE
 task | attempt-ended candidate-recorded check-recorded review-recorded | running | running | fabrewk | ATTEMPT_ENDED LANE_VIOLATION PROTECTED_PATH CREDENTIAL_SUSPECTED~ REVIEW_INVALID
 task | task-verified | running | verified | fabrewk | REQ-GATE-5
 task | task-halted | authorized running | halted | fabrewk | REQ-TASK-5
@@ -29,7 +29,7 @@ stage | stage-proposed | - | proposed | anyone | TASK_INVALID~ CHECK_DUPLICATE~
 stage | stage-authorized | proposed | authorized | maestro say | ROLE_FORBIDDEN WORDS_MISSING WORDS_COPIED~ TASK_CHANGED CHECK_DUPLICATE PROTECTED_PATH PROTECTED_PATH_WILDCARD WIDENING_UNNAMED LIMIT_UNOBSERVABLE
 stage | stage-closed | authorized | closed | maestro say | STAGE_OPEN_TASKS SWEEP_MISSING ALAMBIQUE_UNAPPROVED RECORD_UNCOMMITTED
 proposal | proposal-recorded | - | pending | agent | REQ-FER-3
-proposal | proposal-incorporated | pending | incorporated | maestro say | PROPOSAL_STALE ALAMBIQUE_CHANGED UNIT_AMBIGUOUS
+proposal | proposal-incorporated | pending | incorporated | maestro say | PROPOSAL_STALE ALAMBIQUE_CHANGED ALAMBIQUE_UNAPPROVED UNIT_AMBIGUOUS
 proposal | proposal-discarded | pending | discarded | maestro say |
 proposal | proposal-withdrawn | pending | withdrawn | fabrewk |
 ";
@@ -139,7 +139,10 @@ fn invalid(e: &Event, why: impl Into<String>) -> Error {
 /// one open, is `RECORD_TRANSITION_INVALID`, as is every other failure: each attempt ends exactly once (REQ-RUN-1).
 pub fn validate(record: &Replay) -> Result<(), Vec<Error>> {
     let mut errors = current(record).err().unwrap_or_default();
-    errors.extend(crate::fermento::proposals(record).err().unwrap_or_default());
+    match crate::fermento::proposals(record) {
+        Ok(all) => errors.extend(crate::alambique::validate(record, &all)),
+        Err(e) => errors.extend(e),
+    }
     if errors.is_empty() { Ok(()) } else { Err(errors) }
 }
 

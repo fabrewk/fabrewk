@@ -71,7 +71,7 @@ fn req_cli_1_every_command_appears_in_help_completions_and_reference() {
         assert!(posix.contains(&format!("        {}) ", c.name)), "posix: {}", c.name);
     }
     // Only the commands that exist (D-053 point 3): nothing of a later phase.
-    for later in ["accept", "approve", "close"] {
+    for later in ["accept", "close"] {
         assert!(COMMANDS.iter().all(|c| c.name != later), "{later}");
         assert!(!fish.contains(&format!("-a {later} ")) && !posix.contains(&format!(" {later})")), "{later}");
     }
@@ -108,6 +108,7 @@ fn req_cli_1_the_completions_run_in_their_shells() {
         "run",
         "sweep",
         "discard",
+        "approve",
         "--help",
         "--version",
     ];

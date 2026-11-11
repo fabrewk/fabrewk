@@ -324,6 +324,11 @@ pub(crate) fn sync_index(repo: &Repo) -> Result<(), Error> {
     Ok(())
 }
 
+/// The message of a record commit: one trailer `Fabrewk-Event: <digest>` per event.
+pub(crate) fn record_message(digests: &[String]) -> String {
+    "fabrewk: record\n\n".to_owned() + &digests.iter().map(|d| format!("Fabrewk-Event: {d}\n")).collect::<String>()
+}
+
 /// Makes the record commit of `files` (absolute paths in the working tree) on the record branch, moving it from
 /// `start` by compare-and-swap; if it moved, rebuilds once on the new head when no file of the commit changed there,
 /// and otherwise refuses `RECORD_COMMIT_RACE`, the files left as written. One `Fabrewk-Event` trailer per digest.
@@ -333,7 +338,7 @@ pub(crate) fn commit_record(
     branch: &str,
     start: Option<&str>,
     files: &[PathBuf],
-    digests: &[String],
+    message: &str,
 ) -> Result<String, Error> {
     check_git_locks(repo, branch)?;
     let mut rel = Vec::new();
@@ -348,12 +353,10 @@ pub(crate) fn commit_record(
         return Err(refuse(Code::ToolFailed, Some(&repo.root), "git hash-object gave another count"));
     }
     let entries: String = blobs.split('\n').zip(&rel).map(|(blob, path)| format!("100644 {blob}\t{path}\0")).collect();
-    let message: String =
-        "fabrewk: record\n\n".to_owned() + &digests.iter().map(|d| format!("Fabrewk-Event: {d}\n")).collect::<String>();
     let tmp = domain.join("local/tmp");
     std::fs::create_dir_all(&tmp).map_err(io_at(&tmp))?;
     let index = tmp.join("record-index");
-    let result = attempt(repo, branch, start, &rel, &entries, &message, &index);
+    let result = attempt(repo, branch, start, &rel, &entries, message, &index);
     let _ = std::fs::remove_file(&index);
     result
 }

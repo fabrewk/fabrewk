@@ -2,7 +2,7 @@
 _fabrewk() {
     eval '_fabrewk_command=${COMP_WORDS[1]}'
     if [ "$COMP_CWORD" -eq 1 ]; then
-        _fabrewk_words='status config check adopt propose authorize reject run sweep discard --help --version'
+        _fabrewk_words='status config check adopt propose authorize reject run sweep discard approve --help --version'
     else
         case $_fabrewk_command in
         status) _fabrewk_words='--json --help' ;;
@@ -15,6 +15,7 @@ _fabrewk() {
         run) _fabrewk_words='--say --say-lang --json --help' ;;
         sweep) _fabrewk_words='--answer --json --help' ;;
         discard) _fabrewk_words='--say --say-lang --json --help' ;;
+        approve) _fabrewk_words='--say --say-lang --json --help' ;;
         --version) _fabrewk_words='--json' ;;
         *) _fabrewk_words='' ;;
         esac

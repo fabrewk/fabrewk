@@ -9,10 +9,10 @@
 use super::{Cx, Failed, Options, get};
 use crate::code::{Code, Error, refuse};
 use crate::detect::{self, Space};
-use crate::fermento;
 use crate::identity::{self, GitSigner, PolicyVerifier};
 use crate::record::{Draft, Head, Publication, Replay, Repo, Say, Session};
 use crate::settings::{self, Policy, Val};
+use crate::{alambique, fermento};
 use crate::{domain, machine};
 use std::collections::BTreeMap;
 
@@ -98,7 +98,16 @@ pub(super) struct Plan<T> {
     pub signer: Option<GitSigner>,
     pub sealed: bool,
     pub view: Option<View>,
+    pub alambique: Option<Edit>,
     pub out: T,
+}
+
+/// The alambique's approval (REQ-FER-5): the digest of the file as the plan saw it (`None` for no file), the text to
+/// put there (`None` when the person's own is approved) and the message of the commit that holds it alone.
+pub(super) struct Edit {
+    pub before: Option<String>,
+    pub bytes: Option<Vec<u8>>,
+    pub message: String,
 }
 
 /// A maintainer's fermento whose answer the command rewrites from the record once its events are written (REQ-FER-3):
@@ -177,6 +186,19 @@ pub(super) fn run<T>(cx: &Cx, plan: impl Fn(&Replay) -> Result<Plan<T>, Failed>)
         pending.install()?;
     }
     session.commit_uncommitted(&PolicyVerifier)?;
+    // The alambique is the text the plan saw: checked here, with nothing written, and again once the events are.
+    let unchanged = |edit: &Edit| -> Result<(), Error> {
+        let now = alambique::read(&cx.domain)?.map(|b| crate::record::sha256_hex(&b));
+        let path = cx.domain.join(alambique::FILE);
+        match now == edit.before {
+            true => Ok(()),
+            false => Err(refuse(Code::AlambiqueChanged, Some(&path), "the alambique changed while the command ran")),
+        }
+    };
+    if let Some(a) = &planned.alambique {
+        crate::record::fault::pause("before-alambique");
+        unchanged(a)?;
+    }
     if let Some(v) = &planned.view {
         crate::record::fault::pause("before-view");
         fermento::current(&cx.domain, &v.alias, &v.digest)?;
@@ -186,15 +208,30 @@ pub(super) fn run<T>(cx: &Cx, plan: impl Fn(&Replay) -> Result<Plan<T>, Failed>)
     for (stream, p) in prepared {
         written.push((stream, session.write(p)?));
     }
-    // The fermento's answer is generated from the record these events made; the input is checked once more first, and
-    // a change now leaves the events written and the answer not, as a failed record commit leaves its events (D-065).
-    let mut views = Vec::new();
-    if let Some(v) = &planned.view {
-        let rest = "; this command's events are written and not committed, and the next sweep writes the answer";
-        let late = |e: Error| match e {
+    // A change that comes after the events are written leaves them written, as a failed record commit does (D-065).
+    let late = |what: &str| {
+        let rest = format!("; this command's events are written and not committed, and {what}");
+        move |e: Error| match e {
             Error::Refused { code, path, detail } => Error::Refused { code, path, detail: format!("{detail}{rest}") },
             other => other,
-        };
+        }
+    };
+    // The alambique is put in place and committed alone before the record commit, which the events it depends on
+    // precede (REQ-REG-10).
+    if let Some(a) = &planned.alambique {
+        let late = &late("the next approval shows what was decided");
+        let path = cx.domain.join(alambique::FILE);
+        unchanged(a).map_err(late)?;
+        if let Some(bytes) = &a.bytes {
+            crate::record::write_atomic(&path, bytes).map_err(late)?;
+        }
+        session.commit_alone(&path, &a.message).map_err(late)?;
+    }
+    // The fermento's answer is generated from the record these events made; the input is checked once more first, and
+    // a change now leaves the events written and the answer not.
+    let mut views = Vec::new();
+    if let Some(v) = &planned.view {
+        let late = late("the next sweep writes the answer");
         let record = crate::record::replay(&cx.domain, &PolicyVerifier).map_err(|mut e| late(e.remove(0)))?;
         let bytes = fermento::compose(&cx.domain, &v.alias, &v.digest, &(v.answer)(&record)).map_err(late)?;
         let path = std::path::PathBuf::from(&v.alias).join("fermento.md");

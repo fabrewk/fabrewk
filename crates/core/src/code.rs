@@ -7,6 +7,9 @@ use std::path::{Path, PathBuf};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Code {
     AgentEnvironment,
+    AlambiqueChanged,
+    AlambiqueMissing,
+    AlambiqueUnapproved,
     AliasInvalid,
     AliasMismatch,
     AnswerInvalid,
@@ -36,6 +39,7 @@ pub enum Code {
     PolicyPending,
     PolicyUncommitted,
     PrivateFolderPermissions,
+    ProposalStale,
     ProposalUnknown,
     ProtectedPath,
     ProtectedPathWildcard,
@@ -64,6 +68,7 @@ pub enum Code {
     TaskInvalid,
     ToolFailed,
     ToolMissing,
+    UnitAmbiguous,
     WideningUnnamed,
     WordsCopied,
     WordsMissing,
@@ -196,6 +201,9 @@ mod tests {
         let list = &list[..list.find("\n\n").unwrap()];
         for code in [
             AgentEnvironment,
+            AlambiqueChanged,
+            AlambiqueMissing,
+            AlambiqueUnapproved,
             AliasInvalid,
             AliasMismatch,
             AnswerInvalid,
@@ -225,6 +233,7 @@ mod tests {
             PolicyPending,
             PolicyUncommitted,
             PrivateFolderPermissions,
+            ProposalStale,
             ProposalUnknown,
             ProtectedPath,
             ProtectedPathWildcard,
@@ -253,6 +262,7 @@ mod tests {
             TaskInvalid,
             ToolFailed,
             ToolMissing,
+            UnitAmbiguous,
             WideningUnnamed,
             WordsCopied,
             WordsMissing,

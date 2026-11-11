@@ -191,6 +191,7 @@ finding = "{check} ({severity}, {control}): {about}"
 passed = "La verificación pasó sin errores; advertencias: {warnings}."
 failed = "La verificación encontró problemas; errores: {errors}, advertencias: {warnings}."
 C6 = "Cada fermento tiene su separador una sola vez fuera de bloques de código, dentro de una versión que Fabrewk escribe."
+C7 = "El alambique es el texto que un maestro aprobó por última vez."
 C12 = "Cada directorio de mantenedor tiene un fermento y está listado en la política."
 
 [severity]
@@ -628,11 +629,21 @@ arg = "El mantenedor, por su alias."
 summary = "Un maestro descarta una propuesta pendiente, diciendo por qué."
 arg = "La propuesta, por su identificador (p-…)."
 
+[command.approve]
+summary = "Un maestro aprueba una propuesta, que aplica su edición y hace commit del alambique solo, o aprueba el alambique como está, diciendo por qué."
+arg = "Una propuesta, por su identificador (p-…), o la palabra alambique."
+
 [sweep]
 done = "Se barrió el fermento de {alias}: {points} puntos respondidos, {recorded} propuestas registradas, {withdrawn} retiradas."
 
 [discard]
 done = "Se descartó la propuesta {id}. La respuesta del fermento lo muestra en el siguiente barrido."
+
+[approve]
+alambique = "Se aprobó la propuesta {id}: el alambique es ahora {digest}."
+rules = "Se aprobó la propuesta {id}: las reglas del proyecto son ahora {digest}. RULES.md se sigue con las vistas."
+direct = "Se aprobó la edición directa del alambique: es ahora {digest}."
+baseline = "Se registró la base del alambique: {digest}."
 
 [fermento]
 separator = """
@@ -649,6 +660,7 @@ destination = "Destino: {destination}"
 proposals = "Propuestas para un maestro"
 proposal = "Punto {number}, una propuesta para {target} ({state})"
 discard = "Para descartarla, un maestro corre esto, diciendo por qué con --say:"
+approve = "Para aprobarla, un maestro corre esto, diciendo por qué con --say:"
 removed = "quitada"
 key = "Clave de estado: el punto {point} pasa a {key}."
 reference = "Referencia: {id}"
@@ -697,6 +709,27 @@ run = "fabrewk config"
 [code.POINT_CHANGED]
 reason = "Un punto de la respuesta no existe en el fermento, cambió desde que se leyó, o no tiene recomendación."
 next = "Lee el fermento otra vez y responde cada punto como está ahora."
+
+[code.ALAMBIQUE_CHANGED]
+reason = "El alambique, en el árbol de trabajo, en el índice o en el último commit, no es el texto del que se redactó la propuesta."
+next = "Haz commit o revierte el cambio del alambique, pide un nuevo barrido del punto y aprueba la propuesta que registre; no se escribió nada."
+
+[code.ALAMBIQUE_MISSING]
+reason = "No hay ALAMBIQUE.md, o no es un archivo regular al que se llegue sin enlaces, o no es texto válido."
+next = "Restaura el alambique; no se escribió nada."
+
+[code.ALAMBIQUE_UNAPPROVED]
+reason = "El alambique no es el texto que un maestro aprobó por última vez: cambió a mano, o nunca se aprobó."
+next = "Un maestro lee el cambio y lo aprueba, o lo revierte:"
+run = "fabrewk approve alambique"
+
+[code.PROPOSAL_STALE]
+reason = "El punto del fermento ya no está o cambió, o otra propuesta cambió las reglas del proyecto desde entonces, o el texto redactado no da el resultado que predice."
+next = "Pide un nuevo barrido, que redacta la edición otra vez; no se escribió nada."
+
+[code.UNIT_AMBIGUOUS]
+reason = "Una unidad de la edición está dos veces o ninguna en el alambique, o dos unidades se traslapan, o una regla que quita no existe."
+next = "Pide un nuevo barrido, que nombra las unidades como está el alambique; no se escribió nada."
 
 [code.PROPOSAL_UNKNOWN]
 reason = "Ninguna propuesta del registro tiene ese identificador."

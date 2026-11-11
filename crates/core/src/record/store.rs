@@ -256,7 +256,8 @@ impl Session {
             let digests: Vec<String> = self.appended.iter().filter(|a| json(&a.1)).map(|a| a.0.clone()).collect();
             // A record commit that fails leaves the events written and not committed, whatever the cause, and the
             // refusal says so (D-065); the next write command commits them first (REQ-REG-10).
-            let commit = git::commit_record(repo, &self.domain, branch, start.as_deref(), &files, &digests);
+            let message = git::record_message(&digests);
+            let commit = git::commit_record(repo, &self.domain, branch, start.as_deref(), &files, &message);
             Some(commit.map_err(|e| match e {
                 Error::Refused { code, path, detail } => Error::Refused {
                     code,
@@ -272,6 +273,23 @@ impl Session {
         mark::write(&self.domain, &replay)?;
         self.record = Some(replay);
         Ok(commit)
+    }
+
+    /// Commits `file` (absolute) alone, in a commit of its own on the record branch with `message`, as the person's
+    /// Git names its author and with no co-author (REQ-FER-5); nothing when the mode does not commit or the branch
+    /// already holds the file as it is. The record commit that follows starts from it.
+    pub fn commit_alone(&mut self, file: &Path, message: &str) -> Result<Option<String>, Error> {
+        let Some((repo, branch, start)) = &mut self.git else {
+            return Ok(None);
+        };
+        let rel = file.strip_prefix(&self.domain).unwrap_or(file);
+        let (bytes, held) = (fs::read(file).map_err(io_at(file))?, git::committed(repo, rel)?);
+        if held.as_deref() == Some(bytes.as_slice()) && git::staged(repo, rel)?.as_deref() == Some(bytes.as_slice()) {
+            return Ok(None);
+        }
+        let commit = git::commit_record(repo, &self.domain, branch, start.as_deref(), &[file.to_path_buf()], message)?;
+        *start = Some(commit.clone());
+        Ok(Some(commit))
     }
 
     /// Commits, in a record commit of their own, the event files a stopped or raced command left uncommitted
@@ -292,7 +310,8 @@ impl Session {
         for f in files.iter().filter(|f| f.extension().is_some_and(|e| e == "json")) {
             digests.push(canon::sha256_hex(&fs::read(f).map_err(io_at(f))?));
         }
-        let commit = git::commit_record(repo, &self.domain, branch, start.as_deref(), &files, &digests)?;
+        let message = git::record_message(&digests);
+        let commit = git::commit_record(repo, &self.domain, branch, start.as_deref(), &files, &message)?;
         *start = Some(commit.clone());
         Ok(Some(commit))
     }

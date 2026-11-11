@@ -505,6 +505,34 @@ ignored. The exclude line is `/.brewstillery/`, added once to the file `git rev-
   say in its recommendation, since no code can judge it. Fabrewk touches none of them, and a folder that cannot be
   listed is shown as unknown, never as empty. (6.38; D-061, D-072)
 
+**The alambique and the rules, as part 8b fixed them (D-073).** (1) A unit is found outside fenced code blocks and
+spans from its first line to the end of its last line that is not blank: the opening from the start to the heading
+`## 1.`; a section from `## <n>.` to the next heading of level 1 or 2; a point from `**<n>.<m>.` to the next point or
+heading. Zero or several places, two units that overlap, or a rule to remove that does not exist, are
+`UNIT_AMBIGUOUS`; every unit is found in the text as it stands, then all are replaced. (2) The text last approved is
+the baseline, an incorporated proposal's result or a direct edit's new digest, whichever is last. With no file and
+nothing approved, C7 passes; a file nothing approved, a changed one, or an approved one that is gone, is
+`ALAMBIQUE_UNAPPROVED`; a file that cannot be read is `CHECK_UNKNOWN`. The stream `alambique` opens with its baseline,
+once; `approve alambique` records it when there is none (the first text approved) and otherwise a
+`direct-edit-approved` with the old and new digests and the difference, one hunk: the first line that differs (from 1),
+the lines removed and those put, the equal ones at both ends left out; the old text is the record branch's when it is
+the text approved, and `removed` is `null` (with all the new lines in `added`) when it is not. An alambique equal to
+its last approved text is `MOVE_NOT_ALLOWED`. (3) `approve <proposal>` evaluates, after `MOVE_NOT_ALLOWED`, the role and
+the words: `PROPOSAL_STALE` (the point with its number and the digest of its text in the fermento as it stands now;
+for `rules`, the digest of the rules the replay gives), `ALAMBIQUE_CHANGED` (the file, the record branch's tip and the
+person's index all hold the text the edit starts from), `ALAMBIQUE_UNAPPROVED` (that text is the one last approved),
+`UNIT_AMBIGUOUS`, and `PROPOSAL_STALE` again when the drafted text does not give the result it predicted. The
+alambique is written, and committed alone through a temporary index, as the person's Git names the author and with no
+co-author, after the event and before the record commit; where the branch, and the index, already hold the file as it
+stands (a direct edit the person committed) there is no such commit. The status keys of a proposal are shown with it;
+the predicted digest binds the whole text. (4) The rules are `R<n>` and their text; their digest is that of their
+canonical JSON, `{}` when there are none. A rules proposal adds, replaces (a text) or removes (`null`) whole rules, and
+its `proposal-incorporated` in the stream `rules` carries the id, the result and all the rules after it; `RULES.md`
+follows with the views (8c). (5) The replay holds both streams to this: an incorporated proposal belongs to the stream
+of its target, starts from the digest that stream holds and gives its predicted result, and the rules recorded are the
+units' (`RECORD_TRANSITION_INVALID`). (6) `ALAMBIQUE_UNAPPROVED` is evaluated by `run` before confinement; `accept`
+(phase 9) and `close` (8c) call the same function.
+
 ### VIEW: generated views
 
 - **REQ-VIEW-1.** `STATUS.md` is generated from the replay in the canonical documentation language: the open stage,
@@ -773,11 +801,11 @@ named are fixed in phase 7 with the code and recorded in this file.
 | `project` | `publication-decided` | person, signed | mode, whether the warning was shown |
 | `project` | `policy-adopted` | person, signed | the project file's content and digest, the seal of every other stream's head (D-050), the widenings named |
 | `project` | `installed` | fabrewk | the receipt: every file written and its digest |
-| `alambique` | `alambique-baseline` | person, signed | the alambique's digest at `apply` (or at the bootstrap's import) |
+| `alambique` | `alambique-baseline` | person, signed | the alambique's digest at `apply` (or at the bootstrap's import, or at the first `approve alambique`) |
 | `fermento-<alias>` | `sweep-recorded` | agent | the input's digest, per point its number, text digest and recommendation, the stage and task heads seen, the skills the tools load from outside the project (names only, REQ-FER-10) |
 | `fermento-<alias>` | `proposal-recorded` | agent | identifier, point number and text digest, target (`alambique` or `rules`), base digest, units and their new text, status-key changes, predicted result digest |
 | `fermento-<alias>` | `proposal-withdrawn` | fabrewk | identifier, why (point gone) |
-| `alambique` or `rules` (its target) | `proposal-incorporated` | person, signed | identifier, resulting digest; for `rules`, the rules' new text |
+| `alambique` or `rules` (its target) | `proposal-incorporated` | person, signed | identifier, resulting digest; for `rules`, all the rules after it |
 | `fermento-<alias>` | `proposal-discarded` | person, signed | identifier |
 | `alambique` | `direct-edit-approved` | person, signed | old and new digests, the difference |
 | `stage-<id>` | `stage-proposed` | any | goal, tasks in order, budget, approved checks |
@@ -887,7 +915,7 @@ creating nonce are fixed by the part that first builds each kind.
 | --- | --- | --- | --- | --- |
 | `task-proposed` | — | `proposed` | anyone; grants nothing | stage exists and is open (`STAGE_CLOSED`); fields and patterns valid (`TASK_INVALID`, REQ-TASK-7); no pattern reaches a protected name (`PROTECTED_PATH`); protected paths literal (`PROTECTED_PATH_WILDCARD`) |
 | `task-authorized`, or covered by `stage-authorized` | `proposed`, `halted`; `verified` and `accepted` for a revalidation, keeping the candidate (REQ-GATE-8, REQ-RUN-9) | `authorized` | maestro, `--say` | role (`ROLE_FORBIDDEN`); words (`WORDS_MISSING`, `WORDS_COPIED`); digest and head current (`TASK_CHANGED`); lane guard again (`PROTECTED_PATH`); protected paths literal again (`PROTECTED_PATH_WILDCARD`, D-068); widenings named (`WIDENING_UNNAMED`); observable limits (`LIMIT_UNOBSERVABLE`) |
-| `run-started`, then `attempt-started` | `authorized`; `verified` with stale evidence, as a revalidation (REQ-RUN-9) | `running` | maestro, `--say` (D-062) | policy adopted (`POLICY_ABSENT`); dependencies integrated (`DEPENDENCY_OPEN`); a dependent task's base fixed (`BASE_MOVED`, REQ-TASK-3); no other task running (`LOCK_HELD`); REQ-RUN-2; confinement (`CONFINEMENT_UNAVAILABLE`); alambique approved (`ALAMBIQUE_UNAPPROVED`) |
+| `run-started`, then `attempt-started` | `authorized`; `verified` with stale evidence, as a revalidation (REQ-RUN-9) | `running` | maestro, `--say` (D-062) | policy adopted (`POLICY_ABSENT`); dependencies integrated (`DEPENDENCY_OPEN`); a dependent task's base fixed (`BASE_MOVED`, REQ-TASK-3); no other task running (`LOCK_HELD`); REQ-RUN-2; alambique approved (`ALAMBIQUE_UNAPPROVED`, before confinement, D-073); confinement (`CONFINEMENT_UNAVAILABLE`) |
 | `attempt-ended`, `candidate-recorded`, `check-recorded`, `review-recorded` | `running` | `running` | fabrewk | one end per attempt (`ATTEMPT_ENDED`); lanes (`LANE_VIOLATION`, `PROTECTED_PATH`); credentials (`CREDENTIAL_SUSPECTED`); review schema (`REVIEW_INVALID`) |
 | `task-verified` | `running` | `verified` | fabrewk | REQ-GATE-5 |
 | `task-halted` | `authorized`, `running` | `halted` | fabrewk | one of REQ-TASK-5's codes |
@@ -900,7 +928,7 @@ creating nonce are fixed by the part that first builds each kind.
 `crates/core/src/table.rs`, with the stage and proposal moves of the paragraphs below it: a stage is proposed by anyone (guards
 `TASK_INVALID`, `CHECK_DUPLICATE`), authorized by a maestro with words (the task authorization's guards and
 `CHECK_DUPLICATE` again) and closed by one (REQ-TASK-6's codes); a proposal is recorded by an agent (REQ-FER-3),
-incorporated (`PROPOSAL_STALE`, `ALAMBIQUE_CHANGED`, `UNIT_AMBIGUOUS`) or discarded by a maestro with words, and
+incorporated (`PROPOSAL_STALE`, `ALAMBIQUE_CHANGED`, `ALAMBIQUE_UNAPPROVED` for an alambique target, `UNIT_AMBIGUOUS`; D-073) or discarded by a maestro with words, and
 withdrawn by Fabrewk. Each guard is labelled (REQ-SEC-5): cooperative are the guards of a move that grants nothing
 (`task-proposed`, `stage-proposed`, whose events any process can write and whose fields the authorization checks
 again), `WORDS_COPIED` (the signer can always type the example), `LOCK_HELD` (an advisory lock), REQ-RUN-2 (the
@@ -946,7 +974,7 @@ the project file) and `close` (REQ-TASK-6). Every command takes `--help`; every 
 | `fabrewk accept <task> --say` | yes | `task-accepted`, `task-integrated` | section 4 |
 | `fabrewk reject <task> --say` | yes | `task-rejected` | `MERGE_IN_PROGRESS` |
 | `fabrewk sweep <alias> --answer <file>` | yes | `sweep-recorded`, `proposal-*` | REQ-FER-1, REQ-FER-3 |
-| `fabrewk approve <proposal\|alambique> --say` | yes | `proposal-incorporated`, `direct-edit-approved` | `PROPOSAL_STALE`, `ALAMBIQUE_CHANGED`, `UNIT_AMBIGUOUS` |
+| `fabrewk approve <proposal\|alambique> --say` | yes | `proposal-incorporated`, `direct-edit-approved`, `alambique-baseline` | `PROPOSAL_STALE`, `ALAMBIQUE_CHANGED`, `ALAMBIQUE_UNAPPROVED`, `ALAMBIQUE_MISSING`, `UNIT_AMBIGUOUS` |
 | `fabrewk discard <proposal> --say` | yes | `proposal-discarded` | `PROPOSAL_UNKNOWN` |
 | `fabrewk close <stage> --say` | yes | `stage-closed` | REQ-TASK-6 |
 
@@ -1019,6 +1047,7 @@ the requirements above:
 | `TERMINAL_REQUIRED` | `onboard` without a terminal | the agent route: `fabrewk assess` |
 | `NOT_A_REPOSITORY` | not inside a Git working tree | run it at the repository's root |
 | `PROPOSAL_UNKNOWN` | no such proposal | `fabrewk status` |
+| `ALAMBIQUE_MISSING` | `approve alambique` finds no `ALAMBIQUE.md`, or one that is not a regular file reached without a link, or not valid text (D-073) | restore the alambique |
 | `ANSWER_INVALID` | a sweep's answer file does not have the shape `--help` prints, or one of its texts would break the separator (D-072) | correct the file; `fabrewk sweep --help` prints its format |
 | `POLICY_PENDING` | the file differs from the adopted policy (a warning) | `fabrewk adopt --say …` |
 | `GITIGNORE_CHANGED` | `.brewstillery/.gitignore` differs from what Fabrewk wrote | restore it |
@@ -1026,7 +1055,7 @@ the requirements above:
 | `CHECK_UNKNOWN` | a verification could not run | the missing tool or reason, named |
 | `RECORD_HEAD_MOVED` | a stream's head moved under the lock, so something wrote without it; nothing was written (D-047) | run the command again |
 
-All codes, in one list: `AGENT_ENVIRONMENT`, `ALAMBIQUE_CHANGED`, `ALAMBIQUE_UNAPPROVED`, `ALIAS_INVALID`,
+All codes, in one list: `AGENT_ENVIRONMENT`, `ALAMBIQUE_CHANGED`, `ALAMBIQUE_MISSING`, `ALAMBIQUE_UNAPPROVED`, `ALIAS_INVALID`,
 `ALIAS_MISMATCH`, `ANSWER_INVALID`, `ATTEMPT_ENDED`, `ATTEMPT_REPLACED`, `BASE_MOVED`, `BUDGET_EXHAUSTED`, `CHECK_DUPLICATE`,
 `CHECK_UNKNOWN`, `CONFINEMENT_UNAVAILABLE`, `CREDENTIAL_SUSPECTED`, `DEPENDENCY_OPEN`, `DOMAIN_NOT_IGNORED`,
 `DOMAIN_UNKNOWN_ENTRY`, `EVIDENCE_STALE`, `EXTENSION_DIGEST`, `EXTENSION_OUTPUT_INVALID`, `FERMENTO_MISSING`,

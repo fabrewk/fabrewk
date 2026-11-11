@@ -3176,3 +3176,35 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   core's part of phase 9 (+1,000 to +1,400) will exceed 7,500. The maestro decides the ceiling when phase 9 starts
   (D-069); this measure is for that decision.
 - Not done: parts 8b and 8c; the base text of `RULES.md` (to draft for the maestro's approval when 8c starts).
+
+## D-073 — Part 8b: an absent baseline, the alambique committed alone also for a direct edit, the difference as one hunk, and `ALAMBIQUE_UNAPPROVED` before confinement
+
+- Status: decided
+- Decided: 2026-11-11
+- Origin: maintainer XEL in session 27's chat, answering the integrator's four questions before any code: "Sin
+  archivo pasa; con archivo, no aprobado (Recomendado)"; "Fabrewk lo commitea igual (Recomendado)"; "Un tramo: líneas
+  quitadas y puestas (Recomendado)"; "Antes de la confinación (Recomendado)". The integrator had read the
+  specification's FER, section 4's proposal moves and the code of 8a, the write path and `check`, and estimated +450
+  to +600 counted lines against the 6,662 of 7,500 (D-069, R-035).
+- Decision:
+  1. The text last approved is the baseline's digest, an incorporated proposal's result or a direct edit's new digest,
+     whichever is last. With no baseline: no file and nothing approved passes C7; a file nothing approved is
+     `ALAMBIQUE_UNAPPROVED` ("never approved"). `approve alambique` records the baseline when there is none (the first
+     text approved; `apply`, phase 10, will write it first), and otherwise a `direct-edit-approved`.
+  2. `approve alambique` also commits the alambique alone, as `approve <proposal>` does (REQ-FER-5): through a temporary
+     index, the author the person's Git names, no co-author, before the record commit; no such commit when the record
+     branch and the index already hold the file as it is (a direct edit the person committed).
+  3. `direct-edit-approved` records the difference as one hunk: the first line that differs, the lines removed and
+     those put, the equal ones at both ends left out. The old text is the record branch's when it is the text approved;
+     when it is not (`unpublished`, or a branch without it) `removed` is `null` and `added` holds all the new lines.
+  4. `ALAMBIQUE_UNAPPROVED` is evaluated by `run` before `CONFINEMENT_UNAVAILABLE` (section 4's row amended), so that
+     the guard is reached today and tested through the command; `accept` (phase 9) and `close` (8c) call the same
+     function.
+- Consequences: `core-specification.md` (REQ-FER paragraph "as part 8b fixed them", the `run-started` row, the
+  `proposal-incorporated` guards with `ALAMBIQUE_UNAPPROVED`, the `approve` row, the new code `ALAMBIQUE_MISSING`);
+  `plan.md` (row 8b). The alternatives offered: `CHECK_UNKNOWN` with no baseline, or C7 skipped until `apply`; the
+  person commits a direct edit and `approve alambique` demands it done; the difference as the two digests alone (Git
+  keeps the text) or the whole new text; the guard where the table put it, tested through its function.
+- Sources: chat of session 27; `STATUS.md`'s "Next"; D-053 point 3, D-065, D-068, D-069, D-072;
+  `core-specification.md` sections 2 FER, 3 to 6, 12.
+- Supersedes: none.

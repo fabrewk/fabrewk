@@ -31,6 +31,7 @@ pub(super) fn run(cx: &Cx, options: &Options) -> Result<Out, Failed> {
             signer: Some(signer),
             sealed: true,
             view: None,
+            alambique: None,
             out: adoption,
         })
     };

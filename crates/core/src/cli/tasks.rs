@@ -166,11 +166,11 @@ pub(super) fn bound<'a>(cx: &Cx, record: &'a Replay, states: &States, stream: &s
 }
 
 /// The refusal that stops a run of `task`, in the order of section 4's `run-started` (D-053 point 4, D-068): its
-/// dependencies integrated (`DEPENDENCY_OPEN`), no task running (`LOCK_HELD`: tasks run one at a time, REQ-TASK-3), then
-/// confinement, which refuses until phase 9 builds a backend (`CONFINEMENT_UNAVAILABLE`, REQ-SEC-2). The policy in force
-/// is the write path's guard; `BASE_MOVED` and REQ-RUN-2 are phase 9's (D-068), and the alambique's approval, after
-/// confinement, phase 8's.
-fn start(record: &Replay, states: &States, task: &str) -> Error {
+/// dependencies integrated (`DEPENDENCY_OPEN`), no task running (`LOCK_HELD`: tasks run one at a time, REQ-TASK-3), the
+/// alambique approved (`ALAMBIQUE_UNAPPROVED`, REQ-FER-7: before confinement, D-073), then confinement, which refuses
+/// until phase 9 builds a backend (`CONFINEMENT_UNAVAILABLE`, REQ-SEC-2). The policy in force is the write path's
+/// guard; `BASE_MOVED` and REQ-RUN-2 are phase 9's (D-068).
+fn start(cx: &Cx, record: &Replay, states: &States, task: &str) -> Error {
     let m = table::find("task", "run-started").expect("the table holds run-started");
     let state = |n: &str| states.get(n).copied().unwrap_or("none");
     let refused = table::evaluate(m, |g| match g.name {
@@ -186,6 +186,7 @@ fn start(record: &Replay, states: &States, task: &str) -> Error {
             }
             None => Ok(()),
         },
+        "ALAMBIQUE_UNAPPROVED" => crate::alambique::check(record, &cx.domain),
         "CONFINEMENT_UNAVAILABLE" => Err(refuse(
             Code::ConfinementUnavailable,
             None,
@@ -301,7 +302,7 @@ fn authorize_plan(cx: &Cx, id: &str, options: &Options, record: &Replay) -> Resu
         let mut after = states.clone();
         after.extend(b.tasks.iter().map(|(n, _)| ((*n).clone(), "authorized")));
         let next = if subject == "task" { stream.clone() } else { first_to_run(record, &after, &stage[6..])? };
-        return Err(start(record, &after, &next).into());
+        return Err(start(cx, record, &after, &next).into());
     }
     let (_, actor, signer) = who.expect("ROLE_FORBIDDEN is a guard of every authorization");
     let mut widened: Vec<String> = effs.iter().flat_map(|e| e.widened.clone()).collect();
@@ -328,7 +329,7 @@ fn authorize_plan(cx: &Cx, id: &str, options: &Options, record: &Replay) -> Resu
         tasks: b.tasks.iter().map(|(n, e)| (n[5..].to_owned(), goal(e))).collect(),
         widened,
     };
-    Ok(Plan { events: vec![(stream, draft)], signer: Some(signer), sealed: false, view: None, out })
+    Ok(Plan { events: vec![(stream, draft)], signer: Some(signer), sealed: false, view: None, alambique: None, out })
 }
 
 /// `fabrewk authorize <stage|task> --seen <digest> --say <words> [--widen <key>]… [--run]`.
@@ -385,6 +386,7 @@ pub(super) fn reject(cx: &Cx, id: &str, options: &Options) -> Result<Out, Failed
             signer: Some(signer),
             sealed: false,
             view: None,
+            alambique: None,
         })
     };
     let (task, written) = write::run(cx, plan)?;
@@ -410,7 +412,7 @@ pub(super) fn run(cx: &Cx, id: &str, options: &Options) -> Result<Out, Failed> {
         };
         let (alias, _, _) = write::person(cx, &policy, "run-started")?;
         write::words(cx, &policy, &alias, options)?;
-        Err(start(record, &states, &task).into())
+        Err(start(cx, record, &states, &task).into())
     };
     let (never, _) = write::run(cx, plan)?;
     match never {}

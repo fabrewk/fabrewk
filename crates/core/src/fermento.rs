@@ -26,7 +26,7 @@ pub struct Parts {
 
 /// The lines of `text` with the byte offset each starts at; a final line without a break is a line, and a break is
 /// `\n` or `\r\n` (CommonMark), neither part of the line.
-fn lines(text: &str) -> Vec<(usize, &str)> {
+pub(crate) fn lines(text: &str) -> Vec<(usize, &str)> {
     let mut at = 0;
     text.split_inclusive('\n')
         .map(|l| {
@@ -40,7 +40,7 @@ fn lines(text: &str) -> Vec<(usize, &str)> {
 /// Whether each line lies in a fenced code block, its fences included: a run of three backticks or tildes opens one
 /// after at most three spaces (a backtick fence's info string holds no backtick), and a run of the same mark at least
 /// as long, with only white space after it, closes it; one never closed runs to the end.
-fn fenced(lines: &[&str]) -> Vec<bool> {
+pub(crate) fn fenced(lines: &[&str]) -> Vec<bool> {
     let mut open: Option<(char, usize)> = None;
     let mut out = Vec::with_capacity(lines.len());
     for line in lines {
@@ -109,7 +109,7 @@ pub struct Point {
     pub text: String,
 }
 
-fn heading(line: &str) -> bool {
+pub(crate) fn heading(line: &str) -> bool {
     let rest = line.trim_start_matches(' ');
     let hashes = rest.chars().take_while(|c| *c == '#').count();
     line.len() - rest.len() <= 3
@@ -183,6 +183,11 @@ const RECORDED: T = T::Obj(&[
     ("keys", T::List(&KEY)),
     ("result", T::Hex(64)),
 ]);
+const BASELINE: T = T::Obj(&[("digest", T::Hex(64))]);
+const HUNK: T =
+    T::Obj(&[("from", T::Count), ("removed", T::Nullable(&T::List(&T::Value))), ("added", T::List(&T::Value))]);
+const DIRECT: T = T::Obj(&[("old", T::Hex(64)), ("new", T::Hex(64)), ("difference", HUNK)]);
+const INCORPORATED: T = T::Obj(&[("id", T::Id('p')), ("result", T::Hex(64)), ("?rules", T::Map(&T::Text))]);
 const WITHDRAWN: T = T::Obj(&[("id", T::Id('p')), ("why", T::One(&["point-gone"]))]);
 const DISCARDED: T = T::Obj(&[("id", T::Id('p'))]);
 /// The integrator's answer to a sweep (REQ-FER-3), the file `sweep --answer` reads.
@@ -245,6 +250,9 @@ pub fn check(kind: &str, p: &Value) -> Result<(), Error> {
         "proposal-recorded" => &RECORDED,
         "proposal-withdrawn" => &WITHDRAWN,
         "proposal-discarded" => &DISCARDED,
+        "proposal-incorporated" => &INCORPORATED,
+        "alambique-baseline" => &BASELINE,
+        "direct-edit-approved" => &DIRECT,
         _ => return Ok(()),
     };
     content(schema, kind, p)?;
@@ -410,6 +418,9 @@ pub fn answer(record: &Replay, alias: &str, lang: &str) -> String {
         let target = t(&format!("target.{}", p.payload["target"].as_str().unwrap_or_default()), &[]);
         let state = t(&format!("state.{}", if stale(p, sweep) { "stale" } else { "pending" }), &[]);
         out += &format!("**{}**\n\n", t("proposal", &[("number", &n), ("state", &state), ("target", &target)]));
+        if !stale(p, sweep) {
+            out += &format!("{}\n\n    fabrewk approve {}\n\n", t("approve", &[]), p.id);
+        }
         out += &format!("{}\n\n    fabrewk discard {}\n\n", t("discard", &[]), p.id);
         for u in p.payload["units"].as_array().into_iter().flatten() {
             let (kind, num) = (u["kind"].as_str().unwrap_or_default(), |k: &str| u[k].to_string());
