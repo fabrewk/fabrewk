@@ -1,0 +1,17 @@
+[package]
+name = "fabrewk-confine-bwrap"
+description = "Fabrewk's confinement backend for Linux: bubblewrap, with a private network made by pasta"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+fabrewk-core = { path = "../core" }
+
+[dev-dependencies]
+serde_json = "1"

@@ -27,6 +27,7 @@ pub use text::{CATALOGUES, get, messages, say};
 pub use write::EXTENSION_MARKER;
 
 use crate::code::{Code, Error};
+use crate::confine::Backend;
 use crate::detect::Program;
 use crate::identity::{self, PolicyVerifier};
 use crate::record::{Replay, replay};
@@ -83,20 +84,24 @@ pub(crate) struct Cx {
     policy: Option<Policy>,
     person: Option<String>,
     lang: &'static str,
-    modules: &'static [Program],
+    /// The built-in modules' programs and the backend's, all detected alike (REQ-SET-8).
+    modules: Vec<Program>,
     markers: &'static [&'static str],
+    backend: Option<&'static Backend>,
     /// Whether the command is one that writes, so that an internal error does not say that nothing changed.
     writes: bool,
 }
 
 impl Cx {
-    fn new(root: PathBuf, modules: &'static [Program], markers: &'static [&'static str]) -> Cx {
+    fn new(root: PathBuf, wired: Wired) -> Cx {
+        let (modules, markers, backend) = wired;
+        let modules = modules.iter().chain(backend.map_or(&[][..], |b| b.programs)).copied().collect();
         let domain = root.join(".brewstillery");
         let record = replay(&domain, &PolicyVerifier);
         let policy = record.as_ref().ok().and_then(|r| settings::in_force(r).ok().flatten());
         let person = policy.as_ref().and_then(|p| identity::person(&p.settings, &root));
         let lang = language(&domain, policy.as_ref(), person.as_deref());
-        Cx { root, domain, record, policy, person, lang, modules, markers, writes: false }
+        Cx { root, domain, record, policy, person, lang, modules, markers, backend, writes: false }
     }
 
     fn t(&self, key: &str, params: &[(&str, &str)]) -> String {
@@ -256,7 +261,16 @@ fn version() -> Out {
 /// Runs the program with `args` (without its name) from the current directory and gives its exit status; `modules`
 /// are the built-in modules' programs (D-051), `markers` the environment variables that show a process runs inside
 /// an agent, declared on each adapter's behalf (REQ-SEC-7, D-062).
-pub fn main(args: Vec<OsString>, modules: &'static [Program], markers: &'static [&'static str]) -> i32 {
+/// What the binary wires: the modules' programs, the agents' markers and the confinement backend, if this system has
+/// one.
+type Wired = (&'static [Program], &'static [&'static str], Option<&'static Backend>);
+
+pub fn main(
+    args: Vec<OsString>,
+    modules: &'static [Program],
+    markers: &'static [&'static str],
+    backend: Option<&'static Backend>,
+) -> i32 {
     let asked = args.iter().any(|a| a == "--json");
     let parsed = decl::parse(args);
     let writes = matches!(&parsed, Ok(Parsed::Run { command, .. }) if decl::writes(command));
@@ -271,7 +285,7 @@ pub fn main(args: Vec<OsString>, modules: &'static [Program], markers: &'static 
         (Ok(Parsed::Version { .. }), _) => version(),
         (_, Err(_)) => internal("en", ".", writes),
         (parsed, Ok(root)) => {
-            let cx = Cx { writes, ..Cx::new(root, modules, markers) };
+            let cx = Cx { writes, ..Cx::new(root, (modules, markers, backend)) };
             let result = match parsed {
                 Err(u) => Err(Failed::Usage(u)),
                 Ok(Parsed::Help(c)) => Ok(Out::new(Value::Null, decl::help(cx.lang, c))),

@@ -6,6 +6,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub mod alambique;
 pub mod cli;
 mod code;
+pub mod confine;
 pub mod detect;
 pub mod domain;
 pub mod fermento;

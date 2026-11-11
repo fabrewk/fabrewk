@@ -387,6 +387,20 @@ never = "never"
 tools = "Tools both permitted and present: {tools}."
 none = "none"
 controls = "Controls, each effective or cooperative:"
+residual = "Residual risks, which no control of this version closes:"
+no-backend = "No confinement backend exists for this operating system: no agent, check or extension runs here."
+
+[residual]
+about = "The residual risks config declares, of the core and of each module (REQ-SEC-5, S-7)"
+check-proves = "A check proves only what its protected files make it prove: a candidate can make an unprotected check pass without proving anything."
+reviewer-steered = "A reviewer reads the candidate, whose text can steer it; the checks and the person's acceptance stand beside its verdict."
+same-user = "Another process of the same user, unconfined, can edit the domain or swap a folder between a check and the write it guards: every guard against it is cooperative."
+outbound-network = "An agent's network is private but connects outwards: the local network and the Internet are reachable, so an agent can send its copy anywhere."
+kernel = "The kernel, bwrap, pasta, git and ssh-keygen are trusted: a defect in them, or a system call the filter does not refuse, can open a cell."
+resources = "Nothing bounds a cell's memory, processors, processes or the disk it writes during its run: only its time and the bytes kept of its output."
+host-names = "Names of the host are visible inside a cell: the paths of what is bound, which may hold the person's name, and the descriptions and serial numbers of the kernel's keys."
+key-serials = "The filter refuses the kernel's keyring calls, cryptographic sockets and io_uring; another kernel interface that takes a key's serial number is not refused."
+network-helper = "If Fabrewk is killed during a run, the cell ends with it, but the cell's pasta stays, idle, until the person ends it."
 
 [source]
 about = "Where an effective value comes from (REQ-SET-7)"

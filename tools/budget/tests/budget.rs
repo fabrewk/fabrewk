@@ -69,7 +69,8 @@ fn real_report() -> Report {
 fn req_bud_2_crate_counts_within_budget() {
     let report = real_report();
     let root = workspace_root();
-    assert_eq!(report.local, [root.join("crates/core"), root.join("crates/fabrewk")].into_iter().collect());
+    let local = ["crates/core", "crates/confine-bwrap", "crates/fabrewk"].map(|c| root.join(c));
+    assert_eq!(report.local, local.into_iter().collect());
     assert_eq!(dependency_problems(&report), Vec::<String>::new());
 }
 

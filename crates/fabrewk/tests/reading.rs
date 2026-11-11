@@ -569,8 +569,8 @@ const PINNED: &[(&str, &str)] = &[
         ":object .checks:array .checks[]:object .checks[].check:string .checks[].control:string .errors:number .findings:array .findings[]:object .findings[].check:string .findings[].code:string .findings[].control:string .findings[].detail:string .findings[].next:string .findings[].path:null|string .findings[].reason:string .findings[].run:null|string .findings[].severity:string .schema:string .warnings:number",
     ),
     (
-        "fabrewk.config/1",
-        ":object .controls:array .controls[]:object .controls[].at:string .controls[].control:string .controls[].guard:string .controls[].subject:string .keys:array .keys[]:object .keys[].alias:string .keys[].kind:string .keys[].touch:string .machine:array .machine[]:object .machine[].how:null|string .machine[].name:string .machine[].path:null|string .machine[].present:bool .machine[].space:string .machine[].verified:null|string .machine[].version:null|string .pending:array .pending[]:object .pending[].effect:string .pending[].key:string .pending[].place:string .person:null|string .policy:string .schema:string .tools:array .tools[]:string .values:array .values[]:object .values[].about:string .values[].from:null|string .values[].key:string .values[].source:string .values[].value:array|bool|number|string .values[].value[]:string",
+        "fabrewk.config/2",
+        ":object .backend:null|string .controls:array .controls[]:object .controls[].at:string .controls[].control:string .controls[].guard:string .controls[].subject:string .keys:array .keys[]:object .keys[].alias:string .keys[].kind:string .keys[].touch:string .machine:array .machine[]:object .machine[].how:null|string .machine[].name:string .machine[].path:null|string .machine[].present:bool .machine[].space:string .machine[].verified:null|string .machine[].version:null|string .pending:array .pending[]:object .pending[].effect:string .pending[].key:string .pending[].place:string .person:null|string .policy:string .residual:array .residual[]:object .residual[].from:string .residual[].risk:string .schema:string .tools:array .tools[]:string .values:array .values[]:object .values[].about:string .values[].from:null|string .values[].key:string .values[].source:string .values[].value:array|bool|number|string .values[].value[]:string",
     ),
     ("fabrewk.internal/1", ":object .path:string .schema:string"),
     (
@@ -844,6 +844,36 @@ fn p7d2_7_c4_is_cooperative_on_one_machine_wherever_it_is_listed() {
     let published = published("c4-label-published");
     let check = published.run(&["check", "--json"]).doc();
     assert!(check["checks"].as_array().unwrap().iter().any(|c| c["check"] == "C4" && c["control"] == "effective"));
+}
+
+#[test]
+fn req_sec_5_s7_config_lists_the_residual_risks_of_the_core_and_the_backend_in_words() {
+    let fx = published("residual");
+    let doc = fx.run(&["config", "--json"]).doc();
+    let backend = &fabrewk_confine_bwrap::BACKEND;
+    assert_eq!(doc["backend"], backend.name);
+    let mut declared: Vec<(&str, &str)> = fabrewk_core::confine::RESIDUAL.iter().map(|r| ("core", *r)).collect();
+    declared.extend(backend.residual.iter().map(|r| (backend.name, *r)));
+    let listed: Vec<(&str, &str)> = doc["residual"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| (r["from"].as_str().unwrap(), r["risk"].as_str().unwrap()))
+        .collect();
+    assert_eq!(listed, declared);
+    // S-7: every risk a backend or the core declares has words in every catalogue, and `config` shows them.
+    for (lang, text) in cli::CATALOGUES {
+        let m = cli::messages(text);
+        for (_, risk) in &declared {
+            assert!(m.get(&format!("residual.{risk}")).is_some_and(|w| !w.is_empty()), "{lang} lacks residual.{risk}");
+        }
+    }
+    let human = fx.run(&["config"]).stdout;
+    for (from, risk) in &declared {
+        let line = format!("{} ({from}, {risk})", cli::say("es", &format!("residual.{risk}"), &[]));
+        assert!(human.contains(&line), "{line}\n{human}");
+    }
+    assert!(human.contains(&cli::say("es", "config.residual", &[])));
 }
 
 #[test]

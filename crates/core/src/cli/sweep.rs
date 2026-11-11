@@ -25,7 +25,7 @@ struct Swept {
 /// The skills the tools load from outside the project, as this process's home gives them (REQ-FER-10).
 fn installed_skills(cx: &Cx) -> Value {
     let home = std::env::var_os("HOME").map(PathBuf::from);
-    fermento::skills(cx.modules, home.as_deref(), &cx.domain)
+    fermento::skills(&cx.modules, home.as_deref(), &cx.domain)
 }
 
 /// Every stage and task stream's head, as a sweep saw them (REQ-TASK-6).

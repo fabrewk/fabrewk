@@ -642,7 +642,7 @@ language in `crates/core/catalogue/` (`en`, the canonical one, holds every table
 command appears in it only in a `run` field, whole. A refusal prints its code and the catalogue's reason, where (a
 path relative to where the command ran), the core's detail (its technical note: a key path and line, a count; never
 a tool's own output) and the next step, with the command to run when there is one. Documents: `fabrewk.status/1` (`/2` since part 8c),
-`fabrewk.subject/1` (`/2` since part 7d3b), `fabrewk.config/1`, `fabrewk.value/1`, `fabrewk.check/1`, `fabrewk.refused/1`,
+`fabrewk.subject/1` (`/2` since part 7d3b), `fabrewk.config/1` (`/2` since part 9a), `fabrewk.value/1`, `fabrewk.check/1`, `fabrewk.refused/1`,
 `fabrewk.usage/1`, `fabrewk.internal/1`, `fabrewk.version/1`; their fields are pinned by a test. An error no refusal
 names (a file that does not read where a command needs it, a panic) is exit 70 with the catalogue's words. Help,
 `crates/fabrewk/completions/fabrewk.fish`, `crates/fabrewk/completions/fabrewk.sh` (POSIX `sh` syntax registering
@@ -838,6 +838,42 @@ texts are (P7D3B-2); the documents carry each text as it is, JSON escaping it.
 - **REQ-SEC-5 (S-7, S-8).** Beside the controls and their labels, `config` lists the residual risks each backend and
   each adapter declares, worded in the catalogue. The lock's control against a directory swapped by an unconfined
   process of the same user (P8C-8) is cooperative and declared; no crate is added for it.
+
+**The cell and its backend, as part 9a fixed them (`confinement-design.md` 3.2, 3.3 and 3.7's open point).**
+
+- The contract is `crates/core/src/confine.rs`: a `Cell` (its home and `/tmp`, mounts read-only, writable or hidden,
+  the network, whether it may nest, the whole environment, the directory and the command), a `Backend` (its programs,
+  how it starts and ends a cell, its residual risks), and `Programs`, made only by `available`, which refuses
+  `CONFINEMENT_UNAVAILABLE` where no backend exists, where a program it drives is absent, or where its probe fails,
+  and runs the probe whenever a program is not verified by use (a backend that drives none is probed at every use).
+  The runner keeps both channels in `local/evidence/<name>/stdout` and `stderr` (files `0600`, directories `0700`),
+  each up to a number of bytes past which the cell is ended, ends the cell at its time, and returns only once every
+  process of the cell has ended; a run that did not succeed is `TOOL_FAILED` naming its evidence directory, never its
+  output. A run's directories are `local/tmp/<name>/home`, `tmp` and `work` (`0700`), removed following no link; when
+  the backend cannot show that the cell ended, nothing of them is read or removed.
+- How `bwrap` and `pasta` compose, settled by test (candidate (a)): `bwrap` is Fabrewk's direct child, started
+  through `sh -c 'exec "$@" 3<"$0"'` only to open the filter on descriptor 3 (3.3 had it on standard input, which
+  instead carries one line that releases the command), with `--die-with-parent`. Its command is a wrapper that reads
+  that line and becomes the command, with standard input on `/dev/null` and without `PWD`, `SHLVL` and `_`. For a cell
+  with a network, `pasta` runs in the foreground as Fabrewk's second child, joins the wrapper's namespaces once it has
+  replaced `bwrap`'s code, and the line is written once a default route through a device other than `lo` exists;
+  Fabrewk ends `pasta` after the cell. After the direct child is ended, Fabrewk waits for the cell's first process to
+  be gone, since its descriptors close before the other processes of its namespace are ended.
+- Three consequences of that composition. `--dev` is not used, since it nests a second user namespace that `pasta`
+  cannot configure: `/dev` holds `null`, `zero`, `full`, `random`, `urandom`, `tty` and the descriptor links, with no
+  `/dev/pts` and no `/dev/shm`. A cell with a network cannot be kept from nesting, since `--disable-userns` nests one
+  too: this backend refuses it (`CONFINEMENT_UNAVAILABLE`), which leaves a check's or an extension's network
+  (REQ-GATE-2, `extensions.<name>.network`) to the parts that build them. `pasta` cannot watch the namespace on this
+  machine (SELinux refuses it, and clears a parent-death signal across `pasta`'s change of domain), so after Fabrewk
+  is killed during a run the cell ends with it but its `pasta` stays, idle: a residual risk `config` declares.
+- What of `/etc` a cell sees, fixed by the probes: the certificate stores (`/etc/pki/ca-trust`, `/etc/pki/tls`,
+  `/etc/ssl`, `/etc/ca-certificates`), `/etc/crypto-policies`, the dynamic loader's cache and configuration, the
+  alternatives, each where it exists; and `passwd`, `group`, `hosts`, `nsswitch.conf` and `resolv.conf` written by
+  Fabrewk, the last naming `169.254.0.53`, which `pasta` forwards to the host's resolver.
+- `config` lists the residual risks (`fabrewk.config/2`, with `backend` and `residual`): the core's three (T-17,
+  T-18, T-25 with P8C-8) and the backend's six (T-04, T-08, T-10, T-24, T-29, and the idle `pasta`). The adapters'
+  (T-05, T-13, T-22) come with parts 9c and 9d. `run` keeps refusing `CONFINEMENT_UNAVAILABLE` at the command line
+  until part 9e, which is also the first to keep a probe's pass in `local/cache/detected.json`.
 
 ### EXT: extensions
 

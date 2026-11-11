@@ -27,6 +27,7 @@ pub use time::{is_utc_timestamp, now_utc};
 
 pub use crate::code::{Code, Error};
 pub(crate) use crate::code::{io_at, refuse};
+pub(crate) use canon::hex;
 pub(crate) use event::{is_hex, is_id, is_name};
 pub(crate) use git::{
     check_git_locks, check_ident, check_main_worktree, committed, exclude_file, ignores, signing_key, staged,

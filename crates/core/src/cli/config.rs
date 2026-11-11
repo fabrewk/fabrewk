@@ -1,13 +1,14 @@
 //! `fabrewk config [<key>]` (REQ-SET-7, REQ-ID-5, REQ-SEC-5; section 5; part 7d2): every effective value with its
-//! source, the project file's changes not adopted, each maintainer's key, what is present on this machine, and every
-//! control with its label; with a key, that one value. It takes no lock and writes nothing (REQ-VIEW-4).
+//! source, the project file's changes not adopted, each maintainer's key, what is present on this machine, every
+//! control with its label, and the residual risks of the core and of the confinement backend (S-7, part 9a); with a
+//! key, that one value. It takes no lock and writes nothing (REQ-VIEW-4).
 
 use super::check::{CHECKS, control_of, label};
 use super::{Cx, Failed, Out};
 use crate::code::{Code, refuse};
 use crate::detect::{self, How};
 use crate::settings::{self, Effect, Source, Val};
-use crate::{identity, machine, table};
+use crate::{confine, identity, machine, table};
 use serde_json::{Value, json};
 
 fn value(v: &Val) -> Value {
@@ -118,7 +119,7 @@ pub(super) fn run(cx: &Cx, key: Option<&str>) -> Result<Out, Failed> {
         })
         .collect();
     let path = std::env::var_os("PATH");
-    let detection = detect::detect(&cx.domain, &eff, cx.modules, path.as_deref());
+    let detection = detect::detect(&cx.domain, &eff, &cx.modules, path.as_deref());
     text += &format!("\n{}\n", cx.t("config.machine", &[]));
     let mut present = Vec::new();
     for ((space, name), found) in &detection.found {
@@ -164,9 +165,22 @@ pub(super) fn run(cx: &Cx, key: Option<&str>) -> Result<Out, Failed> {
         text += &format!("  {} {}: {}\n", c.id, word(format!("check.{}", c.id)), word(format!("control.{control}")));
         controls.push(json!({"at": "check", "subject": c.id, "guard": c.id, "control": control}));
     }
+    text += &format!("\n{}\n", cx.t("config.residual", &[]));
+    let backend = cx.backend.map(|b| (b.name, b.residual));
+    let mut residual = Vec::new();
+    for (from, risks) in std::iter::once(("core", &confine::RESIDUAL[..])).chain(backend) {
+        for risk in risks {
+            text += &format!("  {} ({from}, {risk})\n", word(format!("residual.{risk}")));
+            residual.push(json!({"from": from, "risk": risk}));
+        }
+    }
+    if cx.backend.is_none() {
+        text += &format!("  {}\n", cx.t("config.no-backend", &[]));
+    }
     let doc = json!({
-        "schema": "fabrewk.config/1", "policy": policy.digest, "person": cx.person, "values": values,
+        "schema": "fabrewk.config/2", "policy": policy.digest, "person": cx.person, "values": values,
         "pending": changes, "keys": keys, "machine": present, "tools": tools, "controls": controls,
+        "backend": backend.map(|b| b.0), "residual": residual,
     });
     Ok(Out::new(doc, text))
 }

@@ -24,7 +24,7 @@ Muestra cada ajuste efectivo con su origen, los cambios no adoptados, las llaves
 
 Movimientos que puede causar: ninguno.
 
-Documentos con --json: `fabrewk.config/1`, `fabrewk.value/1`
+Documentos con --json: `fabrewk.config/2`, `fabrewk.value/1`
 
 Rechazos
 

@@ -348,6 +348,19 @@ never = "nunca"
 tools = "Herramientas permitidas y presentes a la vez: {tools}."
 none = "ninguna"
 controls = "Controles, cada uno efectivo o cooperativo:"
+residual = "Riesgos residuales, que ningún control de esta versión cierra:"
+no-backend = "No existe un backend de confinamiento para este sistema operativo: aquí no corre ningún agente, verificación ni extensión."
+
+[residual]
+check-proves = "Una verificación prueba solo lo que sus archivos protegidos la hacen probar: un candidato puede hacer pasar una verificación no protegida sin probar nada."
+reviewer-steered = "Un revisor lee el candidato, cuyo texto puede orientarlo; las verificaciones y la aceptación de la persona acompañan su veredicto."
+same-user = "Otro proceso del mismo usuario, sin confinar, puede editar el dominio o cambiar una carpeta entre una comprobación y la escritura que protege: toda protección contra él es cooperativa."
+outbound-network = "La red de un agente es privada pero se conecta hacia afuera: la red local e Internet son alcanzables, así que un agente puede enviar su copia a cualquier parte."
+kernel = "El kernel, bwrap, pasta, git y ssh-keygen son de confianza: un defecto en ellos, o una llamada al sistema que el filtro no rechaza, puede abrir una celda."
+resources = "Nada limita la memoria, los procesadores, los procesos o el disco que una celda escribe durante su ejecución: solo su tiempo y los bytes que se guardan de su salida."
+host-names = "Dentro de una celda se ven nombres del anfitrión: las rutas de lo que se monta, que pueden llevar el nombre de la persona, y las descripciones y números de serie de las llaves del kernel."
+key-serials = "El filtro rechaza las llamadas del llavero del kernel, los sockets criptográficos e io_uring; otra interfaz del kernel que tome el número de serie de una llave no se rechaza."
+network-helper = "Si Fabrewk muere durante una ejecución, la celda termina con él, pero el pasta de la celda queda, inactivo, hasta que la persona lo termine."
 
 [source]
 default = "el valor predeterminado"

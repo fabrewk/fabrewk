@@ -24,7 +24,7 @@ Shows every effective setting with its source, the changes not adopted, the keys
 
 Moves it may cause: none.
 
-Documents with --json: `fabrewk.config/1`, `fabrewk.value/1`
+Documents with --json: `fabrewk.config/2`, `fabrewk.value/1`
 
 Refusals
 

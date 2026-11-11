@@ -168,7 +168,7 @@ pub(super) fn bound<'a>(cx: &Cx, record: &'a Replay, states: &States, stream: &s
 /// The refusal that stops a run of `task`, in the order of section 4's `run-started` (D-053 point 4, D-068): its
 /// dependencies integrated (`DEPENDENCY_OPEN`), no task running (`LOCK_HELD`: tasks run one at a time, REQ-TASK-3), the
 /// alambique approved (`ALAMBIQUE_UNAPPROVED`, REQ-FER-7: before confinement, D-073), then confinement, which refuses
-/// until phase 9 builds a backend (`CONFINEMENT_UNAVAILABLE`, REQ-SEC-2). The policy in force is the write path's
+/// until part 9e builds the run past it (`CONFINEMENT_UNAVAILABLE`; the backend exists since part 9a). The policy in force is the write path's
 /// guard; `BASE_MOVED` and REQ-RUN-2 are phase 9's (D-068).
 fn start(cx: &Cx, record: &Replay, states: &States, task: &str) -> Error {
     let m = table::find("task", "run-started").expect("the table holds run-started");
@@ -190,13 +190,13 @@ fn start(cx: &Cx, record: &Replay, states: &States, task: &str) -> Error {
         "CONFINEMENT_UNAVAILABLE" => Err(refuse(
             Code::ConfinementUnavailable,
             None,
-            "this version has no confinement backend; phase 9 builds one",
+            "this version does not dispatch yet; phase 9 builds the run past confinement in its part 9e",
         )),
         _ => Ok(()),
     });
     match refused {
         Err(e) => e,
-        Ok(()) => unreachable!("confinement refuses until phase 9 builds a backend"),
+        Ok(()) => unreachable!("confinement refuses until part 9e builds the run past it"),
     }
 }
 
@@ -289,7 +289,7 @@ fn authorize_plan(cx: &Cx, id: &str, options: &Options, record: &Replay) -> Resu
                 for (p, eff) in payloads.iter().zip(&effs) {
                     let profiles = ["build", "review"].map(|k| p["profiles"][k].as_str().unwrap_or_default());
                     let tokens = p["limits"].get("tokens").is_some() || stage_payload["budget"].get("tokens").is_some();
-                    task::observable(eff, cx.modules, &profiles, tokens)?;
+                    task::observable(eff, &cx.modules, &profiles, tokens)?;
                 }
             }
             _ => {}

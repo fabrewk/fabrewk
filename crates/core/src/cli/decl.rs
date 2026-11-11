@@ -84,7 +84,7 @@ pub const COMMANDS: &[Command] = &[
             PrivateFolderPermissions,
             KeyUnknown,
         ],
-        schemas: &["fabrewk.config/1", "fabrewk.value/1"],
+        schemas: &["fabrewk.config/2", "fabrewk.value/1"],
     },
     Command {
         name: "check",

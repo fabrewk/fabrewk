@@ -251,7 +251,7 @@ pub(super) fn run<T>(cx: &Cx, plan: impl Fn(&Replay) -> Result<Plan<T>, Failed>)
     let policy = settings::in_force(after)?.ok_or_else(|| refuse(Code::PolicyAbsent, Some(&cx.domain), "none"))?;
     identity::write_allowed_signers(&cx.domain, &policy.settings)?;
     let eff = settings::effective(&policy, None, machine.as_ref(), &[], &[])?;
-    let mut detection = detect::detect(&cx.domain, &eff, cx.modules, std::env::var_os("PATH").as_deref());
+    let mut detection = detect::detect(&cx.domain, &eff, &cx.modules, std::env::var_os("PATH").as_deref());
     // Every write command ran both: Git for the mode's checks or the commit, `ssh-keygen` for the machine key.
     detection.used(Space::Program, "ssh-keygen");
     detection.used(Space::Program, "git");

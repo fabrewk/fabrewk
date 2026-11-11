@@ -10,6 +10,9 @@ publish.workspace = true
 [dependencies]
 fabrewk-core = { path = "../core" }
 
+[target.'cfg(target_os = "linux")'.dependencies]
+fabrewk-confine-bwrap = { path = "../confine-bwrap" }
+
 [dev-dependencies]
 serde_json = "1"
 
