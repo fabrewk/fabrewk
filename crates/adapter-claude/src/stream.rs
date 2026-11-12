@@ -129,7 +129,10 @@ fn assistant(event: &Map<String, Value>, r: &mut Read) -> Option<()> {
                 let count = match tool {
                     "Bash" => {
                         let command = input.get("command").and_then(Value::as_str)?;
-                        u64::try_from(segments(command).len()).ok().filter(|&c| c > 0)?
+                        let count = u64::try_from(segments(command).len()).ok().filter(|&c| c > 0)?;
+                        // Started in the background, its answer says it started, not what it ran (P9C-8).
+                        let background = input.get("run_in_background").is_some_and(|b| b != &Value::Bool(false));
+                        if background { 0 } else { count }
                     }
                     _ => 1,
                 };

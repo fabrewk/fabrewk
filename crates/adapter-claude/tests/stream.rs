@@ -504,3 +504,21 @@ fn p9c_7_a_command_that_printed_nothing_examined_nothing() {
         assert_eq!(read(&join(&v)).examined, 0, "{silent}");
     }
 }
+
+#[test]
+fn p9c_8_a_command_started_in_the_background_examined_nothing() {
+    for flag in [json!(true), json!("true"), json!(1)] {
+        let mut v = lines();
+        let input = &mut v[USE]["message"]["content"][0]["input"];
+        input["command"] = json!("sleep 60; cat sum.py");
+        input["run_in_background"] = flag.clone();
+        v[ANSWER]["message"]["content"][0]["content"] = json!(
+            "Command running in background with ID: review-job. Output is being written to: /tmp/review-job.output"
+        );
+        let r = read(&join(&v));
+        assert_eq!((r.examined, r.result.is_some()), (0, true), "{flag}");
+    }
+    let mut v = lines();
+    v[USE]["message"]["content"][0]["input"]["run_in_background"] = json!(false);
+    assert_eq!(read(&join(&v)).examined, EXAMINED);
+}

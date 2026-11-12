@@ -1009,7 +1009,8 @@ REQ-RUN-7, REQ-RUN-8, REQ-SEC-1 for the adapter, REQ-SEC-6, REQ-SEC-7, REQ-GATE-
   model and tokens and gives no result. Examination counts the uses answered without an error of `Bash`, only when
   the command printed something (the tool answers a silent one with `(Bash completed with no output)`: an uncalled
   function, an empty loop or an unmatched branch runs nothing that shows, and no reading of the shell's grammar can
-  tell what it ran), by their simple commands (split on unquoted newlines, `;`, `&&`, `||` and `|`, a `#` that starts a word commenting out the
+  tell what it ran), and never when started in the background (`run_in_background`), whose answer says it started,
+  not what it ran, by their simple commands (split on unquoted newlines, `;`, `&&`, `||` and `|`, a `#` that starts a word commenting out the
   rest of its line, a backslash before a newline joining two lines), and of `Read`, `Grep` and `Glob`; never
   `StructuredOutput`, the provider's answer tool; and only on success. A heredoc's lines count as commands: the
   count's size decides nothing, only whether it is zero. PD-26.2's sub-case is that split, which changes the count
