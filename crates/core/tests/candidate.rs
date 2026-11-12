@@ -408,6 +408,27 @@ fn s_4_a_tracked_hooks_directory_under_a_wildcard_is_refused() {
         assert!(why.contains("\"a\""), "a link above the hooks directory: {why}");
         fs::remove_dir_all(b.work()).unwrap();
         fs::create_dir(b.work()).unwrap();
+        // Where a link leads is read before a `..` after it, and a directory not made yet is protected where it
+        // would be (P9B-2).
+        let absent = Base::new("hooks-absent", &[(b"tools/readme", b"r\n")], &[("a", "tools")]);
+        git(&absent.root, &["config", "core.hooksPath", "a/hooks"]);
+        assert_eq!(
+            candidate::protected_paths(&eff, &absent.repo()).unwrap(),
+            ["Cargo.toml", "a/hooks/", "tools/hooks/"]
+        );
+        absent.export();
+        fs::create_dir(absent.work().join("tools/hooks")).unwrap();
+        absent.put("tools/hooks/pre-commit", b"#!/bin/sh\n");
+        let protected = candidate::protected_paths(&eff, &absent.repo()).unwrap();
+        refused(absent.changes_with(&["tools/**"], &protected), Code::ProtectedPathWildcard);
+        let files: &[(&[u8], &[u8])] = &[(b"tools/sub/x", b"x\n"), (b"tools/hooks/pre-commit", b"#!/bin/sh\n")];
+        let parent = Base::new("hooks-parent", files, &[("a", "tools/sub")]);
+        git(&parent.root, &["config", "core.hooksPath", "a/../hooks"]);
+        let protected = candidate::protected_paths(&eff, &parent.repo()).unwrap();
+        assert!(protected.contains(&"tools/hooks/".to_owned()), "{protected:?}");
+        parent.export();
+        parent.put("tools/hooks/pre-commit", b"#!/bin/sh\necho planted\n");
+        refused(parent.changes_with(&["tools/**"], &protected), Code::ProtectedPathWildcard);
         // Outside the working tree it protects nothing here.
         git(&b.root, &["config", "core.hooksPath", "/elsewhere/hooks"]);
         assert_eq!(candidate::protected_paths(&eff, &b.repo()).unwrap(), ["Cargo.toml"]);
@@ -653,6 +674,16 @@ fn refusal_disk_low() {
         // three counts.
         let counted = fake("counted", &format!("{header}; echo 'my 1 2 3 x% 9 3 4096 1% /'"));
         assert_eq!(candidate::free_space(&dir, 4, Some(&counted)).unwrap(), 4);
+        // A line that reads two ways, a name or a mount point that holds counts and a capacity, refuses (P9B-3).
+        for (name, line) in
+            [("twice", "vol 1 2 4096 1% 10000 9999 1 100% /fixture"), ("mount", "a 10 5 5 50% /x 1 2 3 4%")]
+        {
+            let why = refused(
+                candidate::free_space(&dir, 0, Some(&fake(name, &format!("{header}; echo '{line}'")))),
+                Code::DiskLow,
+            );
+            assert!(why.contains("could not say"), "{why}");
+        }
     });
 }
 
@@ -786,5 +817,50 @@ fn s_4_a_protected_directory_replaced_by_a_file_is_guarded_and_a_path_beside_it_
         assert_eq!(paths(&b.changes_with(&["**"], &file).unwrap()), [".github", ".github/ci.yml"]);
         b.put("Cargo.toml", b"[package]\n");
         refused(b.changes_with(&["**"], &file), Code::ProtectedPathWildcard);
+    });
+}
+
+#[test]
+fn p9b_1_a_path_git_refuses_to_hold_is_refused_before_anything_is_written() {
+    isolated("p9b_1_a_path_git_refuses_to_hold_is_refused_before_anything_is_written", || {
+        let b = Base::new("refused-by-git", &[(b"readme", b"r\n")], &[]);
+        git(&b.root, &["config", "core.protectNTFS", "true"]);
+        b.export();
+        let objects = || git(&b.root, &["count-objects", "-v"]);
+        let before = objects();
+        for name in [".gitmodules", "GI7EBA~1", ".GitModules"] {
+            symlink("planted target", b.work().join(name)).unwrap();
+            // Each listed literally, as a protected name must be, so that only Git's refusal is left.
+            let why = refused(b.changes(&["*", ".gitmodules", ".GitModules"]), Code::ProtectedPath);
+            assert!(why.contains(&format!("{name:?}")) && why.contains("Git refuses"), "{why}");
+            fs::remove_file(b.work().join(name)).unwrap();
+        }
+        assert_eq!(objects(), before, "nothing refused reached the object store");
+        // A change set read before Git's rule changed is checked again in the candidate's own index.
+        symlink("planted target", b.work().join("GI7EBA~1")).unwrap();
+        git(&b.root, &["config", "core.protectNTFS", "false"]);
+        let changes = b.changes(&["*"]).unwrap();
+        git(&b.root, &["config", "core.protectNTFS", "true"]);
+        let r = candidate::commit(
+            &b.repo(),
+            &b.base,
+            &changes,
+            b.work(),
+            &b.scratch.root,
+            "t-00000001",
+            &AGENT,
+            false,
+            None,
+        );
+        assert!(refused(r, Code::ToolFailed).contains("Git would not hold"));
+        assert!(
+            std::process::Command::new("git")
+                .current_dir(&b.root)
+                .args(["rev-parse", "--verify", "-q", "refs/heads/fabrewk/t-00000001"])
+                .status()
+                .unwrap()
+                .code()
+                == Some(1)
+        );
     });
 }

@@ -37,7 +37,7 @@ pub fn free_space(dir: &Path, megabytes: u64, df: Option<&Path>) -> Result<u64, 
 }
 
 /// The kibibytes available in `df -Pk`'s output: its one line after the header, whose capacity (digits and `%`)
-/// follows three counts, the third of them the space available.
+/// follows three counts, the third of them the space available, in one place only.
 fn available(out: &[u8]) -> Option<u64> {
     let mut lines = std::str::from_utf8(out).ok()?.lines().skip(1);
     let row: Vec<&str> = lines.next()?.split_whitespace().collect();
@@ -46,7 +46,13 @@ fn available(out: &[u8]) -> Option<u64> {
     }
     let capacity =
         |f: &str| f.strip_suffix('%').is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()));
-    let i = (4..row.len()).find(|&i| capacity(row[i]) && row[i - 3..i].iter().all(|f| f.parse::<u64>().is_ok()))?;
+    let mut readings =
+        (4..row.len()).filter(|&i| capacity(row[i]) && row[i - 3..i].iter().all(|f| f.parse::<u64>().is_ok()));
+    let i = readings.next()?;
+    // A name or a mount point that holds counts and a capacity too gives no single reading (P9B-3).
+    if readings.next().is_some() {
+        return None;
+    }
     row[i - 1].parse().ok()
 }
 
@@ -375,8 +381,9 @@ fn guarded(path: &str, lanes: &Lanes) -> bool {
 /// deletion. Its guards, in order: what the walk refuses (`PROTECTED_PATH`); an entry that is neither a file, a
 /// link nor a directory outside the ignored paths, a changed path that is not valid text, or one no allowed file
 /// matches (`LANE_VIOLATION`); a change that reaches a protected name or path and matches no allowed file written
-/// without a wildcard (`PROTECTED_PATH_WILDCARD`); a changed file that looks like a credential, by its name or, for a
-/// file, its content (`CREDENTIAL_SUSPECTED`). Nothing is written into the object store.
+/// without a wildcard (`PROTECTED_PATH_WILDCARD`); a change Git refuses to hold in a tree (`PROTECTED_PATH`, P9B-1);
+/// a changed file that looks like a credential, by its name or, for a file, its content (`CREDENTIAL_SUSPECTED`).
+/// Nothing is written into the object store.
 pub fn changes(repo: &Repo, base: &str, work: &Path, scratch: &Path, lanes: &Lanes) -> Result<Vec<Change>, Error> {
     object(base)?;
     let (found, empty) = walk(work)?;
@@ -423,6 +430,13 @@ pub fn changes(repo: &Repo, base: &str, work: &Path, scratch: &Path, lanes: &Lan
             shown(c.path.as_bytes())
         );
         return Err(refuse(Code::ProtectedPathWildcard, None, why));
+    }
+    let check = scratch.join("check-index");
+    let dropped = stage(repo, base, &check, &out);
+    let _ = fs::remove_file(&check);
+    if let Some(c) = dropped? {
+        let why = format!("the copy leaves {}, a path Git refuses to hold in a tree", shown(c.path.as_bytes()));
+        return Err(refuse(Code::ProtectedPath, None, why));
     }
     for c in out.iter().filter(|c| c.after.is_some()) {
         let name = c.path.rsplit('/').next().unwrap_or_default();
@@ -554,21 +568,16 @@ pub fn commit(
     }
     let refs: Vec<(&Vec<u8>, &Found)> = kept.iter().map(|(p, f)| (p, f)).collect();
     let written = entries_of(repo, work, scratch, &refs, true)?;
-    let zero = "0".repeat(base.len());
-    let mut info = String::new();
-    for c in changes {
-        let line = match &c.after {
-            None => format!("0 {zero}\t{}\0", c.path),
-            Some(e) if written.get(c.path.as_bytes()) == Some(e) => format!("{} {}\t{}\0", e.mode.git(), e.oid, c.path),
-            Some(_) => return Err(failed(Some(&work.join(&c.path)), "the copy changed after its change set was read")),
-        };
-        info += &line;
+    if let Some(c) =
+        changes.iter().find(|c| c.after.as_ref().is_some_and(|e| written.get(c.path.as_bytes()) != Some(e)))
+    {
+        return Err(failed(Some(&work.join(&c.path)), "the copy changed after its change set was read"));
     }
     let index = scratch.join("candidate-index");
-    let _ = fs::remove_file(&index);
     let result = (|| {
-        git::git(repo, &os(&["read-tree", base]), b"", Some(&index))?;
-        git::git(repo, &os(&["update-index", "-z", "--index-info"]), info.as_bytes(), Some(&index))?;
+        if let Some(c) = stage(repo, base, &index, changes)? {
+            return Err(failed(Some(&work.join(&c.path)), "Git would not hold this path in the candidate"));
+        }
         let tree = line(git::git(repo, &os(&["write-tree"]), b"", Some(&index))?);
         let commit = line(git::git(repo, &os(&["commit-tree", &tree, "-p", base, "-F", "-"]), text.as_bytes(), None)?);
         let branch = format!("refs/heads/fabrewk/{task}");
@@ -586,6 +595,35 @@ pub fn commit(
     })();
     let _ = fs::remove_file(&index);
     result
+}
+
+/// Writes `changes` over `base`'s tree into a new index at `index` and gives the first change it does not hold as the
+/// change says: Git leaves out a path it refuses to hold (a `.gitmodules` that is a link, a name Windows or macOS
+/// reads as one, under `core.protectNTFS` or `core.protectHFS`) and still succeeds (P9B-1), so what it holds is read
+/// back. The objects need not exist yet.
+fn stage<'c>(repo: &Repo, base: &str, index: &Path, changes: &'c [Change]) -> Result<Option<&'c Change>, Error> {
+    let _ = fs::remove_file(index);
+    let zero = "0".repeat(base.len());
+    let info: String = changes
+        .iter()
+        .map(|c| match &c.after {
+            None => format!("0 {zero}\t{}\0", c.path),
+            Some(e) => format!("{} {}\t{}\0", e.mode.git(), e.oid, c.path),
+        })
+        .collect();
+    git::git(repo, &os(&["read-tree", base]), b"", Some(index))?;
+    git::git(repo, &os(&["update-index", "-z", "--index-info"]), info.as_bytes(), Some(index))?;
+    let listed = git::git(repo, &os(&["ls-files", "-s", "-z"]), b"", Some(index))?;
+    // Each entry is `<mode> <object> <stage>\t<path>`.
+    let held: BTreeMap<&[u8], &[u8]> = listed
+        .split(|&b| b == 0)
+        .filter_map(|r| r.iter().position(|&b| b == b'\t').map(|t| (&r[t + 1..], &r[..t])))
+        .collect();
+    Ok(changes.iter().find(|c| {
+        let got = held.get(c.path.as_bytes()).copied();
+        let want = c.after.as_ref().map(|e| format!("{} {} 0", e.mode.git(), e.oid));
+        got != want.as_ref().map(|w| w.as_bytes())
+    }))
 }
 
 /// The protected paths in force (REQ-GATE-9, S-4): `gate.protectedPaths`, with the directory the repository's own

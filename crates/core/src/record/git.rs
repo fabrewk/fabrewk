@@ -158,15 +158,54 @@ pub(crate) fn hooks_dir(repo: &Repo) -> Result<Vec<String>, Error> {
     let Some(value) = value.filter(|v| !v.is_empty()) else {
         return Ok(Vec::new());
     };
-    let path = crate::code::normal(&repo.root.join(<OsStr as std::os::unix::ffi::OsStrExt>::from_bytes(value)));
-    let root = crate::code::normal(&repo.root);
-    let canonical = (path.canonicalize(), root.canonicalize());
+    let written = repo.root.join(<OsStr as std::os::unix::ffi::OsStrExt>::from_bytes(value));
+    let lexical = (Some(crate::code::normal(&written)), Some(crate::code::normal(&repo.root)));
     let mut dirs = Vec::new();
-    for (path, root) in [(Ok(path), Ok(root)), canonical] {
-        let rel = path.ok().zip(root.ok()).and_then(|(p, r)| Some(p.strip_prefix(r).ok()?.to_str()?.to_owned()));
+    for (path, root) in [lexical, (physical(&written), physical(&repo.root))] {
+        let rel = path.zip(root).and_then(|(p, r)| Some(p.strip_prefix(r).ok()?.to_str()?.to_owned()));
         dirs.extend(rel.map(|r| format!("{r}/")).filter(|d| !dirs.contains(d)));
     }
     Ok(dirs)
+}
+
+/// `path`, absolute, read as the kernel reads it (P9B-2): each link met is replaced by where it leads before what
+/// follows it, a `..` after a link included, and the part that does not exist yet is kept as written. `None` for a
+/// relative path or past 40 links.
+fn physical(path: &Path) -> Option<PathBuf> {
+    use std::path::Component;
+    let parts = |p: &Path| -> Vec<std::ffi::OsString> {
+        p.components()
+            .filter_map(|c| match c {
+                Component::Normal(n) => Some(n.to_owned()),
+                Component::ParentDir => Some("..".into()),
+                _ => None,
+            })
+            .rev()
+            .collect()
+    };
+    if !path.is_absolute() {
+        return None;
+    }
+    let (mut todo, mut out, mut links) = (parts(path), PathBuf::from("/"), 0);
+    while let Some(c) = todo.pop() {
+        if c == ".." {
+            out.pop();
+            continue;
+        }
+        out.push(&c);
+        if let Ok(target) = std::fs::read_link(&out) {
+            links += 1;
+            if links > 40 {
+                return None;
+            }
+            out.pop();
+            if target.is_absolute() {
+                out = PathBuf::from("/");
+            }
+            todo.extend(parts(&target));
+        }
+    }
+    Some(out)
 }
 
 /// The repository's exclude file, `info/exclude` in its Git directory, as an absolute path.
