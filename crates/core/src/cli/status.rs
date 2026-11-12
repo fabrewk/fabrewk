@@ -53,14 +53,14 @@ fn overview(cx: &Cx) -> Result<Out, Failed> {
             next.extend(waiting(cx, record, &mut doc, &mut text));
         }
     }
-    // An attempt's directories are not walked while it may run (REQ-RUN-3, P9E-1): with a task running, or a record
-    // that cannot say, what `local/tmp/` holds is unknown.
-    let idle = match &cx.record {
-        Ok(r) => table::current(r).is_ok_and(|s| !s.values().any(|s| *s == "running")),
-        Err(errors) => errors.iter().all(|e| e.code() == Some(Code::RecordAbsent)),
-    };
-    let local = |d: &str| held(&cx.domain.join("local").join(d));
-    let (evidence, tmp) = (local("evidence"), if idle { local("tmp") } else { None });
+    // No cell's directories are walked (REQ-RUN-3, P9E-1, P9E-7): only cells make directories in `local/tmp/`, and while
+    // one is there, running or kept unread, what `local/tmp/` holds is unknown.
+    let local = cx.domain.join("local");
+    // An entry that cannot be examined counts as a cell's.
+    let cell = |e: std::io::Result<std::fs::DirEntry>| e.and_then(|e| e.file_type()).map_or(true, |t| t.is_dir());
+    let cells = std::fs::read_dir(local.join("tmp")).map(|mut d| d.any(cell));
+    let (evidence, tmp) =
+        (held(&local.join("evidence")), if cells.is_ok_and(|c| c) { None } else { held(&local.join("tmp")) });
     doc["local"] = json!({"evidence": evidence, "tmp": tmp});
     let words = |n: Option<u64>| {
         n.map_or_else(|| cx.t("status.size-unknown", &[]), |n| cx.t("status.size", &[("bytes", &n.to_string())]))

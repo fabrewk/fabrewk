@@ -710,3 +710,80 @@ fn pd_28_a_builder_that_times_out_keeps_its_output_and_halts() {
         assert_eq!(end["evidence"]["stdout"], sha256_hex(b"printed-before\n"));
     }
 }
+
+/// Appends to `stream` an event of `kind`, a maestro's (signed) or Fabrewk's, through the library; commits it.
+fn appended(fx: &Fx, stream: &str, kind: &str, payload: Value, person: bool) {
+    use fabrewk_core::record::{KeySigner, Say, Session, Sign};
+    let mut s = Session::begin(&fx.domain, None, &fabrewk_core::identity::PolicyVerifier).unwrap();
+    let head = s.head(stream).unwrap();
+    let policy = fx.events("project").last().unwrap()["policy"].as_str().unwrap().to_owned();
+    let (actor, say) = match person {
+        true => (
+            json!({"kind": "person", "alias": "xel", "role": "maestro"}),
+            Some(Say { text: "Corre.".into(), lang: "es".into() }),
+        ),
+        false => (json!({"kind": "fabrewk"}), None),
+    };
+    let key = KeySigner(fx.keys.join("xel"));
+    let signer: Option<&dyn Sign> = if person { Some(&key) } else { None };
+    let draft = Draft { kind: kind.into(), actor, policy, instance: "SHA256:fixture".into(), say, payload };
+    s.append(stream, head.as_ref(), &draft, signer).unwrap();
+    s.finish(&fabrewk_core::identity::PolicyVerifier, &[]).unwrap();
+    fx.regen();
+    fx.commit(kind);
+}
+
+/// REQ-RUN-5 stopped at every write (P9E-8): the binary killed at each of a recovery's writes, then the next write
+/// command recovers whole, the attempt's copy removed, one end, one halt.
+#[test]
+fn p9e_8_a_recovery_stopped_at_any_write_is_made_again_whole() {
+    for n in 1.. {
+        let fx = Fx::new(&format!("recovery-{n}"), "published");
+        let (_, id) = fx.stage_and_task();
+        fx.commit("proposed");
+        let digest = fx.run(&["status", &id, "--json"]).doc()["shown"]["digest"].as_str().unwrap().to_owned();
+        assert_eq!(fx.run(&["authorize", &id, "--seen", &digest, "--say", SAY]).status, 0);
+        let stream = format!("task-{id}");
+        let events = fx.events(&stream);
+        let auth = format!("{:06}", events.len());
+        let file = fs::read_dir(fx.domain.join("data/events").join(&stream))
+            .unwrap()
+            .map(|e| e.unwrap().path())
+            .find(|p| p.file_name().unwrap().to_str().unwrap().starts_with(&auth) && p.extension().unwrap() == "json")
+            .unwrap();
+        let at = json!({"seq": events.len(), "digest": sha256_hex(&fs::read(file).unwrap())});
+        let run = json!({"task": id, "head": at, "authorization": {"stream": stream, "seq": at["seq"], "digest": at["digest"]}, "base": events[0]["payload"]["base"]});
+        appended(&fx, &stream, "run-started", run, true);
+        let attempt = json!({"role": "build", "profile": "build", "tool": "claude", "model": "m", "effort": "low", "allowedSeconds": 60});
+        appended(&fx, &stream, "attempt-started", attempt, false);
+        let seq = fx.events(&stream).len();
+        let copy = fx.domain.join(format!("local/tmp/attempt-{id}-{seq}"));
+        fs::create_dir_all(copy.join("work/src")).unwrap();
+        fs::write(copy.join("work/src/left"), "x").unwrap();
+        let n_text = n.to_string();
+        let ran = fx.run_env(&["reject", &id, "--say", SAY], &[("FABREWK_FAULT_ABORT_AT", &n_text)]);
+        let whole = ran.status == 0;
+        // Stopped before its rejection was written, the command is made again; after it, the next writer commits it.
+        let rejected = fx.events(&stream).iter().any(|e| e["kind"] == "task-rejected");
+        if !whole {
+            assert_ne!(ran.status, 1, "{n}: {ran:?}");
+            let again = if rejected { fx.run(&["status"]) } else { fx.run(&["reject", &id, "--say", SAY]) };
+            assert_eq!(again.status, 0, "{n}: {again:?}");
+        }
+        let kinds: Vec<Value> = fx.events(&stream)[seq..].iter().map(|e| e["kind"].clone()).collect();
+        assert_eq!(kinds, [json!("attempt-ended"), json!("task-halted"), json!("task-rejected")], "{n}");
+        assert!(!copy.exists(), "{n}");
+        // What a writer stopped after its events leaves for the next one is only uncommitted, or a view not regenerated,
+        // and the view's temporary file a stop while it was written leaves (part 8c's; destination: part 9i's crash
+        // suite).
+        let doc = fx.run(&["check", "--json"]).doc();
+        let left = |f: &Value| {
+            ["RECORD_UNCOMMITTED", "VIEW_STALE"].contains(&f["code"].as_str().unwrap())
+                || (f["code"] == "DOMAIN_UNKNOWN_ENTRY" && f["path"].as_str().unwrap().ends_with(".md.tmp"))
+        };
+        assert!(doc["findings"].as_array().unwrap().iter().all(left), "{n}: {doc}");
+        if whole {
+            break;
+        }
+    }
+}

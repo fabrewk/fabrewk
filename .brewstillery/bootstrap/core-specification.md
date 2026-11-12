@@ -1119,7 +1119,10 @@ to REQ-RUN-7, REQ-RUN-10, REQ-TASK-3, REQ-TASK-5, REQ-CLI-3; S-5, S-6; D-079, D-
   `BASE_MOVED`, `LOCK_HELD`, REQ-RUN-2 (the profile, `SETTINGS_INVALID`; its tool and required tools, `TOOL_MISSING`;
   the budget; the packet's size) and `ALAMBIQUE_UNAPPROVED` before anything is written; then, under the lock, which a
   run holds to its end (REQ-REG-5), `CONFINEMENT_UNAVAILABLE` (the backend, its probe and the tool's preflight) and
-  `DISK_LOW`. A guard whose code is one of REQ-TASK-5's (with `DISK_LOW`, REQ-RUN-10) halts the task instead of
+  `DISK_LOW`. `BASE_MOVED` reads the last of a dependent task's dependencies' integrations from the record branch's
+  history, never from the clock: going back from the head along first parents, the first commit that is a
+  dependency's candidate or names it in a `Fabrewk-Candidate` trailer (REQ-GATE-8); none is `BASE_MOVED` (P9E-9). A
+  guard whose code is one of REQ-TASK-5's (with `DISK_LOW`, REQ-RUN-10) halts the task instead of
   refusing: `task-halted` from `authorized`, with no `run-started`, exit 4, since only an authorization moves a halted
   task and grants it more. The others refuse with nothing written. `authorize --run` evaluates the run's refusing
   guards before writing either move (D-062 point 1) and writes the authorization before a halt.
@@ -1173,9 +1176,10 @@ to REQ-RUN-7, REQ-RUN-10, REQ-TASK-3, REQ-TASK-5, REQ-CLI-3; S-5, S-6; D-079, D-
 - REQ-RUN-5: every write command, before its own plan, finds the tasks left `running` (none can have a live process,
   since a run holds the lock to its end; a second writer meanwhile is `LOCK_HELD`), ends each open attempt `unknown`
   with `seconds` and `tokens` `null`, halts the task `OUTCOME_UNKNOWN` and removes its last attempt's directories, open
-  or ended (P9E-4), in a record commit of its own; then the command plans on that record. `status <id>` shows a halted task's code, its
-  catalogue reason and the halt's words (`fabrewk.subject/3`, with `halt`); `status` does not walk `local/tmp/` while
-  a task is running, or when the record does not replay, and shows its size unknown (REQ-RUN-3, P9E-1); `STATUS.md` shows a task's dispatches,
+  or ended, before its events, so that a recovery stopped anywhere is made again whole (P9E-4, P9E-8), in a record
+  commit of its own; then the command plans on that record. `status <id>` shows a halted task's code, its
+  catalogue reason and the halt's words (`fabrewk.subject/3`, with `halt`); `status` walks no directory of `local/tmp/`,
+  which only cells make, running or kept unread: while one is there its size is unknown (REQ-RUN-3, P9E-1, P9E-7); `STATUS.md` shows a task's dispatches,
   seconds and tokens read, written and read from the cache, each sum unknown when a part is.
 - `run`'s document is `fabrewk.run/1` (`id`, `attempt`, `candidate`, `halt`, and the events and commit written);
   `authorize`'s is `fabrewk.authorized/2`, with `run`, `null` or the run's document. Exit status 4 is the run's halt.

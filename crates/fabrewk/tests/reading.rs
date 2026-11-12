@@ -149,24 +149,27 @@ fn req_run_10_status_shows_what_the_work_areas_hold() {
     // REQ-DOM-5 as S-3 amended it: the bytes of `local/evidence/` and `local/tmp/`, however deep, no link followed.
     let fx = published("sizes");
     let deep: std::path::PathBuf = (0..40).map(|i| format!("d{i}")).collect();
-    let tmp = fx.domain.join("local/tmp/t-00000001-1").join(&deep);
-    fs::create_dir_all(&tmp).unwrap();
-    fs::write(tmp.join("f"), vec![b'x'; 1000]).unwrap();
-    std::os::unix::fs::symlink("/usr", tmp.join("link")).unwrap();
     let evidence = fx.domain.join("local/evidence/run");
-    fs::create_dir_all(&evidence).unwrap();
+    fs::create_dir_all(evidence.join(&deep)).unwrap();
+    fs::write(evidence.join(&deep).join("f"), vec![b'x'; 1000]).unwrap();
+    std::os::unix::fs::symlink("/usr", evidence.join(&deep).join("link")).unwrap();
     fs::write(evidence.join("stdout"), vec![b'y'; 300]).unwrap();
     fs::write(evidence.join("stderr"), vec![b'z'; 20]).unwrap();
+    // `local/tmp/` with files alone: a command's own temporary files, no cell's directories.
+    fs::create_dir_all(fx.domain.join("local/tmp")).unwrap();
+    fs::write(fx.domain.join("local/tmp/signing-key.pub"), vec![b'k'; 7]).unwrap();
     let doc = fx.run(&["status", "--json"]).doc();
-    assert_eq!(doc["local"], serde_json::json!({"evidence": 320, "tmp": 1000}), "{doc}");
+    assert_eq!(doc["local"], serde_json::json!({"evidence": 1320, "tmp": 7}), "{doc}");
     let size = |n: &str| cli::say("es", "status.size", &[("bytes", n)]);
-    let line = cli::say("es", "status.local", &[("evidence", &size("320")), ("tmp", &size("1000"))]);
+    let line = cli::say("es", "status.local", &[("evidence", &size("1320")), ("tmp", &size("7"))]);
     assert!(fx.run(&["status"]).stdout.contains(&line));
-    // A directory that cannot be listed gives an unknown size, never a smaller one.
+    // A directory that cannot be listed gives an unknown size, never a smaller one; a cell's directories in
+    // `local/tmp/` are never walked, so its size is unknown while one is there (P9E-1, P9E-7).
     fs::set_permissions(&evidence, fs::Permissions::from_mode(0o000)).unwrap();
+    fs::create_dir_all(fx.domain.join("local/tmp/attempt-t-00000001-1/work")).unwrap();
     let doc = fx.run(&["status", "--json"]).doc();
     fs::set_permissions(&evidence, fs::Permissions::from_mode(0o700)).unwrap();
-    assert_eq!(doc["local"], serde_json::json!({"evidence": null, "tmp": 1000}), "{doc}");
+    assert_eq!(doc["local"], serde_json::json!({"evidence": null, "tmp": null}), "{doc}");
 }
 
 #[test]

@@ -404,14 +404,9 @@ fn refusal_base_moved_and_a_dependent_tasks_base_fixed_at_its_run() {
     );
     ok(&authorize(&fx, &stage, &[]));
     halts(&fx, &ids[0], "CONFINEMENT_UNAVAILABLE");
-    // The first is accepted and integrated by hand (part 9g builds it): the record branch takes its candidate's file.
-    let first = stream(&ids[0]);
-    let head = fx.events(&first).len();
-    let digest = sha256_hex(&fs::read(event_file(&fx, &first, head)).unwrap());
-    by_hand(&fx, &first, "task-accepted", json!({"task": ids[0], "head": {"seq": head, "digest": digest}}), true);
-    by_hand(&fx, &first, "task-integrated", json!({}), false);
-    fx.git(&["checkout", &format!("fabrewk/{}", ids[0]), "--", "src/new.txt"]);
-    fx.commit("integrated by hand");
+    // The first is accepted and integrated by hand (part 9g builds it): the record branch takes its candidate's file,
+    // in a commit that names it (REQ-GATE-8).
+    integrate(&fx, &ids[0]);
     // The second's base is the record branch's head, whose product is what the integration left.
     let new = halts(&fx, &ids[1], "CONFINEMENT_UNAVAILABLE");
     assert_eq!(new[0]["payload"]["base"], fx.git(&["rev-parse", "HEAD~1"]));
@@ -424,6 +419,59 @@ fn refusal_base_moved_and_a_dependent_tasks_base_fixed_at_its_run() {
     fs::write(fx.root.join("README.md"), "fixture\n").unwrap();
     fx.commit("back");
     halts(&fx, &ids[1], "CONFINEMENT_UNAVAILABLE");
+}
+
+/// Integrates `id`'s candidate by hand, as part 9g will: accepted, then its file brought into the record branch in a
+/// commit that names the candidate in a `Fabrewk-Candidate` trailer (REQ-GATE-8), then `task-integrated`.
+fn integrate(fx: &Fx, id: &str) {
+    let s = stream(id);
+    let head = fx.events(&s).len();
+    let digest = sha256_hex(&fs::read(event_file(fx, &s, head)).unwrap());
+    by_hand(fx, &s, "task-accepted", json!({"task": id, "head": {"seq": head, "digest": digest}}), true);
+    let candidate = fx.git(&["rev-parse", &format!("fabrewk/{id}")]);
+    let files = fx.git(&["diff", "--name-only", &format!("{candidate}^"), &candidate]);
+    for f in files.lines() {
+        fx.git(&["checkout", &candidate, "--", f]);
+    }
+    fx.git(&["add", "-A"]);
+    fx.git(&["commit", "-q", "-m", &format!("integrated by hand\n\nFabrewk-Candidate: {candidate}")]);
+    by_hand(fx, &s, "task-integrated", json!({}), false);
+}
+
+/// The last of a task's dependencies' integrations is read from the record branch's history, never from the clock
+/// (P9E-9): the product must be the one the latest left, and an integration the history does not hold is none.
+#[test]
+fn refusal_base_moved_reads_the_last_integration_from_the_history() {
+    let fx = Fx::builder("base-chain", "published", SUCCESS);
+    fx.fake(&format!("mkdir -p src && printf 'a\\n' > src/a.txt\n{SUCCESS}"));
+    let (stage, ids) = plan(
+        &fx,
+        json!({}),
+        vec![
+            json!({"name": "a"}),
+            json!({"name": "b", "goal": "B.", "base": null, "dependencies": ["a"]}),
+            json!({"goal": "C.", "base": null, "dependencies": ["a", "b"]}),
+        ],
+    );
+    ok(&authorize(&fx, &stage, &[]));
+    halts(&fx, &ids[0], "CONFINEMENT_UNAVAILABLE");
+    integrate(&fx, &ids[0]);
+    fx.fake(&format!("mkdir -p src && printf 'b\\n' > src/b.txt\n{SUCCESS}"));
+    halts(&fx, &ids[1], "CONFINEMENT_UNAVAILABLE");
+    integrate(&fx, &ids[1]);
+    // What the later integration left removed: the product is the earlier one's, which is not the last.
+    fx.git(&["rm", "-q", "src/b.txt"]);
+    fx.commit("b removed");
+    refused(&fx, &["run", &ids[2], "--say", SAY], "BASE_MOVED", 1, "es");
+    fx.git(&["revert", "--no-edit", "HEAD"]);
+    halts(&fx, &ids[2], "CONFINEMENT_UNAVAILABLE");
+    // The history, not the clock, says which came last: a commit naming the first's candidate after the second's
+    // integration, its product the first's, makes the first the last, though its event is older.
+    ok(&authorize(&fx, &ids[2], &[]));
+    let first = fx.git(&["rev-parse", &format!("fabrewk/{}", ids[0])]);
+    fx.git(&["rm", "-q", "src/b.txt"]);
+    fx.git(&["commit", "-q", "-m", &format!("the first again\n\nFabrewk-Candidate: {first}")]);
+    halts(&fx, &ids[2], "CONFINEMENT_UNAVAILABLE");
 }
 
 /// Appends to `stream` an event of `kind`, a maestro's (signed) or Fabrewk's, as a later part's command will; commits it.
@@ -635,6 +683,12 @@ fn pd_08_pd_10_a_killed_run_is_ended_unknown_by_the_next_write_command() {
     assert_eq!(new[1]["payload"]["code"], "OUTCOME_UNKNOWN");
     assert!(dirs(&fx, "tmp", "attempt-").is_empty());
     assert!(fx.run(&["status", "--json"]).doc()["local"]["tmp"].is_u64());
+    // A cell's directories kept unread, its task no longer running (a backend that could not show it ended): not
+    // walked either (P9E-7).
+    let kept = fx.domain.join("local/tmp/attempt-kept/work");
+    fs::create_dir_all(&kept).unwrap();
+    assert_eq!(fx.run(&["status", "--json"]).doc()["local"]["tmp"], Value::Null);
+    fs::remove_dir_all(kept.parent().unwrap()).unwrap();
     // `status` says the attempt's result is unknown and that a retry spends a dispatch; the view, that its time is.
     let human = fx.run(&["status", &ids[0]]);
     assert!(human.stdout.contains(&cli::say("es", "code.OUTCOME_UNKNOWN.reason", &[])), "{human:?}");

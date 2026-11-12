@@ -106,7 +106,9 @@ fn product_tree(repo: &Repo, commit: &str) -> Result<Vec<u8>, Error> {
 }
 
 /// The base of a run (REQ-TASK-3): a task's own, or for one with dependencies the record branch's head, whose product
-/// tree must be the one the last of its dependencies' integrations left, its candidate's (`BASE_MOVED` otherwise).
+/// tree must be the one the last of its dependencies' integrations left, its candidate's (`BASE_MOVED` otherwise). The
+/// last is read from the branch's history, never from the clock (P9E-9): the first commit, going back from the head
+/// along first parents, that is a dependency's candidate or names it in a `Fabrewk-Candidate` trailer (REQ-GATE-8).
 fn base(cx: &Cx, record: &Replay, stream: &str) -> Result<String, Error> {
     let p = &record.streams[stream][0].value["payload"];
     if let Some(base) = p["base"].as_str() {
@@ -117,16 +119,20 @@ fn base(cx: &Cx, record: &Replay, stream: &str) -> Result<String, Error> {
     let moved = |why: &str| refuse(Code::BaseMoved, None, why.to_owned());
     let head = head.ok_or_else(|| moved("the record branch has no commit"))?;
     let deps = p["dependencies"].as_array().into_iter().flatten().filter_map(Value::as_str);
-    let last = deps
+    let candidates: Vec<&str> = deps
         .filter_map(|d| {
             let events = record.streams.get(&format!("task-{d}"))?;
             let at = events.iter().rposition(|e| e.kind == "task-integrated")?;
             let candidate = events[..at].iter().rev().find(|e| e.kind == "candidate-recorded")?;
-            Some((events[at].value["at"].as_str()?, candidate.value["payload"]["commit"].as_str()?))
+            candidate.value["payload"]["commit"].as_str()
         })
-        .max();
-    let (_, candidate) = last.ok_or_else(|| moved("no integration of its dependencies is on record"))?;
-    if product_tree(&repo, &head)? != product_tree(&repo, candidate)? {
+        .collect();
+    let format = "--format=%H %(trailers:key=Fabrewk-Candidate,valueonly,separator=%x20)";
+    let log = git::git(&repo, &os(&["log", "-z", "--first-parent", format, &head]), b"", None)?;
+    let text = String::from_utf8_lossy(&log);
+    let last = text.split('\0').find_map(|c| c.split_whitespace().find(|w| candidates.contains(w)));
+    let last = last.ok_or_else(|| moved("no integration of its dependencies is in the record branch's history"))?;
+    if product_tree(&repo, &head)? != product_tree(&repo, last)? {
         return Err(moved("the product at the record branch's head is not what its dependencies' integration left"));
     }
     Ok(head)

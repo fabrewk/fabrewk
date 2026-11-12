@@ -220,13 +220,14 @@ fn recovery(cx: &Cx, record: &Replay) -> Result<Plan<()>, Failed> {
         events.push((stream, draft("task-halted", serde_json::json!({"code": "OUTCOME_UNKNOWN", "reason": reason}))));
     }
     let then: Then = Box::new(move |a, prepared| {
-        for (stream, p) in prepared {
-            a.write(stream, p)?;
-        }
-        // Following no link, and only what exists: a run killed before it made them left none.
+        // Removed before the events, so that a recovery stopped between them is made again whole (P9E-8); following no
+        // link, and only what exists: a run killed before it made them left none.
         for root in gone.into_iter().filter(|d| std::fs::symlink_metadata(d).is_ok_and(|m| m.is_dir())) {
             let [home, tmp, work] = ["home", "tmp", "work"].map(|d| root.join(d));
             crate::confine::Scratch { root, home, tmp, work }.remove()?;
+        }
+        for (stream, p) in prepared {
+            a.write(stream, p)?;
         }
         Ok(serde_json::Value::Null)
     });
