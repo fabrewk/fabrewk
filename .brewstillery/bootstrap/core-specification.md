@@ -997,18 +997,23 @@ REQ-RUN-7, REQ-RUN-8, REQ-SEC-1 for the adapter, REQ-SEC-6, REQ-SEC-7, REQ-GATE-
   cannot start. Keeping a pass as verified by use is part 9e's.
 - Claude Code's stream has one grammar (`crates/adapter-claude/src/stream.rs`): lines ended by a newline alone, a
   final newline not a blank line, each line one compact JSON object; `system` with subtype `init` first and only
-  first; `assistant` turns of `text`, `thinking` and `tool_use` blocks, each use with a new text identifier, a text
-  name, an object input and, for `Bash`, a command that is a text with a simple command; `user` turns of
-  `tool_result` blocks only, each answering a use not answered yet by its text identifier, with a boolean `is_error`,
-  present when the use examines; `rate_limit_event`; one `result`, last, after every use was answered. Any other
+  first, and later only with subtype `thinking_tokens` (the estimate a run that thinks writes); a `message` only on
+  the assistant's and the user's turns; `assistant` turns of `text` and `thinking` blocks whose texts are texts and
+  of `tool_use` blocks, each use with a new text identifier, a text name, an object input and, for `Bash`, a command
+  that is a text with a simple command; `user` turns of `tool_result` blocks only, each answering a use not answered
+  yet by its text identifier, its content a text or a list of text blocks, with a boolean `is_error`, present when
+  the use examines; `rate_limit_event`; one `result`, last, after every use was answered. Any other
   event, block, field type or order voids the whole stream: no result, model, tokens or examination. The result is
   the final event's `structured_output` when its subtype is `success` and `is_error` false; another subtype keeps the
-  model and tokens and gives no result. Examination counts the answered uses of `Bash` by their simple commands (split
-  on unquoted newlines, `;`, `&&`, `||` and `|`), and of `Read`, `Grep` and `Glob`, never `StructuredOutput`, the
-  provider's answer tool, and only on success. PD-26.2's sub-case is that split, which changes the count and voids
+  model and tokens and gives no result. Examination counts the uses answered without an error of `Bash`, by their
+  simple commands (split on unquoted newlines, `;`, `&&`, `||` and `|`, a `#` that starts a word commenting out the
+  rest of its line), and of `Read`, `Grep` and `Glob`; never `StructuredOutput`, the provider's answer tool; and only
+  on success. A heredoc's lines count as commands: the count's size decides nothing, only whether it is zero. PD-26.2's sub-case is that split, which changes the count and voids
   nothing; PD-26.4's is every stream cut before its end; PD-26.6's a result of another subtype; PD-26.15 and PD-26.20
-  an error flag that is not a boolean. The recorded stream is `crates/adapter-claude/tests/streams/review.jsonl`, a
-  real review with the account's rate-limit figures removed, its digest pinned.
+  an error flag that is not a boolean. The recorded streams are `crates/adapter-claude/tests/streams/review.jsonl`, a
+  real review, and `build.jsonl`, a real build, each with the account's rate-limit figures removed, their digests
+  pinned; a third real stream, of the probe of the tool's sandbox, reads whole too and is not kept, since it holds the
+  sandbox's proxy credential for that session.
 - Claude Code's marker is `CLAUDECODE`; its protected names `CLAUDE.md` and `.claude`, which a test holds within
   `gate.protectedNames`' default, still declared whole in the core's key so that the key's default reads as one
   value; its residual risks T-05 (`tool-credential`), T-13 (`audit-limit`) and T-22 (`tool-flags`), in `config`. Its

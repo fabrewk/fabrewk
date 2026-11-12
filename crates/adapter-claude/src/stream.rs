@@ -1,11 +1,12 @@
 //! Claude Code's stream (`--print --output-format stream-json --verbose`, as 2.1.316 writes it) and the audit of what
 //! a reviewer ran (REQ-GATE-4, PD-25, PD-26). One grammar, listed here and nowhere else, read only once the cell has
-//! ended: one JSON object per line, lines ended by a newline alone; the `init` event first; the assistant's text,
-//! thinking and tool uses; the user's turn holding only the answers to those uses; rate-limit notices; one `result`,
-//! last. Anything else is an anomaly, and any anomaly voids the whole stream: no result, no usage, no examination
-//! (T-12). Examination counts the answered uses of the tools that read or run (`Bash`, by its simple commands, and
-//! `Read`, `Grep`, `Glob`), never the provider's own answer tool, and only when the run ended in success. It detects a
-//! lazy or failed review, not a hostile one: the model's commands could print what this reads (T-13).
+//! ended: one JSON object per line, lines ended by a newline alone; the `init` event first; the estimates of thinking;
+//! the assistant's text, thinking and tool uses; the user's turn holding only the answers to those uses; rate-limit
+//! notices; one `result`, last. Anything else is an anomaly, and any anomaly voids the whole stream: no result, no
+//! usage, no examination (T-12). Examination counts the uses answered without an error of the tools that read or run
+//! (`Bash`, by its simple commands, and `Read`, `Grep`, `Glob`), never the provider's own answer tool, and only when
+//! the run ended in success. It detects a lazy or failed review, not a hostile one: the model's commands could print
+//! what this reads (T-13).
 
 use fabrewk_core::adapter::{Report, Tokens};
 use serde_json::{Map, Value};
@@ -14,11 +15,11 @@ use std::collections::BTreeMap;
 /// The tools whose answered use examines the copy.
 const EXAMINING: [&str; 4] = ["Bash", "Read", "Grep", "Glob"];
 
-/// A tool use, by its identifier: the tool, its count of examinations, and whether it was answered.
+/// A tool use, by its identifier: the tool, its count of examinations, and its answer's error flag once answered.
 struct Use {
     tool: String,
     count: u64,
-    answered: bool,
+    answer: Option<bool>,
 }
 
 /// What a stream reads to, before the end decides the report; `None` when an anomaly voided it.
@@ -43,7 +44,13 @@ pub fn read(out: &[u8]) -> Report {
     if !success {
         return Report { result: None, model: r.model, tokens, examined: 0 };
     }
-    let examined = r.uses.values().filter(|u| EXAMINING.contains(&u.tool.as_str())).map(|u| u.count).sum();
+    // A use answered with an error examined nothing (P9C-1).
+    let examined = r
+        .uses
+        .values()
+        .filter(|u| EXAMINING.contains(&u.tool.as_str()) && u.answer == Some(false))
+        .map(|u| u.count)
+        .sum();
     Report { result: end.get("structured_output").cloned(), model: r.model, tokens, examined }
 }
 
@@ -70,18 +77,24 @@ fn grammar(text: &str) -> Option<Read> {
         }
         let event: Map<String, Value> = serde_json::from_str(line).ok()?;
         let kind = event.get("type").and_then(Value::as_str)?;
+        // Turns are only the assistant's and the user's: a message anywhere else is evidence misplaced (P9C-2).
+        if event.contains_key("message") && !matches!(kind, "assistant" | "user") {
+            return None;
+        }
         match (n, kind) {
             (0, "system") => {
                 (event.get("subtype").and_then(Value::as_str) == Some("init")).then_some(())?;
                 r.model = Some(event.get("model").and_then(Value::as_str)?.to_owned());
             }
             (0, _) => return None,
+            // The estimate of the thinking so far, which a run that thinks writes between its turns.
+            (_, "system") if event.get("subtype").and_then(Value::as_str) == Some("thinking_tokens") => {}
             (_, "assistant") => assistant(&event, &mut r)?,
             (_, "user") => user(&event, &mut r)?,
             (_, "rate_limit_event") => {}
             (_, "result") => {
                 // Every use was answered before the result (PD-26.7).
-                r.uses.values().all(|u| u.answered).then_some(())?;
+                r.uses.values().all(|u| u.answer.is_some()).then_some(())?;
                 r.result = Some(event);
             }
             _ => return None,
@@ -99,7 +112,8 @@ fn blocks(event: &Map<String, Value>) -> Option<&Vec<Value>> {
 fn assistant(event: &Map<String, Value>, r: &mut Read) -> Option<()> {
     for block in blocks(event)? {
         match block.get("type").and_then(Value::as_str)? {
-            "text" | "thinking" => {}
+            "text" => text(block, "text")?,
+            "thinking" => text(block, "thinking")?,
             "tool_use" => {
                 let id = block.get("id").and_then(Value::as_str).filter(|s| !s.is_empty())?;
                 let tool = block.get("name").and_then(Value::as_str).filter(|s| !s.trim().is_empty())?;
@@ -114,7 +128,7 @@ fn assistant(event: &Map<String, Value>, r: &mut Read) -> Option<()> {
                 if r.uses.contains_key(id) {
                     return None;
                 }
-                r.uses.insert(id.to_owned(), Use { tool: tool.to_owned(), count, answered: false });
+                r.uses.insert(id.to_owned(), Use { tool: tool.to_owned(), count, answer: None });
             }
             _ => return None,
         }
@@ -122,25 +136,40 @@ fn assistant(event: &Map<String, Value>, r: &mut Read) -> Option<()> {
     Some(())
 }
 
+/// Whether `block`'s field `key` is a text.
+fn text(block: &Value, key: &str) -> Option<()> {
+    block.get(key)?.as_str().map(|_| ())
+}
+
 /// The user's turn: only answers, each to a use not answered yet, its error flag a boolean, and present when the
-/// use examines.
+/// use examines; its content a text, or a list of text blocks.
 fn user(event: &Map<String, Value>, r: &mut Read) -> Option<()> {
     for block in blocks(event)? {
         (block.get("type").and_then(Value::as_str)? == "tool_result").then_some(())?;
         let id = block.get("tool_use_id").and_then(Value::as_str)?;
-        let used = r.uses.get_mut(id).filter(|u| !u.answered)?;
-        match block.get("is_error") {
-            Some(Value::Bool(_)) => {}
-            None if !EXAMINING.contains(&used.tool.as_str()) => {}
+        let used = r.uses.get_mut(id).filter(|u| u.answer.is_none())?;
+        match block.get("content")? {
+            Value::String(_) => {}
+            Value::Array(parts) => {
+                for part in parts {
+                    (part.get("type").and_then(Value::as_str)? == "text").then_some(())?;
+                    text(part, "text")?;
+                }
+            }
             _ => return None,
         }
-        used.answered = true;
+        used.answer = match block.get("is_error") {
+            Some(Value::Bool(e)) => Some(*e),
+            None if !EXAMINING.contains(&used.tool.as_str()) => Some(false),
+            _ => return None,
+        };
     }
     Some(())
 }
 
 /// A command's simple commands: split on newlines, `;`, `&&`, `||` and `|` outside quotes; a backslash escapes the
-/// next character outside single quotes; blank parts dropped (PD-26.2).
+/// next character outside single quotes; a `#` that starts a word outside quotes comments the rest of its line out
+/// (P9C-3); blank parts dropped (PD-26.2).
 pub fn segments(command: &str) -> Vec<String> {
     let (mut parts, mut current, mut quote) = (Vec::new(), String::new(), None);
     let mut chars = command.chars().peekable();
@@ -158,6 +187,9 @@ pub fn segments(command: &str) -> Vec<String> {
             (None, '\'' | '"') => {
                 quote = Some(c);
                 current.push(c);
+            }
+            (None, '#') if current.chars().last().is_none_or(char::is_whitespace) => {
+                while chars.next_if(|&n| n != '\n').is_some() {}
             }
             (None, '\n' | ';') => parts.push(std::mem::take(&mut current)),
             (None, '&' | '|') if chars.peek() == Some(&c) => {

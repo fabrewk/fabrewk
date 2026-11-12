@@ -341,3 +341,112 @@ fn a_stream_that_is_not_utf8_or_not_json_is_void() {
     assert_eq!((ADAPTER.read)(&bytes), Report::default());
     void(&RECORDED.replacen('}', "", 1), "truncated object");
 }
+
+#[test]
+fn p9c_1_a_tool_use_answered_with_an_error_examines_nothing() {
+    let mut v = lines();
+    v[ANSWER]["message"]["content"][0]["is_error"] = json!(true);
+    let r = read(&join(&v));
+    assert_eq!((r.examined, r.result.is_some()), (0, true));
+    let (from, to) = inner();
+    for p in from..=to {
+        let mut v = lines();
+        v.splice(p..p, [bash("e1", json!("cat missing.py")), answer(json!("e1"), Some(json!(true)))]);
+        assert_eq!(read(&join(&v)).examined, EXAMINED, "at {p}");
+    }
+}
+
+#[test]
+fn p9c_2_evidence_in_a_misplaced_field_or_of_a_wrong_type_is_void() {
+    let (from, to) = inner();
+    let used = json!({"content": [{"type": "tool_use", "id": "m", "name": "Bash", "input": {"command": "cat a"}}]});
+    for kind in ["rate_limit_event", "system", "result"] {
+        let mut e = json!({"type": kind, "message": used});
+        if kind == "system" {
+            e["subtype"] = json!("init");
+        }
+        void_at_every(&lines(), &[e], from, to, kind);
+    }
+    let mut v = lines();
+    v[2]["message"] = used;
+    void(&join(&v), "a message on the rate-limit notice");
+    for content in
+        [None, Some(json!(42)), Some(json!(null)), Some(json!([{"type": "text", "text": 5}])), Some(json!([1]))]
+    {
+        let mut v = lines();
+        let block = v[ANSWER]["message"]["content"][0].as_object_mut().unwrap();
+        match &content {
+            None => {
+                block.remove("content");
+            }
+            Some(c) => {
+                block.insert("content".into(), c.clone());
+            }
+        }
+        void(&join(&v), &format!("answer content {content:?}"));
+    }
+    let mut v = lines();
+    v[ANSWER]["message"]["content"][0]["content"] = json!([{"type": "text", "text": "ok"}]);
+    assert_eq!(read(&join(&v)).examined, EXAMINED, "an answer's content as text blocks");
+    for block in
+        [json!({"type": "text", "text": 42}), json!({"type": "text"}), json!({"type": "thinking", "thinking": 1})]
+    {
+        void_at_every(&lines(), &[assistant(json!([block]))], from, to, "text not text");
+    }
+    let fine = [json!({"type": "text", "text": "fine"}), json!({"type": "thinking", "thinking": "", "signature": "s"})];
+    for p in from..=to {
+        let mut v = lines();
+        v.insert(p, assistant(json!(fine)));
+        assert_eq!(read(&join(&v)).examined, EXAMINED, "at {p}");
+    }
+}
+
+#[test]
+fn p9c_3_a_comment_is_not_a_command() {
+    use fabrewk_adapter_claude::segments;
+    assert_eq!(segments("# no command executed"), Vec::<String>::new());
+    assert_eq!(segments("ls # list\n  # nothing\ncat a"), ["ls", "cat a"]);
+    assert_eq!(segments("echo a#b '# not' \"#\" \\#x"), ["echo a#b '# not' \"#\" \\#x"]);
+    assert_eq!(segments("ls;# x && y\npwd"), ["ls", "pwd"]);
+    let mut v = lines();
+    v[USE]["message"]["content"][0]["input"]["command"] = json!("# no command executed");
+    void(&join(&v), "a comment alone");
+}
+
+/// The stream recorded from a real build, as the review's was: it reads whole, gives its summary, and its tokens.
+#[test]
+fn the_recorded_build_reads_whole() {
+    let text = include_str!("streams/build.jsonl");
+    assert_eq!(sha256_hex(text.as_bytes()), "0f1c2473f2189821cdf430cfe5b94b8e554ad02447cfaaf4e6b0156bbda59df9");
+    let r = read(text);
+    let summary = r.result.as_ref().and_then(|v| v["summary"].as_str()).unwrap();
+    assert!(summary.starts_with("Added mean(xs) to sum.py"), "{summary}");
+    assert_eq!(r.model.as_deref(), Some("claude-sonnet-5-5"));
+    assert!(r.tokens.is_some_and(|t| t.input.is_some() && t.output.is_some() && t.cached.is_some()));
+    // One `Bash` use of a heredoc, each of whose lines the split counts, and one of a command.
+    assert_eq!(r.examined, 14);
+}
+
+#[test]
+fn the_estimates_of_thinking_a_real_run_writes_read_as_nothing() {
+    let estimate = json!({"type": "system", "subtype": "thinking_tokens", "estimated_tokens": 50,
+        "estimated_tokens_delta": 50, "session_id": "s", "uuid": "u"});
+    let (from, to) = inner();
+    for p in from..=to {
+        let mut v = lines();
+        v.insert(p, estimate.clone());
+        assert_eq!(read(&join(&v)), read(RECORDED), "at {p}");
+    }
+    let mut v = lines();
+    v.insert(0, estimate);
+    void(&join(&v), "an estimate first");
+}
+
+#[test]
+#[ignore = "reads a stream kept under target/ by a real dispatch"]
+fn a_kept_stream_reads_whole() {
+    let path = std::env::var("FABREWK_STREAM").unwrap();
+    let r = (ADAPTER.read)(&std::fs::read(path).unwrap());
+    eprintln!("{r:?}");
+    assert!(r.result.is_some());
+}
