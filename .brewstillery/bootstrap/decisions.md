@@ -3554,3 +3554,90 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Consequences: `plan.md` ("Phase 9"); `confinement-design.md` (section 6's row 9a); `STATUS.md` (the handover).
 - Sources: chat of session 29; D-071, D-075; R-038.
 - Supersedes: D-075 point 7 for part 9a's model; D-071 point 2 for phase 9's closing report on Fable, now given here.
+
+## R-039 — Session 30, part 9a: the cell's contract, the runner and the bubblewrap backend
+
+- Status: recorded
+- Date: 2026-11-11
+- Who: integrator Claude Code, `claude-opus-5-5`, effort high (D-078). Reviewer: Codex `codex-cli 0.166.0`,
+  `gpt-6.1-sol`, effort high, launched as the `codex-review` skill says (a disposable clone under `target/review-9a/`
+  with a copy of the Cargo registry, `workspace-write`, no network, a user scope capped at 3 GB). No subagent.
+- Start: HEAD `85b268e`, tree clean but an untracked `.vscode/`.
+- Read: `STATUS.md`, `AGENTS.md`, `plan.md`, `confinement-design.md` (3.1 to 3.10, 4, 6), `core-specification.md`
+  (SEC, REG-13, RUN, the amendments of phase 9's opening, 11.3, 12), this file (D-075 to D-078, R-038), the skills
+  `verify-part`, `codex-review` and `sharp-edges`, and the code of `main.rs`, `lib.rs`, `detect.rs`, `cli/mod.rs`,
+  `cli/config.rs`, `cli/tasks.rs`, `record/` and `tools/budget`. No file of the private folder or of a tool's
+  credentials was read; no model was called by the integrator.
+- Decided by the maestro in this session: nothing. The design left the composition of `bwrap` and `pasta` to this
+  part, by test (3.7); its consequences are below, for the maestro to read.
+- Probed on this machine, in the session's scratch directory, before the code (bubblewrap 0.13.1, `pasta`
+  2026-10-02, SELinux enforcing):
+  1. `pasta` cannot join the namespaces of a `bwrap` started with `--dev`: `--dev` makes `bwrap` map the person to
+     root first and nest a second user namespace that maps them back, and `pasta` joins the inner one, which does not
+     own the network namespace ("Couldn't switch to pasta namespaces: Operation not permitted"). Without `--dev`
+     (devices bound one by one) it joins, and the user inside stays the person's. `--disable-userns` nests one too.
+  2. `pasta` cannot be joined to `bwrap`'s own processes, only to the command once it has replaced them.
+  3. `pasta`'s watch of the target namespace is refused here ("netns dir open: Permission denied"), so it runs with
+     `--no-netns-quit`, in the foreground, and Fabrewk ends it. `setpriv --pdeathsig` does not survive `pasta`'s
+     change of SELinux domain: a `pasta` whose parent was killed stays. Two such leftovers of the probes (17368,
+     19784) were ended by their identifiers.
+  4. The first process of `bwrap`'s namespace closes its descriptors before the kernel ends the namespace's other
+     processes, so the end of the output channels does not show the cell dead; its reaping does.
+  5. A new network namespace holds IPv6's unreachable default route on `lo`; a `bwrap` nested with `--dev` needs a
+     `/dev/tty` to bind.
+  6. The bash that runs `sh` sets `PWD`, `SHLVL` and `_` for what it runs.
+  A host-side control run of `tests/probe.py` added a key named `made` to the session keyring and linked the user
+  keyring there; the key was unlinked. The user keyring's link in the session keyring was left: the session's
+  default links it (`pam_keyinit`), but whether it was there before was not checked. The tests' own keys are removed by the
+  tests; the keyrings were checked empty of them after each run.
+- Written: `crates/core/src/confine.rs` (the cell, the backend's contract, `Programs` made only by `available`, the
+  runner, `Unfinished`, the run's directories, the evidence store, the probe, the core's residual risks);
+  `crates/confine-bwrap/` (the backend, its filter for aarch64, its tests `tests/cell.rs` and `tests/probe.py`);
+  `crates/core/tests/confine.rs`; `cli::main` takes the backend, whose programs are detected with the modules';
+  `config` lists the residual risks (`fabrewk.config/2`: `backend`, `residual`); the catalogues (`residual`,
+  `config.residual`, `config.no-backend`); `run`'s refusal words; `main.rs` wires the backend on Linux; the ring
+  `confine-bwrap` in `tools/budget` at its kind's ceiling (D-075 point 2) and the test of the local packages; the
+  generated reference; the paragraph "The cell and its backend, as part 9a fixed them" in `core-specification.md`
+  and `fabrewk.config/2` in its section 5; `confinement-design.md` (3.7 settled); `plan.md`; `STATUS.md`; this entry.
+- Interpretations the maestro may want to read (none contradicts a requirement):
+  1. The composition, candidate (a) of 3.7: `bwrap` is Fabrewk's direct child with `--die-with-parent`; `pasta`, its
+     second child, joins the cell's command once it is the wrapper; the command is released once a default route
+     exists. Its three consequences: no `/dev/pts` or `/dev/shm` in a cell; a cell with a network that may not nest
+     is refused (`CONFINEMENT_UNAVAILABLE`), which leaves a check's network (REQ-GATE-2, part 9f) and an extension's
+     (part 9h) to choose then between nesting allowed, a filter refusing new user namespaces, or no network; and,
+     after Fabrewk is killed during a run, the cell ends with it but its `pasta` stays, idle, holding a namespace no
+     process uses: a residual risk (`network-helper`) 3.10 did not list. Part 9e's recovery (REQ-RUN-5) may end it.
+  2. The filter reaches `bwrap` on descriptor 3, opened by `sh`, not on standard input (3.3), which carries the line
+     that releases the command. The environment reaches the cell through a file it reads inside, not by inheritance
+     (3.3), since inheritance gave it to processes of the host first (P9A-4).
+  3. The residual risks `config` lists: the core's three (T-17, T-18, T-25 with P8C-8) and the backend's six (T-04,
+     T-08, T-10, T-24, T-29, the idle `pasta`); the adapters' come with them.
+  4. The time and the bytes kept of each channel are the caller's parameters; their values come with parts 9e and
+     9f. A probe's pass is marked on the detection; a write command keeps it from part 9e on.
+- Codex, three passes (high), confirmed blocking findings by pass: 3, 1, 0. Pass 1 (`a9ad52d`): P9A-1 (a run's
+  directories removed when the backend's end failed with an error other than `TOOL_FAILED`, or when `start` failed
+  after its process existed), P9A-2 (`pasta`'s evidence created without `0600`), P9A-3 (what `bwrap` wrote before
+  `pasta` failed was lost). Pass 2 (`413216b`): the three closed; P9A-4 (the cell's environment, `LD_PRELOAD` among
+  it, given to `sh` and `bwrap` on the host before any confinement; reproduced by Codex with a library's
+  constructor). Pass 3 (`d60e3a0`): **accept**. Each new test failed without its correction (checked by hand for
+  every one). Two defects the integrator found before the first pass's corrections were corrected with them: a
+  runner that waited forever on the readers of a cell its backend could not show ended, and a cell with no command
+  that ran `env`. Codex's sandbox runs no namespace and no network, so it ran the core's suites and read the
+  backend's; the backend's thirteen tests ran on this machine.
+- Mutation, with `--features fabrewk-core/fault-injection`, `--test-workspace true`, `--in-diff`, `ulimit -v
+  1600000`, `--timeout 180` (the backend's real cells make the suite take 50 s), each run in its own named user scope,
+  stopped after it so that what a mutant left running ended with it: the first run, 133 mutants at `d60e3a0`, in 61
+  minutes: 86 caught, 29 unviable, 2 timeouts (`stop` made to do nothing, the time limit never reached: loops caught by
+  the timeout) and 16 missed: ten in the routes' test, two in the bind of a system directory that is not a link,
+  three in a reader's retry after an interrupted read, one in the cap's prompt end. Each killed by a test (the routes'
+  test made a pure function with its own cases; the cap's test now times the end) or removed by simplifying the code
+  (`--ro-bind-try` for every directory that is not a link; no retry); none declared equivalent. The run over those
+  corrections (`8faed54`), 28 mutants: all caught. Codex did not review `8faed54`: it removes a
+  guard and a retry and adds tests, and changes no behaviour its third pass accepted but the read error's. The counter's diff holds no mutant. The mutant that makes `stop` do
+  nothing left two processes of its cells, ended with the run's scope.
+- Clean clone of `8faed54`: 431 tests, `crash` 3 and `faults` 19 green, the musl build, `budget check` (the core
+  7,965 of 11,000, the backend 276 of 400, 4 direct runtime crates, 31 in the release build, the binary 2,298,216
+  bytes), clippy with and without `fault-injection`, fmt and `cargo deny` clean; `--version --json` lists no feature.
+- Measured: the core 7,965 of 11,000 counted lines (+335, projected 250); the backend 276 of 400 (projected 300).
+- Not done: `run` past confinement at the command line, and keeping a probe's pass from a command (part 9e); the
+  roles' cells (parts 9b to 9h build them on this contract).

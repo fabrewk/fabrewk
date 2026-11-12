@@ -299,6 +299,9 @@ belongs with the pilot's measurements of what the tools need. With B, `config` d
   outermost and `bwrap` ended by its process identifier through a program, rejected unless (a) and (b) fail, for the
   race on the identifier. Part 9a chooses by test. If none holds, the choice between option A declared and refusing
   the dispatch returns to the maestro.
+- **Settled in part 9a (R-039).** Candidate (a) holds, with three consequences: no `--dev`, a cell with a network
+  that may not nest refused, and an idle `pasta` left by a killed Fabrewk, declared. How, in `core-specification.md`,
+  "The cell and its backend, as part 9a fixed them".
 - **Limits.** Time: the profile's or the check's minutes. Output: a cap on each channel kept; past it the cell is
   ended and the attempt fails. Disk: free space checked before each copy (S-3); what a cell writes during its run is
   not bounded. Memory, processors and the number of processes: not bounded in the first core. The machine's lessons
