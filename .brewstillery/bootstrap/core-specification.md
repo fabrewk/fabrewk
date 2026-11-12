@@ -914,8 +914,10 @@ REQ-SEC-3, REQ-GATE-9, S-2, S-3, S-4, S-11).**
 - `gate.protectedPaths` gains the hooks directory always, not only at its default, so that no layer drops it: as
   written and where its links lead, read from the working tree's root as the kernel reads the path when Git runs a
   hook there (a link replaced before a `..` that follows it; a part that does not exist yet kept as written; the
-  root's own links spending none of the 40), each when inside the working tree, with each link the path passes
-  through (changing one moves the directory), and a component that is not text protecting the directory above it (`/` alone when it is the root, which protects
+  root's own links spending none of the 40, a root given relative read as the same root), each when inside the
+  working tree, with each link the path passes through (changing one moves the directory; past the limit, the 41
+  met, since the kernel meets the same ones first), and a component that is not text protecting the directory above
+  it (`/` alone when it is the root, which protects
   every path). On paths, a change at a protected directory, under it, or at a path above it (a link or a file in the
   directory's place) reaches it. `propose` and `authorize` read it too.
 - The candidate's message is `fabrewk: candidate for <task-id>`, a blank line, `Co-authored-by: <tool> (<provider>,
@@ -925,9 +927,10 @@ REQ-SEC-3, REQ-GATE-9, S-2, S-3, S-4, S-11).**
   `fabrewk/<task-id>` moves from the candidate the caller names, or from absent, by compare-and-swap; otherwise
   `TOOL_FAILED`.
 - `DISK_LOW` reads `df -Pk -- <dir>` with an empty environment and `LC_ALL=C`: one line after the header, whose
-  capacity (digits and `%`) follows three counts, the third the space available; a line that reads so in more than
-  one place (a name or a mount point holding counts and a capacity, a negative count included), or whose space
-  available is negative, cannot be read, and refuses. `limits.freeDiskMegabytes` is a key
+  capacity follows three counts, the third the space available. A count is anything `df` may print there (digits,
+  signed or not and of any length, or `-`) and a capacity digits with `%` or `-`, so that the real columns are
+  always a reading; a line that reads so in more than one place (a name or a mount point that looks like them), or
+  whose space available is not a count of kibibytes, cannot be read, and refuses. `limits.freeDiskMegabytes` is a key
   of the project file only. `status` shows the bytes `local/evidence/` and `local/tmp/` hold (`fabrewk.status/3`, with
   `local`: `evidence` and `tmp`, each a number or `null` when a directory cannot be listed).
 

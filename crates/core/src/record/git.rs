@@ -171,24 +171,27 @@ pub(crate) fn hooks_dir(repo: &Repo) -> Result<Vec<String>, Error> {
             dirs.push(rel);
         }
     };
-    let root = crate::code::normal(&repo.root);
+    // A root given relative to the working directory is read as the same root (P9B-11).
+    let unreadable = |_| refuse(Code::ToolFailed, Some(&repo.root), "the working tree's root cannot be resolved");
+    let root = crate::code::normal(&std::path::absolute(&repo.root).map_err(unreadable)?);
     add(&crate::code::normal(&root.join(value)), &root, true);
     // Git runs a hook from the working tree's root, so the root's own links spend nothing of the path's.
-    if let Some(root) = physical(Path::new("/"), &repo.root).map(|r| r.0)
-        && let Some((path, links)) = physical(&root, value)
-    {
+    let root = repo.root.canonicalize().map_err(unreadable)?;
+    let (path, links) = physical(&root, value);
+    if let Some(path) = path {
         add(&path, &root, true);
-        for link in links {
-            add(&link, &root, false);
-        }
+    }
+    for link in links {
+        add(&link, &root, false);
     }
     Ok(dirs)
 }
 
 /// `rel` read from `from`, absolute, as the kernel reads a path (P9B-2): each link met is replaced by where it leads
 /// before what follows it, a `..` after a link included, and the part that does not exist yet is kept as written.
-/// Gives it and the links it passed through; `None` when `from` is relative or past 40 links.
-fn physical(from: &Path, rel: &Path) -> Option<(PathBuf, Vec<PathBuf>)> {
+/// Gives it, `None` past 40 links, and the links it passed through, the 41st included: the kernel meets the same ones
+/// first, so a path past the limit can be made to resolve only by changing one of them (P9B-9).
+fn physical(from: &Path, rel: &Path) -> (Option<PathBuf>, Vec<PathBuf>) {
     use std::path::Component;
     let parts = |p: &Path| -> Vec<std::ffi::OsString> {
         p.components()
@@ -200,9 +203,6 @@ fn physical(from: &Path, rel: &Path) -> Option<(PathBuf, Vec<PathBuf>)> {
             .rev()
             .collect()
     };
-    if !from.is_absolute() {
-        return None;
-    }
     let mut out = if rel.is_absolute() { PathBuf::from("/") } else { from.to_path_buf() };
     let (mut todo, mut links) = (parts(rel), Vec::new());
     while let Some(c) = todo.pop() {
@@ -214,7 +214,7 @@ fn physical(from: &Path, rel: &Path) -> Option<(PathBuf, Vec<PathBuf>)> {
         if let Ok(target) = std::fs::read_link(&out) {
             links.push(out.clone());
             if links.len() > 40 {
-                return None;
+                return (None, links);
             }
             out.pop();
             if target.is_absolute() {
@@ -223,7 +223,7 @@ fn physical(from: &Path, rel: &Path) -> Option<(PathBuf, Vec<PathBuf>)> {
             todo.extend(parts(&target));
         }
     }
-    Some((out, links))
+    (Some(out), links)
 }
 
 /// The repository's exclude file, `info/exclude` in its Git directory, as an absolute path.

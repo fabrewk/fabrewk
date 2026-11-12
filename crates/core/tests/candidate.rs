@@ -452,8 +452,30 @@ fn s_4_a_tracked_hooks_directory_under_a_wildcard_is_refused() {
         symlink(&linked.root, &alias).unwrap();
         let aliased = Repo { root: alias, prefix: PathBuf::new() };
         assert_eq!(candidate::protected_paths(&eff, &aliased).unwrap(), expected);
+        // Past the limit, every link met stays protected, since the kernel would meet the same ones first (P9B-9).
         git(&linked.root, &["config", "core.hooksPath", "x1/hooks"]);
-        assert_eq!(candidate::protected_paths(&eff, &linked.repo()).unwrap(), ["Cargo.toml", "x1/hooks/"]);
+        assert_eq!(candidate::protected_paths(&eff, &linked.repo()).unwrap(), ["Cargo.toml", "x1/hooks/", "x1", "x2"]);
+        let mut long: Vec<(String, String)> = (1..=41).map(|i| (format!("m{i}"), format!("m{}", i + 1))).collect();
+        long.push(("m42".into(), "tools".into()));
+        let long: Vec<(&str, &str)> = long.iter().map(|(a, b)| (a.as_str(), b.as_str())).collect();
+        let longer = Base::new("hooks-long", &[(b"tools/readme", b"r\n")], &long);
+        git(&longer.root, &["config", "core.hooksPath", "m1/hooks"]);
+        let protected = candidate::protected_paths(&eff, &longer.repo()).unwrap();
+        assert!(
+            protected.contains(&"m20".to_owned()) && !protected.contains(&"tools/hooks/".to_owned()),
+            "{protected:?}"
+        );
+        longer.export();
+        fs::remove_file(longer.work().join("m20")).unwrap();
+        symlink("tools", longer.work().join("m20")).unwrap();
+        fs::create_dir(longer.work().join("tools/hooks")).unwrap();
+        longer.put("tools/hooks/pre-commit", b"#!/bin/sh\n");
+        refused(longer.changes_with(&["m*", "tools/**"], &protected), Code::ProtectedPathWildcard);
+        // A root given relative to the working directory is read as the same root (P9B-11).
+        std::env::set_current_dir(&linked.root).unwrap();
+        let relative = Repo { root: PathBuf::from("."), prefix: PathBuf::new() };
+        git(&linked.root, &["config", "core.hooksPath", "l1/hooks"]);
+        assert_eq!(candidate::protected_paths(&eff, &relative).unwrap(), expected);
         // A component that is not text protects the directory above it, which holds it.
         let bytes = OsStr::from_bytes(b"tools/\xff/hooks");
         let set = std::process::Command::new("git")
@@ -709,11 +731,18 @@ fn refusal_disk_low() {
         // three counts.
         let counted = fake("counted", &format!("{header}; echo 'my 1 2 3 x% 9 3 4096 1% /'"));
         assert_eq!(candidate::free_space(&dir, 4, Some(&counted)).unwrap(), 4);
+        let zero = fake("zero", &format!("{header}; echo 'none 0 0 0 - /fixture'"));
+        assert_eq!(candidate::free_space(&dir, 0, Some(&zero)).unwrap(), 0);
+        refused(candidate::free_space(&dir, 1, Some(&zero)), Code::DiskLow);
         // A line that reads two ways, a name or a mount point that holds counts and a capacity, refuses (P9B-3).
         for (name, line) in [
             ("twice", "vol 1 2 4096 1% 10000 9999 1 100% /fixture"),
             ("mount", "a 10 5 5 50% /x 1 2 3 4%"),
             ("negative", "a 1 2 4096 1% 10 9 -1 100% /"),
+            // Real counts or a capacity `df` prints as `-`, or a count past any integer type (P9B-10).
+            ("dash", "vol 1 2 4096 1% 0 0 0 - /fixture"),
+            ("dashes", "vol 1 2 4096 1% - - - - /fixture"),
+            ("huge", "vol 1 2 4096 1% 9223372036854775808 0 1 1% /fixture"),
         ] {
             let why = refused(
                 candidate::free_space(&dir, 0, Some(&fake(name, &format!("{header}; echo '{line}'")))),

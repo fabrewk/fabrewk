@@ -36,22 +36,22 @@ pub fn free_space(dir: &Path, megabytes: u64, df: Option<&Path>) -> Result<u64, 
     Ok(free)
 }
 
-/// The kibibytes available in `df -Pk`'s output: its one line after the header, whose capacity (digits and `%`)
-/// follows three counts, the third of them the space available, in one place only.
+/// The kibibytes available in `df -Pk`'s output: its one line after the header, whose capacity follows three counts,
+/// the third of them the space available, in one place only. A count is anything `df` may print there (digits, signed
+/// or not and of any length, or `-`) and a capacity digits with `%` or `-`, so that the real columns are always a
+/// reading and a name or a mount point that looks like them too makes the line one that cannot be read (P9B-3,
+/// P9B-10); so is a space available that is not a count of kibibytes.
 fn available(out: &[u8]) -> Option<u64> {
     let mut lines = std::str::from_utf8(out).ok()?.lines().skip(1);
     let row: Vec<&str> = lines.next()?.split_whitespace().collect();
     if lines.next().is_some() {
         return None;
     }
-    let capacity =
-        |f: &str| f.strip_suffix('%').is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()));
-    // Counts as `df` may print them, a negative available space included, so that one is a reading too.
-    let mut readings =
-        (4..row.len()).filter(|&i| capacity(row[i]) && row[i - 3..i].iter().all(|f| f.parse::<i64>().is_ok()));
+    let digits = |f: &str| !f.is_empty() && f.bytes().all(|b| b.is_ascii_digit());
+    let count = |f: &&str| *f == "-" || digits(f.strip_prefix('-').unwrap_or(f));
+    let capacity = |f: &str| f == "-" || f.strip_suffix('%').is_some_and(digits);
+    let mut readings = (4..row.len()).filter(|&i| capacity(row[i]) && row[i - 3..i].iter().all(count));
     let i = readings.next()?;
-    // A name or a mount point that holds counts and a capacity too gives no single reading (P9B-3); a negative
-    // space available is none that can be read.
     if readings.next().is_some() {
         return None;
     }
