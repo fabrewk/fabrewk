@@ -165,11 +165,8 @@ pub(crate) fn hooks_dir(repo: &Repo) -> Result<Vec<String>, Error> {
         let Ok(rel) = path.strip_prefix(root) else { return };
         let text: Vec<&str> = rel.components().map_while(|c| c.as_os_str().to_str()).collect();
         let whole = text.len() == rel.components().count();
-        let rel = match text.join("/") {
-            r if dir || !whole => format!("{r}/"),
-            r if r.is_empty() => return,
-            r => r,
-        };
+        // A link met lies below the root as resolved, never at it, so a file's path is never empty.
+        let rel = if dir || !whole { format!("{}/", text.join("/")) } else { text.join("/") };
         if !dirs.contains(&rel) {
             dirs.push(rel);
         }
