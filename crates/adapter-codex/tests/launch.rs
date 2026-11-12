@@ -209,6 +209,7 @@ fn d_081_a_login_codex_would_renew_within_the_attempt_is_refused_before_any_proc
         (credential(eight + 1), "within the attempt's 1 minutes"),
         ("{\"auth_mode\":\"chatgpt\",\"last_refresh\":\"yesterday\"}".into(), "cannot be read"),
         ("{\"auth_mode\":\"chatgpt\"}".into(), "cannot be read"),
+        ("{\"last_refresh\":\"0000-01-01T00:00:00Z\"}".into(), "cannot be read"),
         (
             "{\"last_refresh\":\"2026-01-01T00:00:00Z\",\"last_refresh\":\"2099-01-01T00:00:00Z\"}".into(),
             "cannot be read",

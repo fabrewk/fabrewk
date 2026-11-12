@@ -246,7 +246,7 @@ fn task(record: &Replay, (name, events): (&String, &Vec<Event>), covers: &Covers
             let attempt = e.value["payload"]["attempt"].as_u64();
             if attempt.is_none_or(|a| Some(a) != open) {
                 let code = match attempt {
-                    Some(a) if started.range(a + 1..).next().is_some() && started.contains(&a) => Code::AttemptReplaced,
+                    Some(a) if started.contains(&a) && started.last() > Some(&a) => Code::AttemptReplaced,
                     Some(a) if started.contains(&a) => Code::AttemptEnded,
                     _ if open.is_none() => Code::AttemptEnded,
                     _ => Code::RecordTransitionInvalid,

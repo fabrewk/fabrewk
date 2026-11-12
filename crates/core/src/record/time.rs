@@ -28,7 +28,7 @@ pub fn seconds_of(s: &str) -> Option<u64> {
         return None;
     }
     let n = |r: std::ops::Range<usize>| s[r].parse::<u64>().ok();
-    let (year, month, day) = (n(0..4)?, n(5..7)?, n(8..10)?);
+    let (year, month, day) = (n(0..4)?.checked_sub(1970)? + 1970, n(5..7)?, n(8..10)?);
     // Days from a civil date (H. Hinnant's algorithm), the inverse of `format_utc`'s.
     let y = year - u64::from(month <= 2);
     let (era, yoe) = (y / 400, y % 400);
@@ -75,6 +75,10 @@ mod tests {
         }
         assert_eq!(seconds_of("2026-11-12T10:00:00.999Z"), seconds_of("2026-11-12T10:00:00Z"));
         assert_eq!((seconds_of("1969-12-31T23:59:59Z"), seconds_of("2026-11-12")), (None, None));
+        // A year before 1970, the year 0 and one before March included, is none, never a time wrapped around (P9E-6).
+        for early in ["0000-01-01T00:00:00Z", "0000-03-01T00:00:00Z", "1969-01-01T00:00:00Z", "0001-02-28T00:00:00Z"] {
+            assert_eq!(seconds_of(early), None, "{early}");
+        }
         for good in ["2026-11-05T10:00:00Z", "2024-02-29T23:59:60Z", "2026-01-01T00:00:00.123456789Z"] {
             assert!(is_utc_timestamp(good), "{good}");
         }

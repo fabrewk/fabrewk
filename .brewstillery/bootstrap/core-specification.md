@@ -1148,9 +1148,12 @@ to REQ-RUN-7, REQ-RUN-10, REQ-TASK-3, REQ-TASK-5, REQ-CLI-3; S-5, S-6; D-079, D-
   start, `outcome`, `model`, observed or `null`, `usage` as S-5 fixed it, and `evidence`, `null` or exactly the
   `stdout` and `stderr` digests), `candidate-recorded` (exactly `commit`, `tree` and `changes`, each exactly `path`,
   `before` and `after`, `null` or a `mode` and an `oid`) and `task-halted` (exactly `code`, one of REQ-TASK-5's or
-  `DISK_LOW`, and `reason`, the core's words with every path relative to the repository's root, so that the record
-  holds nothing of the machine's layout). The replay holds `run-started` to its stream's head and to the authorization
-  in force; an `attempt-ended` names its attempt: one already ended is `ATTEMPT_ENDED`, one a later attempt replaced
+  `DISK_LOW`, and `reason`, the core's words with every path relative to the repository's root or, under the
+  person's home, written from `~/`, so that the record holds nothing of the machine's layout, P9E-2). The replay holds
+  `run-started` to its stream's head and to the authorization in force: the task's last `task-authorized` or its
+  stage's last `stage-authorized` that binds it, whichever comes later in the task's events, which `run` names and
+  from which the task's limits count (P9E-3; `authorize <stage> --run` relies on the stage's authorization only for a
+  task it binds); an `attempt-ended` names its attempt: one already ended is `ATTEMPT_ENDED`, one a later attempt replaced
   `ATTEMPT_REPLACED`, both before the move is checked, and an end naming no attempt while one is open
   `RECORD_TRANSITION_INVALID`.
 - The attempt: its directories `local/tmp/attempt-<task>-<seq>/` and its evidence `local/evidence/attempt-<task>-<seq>/`;
@@ -1169,9 +1172,10 @@ to REQ-RUN-7, REQ-RUN-10, REQ-TASK-3, REQ-TASK-5, REQ-CLI-3; S-5, S-6; D-079, D-
   that may run and stops there.
 - REQ-RUN-5: every write command, before its own plan, finds the tasks left `running` (none can have a live process,
   since a run holds the lock to its end; a second writer meanwhile is `LOCK_HELD`), ends each open attempt `unknown`
-  with `seconds` and `tokens` `null`, halts the task `OUTCOME_UNKNOWN` and removes the attempt's directories, in a
-  record commit of its own; then the command plans on that record. `status <id>` shows a halted task's code, its
-  catalogue reason and the halt's words (`fabrewk.subject/3`, with `halt`); `STATUS.md` shows a task's dispatches,
+  with `seconds` and `tokens` `null`, halts the task `OUTCOME_UNKNOWN` and removes its last attempt's directories, open
+  or ended (P9E-4), in a record commit of its own; then the command plans on that record. `status <id>` shows a halted task's code, its
+  catalogue reason and the halt's words (`fabrewk.subject/3`, with `halt`); `status` does not walk `local/tmp/` while
+  a task is running, or when the record does not replay, and shows its size unknown (REQ-RUN-3, P9E-1); `STATUS.md` shows a task's dispatches,
   seconds and tokens read, written and read from the cache, each sum unknown when a part is.
 - `run`'s document is `fabrewk.run/1` (`id`, `attempt`, `candidate`, `halt`, and the events and commit written);
   `authorize`'s is `fabrewk.authorized/2`, with `run`, `null` or the run's document. Exit status 4 is the run's halt.

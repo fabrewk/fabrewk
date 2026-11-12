@@ -203,13 +203,17 @@ fn recovery(cx: &Cx, record: &Replay) -> Result<Plan<()>, Failed> {
             say: None,
             payload,
         };
-        if let Some(open) = super::run::open_attempt(&record.streams[&stream]) {
+        let events_of = &record.streams[&stream];
+        if let Some(open) = super::run::open_attempt(events_of) {
             let payload = serde_json::json!({
                 "attempt": open, "outcome": "unknown", "model": null,
                 "usage": crate::adapter::usage(None, None), "evidence": null,
             });
             events.push((stream.clone(), draft("attempt-ended", payload)));
-            gone.push(cx.domain.join("local/tmp").join(super::run::attempt_name(&stream, open)));
+        }
+        // The last attempt's directories, open or ended before the run stopped (P9E-4).
+        if let Some(last) = events_of.iter().rfind(|e| e.kind == "attempt-started") {
+            gone.push(cx.domain.join("local/tmp").join(super::run::attempt_name(&stream, last.seq)));
         }
         let reason = "the process that ran it no longer runs; its attempt is counted as spent, and a retry spends a \
                       dispatch";

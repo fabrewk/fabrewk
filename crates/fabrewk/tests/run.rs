@@ -91,7 +91,9 @@ fn halts(fx: &Fx, id: &str, code: &str) -> Vec<Value> {
         "{events:?}"
     );
     // The record holds no path of this machine (the reason names the evidence relative to the repository).
-    assert!(!halt["payload"]["reason"].as_str().unwrap().contains(fx.root.to_str().unwrap()), "{halt}");
+    let reason = halt["payload"]["reason"].as_str().unwrap();
+    let base = fx.root.parent().unwrap().to_str().unwrap();
+    assert!(!reason.contains(base) && !reason.contains(fx.home.to_str().unwrap()), "{halt}");
     ok(&fx.run(&["check"]));
     events
 }
@@ -251,6 +253,30 @@ fn authorize_run_and_run_of_a_stage_run_at_once() {
     // Run by a stage's authorization, it relies on that one.
     let started = fx.events(&stream(first.as_str().unwrap()))[1].clone();
     assert_eq!(started["payload"]["authorization"]["stream"], format!("stage-{stage}"));
+}
+
+/// The run relies on the authorization in force, whichever it is (P9E-3): a stage's that came after the task's own,
+/// and the task's own when a stage's authorization with `--run` does not bind it.
+#[test]
+fn a_run_relies_on_the_authorization_in_force() {
+    let fx = Fx::builder("in-force", "published", &format!("{WRITES}{SUCCESS}"));
+    let (stage, ids) = plan(&fx, json!({}), vec![json!({})]);
+    ok(&authorize(&fx, &ids[0], &[]));
+    halts(&fx, &ids[0], "CONFINEMENT_UNAVAILABLE");
+    // Halted, the task is bound again by its stage's authorization; its run names that one.
+    ok(&authorize(&fx, &stage, &[]));
+    let new = halts(&fx, &ids[0], "CONFINEMENT_UNAVAILABLE");
+    assert_eq!(new[0]["payload"]["authorization"]["stream"], format!("stage-{stage}"));
+    // A task authorized alone, then its stage authorized with `--run`, which binds no task: the run relies on the
+    // task's own.
+    let (stage, ids) = plan(&fx, json!({}), vec![json!({})]);
+    ok(&authorize(&fx, &ids[0], &[]));
+    let ran = authorize(&fx, &stage, &["--run"]);
+    assert_eq!(ran.status, 4, "{ran:?}");
+    let events = fx.events(&stream(&ids[0]));
+    let started = events.iter().find(|e| e["kind"] == "run-started").unwrap();
+    assert_eq!(started["payload"]["authorization"]["stream"], stream(&ids[0]));
+    ok(&fx.run(&["check"]));
 }
 
 // ---- The guards before the run, refusing or halting (REQ-RUN-2, REQ-TASK-3, REQ-TASK-5, S-6) -----------------------
@@ -458,6 +484,18 @@ fn d_079_a_login_that_expires_within_the_attempt_halts_before_the_tool_starts() 
     assert!(new[3]["payload"]["reason"].as_str().unwrap().contains("renew"), "{new:?}");
     // The tool never started: its output channels were never opened.
     assert!(!dirs(&fx, "evidence", "attempt-")[0].join("stdout").exists());
+    // A credential whose expiry cannot be read, or that is absent: the reason names it from the home, not where the
+    // home lies on this machine (P9E-2).
+    for credential in [Some("{}"), None] {
+        let path = fx.home.join(".claude/.credentials.json");
+        match credential {
+            Some(c) => fs::write(&path, c).unwrap(),
+            None => fs::remove_file(&path).unwrap(),
+        }
+        let id = authorized(&fx, json!({}));
+        let new = halts(&fx, &id, "TOOL_FAILED");
+        assert!(new[3]["payload"]["reason"].as_str().unwrap().contains("~/.claude/.credentials.json"), "{new:?}");
+    }
 }
 
 #[test]
@@ -577,6 +615,9 @@ fn pd_08_pd_10_a_killed_run_is_ended_unknown_by_the_next_write_command() {
     // (REQ-VIEW-4), and another run is refused by that lock (REQ-REG-5, REQ-TASK-3).
     assert_eq!(kinds(&fx.events(&stream(&ids[0]))).last(), Some(&"attempt-started"));
     assert_eq!(fx.run(&["status", &ids[0], "--json"]).doc()["state"], "running");
+    // Nor does `status` walk the attempt's directories while it runs (REQ-RUN-3, P9E-1): their size is unknown.
+    let doc = fx.run(&["status", "--json"]).doc();
+    assert_eq!((doc["local"]["tmp"].clone(), doc["local"]["evidence"].is_u64()), (Value::Null, true), "{doc}");
     refused(&fx, &["run", &ids[1], "--say", SAY], "LOCK_HELD", 1, "es");
     // Killed before the attempt's end (PD-08).
     child.kill().unwrap();
@@ -593,6 +634,7 @@ fn pd_08_pd_10_a_killed_run_is_ended_unknown_by_the_next_write_command() {
     );
     assert_eq!(new[1]["payload"]["code"], "OUTCOME_UNKNOWN");
     assert!(dirs(&fx, "tmp", "attempt-").is_empty());
+    assert!(fx.run(&["status", "--json"]).doc()["local"]["tmp"].is_u64());
     // `status` says the attempt's result is unknown and that a retry spends a dispatch; the view, that its time is.
     let human = fx.run(&["status", &ids[0]]);
     assert!(human.stdout.contains(&cli::say("es", "code.OUTCOME_UNKNOWN.reason", &[])), "{human:?}");

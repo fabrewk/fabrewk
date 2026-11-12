@@ -35,6 +35,23 @@ pub(super) fn open_attempt(events: &[Event]) -> Option<u64> {
     (!events[last..].iter().any(|e| e.kind == "attempt-ended")).then_some(events[last].seq)
 }
 
+/// The authorization in force for the task of `stream` (P9E-3), as the replay holds a run to it: its last
+/// `task-authorized`, or its stage's last `stage-authorized` that binds it, whichever comes later in the task's events;
+/// with the place in them after which its limits count.
+fn in_force(record: &Replay, stream: &str) -> Option<(Value, usize)> {
+    let events = &record.streams[stream];
+    let name = |e: &Event| json!({"stream": e.stream, "seq": e.seq, "digest": e.digest});
+    let own = events.iter().rposition(|e| e.kind == "task-authorized").map(|i| (name(&events[i]), i + 1));
+    let stage = format!("stage-{}", events[0].value["payload"]["stage"].as_str().unwrap_or_default());
+    let binds = |e: &Event| {
+        let tasks = e.value["payload"]["tasks"].as_array()?;
+        tasks.iter().find(|t| t["task"] == stream["task-".len()..])?["head"]["seq"].as_u64()
+    };
+    let by_stage = record.streams.get(&stage).into_iter().flatten().filter(|e| e.kind == "stage-authorized");
+    let by_stage = by_stage.filter_map(|e| Some((name(e), usize::try_from(binds(e)?).ok()?)));
+    own.into_iter().chain(by_stage).max_by_key(|(_, since)| *since)
+}
+
 /// The name of an attempt's directories, under `local/tmp/` and `local/evidence/`.
 pub(super) fn attempt_name(stream: &str, seq: u64) -> String {
     format!("attempt-{}-{seq}", &stream["task-".len()..])
@@ -203,14 +220,9 @@ pub(super) fn start(
     })?;
     let mut d = d.expect("REQ-RUN-2 is a guard of run-started");
     d.base.clone_from(&base);
-    let stage = &record.streams[&format!("stage-{}", p["stage"].as_str().unwrap_or_default())];
-    let authorization = match events.iter().rposition(|e| e.kind == "task-authorized") {
+    let authorization = match in_force(record, stream) {
         _ if fresh => Value::Null,
-        Some(i) => json!({"stream": stream, "seq": events[i].seq, "digest": events[i].digest}),
-        None => {
-            let by = stage.iter().rev().find(|e| e.kind == "stage-authorized").expect("an authorized task's");
-            json!({"stream": by.stream, "seq": by.seq, "digest": by.digest})
-        }
+        found => found.map_or(Value::Null, |(by, _)| by),
     };
     let payload = json!({"task": &stream["task-".len()..], "head": null, "authorization": authorization, "base": base});
     let (actor, say) = who;
@@ -257,9 +269,9 @@ fn prepare(cx: &Cx, record: &Replay, policy: &Policy, stream: &str, fresh: bool)
             }
         }
     }
-    let since = match events.iter().rposition(|e| e.kind == "task-authorized") {
+    let since = match in_force(record, stream) {
         _ if fresh => events.len(),
-        at => at.map_or(0, |i| i + 1),
+        found => found.map_or(0, |(_, since)| since),
     };
     let of_stage = crate::view::tasks_of(record, stage_id).into_iter().flat_map(|(_, e)| e.iter());
     let profile_seconds = int(&eff, &key("minutes")).unwrap_or(1).saturating_mul(fault::minute());
@@ -316,7 +328,8 @@ fn words(e: &Error) -> String {
 }
 
 /// Halts the task with `e`'s code, a halting one, or `TOOL_FAILED`; the reason names `evidence` when there is one, and
-/// every path in it relative to the repository's root, so that the record holds nothing of this machine's layout.
+/// every path in it relative to the repository's root or to the person's home (`~/`, P9E-2), so that the record holds
+/// nothing of this machine's layout.
 fn halt(a: &mut Appender, out: &mut Value, d: &Dispatch, e: &Error, evidence: Option<&Path>) -> Result<(), Error> {
     let code = e.code().map(|c| c.to_string()).filter(|c| crate::task::HALTS.contains(&c.as_str()));
     let code = code.unwrap_or_else(|| Code::ToolFailed.to_string());
@@ -325,7 +338,7 @@ fn halt(a: &mut Appender, out: &mut Value, d: &Dispatch, e: &Error, evidence: Op
         reason += &format!("; its output is kept in {}", dir.display());
     }
     let root = d.domain.parent().unwrap_or(&d.domain);
-    let reason = reason.replace(&format!("{}/", root.display()), "");
+    let reason = reason.replace(&format!("{}/", root.display()), "").replace(&format!("{}/", d.home.display()), "~/");
     a.fabrewk(&d.stream, "task-halted", json!({"code": code, "reason": reason}))?;
     out["halt"] = json!({"code": code, "reason": reason});
     Ok(())

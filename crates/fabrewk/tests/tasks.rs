@@ -617,6 +617,31 @@ fn pd_09_a_task_left_running_is_halted_by_the_next_write_command_then_moved() {
     assert!(doc["findings"].as_array().unwrap().iter().any(|f| f["code"] == "ATTEMPT_ENDED"), "{doc}");
 }
 
+/// A run stopped after its attempt's end and before its halt: the next write command halts the task, without a
+/// second end, and removes the attempt's directories (P9E-4).
+#[test]
+fn a_task_left_running_after_its_attempts_end_is_halted_and_its_copy_removed() {
+    let fx = Fx::new("ended-left", "published");
+    let id = one(&fx, json!({}));
+    ok(&authorize(&fx, &id, &[]));
+    let stream = format!("task-{id}");
+    start_by_hand(&fx, &id);
+    let attempt = json!({"role": "build", "profile": "build", "tool": "claude", "model": "m", "effort": "low", "allowedSeconds": 60});
+    by_hand(&fx, &stream, "attempt-started", attempt, false);
+    let seq = fx.events(&stream).len();
+    let end = json!({"attempt": seq, "outcome": "success", "model": null, "usage": {"seconds": 1, "tokens": null}, "evidence": null});
+    by_hand(&fx, &stream, "attempt-ended", end, false);
+    let copy = fx.domain.join(format!("local/tmp/attempt-{id}-{seq}"));
+    for d in ["home", "tmp", "work/src"] {
+        fs::create_dir_all(copy.join(d)).unwrap();
+    }
+    fs::write(copy.join("work/src/left"), "x").unwrap();
+    ok(&fx.run(&["reject", &id, "--say", SAY]));
+    let kinds: Vec<Value> = fx.events(&stream)[seq + 1..].iter().map(|e| e["kind"].clone()).collect();
+    assert_eq!(kinds, [json!("task-halted"), json!("task-rejected")]);
+    assert!(!copy.exists());
+}
+
 /// Appends an event of Fabrewk's to `stream` as a process that ignores the record's rules would, with no commit.
 fn by_hand_raw(fx: &Fx, stream: &str, kind: &str, payload: Value) {
     let mut s = Session::begin(&fx.domain, None, &PolicyVerifier).unwrap();

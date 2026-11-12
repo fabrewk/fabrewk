@@ -267,7 +267,9 @@ fn authorize_plan(cx: &Cx, id: &str, options: &Options, record: &Replay) -> Resu
             let next = if subject == "task" { stream.clone() } else { first_to_run(record, &after, &stage[6..])? };
             let (_, actor, _) = who.as_ref().expect("ROLE_FORBIDDEN is a guard of every authorization");
             let who = (actor.clone(), say.clone().expect("WORDS_MISSING is a guard of every authorization"));
-            Some((next.clone(), super::run::start(cx, record, (&policy, &after), &next, true, who)?))
+            // A stage's authorization may bind other tasks than the one it runs, which relies on its own (P9E-3).
+            let fresh = b.tasks.iter().any(|(n, _)| **n == next);
+            Some((next.clone(), super::run::start(cx, record, (&policy, &after), &next, fresh, who)?))
         }
     };
     let (_, actor, signer) = who.expect("ROLE_FORBIDDEN is a guard of every authorization");

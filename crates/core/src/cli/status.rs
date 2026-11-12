@@ -53,7 +53,14 @@ fn overview(cx: &Cx) -> Result<Out, Failed> {
             next.extend(waiting(cx, record, &mut doc, &mut text));
         }
     }
-    let [evidence, tmp] = ["evidence", "tmp"].map(|d| held(&cx.domain.join("local").join(d)));
+    // An attempt's directories are not walked while it may run (REQ-RUN-3, P9E-1): with a task running, or a record
+    // that cannot say, what `local/tmp/` holds is unknown.
+    let idle = match &cx.record {
+        Ok(r) => table::current(r).is_ok_and(|s| !s.values().any(|s| *s == "running")),
+        Err(errors) => errors.iter().all(|e| e.code() == Some(Code::RecordAbsent)),
+    };
+    let local = |d: &str| held(&cx.domain.join("local").join(d));
+    let (evidence, tmp) = (local("evidence"), if idle { local("tmp") } else { None });
     doc["local"] = json!({"evidence": evidence, "tmp": tmp});
     let words = |n: Option<u64>| {
         n.map_or_else(|| cx.t("status.size-unknown", &[]), |n| cx.t("status.size", &[("bytes", &n.to_string())]))

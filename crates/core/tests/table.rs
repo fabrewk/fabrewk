@@ -284,7 +284,7 @@ fn refusal_attempt_replaced_on_replay() {
     assert_eq!(t.replay().unwrap_err(), [Code::AttemptReplaced]);
     fs::remove_file(late).unwrap();
     // An end that names no attempt while one is open, or an event that is no attempt's start.
-    for attempt in [99, 3] {
+    for attempt in [99, 3, u64::MAX] {
         let mut wrong = first.clone();
         wrong["attempt"] = json!(attempt);
         let path = t.next(&fabrewk("attempt-ended", wrong));
