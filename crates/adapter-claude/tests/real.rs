@@ -157,3 +157,19 @@ fn real_sandbox_probe() {
     });
     dispatch(Role::Review, &[("probe.sh", PROBE)], &task);
 }
+
+/// How the tool answers a command that prints nothing, and one that prints (P9C-7).
+#[test]
+#[ignore = "calls a model; set FABREWK_REAL_CLAUDE"]
+fn real_silent_command() {
+    let task = serde_json::json!({
+        "goal": "sum.py's total adds a list of numbers",
+        "requirements": [
+            {"text": "Run exactly two commands, each as its own Bash call and in this order: first `test -f sum.py`, then `python3 test_sum.py`; run nothing else",
+             "criterion": "the review's verdict is accept when python3 test_sum.py prints ok, with no finding"},
+        ],
+        "allowed": ["sum.py", "test_sum.py"],
+        "delegationLanguage": "en",
+    });
+    dispatch(Role::Review, &FILES, &task);
+}

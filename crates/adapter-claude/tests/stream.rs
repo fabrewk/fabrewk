@@ -481,3 +481,26 @@ fn p9c_6_a_final_event_whose_flag_or_subtype_is_not_its_type_is_void() {
     v[last].as_object_mut().unwrap().remove("is_error");
     void(&join(&v), "no flag");
 }
+
+/// A real review that ran a command printing nothing, then one printing (P9C-7): only the second examined.
+#[test]
+fn p9c_7_a_command_that_printed_nothing_examined_nothing() {
+    let text = include_str!("streams/silent.jsonl");
+    assert_eq!(sha256_hex(text.as_bytes()), "a1cf88dd85a05577c8602d4c13ece17b4c17f7513b7eabef4b6af0b13d9e0ecd");
+    assert!(text.contains("\"content\":\"(Bash completed with no output)\""));
+    let r = read(text);
+    assert_eq!((r.examined, r.result.is_some()), (1, true));
+    // What a lazy review writes and the shell does not run prints nothing, whatever its words.
+    for command in ["review() { cat sum.py; }", "for f in; do cat sum.py; done", "case x in y) cat sum.py;; esac"] {
+        let mut v = lines();
+        v[USE]["message"]["content"][0]["input"]["command"] = json!(command);
+        v[ANSWER]["message"]["content"][0]["content"] = json!("(Bash completed with no output)");
+        let r = read(&join(&v));
+        assert_eq!((r.examined, r.result.is_some()), (0, true), "{command}");
+    }
+    for silent in [json!(""), json!(" \n"), json!([]), json!([{"type": "text", "text": "  "}])] {
+        let mut v = lines();
+        v[ANSWER]["message"]["content"][0]["content"] = silent.clone();
+        assert_eq!(read(&join(&v)).examined, 0, "{silent}");
+    }
+}

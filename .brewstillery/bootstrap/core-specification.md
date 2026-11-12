@@ -957,7 +957,7 @@ REQ-RUN-7, REQ-RUN-8, REQ-SEC-1 for the adapter, REQ-SEC-6, REQ-SEC-7, REQ-GATE-
 - The credential is a regular file at the path the adapter declares under the person's home (Claude Code:
   `.claude/.credentials.json`), reached through no link below the home, its own or a folder's; otherwise the dispatch
   is `TOOL_FAILED` before any process starts. The question
-  of 3.6, by test: with the read-only bind, three real dispatches worked and the person's file kept its date, size and
+  of 3.6, by test: with the read-only bind, four real dispatches worked and the person's file kept its date, size and
   digest; the tool rewrites its credential when it renews it (the file's date is exactly its validity before its
   expiry), and inside a cell neither an append nor a replacement by rename can reach the file ("Read-only file
   system"). What a renewal inside a cell, which the tool can attempt only when the token is near its end, does to the
@@ -1006,15 +1006,17 @@ REQ-RUN-7, REQ-RUN-8, REQ-SEC-1 for the adapter, REQ-SEC-6, REQ-SEC-7, REQ-GATE-
   the use examines; `rate_limit_event`; one `result`, last, after every use was answered, its `is_error` a boolean and its `subtype` a text. Any other
   event, block, field type or order voids the whole stream: no result, model, tokens or examination. The result is
   the final event's `structured_output` when its subtype is `success` and `is_error` false; another subtype keeps the
-  model and tokens and gives no result. Examination counts the uses answered without an error of `Bash`, by their
-  simple commands (split on unquoted newlines, `;`, `&&`, `||` and `|`, a `#` that starts a word commenting out the
+  model and tokens and gives no result. Examination counts the uses answered without an error of `Bash`, only when
+  the command printed something (the tool answers a silent one with `(Bash completed with no output)`: an uncalled
+  function, an empty loop or an unmatched branch runs nothing that shows, and no reading of the shell's grammar can
+  tell what it ran), by their simple commands (split on unquoted newlines, `;`, `&&`, `||` and `|`, a `#` that starts a word commenting out the
   rest of its line, a backslash before a newline joining two lines), and of `Read`, `Grep` and `Glob`; never
   `StructuredOutput`, the provider's answer tool; and only on success. A heredoc's lines count as commands: the
   count's size decides nothing, only whether it is zero. PD-26.2's sub-case is that split, which changes the count
   and voids nothing; PD-26.4's is every stream cut before its end; PD-26.6's a result of another subtype; PD-26.15 and PD-26.20
   an error flag that is not a boolean. The recorded streams are `crates/adapter-claude/tests/streams/review.jsonl`, a
-  real review, and `build.jsonl`, a real build, each with the account's rate-limit figures removed, their digests
-  pinned; a third real stream, of the probe of the tool's sandbox, reads whole too and is not kept, since it holds the
+  real review, `build.jsonl`, a real build, and `silent.jsonl`, a real review that ran a silent command and one that
+  printed, each with the account's rate-limit figures removed, their digests pinned; a third real stream, of the probe of the tool's sandbox, reads whole too and is not kept, since it holds the
   sandbox's proxy credential for that session.
 - Claude Code's marker is `CLAUDECODE`; its protected names `CLAUDE.md` and `.claude`, which a test holds within
   `gate.protectedNames`' default, still declared whole in the core's key so that the key's default reads as one

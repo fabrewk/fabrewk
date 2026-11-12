@@ -4,9 +4,9 @@
 //! the assistant's text, thinking and tool uses; the user's turn holding only the answers to those uses; rate-limit
 //! notices; one `result`, last. Anything else is an anomaly, and any anomaly voids the whole stream: no result, no
 //! usage, no examination (T-12). Examination counts the uses answered without an error of the tools that read or run
-//! (`Bash`, by its simple commands, and `Read`, `Grep`, `Glob`), never the provider's own answer tool, and only when
-//! the run ended in success. It detects a lazy or failed review, not a hostile one: the model's commands could print
-//! what this reads (T-13).
+//! (`Bash`, by its simple commands and only when it printed something, and `Read`, `Grep`, `Glob`), never the
+//! provider's own answer tool, and only when the run ended in success. It detects a lazy or failed review, not a
+//! hostile one: the model's commands could print what this reads (T-13).
 
 use fabrewk_core::adapter::{Report, Tokens};
 use serde_json::{Map, Value};
@@ -15,7 +15,11 @@ use std::collections::BTreeMap;
 /// The tools whose answered use examines the copy.
 const EXAMINING: [&str; 4] = ["Bash", "Read", "Grep", "Glob"];
 
-/// A tool use, by its identifier: the tool, its count of examinations, and its answer's error flag once answered.
+/// What the tool answers for a command that printed nothing (2.1.316, recorded).
+const SILENT: &str = "(Bash completed with no output)";
+
+/// A tool use, by its identifier: the tool, its count of examinations, and once answered whether it examined: an
+/// answer without an error and, for a command, with output.
 struct Use {
     tool: String,
     count: u64,
@@ -48,7 +52,7 @@ pub fn read(out: &[u8]) -> Report {
     let examined = r
         .uses
         .values()
-        .filter(|u| EXAMINING.contains(&u.tool.as_str()) && u.answer == Some(false))
+        .filter(|u| EXAMINING.contains(&u.tool.as_str()) && u.answer == Some(true))
         .map(|u| u.count)
         .sum();
     Report { result: end.get("structured_output").cloned(), model: r.model, tokens, examined }
@@ -152,21 +156,25 @@ fn user(event: &Map<String, Value>, r: &mut Read) -> Option<()> {
         (block.get("type").and_then(Value::as_str)? == "tool_result").then_some(())?;
         let id = block.get("tool_use_id").and_then(Value::as_str)?;
         let used = r.uses.get_mut(id).filter(|u| u.answer.is_none())?;
+        let mut said = String::new();
         match block.get("content")? {
-            Value::String(_) => {}
+            Value::String(s) => said.push_str(s),
             Value::Array(parts) => {
                 for part in parts {
                     (part.get("type").and_then(Value::as_str)? == "text").then_some(())?;
-                    text(part, "text")?;
+                    said.push_str(part.get("text")?.as_str()?);
                 }
             }
             _ => return None,
         }
-        used.answer = match block.get("is_error") {
-            Some(Value::Bool(e)) => Some(*e),
-            None if !EXAMINING.contains(&used.tool.as_str()) => Some(false),
+        let failed = match block.get("is_error") {
+            Some(Value::Bool(e)) => *e,
+            None if !EXAMINING.contains(&used.tool.as_str()) => false,
             _ => return None,
         };
+        // A command that printed nothing ran nothing that shows: an uncalled function, an empty loop (P9C-7).
+        let silent = used.tool == "Bash" && (said.trim().is_empty() || said == SILENT);
+        used.answer = Some(!failed && !silent);
     }
     Some(())
 }
