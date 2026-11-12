@@ -450,3 +450,34 @@ fn a_kept_stream_reads_whole() {
     eprintln!("{r:?}");
     assert!(r.result.is_some());
 }
+
+#[test]
+fn p9c_4_a_line_continuation_is_not_a_command() {
+    use fabrewk_adapter_claude::segments;
+    assert_eq!(segments("\\\n"), Vec::<String>::new());
+    assert_eq!(segments("\\\n# no command executed"), Vec::<String>::new());
+    assert_eq!(segments("ls \\\n  -a"), ["ls   -a"]);
+    assert_eq!(segments("echo \"a\\\nb\""), ["echo \"ab\""]);
+    assert_eq!(segments("echo 'a\\\nb'"), ["echo 'a\\\nb'"]);
+    for command in ["\\\n", "\\\n# no command executed", " \\\n\\\n "] {
+        let mut v = lines();
+        v[USE]["message"]["content"][0]["input"]["command"] = json!(command);
+        void(&join(&v), &format!("{command:?}"));
+    }
+}
+
+#[test]
+fn p9c_6_a_final_event_whose_flag_or_subtype_is_not_its_type_is_void() {
+    for (key, value) in
+        [("is_error", json!(0)), ("is_error", json!(null)), ("subtype", json!(1)), ("subtype", json!(null))]
+    {
+        let mut v = lines();
+        let last = v.len() - 1;
+        v[last][key] = value.clone();
+        void(&join(&v), &format!("{key} {value}"));
+    }
+    let mut v = lines();
+    let last = v.len() - 1;
+    v[last].as_object_mut().unwrap().remove("is_error");
+    void(&join(&v), "no flag");
+}

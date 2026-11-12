@@ -159,15 +159,20 @@ pub fn dispatch(
     evidence: &Path,
     limits: Limits,
 ) -> Result<(Ran, Report), Unfinished> {
-    let credential = home.join(tool.adapter.credential);
-    if !std::fs::symlink_metadata(&credential).is_ok_and(|m| m.is_file()) {
+    // Reached through no link, its own or a folder's on the way from the home (P9C-5): what it resolves to is what the
+    // home's resolution and the declared path give, and it is a regular file.
+    let declared = home.join(tool.adapter.credential);
+    let credential = home.canonicalize().ok().map(|h| h.join(tool.adapter.credential)).filter(|c| {
+        c.canonicalize().ok().as_ref() == Some(c) && std::fs::symlink_metadata(c).is_ok_and(|m| m.is_file())
+    });
+    let Some(credential) = credential else {
+        let name = tool.adapter.program.adapter.unwrap_or_default();
         let why = format!(
-            "{}: no credential at {}; log in with the tool first",
-            tool.adapter.program.adapter.unwrap_or_default(),
-            credential.display()
+            "{name}: no credential at {}, reached through no link; log in with the tool first",
+            declared.display()
         );
-        return Err(Unfinished { error: refuse(Code::ToolFailed, Some(&credential), why), ended: true });
-    }
+        return Err(Unfinished { error: refuse(Code::ToolFailed, Some(&declared), why), ended: true });
+    };
     let argv = (tool.adapter.command)(tool.executable, launch);
     let ran =
         confine::run(backend, programs, &cell(tool, scratch, argv, Some(&credential)), scratch, evidence, limits)?;

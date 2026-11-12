@@ -93,6 +93,10 @@ fn grammar(text: &str) -> Option<Read> {
             (_, "user") => user(&event, &mut r)?,
             (_, "rate_limit_event") => {}
             (_, "result") => {
+                // Its flag and subtype are of their types, whatever they say (P9C-6).
+                (event.get("is_error").is_some_and(Value::is_boolean)
+                    && event.get("subtype").is_some_and(Value::is_string))
+                .then_some(())?;
                 // Every use was answered before the result (PD-26.7).
                 r.uses.values().all(|u| u.answer.is_some()).then_some(())?;
                 r.result = Some(event);
@@ -168,8 +172,8 @@ fn user(event: &Map<String, Value>, r: &mut Read) -> Option<()> {
 }
 
 /// A command's simple commands: split on newlines, `;`, `&&`, `||` and `|` outside quotes; a backslash escapes the
-/// next character outside single quotes; a `#` that starts a word outside quotes comments the rest of its line out
-/// (P9C-3); blank parts dropped (PD-26.2).
+/// next character outside single quotes, and with a newline joins two lines (P9C-4); a `#` that starts a word
+/// outside quotes comments the rest of its line out (P9C-3); blank parts dropped (PD-26.2).
 pub fn segments(command: &str) -> Vec<String> {
     let (mut parts, mut current, mut quote) = (Vec::new(), String::new(), None);
     let mut chars = command.chars().peekable();
@@ -179,6 +183,8 @@ pub fn segments(command: &str) -> Vec<String> {
                 quote = None;
                 current.push(c);
             }
+            // A backslash and a newline join two lines, as the shell removes them before reading (P9C-4).
+            (q, '\\') if q != Some('\'') && chars.next_if_eq(&'\n').is_some() => {}
             (q, '\\') if q != Some('\'') => {
                 current.push(c);
                 current.extend(chars.next());

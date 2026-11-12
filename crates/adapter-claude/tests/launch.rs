@@ -243,7 +243,21 @@ fn a_dispatch_with_no_credential_fails_before_any_process() {
         assert!(u.ended && u.error.code() == Some(Code::ToolFailed), "{:?}", u.error);
         assert_eq!(std::fs::read_dir(&evidence).unwrap().count(), 0);
         assert_eq!(std::fs::read_dir(&scratch.work).unwrap().count(), 0);
+        let _ = std::fs::remove_file(home.join(".claude/.credentials.json"));
     }
+    // A link in the way to it (P9C-5): its folder elsewhere.
+    std::fs::remove_dir(home.join(".claude")).unwrap();
+    std::fs::create_dir_all(d.join("folder")).unwrap();
+    std::fs::write(d.join("folder/.credentials.json"), "{\"another\":\"credential\"}").unwrap();
+    std::os::unix::fs::symlink(d.join("folder"), home.join(".claude")).unwrap();
+    let scratch = Scratch::create(&domain, "folder").unwrap();
+    let evidence = confine::evidence(&domain, "folder").unwrap();
+    let launch = Launch { role: Role::Build, packet: "{}", schema: "{}", model: "m", effort: "low" };
+    let limits = Limits { time: Duration::from_secs(60), bytes: 1 << 20 };
+    let t = Tool { adapter: &ADAPTER, executable: &exe, release: &rel };
+    let u = adapter::dispatch(t, &BACKEND, &p, &launch, &home, &scratch, &evidence, limits).unwrap_err();
+    assert!(u.ended && u.error.code() == Some(Code::ToolFailed), "{:?}", u.error);
+    assert_eq!(std::fs::read_dir(&evidence).unwrap().count(), 0);
 }
 
 #[test]
