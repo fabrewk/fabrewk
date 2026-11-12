@@ -58,12 +58,15 @@ fn bash(id: &str, command: Value) -> Value {
     assistant(json!([{"type": "tool_use", "id": id, "name": "Bash", "input": {"command": command}}]))
 }
 
+/// An answer as the tool writes it to a command that printed `ok`: the block, and the run's own record beside it.
 fn answer(id: Value, is_error: Option<Value>) -> Value {
     let mut block = json!({"type": "tool_result", "tool_use_id": id, "content": "ok"});
     if let Some(e) = is_error {
         block["is_error"] = e;
     }
-    user(json!([block]))
+    let mut event = user(json!([block]));
+    event["tool_use_result"] = json!({"stdout": "ok", "stderr": "", "interrupted": false, "isImage": false});
+    event
 }
 
 /// Every position at which an event may be inserted into the recorded stream and still lie before its result.
@@ -521,4 +524,59 @@ fn p9c_8_a_command_started_in_the_background_examined_nothing() {
     let mut v = lines();
     v[USE]["message"]["content"][0]["input"]["run_in_background"] = json!(false);
     assert_eq!(read(&join(&v)).examined, EXAMINED);
+}
+
+#[test]
+fn p9c_9_a_command_whose_run_record_shows_no_completed_output_examined_nothing() {
+    let pending =
+        "Command running in background with ID: review-job. Output is being written to: /tmp/review-job.output";
+    let records = [
+        json!({"stdout": "", "stderr": "", "interrupted": false, "backgroundTaskId": "review-job"}),
+        json!({"stdout": "ok", "stderr": "", "interrupted": false, "backgroundTaskId": "review-job"}),
+        json!({"stdout": "ok", "stderr": "", "interrupted": true}),
+        json!({"stdout": "", "stderr": "", "interrupted": false}),
+        json!({"stdout": " \n", "stderr": "", "interrupted": false}),
+        json!({"stdout": "ok", "stderr": ""}),
+        json!({"stdout": "ok", "stderr": "", "interrupted": "false"}),
+        json!({"stdout": 5, "stderr": "", "interrupted": false}),
+        json!("ok"),
+        json!(null),
+    ];
+    for (n, record) in records.iter().enumerate() {
+        for flag in [None, Some(json!(false))] {
+            let mut v = lines();
+            let input = &mut v[USE]["message"]["content"][0]["input"];
+            input["command"] = json!("sleep 60; cat sum.py");
+            input["timeout"] = json!(1000);
+            if let Some(f) = &flag {
+                input["run_in_background"] = f.clone();
+            }
+            v[ANSWER]["message"]["content"][0]["content"] = json!(pending);
+            v[ANSWER]["tool_use_result"] = record.clone();
+            let r = read(&join(&v));
+            assert_eq!((r.examined, r.result.is_some()), (0, true), "{n} {record} {flag:?}");
+        }
+    }
+    let mut v = lines();
+    v[ANSWER].as_object_mut().unwrap().remove("tool_use_result");
+    assert_eq!(read(&join(&v)).examined, 0, "no record of the run");
+    // What printed only on its error channel printed something.
+    let mut v = lines();
+    v[ANSWER]["tool_use_result"] = json!({"stdout": "", "stderr": "warning", "interrupted": false});
+    assert_eq!(read(&join(&v)).examined, EXAMINED);
+    // Two answers in one turn: the run's record could be either's.
+    let mut v = lines();
+    let mut two = answer(json!("t1"), Some(json!(false)));
+    two["message"]["content"] = json!([two["message"]["content"][0].clone(), {"type": "tool_result", "tool_use_id": "t2", "content": "ok", "is_error": false}]);
+    v.splice(
+        1..1,
+        [
+            assistant(json!([
+                {"type": "tool_use", "id": "t1", "name": "Bash", "input": {"command": "ls"}},
+                {"type": "tool_use", "id": "t2", "name": "Bash", "input": {"command": "pwd"}},
+            ])),
+            two,
+        ],
+    );
+    void(&join(&v), "two answers in one turn");
 }

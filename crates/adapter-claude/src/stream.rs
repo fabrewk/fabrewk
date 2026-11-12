@@ -152,33 +152,42 @@ fn text(block: &Value, key: &str) -> Option<()> {
     block.get(key)?.as_str().map(|_| ())
 }
 
-/// The user's turn: only answers, each to a use not answered yet, its error flag a boolean, and present when the
-/// use examines; its content a text, or a list of text blocks.
+/// The user's turn: one answer, to a use not answered yet, its error flag a boolean, and present when the use
+/// examines; its content a text, or a list of text blocks. A command examines only when the run's own record beside
+/// the answer, and the answer itself, show it completed and printed: a silent command, an uncalled function, an empty
+/// loop, a command still running in the background, or one interrupted shows none (P9C-7 to P9C-9).
 fn user(event: &Map<String, Value>, r: &mut Read) -> Option<()> {
-    for block in blocks(event)? {
-        (block.get("type").and_then(Value::as_str)? == "tool_result").then_some(())?;
-        let id = block.get("tool_use_id").and_then(Value::as_str)?;
-        let used = r.uses.get_mut(id).filter(|u| u.answer.is_none())?;
-        let mut said = String::new();
-        match block.get("content")? {
-            Value::String(s) => said.push_str(s),
-            Value::Array(parts) => {
-                for part in parts {
-                    (part.get("type").and_then(Value::as_str)? == "text").then_some(())?;
-                    said.push_str(part.get("text")?.as_str()?);
-                }
+    let [block] = &blocks(event)?[..] else {
+        return None;
+    };
+    (block.get("type").and_then(Value::as_str)? == "tool_result").then_some(())?;
+    let id = block.get("tool_use_id").and_then(Value::as_str)?;
+    let used = r.uses.get_mut(id).filter(|u| u.answer.is_none())?;
+    let mut said = String::new();
+    match block.get("content")? {
+        Value::String(s) => said.push_str(s),
+        Value::Array(parts) => {
+            for part in parts {
+                (part.get("type").and_then(Value::as_str)? == "text").then_some(())?;
+                said.push_str(part.get("text")?.as_str()?);
             }
-            _ => return None,
         }
-        let failed = match block.get("is_error") {
-            Some(Value::Bool(e)) => *e,
-            None if !EXAMINING.contains(&used.tool.as_str()) => false,
-            _ => return None,
-        };
-        // A command that printed nothing ran nothing that shows: an uncalled function, an empty loop (P9C-7).
-        let silent = used.tool == "Bash" && (said.trim().is_empty() || said == SILENT);
-        used.answer = Some(!failed && !silent);
+        _ => return None,
     }
+    let failed = match block.get("is_error") {
+        Some(Value::Bool(e)) => *e,
+        None if !EXAMINING.contains(&used.tool.as_str()) => false,
+        _ => return None,
+    };
+    let printed = |run: &Map<String, Value>| {
+        let channel = |k: &str| run.get(k).and_then(Value::as_str).is_some_and(|s| !s.trim().is_empty());
+        run.get("interrupted") == Some(&Value::Bool(false))
+            && !run.contains_key("backgroundTaskId")
+            && (channel("stdout") || channel("stderr"))
+    };
+    let ran = event.get("tool_use_result").and_then(Value::as_object).is_some_and(printed);
+    let silent = used.tool == "Bash" && (!ran || said.trim().is_empty() || said == SILENT);
+    used.answer = Some(!failed && !silent);
     Some(())
 }
 
