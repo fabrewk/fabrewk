@@ -3767,3 +3767,90 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   same rule with a whole sixth pass; or correcting P9C-9 as reported and declaring the textual audit as a limit.
 - Consequences: `core-specification.md` ("as part 9c fixed them"); `plan.md` (row 9e gains the refusal); R-041.
 - Sources: chat of session 32; `confinement-design.md` 3.6; R-041.
+
+## R-041 — Session 32, part 9c: the adapter's contract and the Claude Code module
+
+- Status: recorded
+- Date: 2026-11-12
+- Who: integrator Claude Code, `claude-opus-5-5`, effort high (D-078). Reviewer: Codex `codex-cli 0.166.0`,
+  `gpt-6.1-sol`, effort high, launched as the `codex-review` skill says. One subagent of the `web-fetch` kind read the
+  tool's documentation (code.claude.com: sandboxing, settings, headless, CLI reference, permissions, authentication,
+  environment variables).
+- Start: HEAD `5c3a6e7`, tree clean.
+- Read: `STATUS.md`, `AGENTS.md`, `plan.md`, `confinement-design.md` (whole), `core-specification.md` (RUN, GATE-4, SEC,
+  the amendments and the 9a and 9b paragraphs, 11.2, 11.3, 11.4, section 8's keys), `past-defect-cases.md` (PD-25 to
+  PD-28), `architecture-decisions.md` AD-5, `harness-verdicts.md` (its notes on the adapters) and, as that file's
+  "reuse as design", `tickbrew-harness/tickbrew_harness/adapters/audit.py`; this file (D-075, D-078, R-040); the skills
+  `verify-part`, `codex-review` and `differential-review`; the code of `confine.rs`, `detect.rs`, `task.rs`,
+  `alambique.rs`, `view.rs`, `code.rs`, `settings/keys.rs`, `cli/mod.rs`, `cli/config.rs`, `crates/confine-bwrap` and
+  `main.rs`. Of the person's Claude Code credential, only its date, size, digest and `expiresAt` (D-079); no file of
+  the private folder.
+- Decided by the maestro in this session: D-079.
+- The real tool (D-079 point 1), Claude Code 2.1.316, `claude-sonnet-5-5` at effort `low`, four dispatches costing
+  about 0.13 USD at list price: a review (`review.jsonl`), a build (`build.jsonl`), a probe of the tool's sandbox, and
+  a review running a silent command (`silent.jsonl`). Without a model, in cells with no credential: its version, its
+  debug log at start, and its stop at "Not logged in". What it showed:
+  1. `--safe-mode` keeps OAuth and turns discovery off: the built-in plugin that reads `AGENTS.md` reported "project
+     memory is off"; `--restricted` ignored a project's settings planted in the copy. `--bare` reads no OAuth.
+  2. The tool's sandbox starts only at the model's first command, so no command of the tool's own starts it without a
+     model; at a dispatch the model's commands had a seccomp filter, only a loopback interface, the direct network
+     unreachable and the proxy refusing every host, the credential unreadable, the home and `.gitconfig` not writable
+     and `/work` writable; the stream recorded `sandbox_violations` for the refused host.
+  3. The credential: with the read-only bind all four dispatches worked and the file kept its date, size and digest;
+     its date was exactly eight hours before its `expiresAt`, so the tool rewrites it when it renews it; a renewal
+     inside a cell was not provoked (D-079 point 4).
+  4. The stream: `system`/`init`, `assistant`, `user` with `tool_use_result`, `rate_limit_event`, `system`/
+     `thinking_tokens` when the model thinks, one `result` with `structured_output`; a silent command is answered
+     `(Bash completed with no output)`. The streams hold the account's weekly and five-hour use; it was removed from
+     the kept fixtures, and the probe's stream, which holds the sandbox's proxy credential for its session, was not
+     kept.
+- Written: `crates/core/src/adapter.rs` (the contract); `crates/adapter-claude` (ring `ToolAdapter`: `lib.rs`,
+  `stream.rs`, tests `launch.rs`, `stream.rs` with three recorded streams, and `real.rs`, ignored, for the real tool);
+  `crates/core/tests/adapter.rs`; `REVIEW_INVALID` in `code.rs` and the catalogues; the catalogues' `packet` and
+  three residual risks; the binary's wiring (`ADAPTERS`; Codex's markers stay until part 9d); `config` listing the
+  adapters' residual risks; two of the binary's tests (the sweep now lists Claude Code's skills folder; S-7 over the
+  adapters); `tools/budget` (the ring, at its kind's ceiling, D-075 point 2); the paragraph "as part 9c fixed them"
+  in `core-specification.md`; `plan.md`; `STATUS.md`; D-079 and this entry.
+- Interpretations the maestro may want to read (each in the new paragraph):
+  1. The packet's rules are the role's instruction, the base rules 8, 11 and 12 (the others govern the domain, which no
+     copy holds) and the project's rules.
+  2. An accept holding a confirmed blocking finding is `REVIEW_INVALID`, as the verdict and REQ-GATE-6's progress
+     measure would disagree; a build's result that does not fit is `TOOL_FAILED`.
+  3. Claude Code's `input` tokens are `input_tokens` plus `cache_creation_input_tokens`; `cached` is
+     `cache_read_input_tokens`.
+  4. The release is the tool's `versions` directory and may not hold the home or the repository (`TOOL_MISSING`),
+     found by the integrator's own review before Codex's first pass: an executable installed straight into a home
+     would have shown the home whole.
+  5. `gate.protectedNames`' default stays one literal in the core; a test holds each adapter's names within it.
+  6. The preflight cannot make the tool start its own sandbox without a model; it runs the tool, `socat`, and a
+     nested sandbox of the tool's kind, and `failIfUnavailable` makes a dispatch refuse when the tool's cannot start.
+  7. PD-26.2 counts (the split) and voids nothing; PD-26.4 is every stream cut before its end; a heredoc's lines count
+     as commands, since only whether the count is zero decides.
+- Codex, six passes, confirmed blocking findings by pass: 3, 2, 1, 1, 1, 0.
+  1. Pass 1 (`401309f`): P9C-1 (a use answered with an error counted), P9C-2 (a `message` on a rate-limit notice, an
+     answer's content or a block's text of a wrong type, accepted), P9C-3 (a comment alone counted as a command).
+  2. Pass 2 (`a95adf2`): P9C-1 to P9C-3 closed; P9C-4 (a line continuation counted), P9C-5 (a link in a folder on the
+     way to the credential followed); P9C-6, not blocking (a final flag of a wrong type kept model and tokens).
+  3. Pass 3 (`15817ef`): P9C-4 to P9C-6 closed; P9C-7 (an uncalled function, an empty loop or an unmatched branch
+     counted). Corrected by output: the fourth dispatch recorded how the tool answers a silent command.
+  4. Pass 4 (`41b68ae`): P9C-7 closed; P9C-8 (a command run in the background counted by its start).
+  5. Pass 5 (`fe31883`): P9C-8 closed; P9C-9 (a pending answer counted with no background flag). Two retries
+     without progress: the maestro chose the structural rule and a narrow sixth pass (D-079 point 3).
+  6. Pass 6 (`e179f07`), narrow: P9C-7 to P9C-9 closed in every form, the three recorded streams read whole; **accept**.
+  Each new test failed without its correction, checked by hand. While correcting P9C-2, the probe's real stream read
+  void with the stricter grammar: a `thinking_tokens` estimate, now admitted after the init. Codex's sandbox cannot
+  run `bwrap`, `pasta` or bind sockets; those tests ran on this machine.
+- Mutation, with `--features fabrewk-core/fault-injection`, `--test-workspace true`, `ulimit -v 1600000`, `--timeout
+  180`, in its own user scope, over the part's diff (`e179f07`): 155 mutants in 88 minutes, 149 caught, 3 unviable,
+  3 missed, all in the preflight's guard between a run that could not start and one the backend cannot show ended;
+  a test now tells them apart (`c64b9c1`), and the run over the preflight, 5 mutants, caught all. None declared
+  equivalent.
+- Clean clone of `c64b9c1`: 498 tests (6 ignored: the real tool's and a kept stream's), `crash` 3 and `faults` 20
+  green, the musl build, `budget check` (the core 8,876 of 11,000, the backend 276 of 400, the adapter 295 of 600, 4
+  direct runtime crates, 31 in the release build, the binary 2,494,824 bytes), clippy with and without
+  `fault-injection`, fmt and `cargo deny` clean; `--version --json` lists no feature.
+- Measured: the core +275 (projected 150), the adapter 295 (projected about 500).
+- Not done: `run` dispatching at the command line, the preflight's pass kept as verified by use, the credential's
+  expiry refused, the packet's size bounded (part 9e); the reviewer's dispatch, `review-recorded`, `REVIEW_UNEXAMINED`
+  and PD-25 and PD-26 through the whole flow (part 9f); Codex's module (part 9d). The chance failure of R-040
+  (`LOCK_HELD` in a test) did not occur in this part's runs; its destination is still the maestro's.
