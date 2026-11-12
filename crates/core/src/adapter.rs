@@ -75,6 +75,9 @@ pub struct Adapter {
     pub protected: &'static [&'static str],
     /// Catalogue keys `residual.<key>` that `config` lists (S-7).
     pub residual: &'static [&'static str],
+    /// Its machine rule (6.38, 3.9): the names that may not be found at any depth of the launch directory, under ASCII
+    /// case folding, checked at every dispatch before any process starts.
+    pub machine: &'static [&'static str],
     /// The tool's credential, relative to the person's home; bound read-only at the same place under the cell's home
     /// (3.6), never copied.
     pub credential: &'static str,
@@ -117,6 +120,10 @@ pub fn resolve(adapter: &Adapter, found: &Path, outside: &[&Path]) -> Result<(Pa
     Ok((exe, release))
 }
 
+/// Where a dispatch's cell holds the role's output schema, for a tool that reads it from a file: in the cell's home,
+/// which the core writes before the tool starts.
+pub const SCHEMA: &str = "/home/agent/schema.json";
+
 /// The variables every agent's cell holds (3.3).
 const CELL_ENV: [(&str, &str); 4] =
     [("PATH", "/usr/bin:/bin"), ("HOME", "/home/agent"), ("TMPDIR", "/tmp"), ("LANG", "C.UTF-8")];
@@ -145,9 +152,28 @@ fn cell(tool: Tool, scratch: &Scratch, argv: Vec<OsString>, credential: Option<&
     }
 }
 
+/// The first entry under `dir`, at any depth and following no link, named one of `names` under ASCII case folding.
+fn holds(dir: &Path, names: &[&str]) -> Result<Option<PathBuf>, Error> {
+    let mut todo = vec![dir.to_path_buf()];
+    while let Some(d) = todo.pop() {
+        for entry in std::fs::read_dir(&d).map_err(io_at(&d))? {
+            let entry = entry.map_err(io_at(&d))?;
+            let name = entry.file_name();
+            if names.iter().any(|n| name.as_encoded_bytes().eq_ignore_ascii_case(n.as_bytes())) {
+                return Ok(Some(entry.path()));
+            }
+            if entry.file_type().map_err(io_at(&entry.path()))?.is_dir() {
+                todo.push(entry.path());
+            }
+        }
+    }
+    Ok(None)
+}
+
 /// Runs one dispatch of `tool` in `launch.role`'s cell, the copy being `scratch.work` and the credential the
-/// person's, under `home` (3.6). A credential that is not a regular file there is `TOOL_FAILED`, before any
-/// process starts. Gives the run and what the adapter read in its standard output once its cell has ended.
+/// person's, under `home` (3.6). A copy that breaks the adapter's machine rule is `CONFINEMENT_UNAVAILABLE`, and a
+/// credential that is not a regular file there `TOOL_FAILED`, both before any process starts. The role's schema is
+/// written at [`SCHEMA`]. Gives the run and what the adapter read in its standard output once its cell has ended.
 #[allow(clippy::too_many_arguments)]
 pub fn dispatch(
     tool: Tool,
@@ -159,6 +185,12 @@ pub fn dispatch(
     evidence: &Path,
     limits: Limits,
 ) -> Result<(Ran, Report), Unfinished> {
+    let early = |error| Unfinished { error, ended: true };
+    let name = tool.adapter.program.adapter.unwrap_or_default();
+    if let Some(found) = holds(&scratch.work, tool.adapter.machine).map_err(early)? {
+        let why = format!("{name}: its launch directory holds {}, which its machine rule refuses", found.display());
+        return Err(early(refuse(Code::ConfinementUnavailable, Some(&found), why)));
+    }
     // Reached through no link, its own or a folder's on the way from the home (P9C-5): what it resolves to is what the
     // home's resolution and the declared path give, and it is a regular file.
     let declared = home.join(tool.adapter.credential);
@@ -166,18 +198,19 @@ pub fn dispatch(
         c.canonicalize().ok().as_ref() == Some(c) && std::fs::symlink_metadata(c).is_ok_and(|m| m.is_file())
     });
     let Some(credential) = credential else {
-        let name = tool.adapter.program.adapter.unwrap_or_default();
         let why = format!(
             "{name}: no credential at {}, reached through no link; log in with the tool first",
             declared.display()
         );
-        return Err(Unfinished { error: refuse(Code::ToolFailed, Some(&declared), why), ended: true });
+        return Err(early(refuse(Code::ToolFailed, Some(&declared), why)));
     };
+    let schema = scratch.home.join("schema.json");
+    std::fs::write(&schema, launch.schema).map_err(io_at(&schema)).map_err(early)?;
     let argv = (tool.adapter.command)(tool.executable, launch);
     let ran =
         confine::run(backend, programs, &cell(tool, scratch, argv, Some(&credential)), scratch, evidence, limits)?;
     let out = std::fs::read(&ran.stdout.path).map_err(io_at(&ran.stdout.path));
-    let out = out.map_err(|error| Unfinished { error, ended: true })?;
+    let out = out.map_err(early)?;
     let report = (tool.adapter.read)(&out);
     Ok((ran, report))
 }
@@ -225,7 +258,8 @@ pub fn preflight(tool: Tool, backend: &Backend, programs: &Programs, domain: &Pa
 const TEXT: usize = 4000;
 const FINDINGS: usize = 50;
 
-/// The output schema of `role` (REQ-RUN-8), as JSON Schema: a build's summary; a review's verdict and findings.
+/// The output schema of `role` (REQ-RUN-8), as JSON Schema: a build's summary; a review's verdict and findings. Every
+/// property is required, as a provider's strict mode asks (Codex's, part 9d): a finding with no path holds `null`.
 pub fn schema(role: Role) -> Value {
     let text = json!({"type": "string", "minLength": 1, "maxLength": TEXT});
     match role {
@@ -238,11 +272,12 @@ pub fn schema(role: Role) -> Value {
             "properties": {
                 "verdict": {"enum": ["accept", "reject"]},
                 "findings": {"type": "array", "maxItems": FINDINGS, "items": {
-                    "type": "object", "additionalProperties": false, "required": ["severity", "status", "summary"],
+                    "type": "object", "additionalProperties": false,
+                    "required": ["severity", "status", "path", "summary"],
                     "properties": {
                         "severity": {"enum": ["blocking", "minor"]},
                         "status": {"enum": ["confirmed", "suspected"]},
-                        "path": text,
+                        "path": {"type": ["string", "null"], "minLength": 1, "maxLength": TEXT},
                         "summary": text,
                     },
                 }},
@@ -285,14 +320,14 @@ pub fn validate(role: Role, result: &Value) -> Result<(), Error> {
                 return invalid("the findings are not a list of at most 50");
             };
             let well_formed = |f: &Value| {
-                fields(f, &["severity", "status", "summary"], &["path"])
+                fields(f, &["severity", "status", "path", "summary"], &[])
                     && one_of(&f["severity"], &["blocking", "minor"])
                     && one_of(&f["status"], &["confirmed", "suspected"])
                     && text(&f["summary"])
-                    && f.get("path").is_none_or(text)
+                    && (f["path"].is_null() || text(&f["path"]))
             };
             if !findings.iter().all(well_formed) {
-                return invalid("a finding lacks a severity, a status or a summary, or has another field");
+                return invalid("a finding lacks a severity, a status, a path or a summary, or has another field");
             }
             let blocking = findings.iter().any(|f| f["severity"] == "blocking" && f["status"] == "confirmed");
             match (result["verdict"].as_str(), blocking) {
@@ -350,4 +385,44 @@ pub fn packet(task: &Value, role: Role, rules: &[String], code: &str, previous: 
 pub fn usage(seconds: Option<u64>, tokens: Option<Tokens>) -> Value {
     let tokens = tokens.map(|t| json!({"input": t.input, "output": t.output, "cached": t.cached}));
     json!({"seconds": seconds, "tokens": tokens})
+}
+
+/// A command's simple commands, as the adapters' audits count them (PD-26): split on newlines, `;`, `&&`, `||` and
+/// `|` outside quotes; a backslash escapes the next character outside single quotes, and with a newline joins two
+/// lines (P9C-4); a `#` that starts a word outside quotes comments the rest of its line out (P9C-3); blank parts
+/// dropped (PD-26.2).
+pub fn segments(command: &str) -> Vec<String> {
+    let (mut parts, mut current, mut quote) = (Vec::new(), String::new(), None);
+    let mut chars = command.chars().peekable();
+    while let Some(c) = chars.next() {
+        match (quote, c) {
+            (Some('\''), '\'') | (Some('"'), '"') => {
+                quote = None;
+                current.push(c);
+            }
+            // A backslash and a newline join two lines, as the shell removes them before reading (P9C-4).
+            (q, '\\') if q != Some('\'') && chars.next_if_eq(&'\n').is_some() => {}
+            (q, '\\') if q != Some('\'') => {
+                current.push(c);
+                current.extend(chars.next());
+            }
+            (Some(_), _) => current.push(c),
+            (None, '\'' | '"') => {
+                quote = Some(c);
+                current.push(c);
+            }
+            (None, '#') if current.chars().last().is_none_or(char::is_whitespace) => {
+                while chars.next_if(|&n| n != '\n').is_some() {}
+            }
+            (None, '\n' | ';') => parts.push(std::mem::take(&mut current)),
+            (None, '&' | '|') if chars.peek() == Some(&c) => {
+                chars.next();
+                parts.push(std::mem::take(&mut current));
+            }
+            (None, '|') => parts.push(std::mem::take(&mut current)),
+            (None, _) => current.push(c),
+        }
+    }
+    parts.push(current);
+    parts.into_iter().map(|p| p.trim().to_owned()).filter(|p| !p.is_empty()).collect()
 }

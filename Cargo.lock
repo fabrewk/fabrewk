@@ -96,6 +96,7 @@ name = "fabrewk"
 version = "0.0.0"
 dependencies = [
  "fabrewk-adapter-claude",
+ "fabrewk-adapter-codex",
  "fabrewk-confine-bwrap",
  "fabrewk-core",
  "serde_json",
@@ -103,6 +104,15 @@ dependencies = [
 
 [[package]]
 name = "fabrewk-adapter-claude"
+version = "0.0.0"
+dependencies = [
+ "fabrewk-confine-bwrap",
+ "fabrewk-core",
+ "serde_json",
+]
+
+[[package]]
+name = "fabrewk-adapter-codex"
 version = "0.0.0"
 dependencies = [
  "fabrewk-confine-bwrap",

@@ -884,9 +884,12 @@ fn req_sec_5_s7_config_lists_the_residual_risks_of_the_core_the_backend_and_the_
     assert_eq!(doc["backend"], backend.name);
     let mut declared: Vec<(&str, &str)> = fabrewk_core::confine::RESIDUAL.iter().map(|r| ("core", *r)).collect();
     declared.extend(backend.residual.iter().map(|r| (backend.name, *r)));
-    let claude = &fabrewk_adapter_claude::ADAPTER;
-    declared.extend(claude.residual.iter().map(|r| ("claude-code", *r)));
-    assert_eq!(claude.residual, ["tool-credential", "audit-limit", "tool-flags"]);
+    for (name, adapter) in
+        [("claude-code", &fabrewk_adapter_claude::ADAPTER), ("codex", &fabrewk_adapter_codex::ADAPTER)]
+    {
+        declared.extend(adapter.residual.iter().map(|r| (name, *r)));
+        assert_eq!(adapter.residual, ["tool-credential", "audit-limit", "tool-flags"]);
+    }
     let listed: Vec<(&str, &str)> = doc["residual"]
         .as_array()
         .unwrap()

@@ -1,0 +1,18 @@
+[package]
+name = "fabrewk-adapter-codex"
+description = "Fabrewk's adapter for Codex: its launch per role, its machine rule, its preflight and the audit of its stream"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+fabrewk-core = { path = "../core" }
+serde_json = "1"
+
+[dev-dependencies]
+fabrewk-confine-bwrap = { path = "../confine-bwrap" }

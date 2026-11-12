@@ -8,7 +8,7 @@
 //! provider's own answer tool, and only when the run ended in success. It detects a lazy or failed review, not a
 //! hostile one: the model's commands could print what this reads (T-13).
 
-use fabrewk_core::adapter::{Report, Tokens};
+use fabrewk_core::adapter::{Report, Tokens, segments};
 use serde_json::{Map, Value};
 use std::collections::BTreeMap;
 
@@ -189,43 +189,4 @@ fn user(event: &Map<String, Value>, r: &mut Read) -> Option<()> {
     let silent = used.tool == "Bash" && (!ran || said.trim().is_empty() || said == SILENT);
     used.answer = Some(!failed && !silent);
     Some(())
-}
-
-/// A command's simple commands: split on newlines, `;`, `&&`, `||` and `|` outside quotes; a backslash escapes the
-/// next character outside single quotes, and with a newline joins two lines (P9C-4); a `#` that starts a word
-/// outside quotes comments the rest of its line out (P9C-3); blank parts dropped (PD-26.2).
-pub fn segments(command: &str) -> Vec<String> {
-    let (mut parts, mut current, mut quote) = (Vec::new(), String::new(), None);
-    let mut chars = command.chars().peekable();
-    while let Some(c) = chars.next() {
-        match (quote, c) {
-            (Some('\''), '\'') | (Some('"'), '"') => {
-                quote = None;
-                current.push(c);
-            }
-            // A backslash and a newline join two lines, as the shell removes them before reading (P9C-4).
-            (q, '\\') if q != Some('\'') && chars.next_if_eq(&'\n').is_some() => {}
-            (q, '\\') if q != Some('\'') => {
-                current.push(c);
-                current.extend(chars.next());
-            }
-            (Some(_), _) => current.push(c),
-            (None, '\'' | '"') => {
-                quote = Some(c);
-                current.push(c);
-            }
-            (None, '#') if current.chars().last().is_none_or(char::is_whitespace) => {
-                while chars.next_if(|&n| n != '\n').is_some() {}
-            }
-            (None, '\n' | ';') => parts.push(std::mem::take(&mut current)),
-            (None, '&' | '|') if chars.peek() == Some(&c) => {
-                chars.next();
-                parts.push(std::mem::take(&mut current));
-            }
-            (None, '|') => parts.push(std::mem::take(&mut current)),
-            (None, _) => current.push(c),
-        }
-    }
-    parts.push(current);
-    parts.into_iter().map(|p| p.trim().to_owned()).filter(|p| !p.is_empty()).collect()
 }

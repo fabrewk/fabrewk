@@ -945,7 +945,7 @@ REQ-RUN-7, REQ-RUN-8, REQ-SEC-1 for the adapter, REQ-SEC-6, REQ-SEC-7, REQ-GATE-
   usage and the preflight; `resolve`, `dispatch`, `preflight`, `schema`, `validate`, `rules`, `packet` and `usage`.
   `run` reaches none of them at the command line until parts 9e and 9f. The first adapter is
   `crates/adapter-claude` (ring `ToolAdapter`, 600 lines), wired by the binary with its program, markers and residual
-  risks; Codex's markers stay declared in the binary until part 9d.
+  risks; part 9d added Codex's and changed the contract (the next paragraph).
 - The roles are `build` and `review`. A role's cell holds the copy writable at `/work`, the tool's release read-only at
   its own path, nested namespaces for the tool's sandbox, the variables `PATH`, `HOME`, `TMPDIR`, `LANG` and the
   adapter's; a dispatch adds the credential, bound read-only at the same place under `/home/agent`, and the private
@@ -971,7 +971,7 @@ REQ-RUN-7, REQ-RUN-8, REQ-SEC-1 for the adapter, REQ-SEC-6, REQ-SEC-7, REQ-GATE-
   project's own rules, in the delegation language with REQ-SET-10's fallback.
 - A build's result is exactly `summary`, a text; a review's is exactly `verdict` (`accept`, `reject`) and `findings`,
   at most 50, each exactly `severity` (`blocking`, `minor`), `status` (`confirmed`, `suspected`), `summary` and
-  optionally `path`; every text 1 to 4,000 characters. The core validates the result whatever the tool checked: a
+  `path`, a text or `null` (part 9d; optional until then); every text 1 to 4,000 characters. The core validates the result whatever the tool checked: a
   review that does not fit, a reject with no confirmed blocking finding, or an accept that holds one, is
   `REVIEW_INVALID`; a build's that does not fit is `TOOL_FAILED`. An accept with a confirmed blocking finding is
   refused because the verdict and the progress measure (REQ-GATE-6) would then disagree.
@@ -1028,6 +1028,85 @@ REQ-RUN-7, REQ-RUN-8, REQ-SEC-1 for the adapter, REQ-SEC-6, REQ-SEC-7, REQ-GATE-
   `gate.protectedNames`' default, still declared whole in the core's key so that the key's default reads as one
   value; its residual risks T-05 (`tool-credential`), T-13 (`audit-limit`) and T-22 (`tool-flags`), in `config`. Its
   skills folder `.claude/skills` is listed by a sweep (REQ-FER-10).
+
+**Codex's module, and what it changed in the contract, as part 9d fixed them (`confinement-design.md` 3.6 and 3.9;
+REQ-SEC-1 for the adapter, REQ-SEC-6, REQ-SEC-7, REQ-GATE-4's audit; 6.38's rule of this machine; D-081).**
+
+- The contract gains three things. An adapter declares its machine rule (`machine`): names that may not be found at
+  any depth of the launch directory, under ASCII case folding and following no link; a dispatch whose copy holds one is
+  `CONFINEMENT_UNAVAILABLE`, naming it, before the credential is looked at and before any process starts. Both adapters
+  declare `.git`: a tool is never launched where another repository lies (6.38, where Codex's sandbox once left `.git`,
+  `.codex`, `.agents` and `.aws` empty in a folder of repositories; 0.166.0 creates none of them, tested). A dispatch
+  writes the role's output schema at `/home/agent/schema.json` in the cell (`adapter::SCHEMA`), for a tool that reads
+  it from a file. And a review's finding holds `path` always, a text or `null`: every property of a role's schema is
+  required, as OpenAI's strict structured output demands (the first real dispatch was refused for the optional
+  `path`); the core's validation follows. The markers declared in the binary on Codex's behalf (D-062) are gone: each
+  adapter declares its own, and `cli::main` takes the adapters and the backend only. The split of a command into its
+  simple commands (`segments`) moved into the core, shared by both audits.
+- The module is `crates/adapter-codex` (ring `ToolAdapter`, 600 lines). Program `codex`, adapter name `codex`, version
+  by `--version`, tokens reported; provider `openai`; markers `CODEX_SANDBOX` (its sandbox's on macOS, read from the
+  binary), `CODEX_SANDBOX_NETWORK_DISABLED` and `CODEX_THREAD_ID` (both seen inside its sandbox in a real dispatch);
+  protected names `AGENTS.md`, `.codex`, `.agents`, held within `gate.protectedNames`' default by a test; skills folders
+  `.codex/skills` and `.agents/skills`, listed by a sweep; residual risks T-05, T-13 and T-22, as Claude Code's;
+  credential `.codex/auth.json`, bound read-only at `/home/agent/.codex/auth.json`, the tool's home being its default
+  `~/.codex` (an explicit `CODEX_HOME` that does not exist yet, as in a preflight's cell, stops the tool).
+- The release is the directory its installer keeps per version, `releases/<version>/`, holding `bin/codex` and beside
+  it `codex-resources/` (its own `bwrap`) and `codex-path/` (`rg`); an executable not at `releases/<version>/bin/` has
+  none. On this machine it lies under the person's `~/.codex/packages/`, and only that directory is bound.
+- Codex's launch, verified with 0.166.0: `exec --json --color never --strict-config` (a setting it does not know stops
+  it, so that a version that renamed one cannot run with it silently ignored), `--skip-git-repo-check` (the copy holds
+  no repository), `--ephemeral`, `--ignore-user-config`, `--ignore-rules`, `--cd /work`; the model's commands under a
+  permission profile of the role (`default_permissions="fabrewk"`, extending `:workspace` for a builder and
+  `:read-only` for a reviewer, with `network.enabled=false` and the credential's folder `/home/agent/.codex` at
+  `none`); `approval_policy="never"`, since a headless run cannot ask; its discovery off (`project_doc_max_bytes=0`:
+  no `AGENTS.md` or `AGENTS.override.md`; `skills.include_instructions=false` and `skills.bundled.enabled=false`: no
+  skill of the copy's `.agents/skills` or `.codex/skills`; a project's `.codex/config.toml` is not loaded, the project
+  not being trusted in an empty home), shown by `codex debug prompt-input` with each of them planted in a copy: none
+  reached what the model sees; the web, updates, analytics, feedback, telemetry, history and memories off; and its
+  features that reach beyond the copy off (hooks, plugins, apps, browser and computer use, image generation and
+  viewing, goals, tool suggestions, skill search and installation, workspace dependencies, the shell's snapshot, its
+  daemon, unbounded connection retries, and the unified execution that leaves processes running between calls);
+  `--model`, `model_reasoning_effort`, `--output-schema /home/agent/schema.json`; the packet as the last argument,
+  after `--`. Its environment is the cell's alone. Inside a real dispatch the model's commands had a seccomp filter, no
+  new privileges, only a loopback interface, a direct socket refused ("Operation not permitted"), no name resolution,
+  the credential's folder unreadable and unlistable, the home and, for a reviewer, `/work` not writable. What the tool
+  still offers its model and no setting removes in 0.166.0 is declared (T-22): a JavaScript `exec` that calls its
+  tools, and the tools to start other agents, whose use voids the stream.
+- The preflight runs, in each role's cell with no network and no credential: the tool's version; `codex sandbox` under
+  the builder's profile creating a temporary file in the copy and in its `/tmp`; and under the reviewer's profile, where
+  only a write refused with "Read-only file system" passes, never the failure of something else. Unlike Claude Code,
+  Codex starts its own sandbox without a model; when it cannot make its namespaces it ends with status 1 and runs
+  nothing (tested with user namespaces disabled), so a failure of its sandbox fails closed.
+- Codex's stream has one grammar (`crates/adapter-codex/src/stream.rs`): lines ended by a newline alone, a final
+  newline not a blank line, each line one compact JSON object; `thread.started` with a text `thread_id` first,
+  `turn.started` second; then `item.started`, `item.updated` and `item.completed`, each holding exactly `type` and
+  `item`, and `error` notices holding exactly a text `message`; one `turn.completed` with an object `usage`, or one
+  `turn.failed` with an `error` holding exactly a text `message`, last, after every item started was completed. An item
+  holds exactly the fields of its kind, of their types: `agent_message` and `reasoning` a text `text`;
+  `command_execution` a text `command` and `aggregated_output`, an `exit_code` null while `in_progress`, a whole
+  number when `completed`, either when `failed` or `declined`, and that `status`; `file_change` its `changes` (`path`,
+  `kind` among `add`, `delete`, `update`) and a status; `todo_list` its `items` (`text`, `completed`); `error` a text
+  `message`. An item starts once, running; is updated or completed only while not completed, keeping its kind and its
+  command; may complete without a start. Any other event, item kind (an MCP call, another agent's, a web search),
+  field, type or order voids the whole stream: no result, model, tokens or examination. The `error` notices are what
+  the tool recovered from (a real run without network wrote "Reconnecting... n/5"); a fatal one ends in `turn.failed`.
+  The result is the last `agent_message`'s text read as a JSON object, when the turn completed; a turn that failed, or
+  a last message that is not an object, gives none and examines nothing. Examination counts each command that
+  completed with status 0 and a non-blank output, by the simple commands of its script: Codex shows a command as its
+  words quoted for a shell, so a shell's `-c` or `-lc` with one script counts the script's, any other command its own
+  line's, and one whose quoting does not close none; messages, reasoning, plans and edits never count. The stream does
+  not say which model answered: the model observed is unknown. Tokens are `turn.completed`'s `usage`: `input` is
+  `input_tokens` less `cached_input_tokens` (OpenAI counts the cache within the input; unknown if the cache exceeds
+  it), `output` is `output_tokens`, which holds the reasoning, `cached` is `cached_input_tokens`. The recorded streams
+  are `crates/adapter-codex/tests/streams/review.jsonl`, `build.jsonl`, `probe.jsonl` (the probe of the sandbox and a
+  silent command, which shows an empty `aggregated_output`) and `failed.jsonl` (the provider's refusal of the first
+  schema, ending in `turn.failed`), kept whole: they hold no figure of the account.
+- The credential (3.6), by test: with the read-only bind, four real dispatches worked and the person's file kept its
+  date, size and digest; inside a cell the tool cannot rewrite it, and its own folder in the cell's home takes what the
+  tool writes (its state databases, its logs, its model catalogue), removed with the attempt. Codex renews a ChatGPT
+  login when its `last_refresh` is older than about eight days (its documentation), rewriting the file; a renewal
+  inside a cell was not provoked. As D-079 closed it for Claude Code, part 9e refuses a dispatch whose credential
+  would be renewed within the attempt's minutes, reading only `last_refresh` (D-081).
 
 ### EXT: extensions
 

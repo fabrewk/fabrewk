@@ -78,7 +78,9 @@ fn refusal_review_invalid() {
         json!({"verdict": "reject", "findings": [finding("minor", "confirmed"), finding("blocking", "suspected")]}),
     );
     invalid(json!({"verdict": "maybe", "findings": []}));
-    invalid(json!({"verdict": "accept", "findings": [{"status": "confirmed", "summary": "no severity"}]}));
+    invalid(
+        json!({"verdict": "accept", "findings": [{"status": "confirmed", "path": null, "summary": "no severity"}]}),
+    );
     // And what the schema refuses besides.
     invalid(json!({"verdict": "accept", "findings": [finding("blocking", "confirmed")]}));
     invalid(json!({"verdict": "accept", "findings": [], "extra": 1}));
@@ -86,17 +88,17 @@ fn refusal_review_invalid() {
     invalid(json!({"verdict": true, "findings": []}));
     invalid(json!({"verdict": "accept", "findings": {}}));
     invalid(json!({"verdict": "accept", "findings": vec![finding("minor", "suspected"); 51]}));
-    invalid(json!({"verdict": "accept", "findings": [{"severity": "minor", "status": "confirmed", "summary": ""}]}));
+    let one = |f: Value| json!({"verdict": "accept", "findings": [f]});
+    invalid(one(json!({"severity": "minor", "status": "confirmed", "path": null, "summary": ""})));
     let long = "x".repeat(4001);
-    invalid(json!({"verdict": "accept", "findings": [{"severity": "minor", "status": "confirmed", "summary": long}]}));
-    invalid(json!({"verdict": "accept", "findings": [{"severity": "major", "status": "confirmed", "summary": "s"}]}));
-    invalid(json!({"verdict": "accept", "findings": [{"severity": "minor", "status": "sure", "summary": "s"}]}));
-    invalid(
-        json!({"verdict": "accept", "findings": [{"severity": "minor", "status": "confirmed", "summary": "s", "path": 5}]}),
-    );
-    invalid(
-        json!({"verdict": "accept", "findings": [{"severity": "minor", "status": "confirmed", "summary": "s", "line": 5}]}),
-    );
+    invalid(one(json!({"severity": "minor", "status": "confirmed", "path": null, "summary": long})));
+    invalid(one(json!({"severity": "major", "status": "confirmed", "path": null, "summary": "s"})));
+    invalid(one(json!({"severity": "minor", "status": "sure", "path": null, "summary": "s"})));
+    invalid(one(json!({"severity": "minor", "status": "confirmed", "summary": "s", "path": 5})));
+    invalid(one(json!({"severity": "minor", "status": "confirmed", "summary": "s", "path": ""})));
+    invalid(one(json!({"severity": "minor", "status": "confirmed", "path": null, "summary": "s", "line": 5})));
+    // Every property is required: a finding with no path says so with `null` (part 9d).
+    invalid(one(json!({"severity": "minor", "status": "confirmed", "summary": "s"})));
     invalid(json!("accept"));
     // What it admits.
     let ok = [
@@ -104,7 +106,7 @@ fn refusal_review_invalid() {
         json!({"verdict": "accept", "findings": [finding("minor", "confirmed"), finding("blocking", "suspected")]}),
         json!({"verdict": "reject", "findings": [finding("blocking", "confirmed")]}),
         json!({"verdict": "reject", "findings": vec![finding("blocking", "confirmed"); 50]}),
-        json!({"verdict": "accept", "findings": [{"severity": "minor", "status": "confirmed", "summary": "x".repeat(4000)}]}),
+        one(json!({"severity": "minor", "status": "confirmed", "path": null, "summary": "x".repeat(4000)})),
     ];
     for v in ok {
         adapter::validate(Role::Review, &v).unwrap_or_else(|e| panic!("{v}: {e:?}"));
@@ -125,13 +127,24 @@ fn the_schemas_name_what_the_validation_admits() {
     let review = adapter::schema(Role::Review);
     assert_eq!(review["properties"]["verdict"]["enum"], json!(["accept", "reject"]));
     let item = &review["properties"]["findings"]["items"];
-    assert_eq!(item["required"], json!(["severity", "status", "summary"]));
+    assert_eq!(item["required"], json!(["severity", "status", "path", "summary"]));
+    assert_eq!(item["properties"]["path"]["type"], json!(["string", "null"]));
     assert_eq!(item["properties"]["severity"]["enum"], json!(["blocking", "minor"]));
     assert_eq!(item["properties"]["status"]["enum"], json!(["confirmed", "suspected"]));
     assert_eq!(review["properties"]["findings"]["maxItems"], 50);
     assert_eq!(adapter::schema(Role::Build)["required"], json!(["summary"]));
+    // Every object closed, and every property of it required, as a provider's strict mode asks (part 9d).
     for role in Role::ALL {
-        assert_eq!(adapter::schema(role)["additionalProperties"], false);
+        let schema = adapter::schema(role);
+        for object in [&schema, &schema["properties"]["findings"]["items"]].into_iter().filter(|o| o.is_object()) {
+            assert_eq!(object["additionalProperties"], false);
+            let mut keys: Vec<_> = object["properties"].as_object().unwrap().keys().cloned().collect();
+            let mut required: Vec<_> =
+                object["required"].as_array().unwrap().iter().map(|k| k.as_str().unwrap().to_owned()).collect();
+            keys.sort();
+            required.sort();
+            assert_eq!(keys, required);
+        }
     }
 }
 

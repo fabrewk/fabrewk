@@ -167,8 +167,9 @@ fn refusal_role_forbidden() {
 #[test]
 fn refusal_agent_environment() {
     let fx = published("agent");
-    // Each adapter's markers, as the binary declares them (D-062), and the core's own.
-    for marker in ["CLAUDECODE", "CODEX_SANDBOX", "CODEX_SANDBOX_NETWORK_DISABLED", cli::EXTENSION_MARKER] {
+    // Each adapter's markers, as its module declares them (D-062, part 9d), and the core's own.
+    let markers = ["CLAUDECODE", "CODEX_SANDBOX", "CODEX_SANDBOX_NETWORK_DISABLED", "CODEX_THREAD_ID"];
+    for marker in markers.into_iter().chain([cli::EXTENSION_MARKER]) {
         let before = fx.snapshot();
         let ran = fx.run_env(&["adopt", "--say", SAY], &[(marker, "1")]);
         assert_eq!(fx.snapshot(), before, "{marker}");

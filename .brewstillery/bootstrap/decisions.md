@@ -3875,3 +3875,28 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   `faults` green; mutation over the change, one mutant, caught.
 - Consequences: R-040's and R-041's open destination is closed; `STATUS.md`.
 - Sources: chat of session 32; R-040.
+
+## D-081 — Part 9d: the real Codex's permission and budget, its credential, its renewal
+
+- Status: decided
+- Decided: 2026-11-12
+- Origin: maintainer XEL in session 33's chat, answering the integrator's questions. At the part's start: "Sí, 4, Luna
+  bajo (Recomendado)" (permission to run the real Codex without a model and with one) and "Tu archivo, solo lectura
+  (Recomendado)". After the four dispatches: "Rehusar igual (Recomendado)".
+- Decision:
+  1. The integrator may run the real Codex of this machine (`codex-cli` 0.166.0) without a model (its version, its
+     help, `codex sandbox`, `codex debug prompt-input`, the preflight) and in up to four dispatches that call one,
+     `gpt-6-luna` at effort `low`, each on a fixture copy of a few files with a limit of ten minutes, charged to the
+     person's ChatGPT plan. All four were spent (R-042); the first was refused by the provider for its schema.
+  2. Those dispatches use the person's own credential, `~/.codex/auth.json`, bound read-only; the integrator reads of
+     it only its date, size, digest and the fields `auth_mode` and `last_refresh`, never a token.
+  3. A renewal of Codex's login inside a cell, which cannot write the file, is closed as D-079 point 4 closed Claude
+     Code's: before a dispatch Fabrewk reads only `last_refresh` and refuses (`TOOL_FAILED`, saying to renew the login
+     with the tool) when the tool's renewal interval, about eight days by its documentation, ends within the attempt's
+     minutes. Built with the dispatch in part 9e; until then declared.
+- Reason: 3.6 asks the credential question of each tool before its first real dispatch; the alternatives offered were
+  gpt-6.1-sol at effort low, or no model at all with the stream written from the source and declared unrecorded; for
+  the credential, a writable bind (an agent could then alter the person's login) or a separate API key; for the
+  renewal, declaring it, or leaving it to part 9e.
+- Consequences: `core-specification.md` ("as part 9d fixed them"); `plan.md` (row 9e gains Codex's refusal); R-042.
+- Sources: chat of session 33; `confinement-design.md` 3.6; D-079.

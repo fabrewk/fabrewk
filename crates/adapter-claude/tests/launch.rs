@@ -321,6 +321,8 @@ fn req_sec_7_and_s_4_the_adapter_declares_its_markers_its_names_its_program_and_
     );
     assert_eq!(ADAPTER.program.skills, [".claude/skills"]);
     assert_eq!((ADAPTER.provider, ADAPTER.credential), ("anthropic", ".claude/.credentials.json"));
+    // Its machine rule: never launched where another repository lies (6.38, part 9d).
+    assert_eq!(ADAPTER.machine, [".git"]);
     // No update, telemetry or error report of the tool's own (REQ-SEC-6).
     for var in ["DISABLE_AUTOUPDATER", "DISABLE_UPDATES", "DISABLE_TELEMETRY", "DISABLE_ERROR_REPORTING"] {
         assert!(ADAPTER.env.contains(&(var, "1")), "{var}");

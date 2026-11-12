@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 
 mod stream;
 
-pub use stream::segments;
+pub use fabrewk_core::adapter::segments;
 
 /// The adapter, as the binary wires it.
 pub const ADAPTER: Adapter = Adapter {
@@ -26,6 +26,7 @@ pub const ADAPTER: Adapter = Adapter {
     markers: &["CLAUDECODE"],
     protected: &["CLAUDE.md", ".claude"],
     residual: &["tool-credential", "audit-limit", "tool-flags"],
+    machine: &[".git"],
     credential: ".claude/.credentials.json",
     env: &ENV,
     release,
