@@ -46,10 +46,12 @@ fn available(out: &[u8]) -> Option<u64> {
     }
     let capacity =
         |f: &str| f.strip_suffix('%').is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()));
+    // Counts as `df` may print them, a negative available space included, so that one is a reading too.
     let mut readings =
-        (4..row.len()).filter(|&i| capacity(row[i]) && row[i - 3..i].iter().all(|f| f.parse::<u64>().is_ok()));
+        (4..row.len()).filter(|&i| capacity(row[i]) && row[i - 3..i].iter().all(|f| f.parse::<i64>().is_ok()));
     let i = readings.next()?;
-    // A name or a mount point that holds counts and a capacity too gives no single reading (P9B-3).
+    // A name or a mount point that holds counts and a capacity too gives no single reading (P9B-3); a negative
+    // space available is none that can be read.
     if readings.next().is_some() {
         return None;
     }
@@ -567,16 +569,16 @@ pub fn commit(
         kept.push((c.path.as_bytes().to_vec(), found));
     }
     let refs: Vec<(&Vec<u8>, &Found)> = kept.iter().map(|(p, f)| (p, f)).collect();
-    let written = entries_of(repo, work, scratch, &refs, true)?;
-    if let Some(c) =
-        changes.iter().find(|c| c.after.as_ref().is_some_and(|e| written.get(c.path.as_bytes()) != Some(e)))
-    {
-        return Err(failed(Some(&work.join(&c.path)), "the copy changed after its change set was read"));
-    }
     let index = scratch.join("candidate-index");
     let result = (|| {
+        // The index is checked before any object is written, so that nothing Git refuses reaches the store.
         if let Some(c) = stage(repo, base, &index, changes)? {
             return Err(failed(Some(&work.join(&c.path)), "Git would not hold this path in the candidate"));
+        }
+        let written = entries_of(repo, work, scratch, &refs, true)?;
+        let moved = |c: &&Change| c.after.as_ref().is_some_and(|e| written.get(c.path.as_bytes()) != Some(e));
+        if let Some(c) = changes.iter().find(moved) {
+            return Err(failed(Some(&work.join(&c.path)), "the copy changed after its change set was read"));
         }
         let tree = line(git::git(repo, &os(&["write-tree"]), b"", Some(&index))?);
         let commit = line(git::git(repo, &os(&["commit-tree", &tree, "-p", base, "-F", "-"]), text.as_bytes(), None)?);

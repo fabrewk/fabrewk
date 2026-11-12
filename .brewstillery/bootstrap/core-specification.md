@@ -907,13 +907,15 @@ REQ-SEC-3, REQ-GATE-9, S-2, S-3, S-4, S-11).**
   `core.protectHFS`), found by writing the change set over the base into an index apart and reading it back, since
   Git leaves such a path out and still succeeds (`PROTECTED_PATH`); a changed file or link whose name, or a changed
   file whose content, looks like a credential (`CREDENTIAL_SUSPECTED`). Nothing is written into the object store
-  until they pass: `commit` writes the objects, and reads its own index back the same way (`TOOL_FAILED`).
+  until they pass: `commit` reads its own index back the same way first (`TOOL_FAILED`), then writes the objects.
 - `gate.protectedNames` is compared with each component under ASCII case folding (a case-insensitive file system
   reads `claude.md` as `CLAUDE.md`). Its default lists the seven names of D-076, declared in the core's key on the
   adapters' behalf until parts 9c and 9d, as `main.rs` declares their markers (D-062).
 - `gate.protectedPaths` gains the hooks directory always, not only at its default, so that no layer drops it: as
-  written and where its links lead, read as the kernel reads the path (a link replaced before a `..` that follows
-  it; a part that does not exist yet kept as written), each when inside the working tree (`/` alone when it is the root, which protects
+  written and where its links lead, read from the working tree's root as the kernel reads the path when Git runs a
+  hook there (a link replaced before a `..` that follows it; a part that does not exist yet kept as written; the
+  root's own links spending none of the 40), each when inside the working tree, with each link the path passes
+  through (changing one moves the directory), and a component that is not text protecting the directory above it (`/` alone when it is the root, which protects
   every path). On paths, a change at a protected directory, under it, or at a path above it (a link or a file in the
   directory's place) reaches it. `propose` and `authorize` read it too.
 - The candidate's message is `fabrewk: candidate for <task-id>`, a blank line, `Co-authored-by: <tool> (<provider>,
@@ -924,7 +926,8 @@ REQ-SEC-3, REQ-GATE-9, S-2, S-3, S-4, S-11).**
   `TOOL_FAILED`.
 - `DISK_LOW` reads `df -Pk -- <dir>` with an empty environment and `LC_ALL=C`: one line after the header, whose
   capacity (digits and `%`) follows three counts, the third the space available; a line that reads so in more than
-  one place (a name or a mount point holding counts and a capacity) cannot be read, and refuses. `limits.freeDiskMegabytes` is a key
+  one place (a name or a mount point holding counts and a capacity, a negative count included), or whose space
+  available is negative, cannot be read, and refuses. `limits.freeDiskMegabytes` is a key
   of the project file only. `status` shows the bytes `local/evidence/` and `local/tmp/` hold (`fabrewk.status/3`, with
   `local`: `evidence` and `tmp`, each a number or `null` when a directory cannot be listed).
 

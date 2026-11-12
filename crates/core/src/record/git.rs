@@ -144,8 +144,9 @@ pub(crate) fn signing_key(root: &Path) -> Option<String> {
 
 /// The directory the repository's own `core.hooksPath` names (S-4), Fabrewk's own value aside, as paths relative to
 /// the working tree's root with a final `/` (`/` alone for the root itself): as written, and where its links lead,
-/// each when it lies inside the working tree; none when it is unset or lies outside. Read at each guard; a
-/// configuration Git cannot read is `TOOL_FAILED`.
+/// each when it lies inside the working tree, with every link the path passes through inside it (whose change moves
+/// the directory); a component that is not text protects the directory above it. None when it is unset or lies
+/// outside. Read at each guard; a configuration Git cannot read is `TOOL_FAILED`.
 pub(crate) fn hooks_dir(repo: &Repo) -> Result<Vec<String>, Error> {
     let args = os(&["config", "--show-origin", "-z", "--type=path", "--get-all", "core.hooksPath"]);
     let out = run(command(repo, &args), b"")?;
@@ -158,20 +159,39 @@ pub(crate) fn hooks_dir(repo: &Repo) -> Result<Vec<String>, Error> {
     let Some(value) = value.filter(|v| !v.is_empty()) else {
         return Ok(Vec::new());
     };
-    let written = repo.root.join(<OsStr as std::os::unix::ffi::OsStrExt>::from_bytes(value));
-    let lexical = (Some(crate::code::normal(&written)), Some(crate::code::normal(&repo.root)));
+    let value = Path::new(<OsStr as std::os::unix::ffi::OsStrExt>::from_bytes(value));
     let mut dirs = Vec::new();
-    for (path, root) in [lexical, (physical(&written), physical(&repo.root))] {
-        let rel = path.zip(root).and_then(|(p, r)| Some(p.strip_prefix(r).ok()?.to_str()?.to_owned()));
-        dirs.extend(rel.map(|r| format!("{r}/")).filter(|d| !dirs.contains(d)));
+    let mut add = |path: &Path, root: &Path, dir: bool| {
+        let Ok(rel) = path.strip_prefix(root) else { return };
+        let text: Vec<&str> = rel.components().map_while(|c| c.as_os_str().to_str()).collect();
+        let whole = text.len() == rel.components().count();
+        let rel = match text.join("/") {
+            r if dir || !whole => format!("{r}/"),
+            r if r.is_empty() => return,
+            r => r,
+        };
+        if !dirs.contains(&rel) {
+            dirs.push(rel);
+        }
+    };
+    let root = crate::code::normal(&repo.root);
+    add(&crate::code::normal(&root.join(value)), &root, true);
+    // Git runs a hook from the working tree's root, so the root's own links spend nothing of the path's.
+    if let Some(root) = physical(Path::new("/"), &repo.root).map(|r| r.0)
+        && let Some((path, links)) = physical(&root, value)
+    {
+        add(&path, &root, true);
+        for link in links {
+            add(&link, &root, false);
+        }
     }
     Ok(dirs)
 }
 
-/// `path`, absolute, read as the kernel reads it (P9B-2): each link met is replaced by where it leads before what
-/// follows it, a `..` after a link included, and the part that does not exist yet is kept as written. `None` for a
-/// relative path or past 40 links.
-fn physical(path: &Path) -> Option<PathBuf> {
+/// `rel` read from `from`, absolute, as the kernel reads a path (P9B-2): each link met is replaced by where it leads
+/// before what follows it, a `..` after a link included, and the part that does not exist yet is kept as written.
+/// Gives it and the links it passed through; `None` when `from` is relative or past 40 links.
+fn physical(from: &Path, rel: &Path) -> Option<(PathBuf, Vec<PathBuf>)> {
     use std::path::Component;
     let parts = |p: &Path| -> Vec<std::ffi::OsString> {
         p.components()
@@ -183,10 +203,11 @@ fn physical(path: &Path) -> Option<PathBuf> {
             .rev()
             .collect()
     };
-    if !path.is_absolute() {
+    if !from.is_absolute() {
         return None;
     }
-    let (mut todo, mut out, mut links) = (parts(path), PathBuf::from("/"), 0);
+    let mut out = if rel.is_absolute() { PathBuf::from("/") } else { from.to_path_buf() };
+    let (mut todo, mut links) = (parts(rel), Vec::new());
     while let Some(c) = todo.pop() {
         if c == ".." {
             out.pop();
@@ -194,8 +215,8 @@ fn physical(path: &Path) -> Option<PathBuf> {
         }
         out.push(&c);
         if let Ok(target) = std::fs::read_link(&out) {
-            links += 1;
-            if links > 40 {
+            links.push(out.clone());
+            if links.len() > 40 {
                 return None;
             }
             out.pop();
@@ -205,7 +226,7 @@ fn physical(path: &Path) -> Option<PathBuf> {
             todo.extend(parts(&target));
         }
     }
-    Some(out)
+    Some((out, links))
 }
 
 /// The repository's exclude file, `info/exclude` in its Git directory, as an absolute path.

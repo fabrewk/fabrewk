@@ -400,7 +400,7 @@ fn s_4_a_tracked_hooks_directory_under_a_wildcard_is_refused() {
         // A directory reached through a link is protected as written and where the link leads.
         git(&b.root, &["config", "core.hooksPath", "a/hooks"]);
         let through = candidate::protected_paths(&eff, &b.repo()).unwrap();
-        assert_eq!(through, ["Cargo.toml", "a/hooks/", "tools/hooks/"]);
+        assert_eq!(through, ["Cargo.toml", "a/hooks/", "tools/hooks/", "a"]);
         b.export();
         fs::remove_file(b.work().join("a")).unwrap();
         symlink("elsewhere", b.work().join("a")).unwrap();
@@ -414,7 +414,7 @@ fn s_4_a_tracked_hooks_directory_under_a_wildcard_is_refused() {
         git(&absent.root, &["config", "core.hooksPath", "a/hooks"]);
         assert_eq!(
             candidate::protected_paths(&eff, &absent.repo()).unwrap(),
-            ["Cargo.toml", "a/hooks/", "tools/hooks/"]
+            ["Cargo.toml", "a/hooks/", "tools/hooks/", "a"]
         );
         absent.export();
         fs::create_dir(absent.work().join("tools/hooks")).unwrap();
@@ -426,7 +426,14 @@ fn s_4_a_tracked_hooks_directory_under_a_wildcard_is_refused() {
         git(&parent.root, &["config", "core.hooksPath", "a/../hooks"]);
         let protected = candidate::protected_paths(&eff, &parent.repo()).unwrap();
         assert!(protected.contains(&"tools/hooks/".to_owned()), "{protected:?}");
+        // The link the path passes through is protected too, since changing it moves the directory.
+        assert!(protected.contains(&"a".to_owned()), "{protected:?}");
         parent.export();
+        fs::remove_file(parent.work().join("a")).unwrap();
+        symlink("tools/elsewhere", parent.work().join("a")).unwrap();
+        refused(parent.changes_with(&["*"], &protected), Code::ProtectedPathWildcard);
+        fs::remove_file(parent.work().join("a")).unwrap();
+        symlink("tools/sub", parent.work().join("a")).unwrap();
         parent.put("tools/hooks/pre-commit", b"#!/bin/sh\necho planted\n");
         refused(parent.changes_with(&["tools/**"], &protected), Code::ProtectedPathWildcard);
         // The kernel follows 40 links in a path, so a chain of 40 is read where it leads; a loop protects the
@@ -437,12 +444,26 @@ fn s_4_a_tracked_hooks_directory_under_a_wildcard_is_refused() {
         let chain: Vec<(&str, &str)> = chain.iter().map(|(a, b)| (a.as_str(), b.as_str())).collect();
         let linked = Base::new("hooks-chain", &[(b"tools/readme", b"r\n")], &chain);
         git(&linked.root, &["config", "core.hooksPath", "l1/hooks"]);
-        assert_eq!(
-            candidate::protected_paths(&eff, &linked.repo()).unwrap(),
-            ["Cargo.toml", "l1/hooks/", "tools/hooks/"]
-        );
+        let mut expected: Vec<String> = ["Cargo.toml", "l1/hooks/", "tools/hooks/"].map(String::from).to_vec();
+        expected.extend((1..=40).map(|i| format!("l{i}")));
+        assert_eq!(candidate::protected_paths(&eff, &linked.repo()).unwrap(), expected);
+        // A root reached through a link of its own spends none of the 40.
+        let alias = linked.root.parent().unwrap().join("alias");
+        symlink(&linked.root, &alias).unwrap();
+        let aliased = Repo { root: alias, prefix: PathBuf::new() };
+        assert_eq!(candidate::protected_paths(&eff, &aliased).unwrap(), expected);
         git(&linked.root, &["config", "core.hooksPath", "x1/hooks"]);
         assert_eq!(candidate::protected_paths(&eff, &linked.repo()).unwrap(), ["Cargo.toml", "x1/hooks/"]);
+        // A component that is not text protects the directory above it, which holds it.
+        let bytes = OsStr::from_bytes(b"tools/\xff/hooks");
+        let set = std::process::Command::new("git")
+            .current_dir(&b.root)
+            .args(["config", "core.hooksPath"])
+            .arg(bytes)
+            .status()
+            .unwrap();
+        assert!(set.success());
+        assert_eq!(candidate::protected_paths(&eff, &b.repo()).unwrap(), ["Cargo.toml", "tools/"]);
         // Outside the working tree it protects nothing here.
         git(&b.root, &["config", "core.hooksPath", "/elsewhere/hooks"]);
         assert_eq!(candidate::protected_paths(&eff, &b.repo()).unwrap(), ["Cargo.toml"]);
@@ -689,9 +710,11 @@ fn refusal_disk_low() {
         let counted = fake("counted", &format!("{header}; echo 'my 1 2 3 x% 9 3 4096 1% /'"));
         assert_eq!(candidate::free_space(&dir, 4, Some(&counted)).unwrap(), 4);
         // A line that reads two ways, a name or a mount point that holds counts and a capacity, refuses (P9B-3).
-        for (name, line) in
-            [("twice", "vol 1 2 4096 1% 10000 9999 1 100% /fixture"), ("mount", "a 10 5 5 50% /x 1 2 3 4%")]
-        {
+        for (name, line) in [
+            ("twice", "vol 1 2 4096 1% 10000 9999 1 100% /fixture"),
+            ("mount", "a 10 5 5 50% /x 1 2 3 4%"),
+            ("negative", "a 1 2 4096 1% 10 9 -1 100% /"),
+        ] {
             let why = refused(
                 candidate::free_space(&dir, 0, Some(&fake(name, &format!("{header}; echo '{line}'")))),
                 Code::DiskLow,
@@ -855,6 +878,7 @@ fn p9b_1_a_path_git_refuses_to_hold_is_refused_before_anything_is_written() {
         git(&b.root, &["config", "core.protectNTFS", "false"]);
         let changes = b.changes(&["*"]).unwrap();
         git(&b.root, &["config", "core.protectNTFS", "true"]);
+        let before = objects();
         let r = candidate::commit(
             &b.repo(),
             &b.base,
@@ -867,6 +891,7 @@ fn p9b_1_a_path_git_refuses_to_hold_is_refused_before_anything_is_written() {
             None,
         );
         assert!(refused(r, Code::ToolFailed).contains("Git would not hold"));
+        assert_eq!(objects(), before, "the candidate's check comes before any object is written");
         assert!(
             std::process::Command::new("git")
                 .current_dir(&b.root)
