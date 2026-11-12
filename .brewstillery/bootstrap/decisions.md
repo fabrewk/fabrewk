@@ -3738,3 +3738,32 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   `TOOL_FAILED` (PD-21's record half); `candidate-recorded`'s payload; the checks' and the reviewer's copies deleted
   unread (parts 9e and 9f); the integration's recomputation of the change set and writing the working tree from the
   objects (part 9g); the adapters' own declaration of their instruction names (parts 9c, 9d).
+
+## D-079 — Part 9c: the real Claude Code's permission and budget, the credential's renewal, the audit's structural rule
+
+- Status: decided
+- Decided: 2026-11-12
+- Origin: maintainer XEL in session 32's chat, answering the integrator's questions. At the part's start: "Sí, ambos
+  (Recomendado)" (permission to run the real Claude Code without a model and with one), "4, Sonnet 5.5 bajo
+  (Recomendado)", "Tu archivo, solo lectura (Recomendado)". After Codex's fifth pass: "Regla estructural
+  (Recomendado)" and, for the credential's renewal, "Rehusar si vence pronto (Recomendado)".
+- Decision:
+  1. The integrator may run the real Claude Code of this machine (2.1.316) without a model (its version, its help,
+     the preflight) and in up to four dispatches that call one, `claude-sonnet-5-5` at effort `low`, each on a fixture
+     copy of a few files with a limit of ten minutes. All four were spent (R-041).
+  2. Those dispatches use the person's own credential, `~/.claude/.credentials.json`, bound read-only; the integrator
+     reads of it only its date, size, digest and the field `expiresAt`, never a token.
+  3. After five passes of Codex with confirmed blocking findings 3, 2, 1, 1, 1 (two retries without progress), the
+     class P9C-7 to P9C-9 is closed by a structural rule rather than case by case: a `Bash` use examines only when its
+     answer and the run's own record beside it (`tool_use_result`) show it completed and printed, and a user turn
+     holds one answer. The sixth pass is a narrow re-check of that correction.
+  4. A renewal of the credential inside a cell, which cannot write the file, is closed by refusing: before a
+     dispatch Fabrewk reads only `expiresAt` from the tool's credential and refuses (`TOOL_FAILED`, saying to renew
+     the login) when it falls within the attempt's minutes. Built with the dispatch in part 9e; until then declared.
+- Reason: 3.6 left open what a read-only bind does when the tool renews its credential; the test showed the bind
+  works while the token is valid and that the tool cannot rewrite the file inside a cell, but provoking a renewal
+  could have ended the person's login. The alternatives offered for the renewal: declare it as a residual risk; a
+  long-lived token from `claude setup-token` kept by the person; leave it to the part's close. For the review: the
+  same rule with a whole sixth pass; or correcting P9C-9 as reported and declaring the textual audit as a limit.
+- Consequences: `core-specification.md` ("as part 9c fixed them"); `plan.md` (row 9e gains the refusal); R-041.
+- Sources: chat of session 32; `confinement-design.md` 3.6; R-041.

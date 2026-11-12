@@ -955,13 +955,15 @@ REQ-RUN-7, REQ-RUN-8, REQ-SEC-1 for the adapter, REQ-SEC-6, REQ-SEC-7, REQ-GATE-
   a cell. For Claude Code it is the directory named `versions` that holds the executable, as its installer lays it out;
   an executable elsewhere has none.
 - The credential is a regular file at the path the adapter declares under the person's home (Claude Code:
-  `.claude/.credentials.json`), reached through no link below the home, its own or a folder's; otherwise the dispatch
-  is `TOOL_FAILED` before any process starts. The question
-  of 3.6, by test: with the read-only bind, four real dispatches worked and the person's file kept its date, size and
-  digest; the tool rewrites its credential when it renews it (the file's date is exactly its validity before its
-  expiry), and inside a cell neither an append nor a replacement by rename can reach the file ("Read-only file
-  system"). What a renewal inside a cell, which the tool can attempt only when the token is near its end, does to the
-  person's own login was not provoked, since it could end that login; it is the maestro's to weigh (R-041).
+  `.claude/.credentials.json`), reached through no link below the home, its own or a folder's; otherwise the dispatch is
+  `TOOL_FAILED` before any process starts. The question of 3.6, by test: with the read-only bind, four real dispatches
+  worked and the person's file kept its date, size and digest; the tool rewrites its credential when it renews it (the
+  file's date is exactly its validity before its expiry), and inside a cell neither an append nor a replacement by
+  rename can reach the file ("Read-only file system"). What a renewal inside a cell, which the tool can attempt only
+  when the token is near its end, would do to the person's own login was not provoked, since it could end that login.
+  The maestro closed it by refusing (D-079): before a dispatch Fabrewk reads only the credential's `expiresAt` and
+  refuses (`TOOL_FAILED`, saying to renew the login) when it falls within the attempt's minutes; built with the dispatch
+  in part 9e.
 - The packet is a JSON document holding exactly `role`, `goal`, `requirements`, `allowed`, `rules`, `languages`
   (`delegation`, `code`) and `schema`, and from the second round on `previous` (`findings`, `failedChecks`); nothing
   else of the task reaches it. Its rules are the role's own instruction (catalogue `packet.<role>`), the base rules 8,

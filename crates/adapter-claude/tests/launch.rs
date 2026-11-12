@@ -327,3 +327,35 @@ fn req_sec_7_and_s_4_the_adapter_declares_its_markers_its_names_its_program_and_
     }
     assert!(ADAPTER.env.contains(&("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "1")));
 }
+
+/// A preflight whose cell could not start is gone, its directories removed; one whose cell the backend cannot show
+/// ended keeps them, unread (principle 4).
+#[test]
+fn a_preflight_that_could_not_run_or_did_not_end_refuses_and_keeps_only_what_may_still_be_used() {
+    let d = dir("unfinished");
+    let domain = d.join("domain");
+    let p = programs(&domain);
+    let tmp = |domain: &Path| std::fs::read_dir(domain.join("local/tmp")).map_or(0, |r| r.count());
+    // A variable no cell can hold: the backend refuses before any process.
+    let bad = Adapter { env: &[("NOT-A-NAME", "1")], ..ADAPTER };
+    let (exe, rel) = adapter::resolve(&bad, &release(&d, NEEDS_HELPER), &[]).unwrap();
+    let t = Tool { adapter: &bad, executable: &exe, release: &rel };
+    let why = match adapter::preflight(t, &BACKEND, &p, &domain) {
+        Err(Error::Refused { code: Code::ConfinementUnavailable, detail, .. }) => detail,
+        other => panic!("{other:?}"),
+    };
+    assert!(why.contains("could not run"), "{why}");
+    assert_eq!(tmp(&domain), 0);
+    // A backend that cannot show the cell ended.
+    let unshown = fabrewk_core::confine::Backend {
+        stop: |_| Err(Error::Refused { code: Code::ConfinementUnavailable, path: None, detail: "unshown".into() }),
+        ..BACKEND
+    };
+    let t = Tool { adapter: &ADAPTER, executable: &exe, release: &rel };
+    let why = match adapter::preflight(t, &unshown, &p, &domain) {
+        Err(Error::Refused { code: Code::ConfinementUnavailable, detail, .. }) => detail,
+        other => panic!("{other:?}"),
+    };
+    assert!(why.contains("did not end"), "{why}");
+    assert_eq!(tmp(&domain), 1);
+}
