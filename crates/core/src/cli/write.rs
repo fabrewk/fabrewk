@@ -174,14 +174,26 @@ fn head_in(record: &Replay, stream: &str) -> Option<Head> {
 /// written. On a machine with no machine key yet, the signer first signs a probe, so that the key is made only when the
 /// person's key signs. The lock is held until the last cache is written.
 pub(super) fn run<T>(cx: &Cx, plan: impl Fn(&Replay) -> Result<Plan<T>, Failed>) -> Result<(T, Written), Failed> {
-    let record = cx.record.as_ref().map_err(|e| Failed::from(e.clone()))?;
-    let states = crate::table::current(record).unwrap_or_default();
-    if !states.values().any(|s| *s == "running") {
-        return apply(cx, record, &plan);
+    // A task found running, before the lock or under it, is recovered first (REQ-RUN-5); then the command plans again
+    // on the record the recovery left (P9E-13). Each turn either recovers a task, refuses, or ends.
+    let mut owned: Option<Replay> = None;
+    loop {
+        let record = match &owned {
+            Some(r) => r,
+            None => cx.record.as_ref().map_err(|e| Failed::from(e.clone()))?,
+        };
+        if running(record) {
+            apply(cx, record, &|r: &Replay| recovery(cx, r), true)?;
+        } else if let Some(done) = apply(cx, record, &plan, false)? {
+            return Ok(done);
+        }
+        owned = Some(crate::record::replay(&cx.domain, &PolicyVerifier)?);
     }
-    apply(cx, record, &|r: &Replay| recovery(cx, r))?;
-    let record = crate::record::replay(&cx.domain, &PolicyVerifier)?;
-    apply(cx, &record, &plan)
+}
+
+/// Whether `record` holds a task in `running`.
+fn running(record: &Replay) -> bool {
+    crate::table::current(record).is_ok_and(|s| s.values().any(|s| *s == "running"))
 }
 
 /// REQ-RUN-5: every task left `running` by a process that no longer runs (none holds the lock, which a run keeps for
@@ -234,12 +246,14 @@ fn recovery(cx: &Cx, record: &Replay) -> Result<Plan<()>, Failed> {
     Ok(Plan { events, signer: None, sealed: false, view: None, alambique: None, then: Some(then), out: () })
 }
 
-/// Runs a write command's `plan` on `record` (see [`run`]).
+/// Runs a write command's `plan` on `record` (see [`run`]); `None`, with nothing written, when the record read under
+/// the lock holds a task in `running` that is not this plan's to recover.
 fn apply<T>(
     cx: &Cx,
     record: &Replay,
     plan: &dyn Fn(&Replay) -> Result<Plan<T>, Failed>,
-) -> Result<(T, Written), Failed> {
+    recovering: bool,
+) -> Result<Option<(T, Written)>, Failed> {
     // A record cut below this machine's mark is a rollback before anything it lacks is missed.
     crate::record::check_mark(&cx.domain, record)?;
     let mode = state(cx, record)?.mode;
@@ -265,6 +279,9 @@ fn apply<T>(
     let mut session = Session::begin(&cx.domain, Repo::for_domain(&cx.domain, mode), &PolicyVerifier)?;
     session.refresh(&PolicyVerifier)?;
     let record = session.record().ok_or_else(|| refuse(Code::RecordAbsent, Some(&cx.domain), "no event"))?;
+    if !recovering && running(record) {
+        return Ok(None);
+    }
     let planned = plan(record)?;
     let policy = state(cx, record)?.policy.digest;
     let mut heads: BTreeMap<String, Option<Head>> =
@@ -383,5 +400,5 @@ fn apply<T>(
     }
     detection.keep(&cx.domain)?;
     drop(session);
-    Ok((planned.out, Written { events: written, commit, ran }))
+    Ok(Some((planned.out, Written { events: written, commit, ran })))
 }

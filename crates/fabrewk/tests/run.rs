@@ -586,6 +586,31 @@ fn a_candidate_git_cannot_make_halts_naming_its_own_evidence() {
     fs::remove_file(lock).unwrap();
 }
 
+/// Git failing to say where the candidate's branch is, before the candidate is made (P9E-14): the task halts, its
+/// evidence its own.
+#[test]
+fn a_branch_git_cannot_read_halts_naming_its_own_evidence() {
+    let mut fx = Fx::builder("git-reads", "published", &format!("{WRITES}{SUCCESS}"));
+    let id = authorized(&fx, json!({}));
+    let wrapper = fx.root.parent().unwrap().join("git-wrapper");
+    fs::create_dir_all(&wrapper).unwrap();
+    let git =
+        String::from_utf8(std::process::Command::new("sh").args(["-c", "command -v git"]).output().unwrap().stdout)
+            .unwrap();
+    let script = format!(
+        "#!/bin/sh\ncase \"$*\" in *\"for-each-ref --format=%(refname) fabrewk/{id}\"*) exit 128;; esac\nexec {} \"$@\"\n",
+        git.trim()
+    );
+    fs::write(wrapper.join("git"), script).unwrap();
+    fs::set_permissions(wrapper.join("git"), fs::Permissions::from_mode(0o755)).unwrap();
+    let path = std::env::join_paths(std::iter::once(wrapper).chain(std::env::split_paths(fx.path.as_ref().unwrap())));
+    fx.path = Some(path.unwrap());
+    let new = halts(&fx, &id, "TOOL_FAILED");
+    assert_eq!(new[2]["payload"]["outcome"], "success");
+    assert!(dirs(&fx, "evidence", &format!("attempt-{id}"))[0].join("candidate").is_file());
+    assert!(dirs(&fx, "tmp", "attempt-").is_empty());
+}
+
 /// A task's layer that a policy adopted after its authorization makes a widening is not granted by that authorization
 /// (P9E-12): the run refuses it, with nothing written, until an authorization names it.
 #[test]

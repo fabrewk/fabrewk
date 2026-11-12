@@ -1172,7 +1172,8 @@ to REQ-RUN-7, REQ-RUN-10, REQ-TASK-3, REQ-TASK-5, REQ-CLI-3; S-5, S-6; D-079, D-
   directories kept unread). On success the change set's refusals halt with their codes (`LANE_VIOLATION`,
   `PROTECTED_PATH`, `PROTECTED_PATH_WILDCARD`, `CREDENTIAL_SUSPECTED`), naming no evidence, and a failure of Git while
   the change set or the candidate is made halts `TOOL_FAILED` naming an evidence file of its own, `candidate`, `0600`,
-  holding the core's words, never the builder's output (P9E-11; Git's own output and exit status are kept nowhere in
+  holding the core's words, never the builder's output, whichever Git command failed, the reading of where the
+  candidate's branch is included (P9E-11, P9E-14; Git's own output and exit status are kept nowhere in
   the core until part 9g keeps them for every command, D-083); else the candidate is committed on
   `fabrewk/<task>` from where the branch is, its co-author the catalogue's tool name, the adapter's provider and the
   model observed (the one requested when the stream names none), and recorded. The attempt's directories are removed;
@@ -1181,7 +1182,8 @@ to REQ-RUN-7, REQ-RUN-10, REQ-TASK-3, REQ-TASK-5, REQ-CLI-3; S-5, S-6; D-079, D-
   reason saying where the candidate is and that part 9f builds the rest (D-082). `run <stage>` runs its first task
   that may run and stops there.
 - REQ-RUN-5: every write command, before its own plan, finds the tasks left `running` (none can have a live process,
-  since a run holds the lock to its end; a second writer meanwhile is `LOCK_HELD`), ends each open attempt `unknown`
+  since a run holds the lock to its end; a second writer meanwhile is `LOCK_HELD`), in the record it read and again in
+  the one it reads under the lock, where a task found running sends it back to recover first and plan again (P9E-13), ends each open attempt `unknown`
   with `seconds` and `tokens` `null`, halts the task `OUTCOME_UNKNOWN` and removes its last attempt's directories, open
   or ended, before its events, so that a recovery stopped anywhere is made again whole (P9E-4, P9E-8), in a record
   commit of its own; then the command plans on that record. `status <id>` shows a halted task's code, its

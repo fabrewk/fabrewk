@@ -20,7 +20,7 @@ const SAY: &str = "Lo adopto: las rondas alcanzan para esta etapa.";
 /// Starts the binary in the fixture, paused at `step`; gives the child once it waits there.
 fn paused(fx: &Fx, args: &[&str], step: &str, dir: &Path) -> Child {
     let mut c = Command::new(env!("CARGO_BIN_EXE_fabrewk"));
-    isolate(&mut c, &fx.home, None);
+    isolate(&mut c, &fx.home, fx.path.as_deref());
     c.env("FABREWK_FAULT_PAUSE", format!("{step}:{}", dir.display()));
     let mut child = c.current_dir(&fx.root).args(args).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().unwrap();
     for _ in 0..600 {
@@ -785,5 +785,51 @@ fn p9e_8_a_recovery_stopped_at_any_write_is_made_again_whole() {
         if whole {
             break;
         }
+    }
+}
+
+/// A run that started and died while another writer waited for the lock (P9E-13): that writer, reading the record
+/// under the lock, recovers it before its own move, whatever it read before.
+#[test]
+fn p9e_13_a_writer_recovers_what_it_finds_running_under_the_lock() {
+    for command in ["reject", "run"] {
+        let fx = Fx::builder(&format!("late-recovery-{command}"), "published", SUCCESS);
+        let (stage, ids) = {
+            let (stage, a) = fx.stage_and_task();
+            fx.commit("proposed");
+            let (_, b) = fx.stage_and_task();
+            fx.commit("proposed");
+            (stage, vec![a, b])
+        };
+        let _ = stage;
+        for id in &ids {
+            let digest = fx.run(&["status", id, "--json"]).doc()["shown"]["digest"].as_str().unwrap().to_owned();
+            assert_eq!(fx.run(&["authorize", id, "--seen", &digest, "--say", SAY]).status, 0);
+        }
+        // The writer of the second task reads a record with nothing running, then waits before the lock.
+        let dir = fx.root.parent().unwrap().join(format!("pause-{command}"));
+        fs::create_dir_all(&dir).unwrap();
+        let child = paused(&fx, &[command, &ids[1], "--say", SAY], "before-lock", &dir);
+        // Meanwhile a run of the first starts its attempt and dies.
+        let stream = format!("task-{}", ids[0]);
+        let events = fx.events(&stream);
+        let auth = format!("{:06}", events.len());
+        let file = fs::read_dir(fx.domain.join("data/events").join(&stream))
+            .unwrap()
+            .map(|e| e.unwrap().path())
+            .find(|p| p.file_name().unwrap().to_str().unwrap().starts_with(&auth) && p.extension().unwrap() == "json")
+            .unwrap();
+        let at = json!({"seq": events.len(), "digest": sha256_hex(&fs::read(file).unwrap())});
+        let run = json!({"task": ids[0], "head": at, "authorization": {"stream": stream, "seq": at["seq"], "digest": at["digest"]}, "base": events[0]["payload"]["base"]});
+        appended(&fx, &stream, "run-started", run, true);
+        let attempt = json!({"role": "build", "profile": "build", "tool": "claude", "version": null, "model": "m", "effort": "low", "allowedSeconds": 60});
+        appended(&fx, &stream, "attempt-started", attempt, false);
+        let ran = resume(child, "before-lock", &dir);
+        // Recovered by that writer: its attempt ended unknown, the task halted; then its own move made (a rejection, a
+        // run to its candidate).
+        let kinds: Vec<Value> = fx.events(&stream).iter().map(|e| e["kind"].clone()).collect();
+        assert_eq!(kinds[kinds.len() - 2..], [json!("attempt-ended"), json!("task-halted")], "{command}: {ran:?}");
+        assert_eq!(fx.events(&stream).last().unwrap()["payload"]["code"], "OUTCOME_UNKNOWN");
+        assert_eq!(ran.status, if command == "run" { 4 } else { 0 }, "{command}: {ran:?}");
     }
 }

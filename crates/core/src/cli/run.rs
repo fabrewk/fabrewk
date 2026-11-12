@@ -511,7 +511,11 @@ fn attempt(
         Err(e) => return Err(e),
     };
     let task = &stream["task-".len()..];
-    let previous = git::head_of(&d.product, &format!("fabrewk/{task}"))?;
+    let previous = match git::head_of(&d.product, &format!("fabrewk/{task}")) {
+        Ok(p) => p,
+        Err(e) if e.code().is_some() => return after(e),
+        Err(e) => return Err(e),
+    };
     let model = report.model.as_deref().unwrap_or(&d.model);
     let agent = Agent { tool: tool_name, provider: d.adapter.provider, model };
     let made = candidate::commit(
