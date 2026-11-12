@@ -877,13 +877,16 @@ fn p7d2_7_c4_is_cooperative_on_one_machine_wherever_it_is_listed() {
 }
 
 #[test]
-fn req_sec_5_s7_config_lists_the_residual_risks_of_the_core_and_the_backend_in_words() {
+fn req_sec_5_s7_config_lists_the_residual_risks_of_the_core_the_backend_and_the_adapters_in_words() {
     let fx = published("residual");
     let doc = fx.run(&["config", "--json"]).doc();
     let backend = &fabrewk_confine_bwrap::BACKEND;
     assert_eq!(doc["backend"], backend.name);
     let mut declared: Vec<(&str, &str)> = fabrewk_core::confine::RESIDUAL.iter().map(|r| ("core", *r)).collect();
     declared.extend(backend.residual.iter().map(|r| (backend.name, *r)));
+    let claude = &fabrewk_adapter_claude::ADAPTER;
+    declared.extend(claude.residual.iter().map(|r| ("claude-code", *r)));
+    assert_eq!(claude.residual, ["tool-credential", "audit-limit", "tool-flags"]);
     let listed: Vec<(&str, &str)> = doc["residual"]
         .as_array()
         .unwrap()
@@ -891,7 +894,8 @@ fn req_sec_5_s7_config_lists_the_residual_risks_of_the_core_and_the_backend_in_w
         .map(|r| (r["from"].as_str().unwrap(), r["risk"].as_str().unwrap()))
         .collect();
     assert_eq!(listed, declared);
-    // S-7: every risk a backend or the core declares has words in every catalogue, and `config` shows them.
+    // S-7: every risk the core, a backend or an adapter declares has words in every catalogue, and `config` shows
+    // them.
     for (lang, text) in cli::CATALOGUES {
         let m = cli::messages(text);
         for (_, risk) in &declared {

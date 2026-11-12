@@ -168,7 +168,8 @@ pub(super) fn run(cx: &Cx, key: Option<&str>) -> Result<Out, Failed> {
     text += &format!("\n{}\n", cx.t("config.residual", &[]));
     let backend = cx.backend.map(|b| (b.name, b.residual));
     let mut residual = Vec::new();
-    for (from, risks) in std::iter::once(("core", &confine::RESIDUAL[..])).chain(backend) {
+    let adapters = cx.adapters.iter().map(|a| (a.program.adapter.unwrap_or(a.program.executable), a.residual));
+    for (from, risks) in std::iter::once(("core", &confine::RESIDUAL[..])).chain(backend).chain(adapters) {
         for risk in risks {
             text += &format!("  {} ({from}, {risk})\n", word(format!("residual.{risk}")));
             residual.push(json!({"from": from, "risk": risk}));

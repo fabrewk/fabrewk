@@ -9,6 +9,7 @@ publish.workspace = true
 
 [dependencies]
 fabrewk-core = { path = "../core" }
+fabrewk-adapter-claude = { path = "../adapter-claude" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 fabrewk-confine-bwrap = { path = "../confine-bwrap" }

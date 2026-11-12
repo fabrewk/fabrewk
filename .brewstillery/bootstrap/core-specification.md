@@ -935,6 +935,85 @@ REQ-SEC-3, REQ-GATE-9, S-2, S-3, S-4, S-11).**
   of the project file only. `status` shows the bytes `local/evidence/` and `local/tmp/` hold (`fabrewk.status/3`, with
   `local`: `evidence` and `tmp`, each a number or `null` when a directory cannot be listed).
 
+**The adapter's contract and Claude Code's module, as part 9c fixed them (`confinement-design.md` 3.6 and 3.9;
+REQ-RUN-7, REQ-RUN-8, REQ-SEC-1 for the adapter, REQ-SEC-6, REQ-SEC-7, REQ-GATE-4's audit, S-4, S-5).**
+
+- The contract is `crates/core/src/adapter.rs`: an `Adapter` declares its tool's program (D-051), the provider's
+  identity, its markers, its protected names, its residual risks, its credential, the variables its tool runs with,
+  how to tell its release from the executable, its command per role, its preflight's commands and the reading of its
+  stream. The core builds from it each role's cell, the packet, the role's result schema and its validation, the
+  usage and the preflight; `resolve`, `dispatch`, `preflight`, `schema`, `validate`, `rules`, `packet` and `usage`.
+  `run` reaches none of them at the command line until parts 9e and 9f. The first adapter is
+  `crates/adapter-claude` (ring `ToolAdapter`, 600 lines), wired by the binary with its program, markers and residual
+  risks; Codex's markers stay declared in the binary until part 9d.
+- The roles are `build` and `review`. A role's cell holds the copy writable at `/work`, the tool's release read-only at
+  its own path, nested namespaces for the tool's sandbox, the variables `PATH`, `HOME`, `TMPDIR`, `LANG` and the
+  adapter's; a dispatch adds the credential, bound read-only at the same place under `/home/agent`, and the private
+  outbound network; the preflight has neither.
+- The release is the directory `resolve` derives from the executable as it resolves; it must hold the executable and
+  must not hold the person's home or the repository (`TOOL_MISSING`), so that no misplaced installation shows them to
+  a cell. For Claude Code it is the directory named `versions` that holds the executable, as its installer lays it out;
+  an executable elsewhere has none.
+- The credential is a regular file, never a link, at the path the adapter declares under the person's home (Claude
+  Code: `.claude/.credentials.json`); otherwise the dispatch is `TOOL_FAILED` before any process starts. The question
+  of 3.6, by test: with the read-only bind, three real dispatches worked and the person's file kept its date, size and
+  digest; the tool rewrites its credential when it renews it (the file's date is exactly its validity before its
+  expiry), and inside a cell neither an append nor a replacement by rename can reach the file ("Read-only file
+  system"). What a renewal inside a cell, which the tool can attempt only when the token is near its end, does to the
+  person's own login was not provoked, since it could end that login; it is the maestro's to weigh (R-041).
+- The packet is a JSON document holding exactly `role`, `goal`, `requirements`, `allowed`, `rules`, `languages`
+  (`delegation`, `code`) and `schema`, and from the second round on `previous` (`findings`, `failedChecks`); nothing
+  else of the task reaches it. Its rules are the role's own instruction (catalogue `packet.<role>`), the base rules 8,
+  11 and 12, the only ones that bind a dispatched agent (the others govern the domain, which no copy holds), and the
+  project's own rules, in the delegation language with REQ-SET-10's fallback.
+- A build's result is exactly `summary`, a text; a review's is exactly `verdict` (`accept`, `reject`) and `findings`,
+  at most 50, each exactly `severity` (`blocking`, `minor`), `status` (`confirmed`, `suspected`), `summary` and
+  optionally `path`; every text 1 to 4,000 characters. The core validates the result whatever the tool checked: a
+  review that does not fit, a reject with no confirmed blocking finding, or an accept that holds one, is
+  `REVIEW_INVALID`; a build's that does not fit is `TOOL_FAILED`. An accept with a confirmed blocking finding is
+  refused because the verdict and the progress measure (REQ-GATE-6) would then disagree.
+- Usage (S-5): `usage(seconds, tokens)`. Claude Code's tokens are its final result's `usage`: `input` is
+  `input_tokens` plus `cache_creation_input_tokens`, `output` is `output_tokens`, `cached` is
+  `cache_read_input_tokens`, each unknown unless a whole number. Its program reports tokens, so a token limit on its
+  profiles is observable (REQ-RUN-7).
+- Claude Code's launch, verified with 2.1.316: `--print --output-format stream-json --verbose`; its discovery off by
+  `--safe-mode` (no `CLAUDE.md`, `AGENTS.md`, skills of the person's, plugins installed, hooks or MCP servers; its
+  built-in plugin reported "project memory is off"), `--restricted` (no user, project or local settings file: the
+  tool reported a project's settings in the copy ignored; file tools confined to the working directory),
+  `--strict-mcp-config`, `--disable-slash-commands`, `--no-session-persistence`; `--permission-prompts none`; per
+  role the tools (build: `Bash,Read,Edit,Write,Glob,Grep`, permission mode `acceptEdits`; review:
+  `Bash,Read,Glob,Grep`, `dontAsk`); `--settings` with its sandbox enabled and required (`failIfUnavailable`), no
+  command outside it, no domain allowed, the credential's folder unreadable to commands and to its file tools, no web
+  tool; `--json-schema` with the role's schema; `--model` and `--effort`; the packet as the last argument, after
+  `--`. Its variables turn off updates, telemetry, error reports and other traffic of its own (REQ-SEC-6). Inside a
+  real dispatch the model's commands had a seccomp filter, no new privileges, only a loopback interface, the direct
+  network unreachable and its proxy refusing every host, the credential unreadable, the home and `.gitconfig` not
+  writable and `/work` writable. Its sandbox leaves an empty `/work/.claude/` directory, which no change set holds.
+- The preflight runs each of the adapter's commands in each role's cell, with no network and no credential, each to end
+  with status 0, or `CONFINEMENT_UNAVAILABLE` naming its evidence; it calls no model. Claude Code starts its sandbox
+  only at the model's first command, so no command of the tool's makes it start without a model: the preflight runs
+  the tool's version, `socat`, and a sandbox of the kind the tool makes, nested in the cell, creating a temporary file
+  in the copy and in its own `/tmp`; at a dispatch, `failIfUnavailable` makes the tool refuse to run when its sandbox
+  cannot start. Keeping a pass as verified by use is part 9e's.
+- Claude Code's stream has one grammar (`crates/adapter-claude/src/stream.rs`): lines ended by a newline alone, a
+  final newline not a blank line, each line one compact JSON object; `system` with subtype `init` first and only
+  first; `assistant` turns of `text`, `thinking` and `tool_use` blocks, each use with a new text identifier, a text
+  name, an object input and, for `Bash`, a command that is a text with a simple command; `user` turns of
+  `tool_result` blocks only, each answering a use not answered yet by its text identifier, with a boolean `is_error`,
+  present when the use examines; `rate_limit_event`; one `result`, last, after every use was answered. Any other
+  event, block, field type or order voids the whole stream: no result, model, tokens or examination. The result is
+  the final event's `structured_output` when its subtype is `success` and `is_error` false; another subtype keeps the
+  model and tokens and gives no result. Examination counts the answered uses of `Bash` by their simple commands (split
+  on unquoted newlines, `;`, `&&`, `||` and `|`), and of `Read`, `Grep` and `Glob`, never `StructuredOutput`, the
+  provider's answer tool, and only on success. PD-26.2's sub-case is that split, which changes the count and voids
+  nothing; PD-26.4's is every stream cut before its end; PD-26.6's a result of another subtype; PD-26.15 and PD-26.20
+  an error flag that is not a boolean. The recorded stream is `crates/adapter-claude/tests/streams/review.jsonl`, a
+  real review with the account's rate-limit figures removed, its digest pinned.
+- Claude Code's marker is `CLAUDECODE`; its protected names `CLAUDE.md` and `.claude`, which a test holds within
+  `gate.protectedNames`' default, still declared whole in the core's key so that the key's default reads as one
+  value; its residual risks T-05 (`tool-credential`), T-13 (`audit-limit`) and T-22 (`tool-flags`), in `config`. Its
+  skills folder `.claude/skills` is listed by a sweep (REQ-FER-10).
+
 ### EXT: extensions
 
 - **REQ-EXT-1.** Extension `<name>` is the program `fabrewk-<name>`, run as `fabrewk <name> …`, only when

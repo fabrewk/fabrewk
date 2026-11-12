@@ -107,7 +107,8 @@ fn req_fer_3_a_valid_answer_records_the_events_and_changes_only_the_text_below_t
         json!({"kind": "agent", "tool": "claude-code", "provider": "anthropic", "modelRequested": "claude-sonnet-5-5", "modelObserved": null})
     );
     assert_eq!(events[0]["payload"]["input"], json!(input_before));
-    assert_eq!(events[0]["payload"]["skills"], json!([]));
+    // Claude Code's skills folder (part 9c) is listed: the fixture's home holds none.
+    assert_eq!(events[0]["payload"]["skills"], json!([{"tool": "claude", "listed": true, "names": [], "shadows": []}]));
     assert_eq!(events[1]["payload"]["id"], doc["proposals"][0]);
     assert!(events.iter().all(|e| e.get("say").is_none()));
     // Only the text below the separator changed: the input's digest is the same, and the answer is in the

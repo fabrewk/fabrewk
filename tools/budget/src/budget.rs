@@ -38,6 +38,7 @@ pub const RINGS: &[Ring] = &[
     Ring { name: "core", kind: RingKind::Core, dirs: &["crates/core", "crates/fabrewk"] },
     // Phase 9's modules, each a ring at its kind's frozen ceiling (D-075 point 2).
     Ring { name: "confine-bwrap", kind: RingKind::Confinement, dirs: &["crates/confine-bwrap"] },
+    Ring { name: "adapter-claude", kind: RingKind::ToolAdapter, dirs: &["crates/adapter-claude"] },
 ];
 
 /// Direct runtime crates: those a ring crate depends on directly.

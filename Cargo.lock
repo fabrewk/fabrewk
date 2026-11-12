@@ -95,6 +95,16 @@ checksum = "00d174d5400e5e8fd687ad1049e2f578285fa914201b1af7e8b112a4546bd826"
 name = "fabrewk"
 version = "0.0.0"
 dependencies = [
+ "fabrewk-adapter-claude",
+ "fabrewk-confine-bwrap",
+ "fabrewk-core",
+ "serde_json",
+]
+
+[[package]]
+name = "fabrewk-adapter-claude"
+version = "0.0.0"
+dependencies = [
  "fabrewk-confine-bwrap",
  "fabrewk-core",
  "serde_json",
