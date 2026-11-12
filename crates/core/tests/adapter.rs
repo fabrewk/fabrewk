@@ -157,3 +157,28 @@ fn req_run_7_s_5_the_usage_is_seconds_and_tokens_each_unknown_when_not_observed(
         json!({"seconds": 7, "tokens": {"input": 10, "output": null, "cached": 0}})
     );
 }
+
+#[test]
+fn p9d_1_a_streams_json_is_read_as_serde_json_reads_it_but_a_member_named_twice_refuses() {
+    for text in [
+        r#"{"a":[1,-2,3.5,18446744073709551615,-9223372036854775808],"b":{"c":null,"d":true,"e":"é\n"}}"#,
+        "[]",
+        "{}",
+        "\"x\"",
+        "0",
+        r#"[{"a":1},{"a":2}]"#,
+    ] {
+        assert_eq!(adapter::json(text), Some(serde_json::from_str::<Value>(text).unwrap()), "{text}");
+    }
+    for text in [
+        r#"{"a":1,"a":1}"#,
+        r#"{"a":{"b":1,"b":2}}"#,
+        r#"[{"x":[{"c":1,"c":true}]}]"#,
+        r#"{"a":1,"a":2}"#,
+        "{\"a\":1} x",
+        "",
+        "{",
+    ] {
+        assert_eq!(adapter::json(text), None, "{text}");
+    }
+}

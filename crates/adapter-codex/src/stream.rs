@@ -9,7 +9,7 @@
 //! examined nothing. It detects a lazy or failed review, not a hostile one: the model's commands could print what this
 //! reads (T-13). The stream does not say which model answered.
 
-use fabrewk_core::adapter::{Report, Tokens, segments};
+use fabrewk_core::adapter::{self, Report, Tokens, segments};
 use serde_json::{Map, Value};
 use std::collections::BTreeMap;
 
@@ -38,7 +38,7 @@ pub fn read(out: &[u8]) -> Report {
         return Report::default();
     };
     let tokens = Some(tokens(&usage));
-    let result = r.message.and_then(|m| serde_json::from_str::<Value>(&m).ok()).filter(Value::is_object);
+    let result = r.message.as_deref().and_then(adapter::json).filter(Value::is_object);
     let examined = if result.is_some() { r.examined } else { 0 };
     Report { result, model: None, tokens, examined }
 }
@@ -72,7 +72,9 @@ fn grammar(text: &str) -> Option<Read> {
         if line.starts_with(char::is_whitespace) || line.ends_with(char::is_whitespace) || r.end.is_some() {
             return None;
         }
-        let event: Map<String, Value> = serde_json::from_str(line).ok()?;
+        let Value::Object(event) = adapter::json(line)? else {
+            return None;
+        };
         match (n, string(&event, "type")?) {
             (0, "thread.started") => {
                 (exactly(&event, &["type", "thread_id"]) && !string(&event, "thread_id")?.is_empty()).then_some(())?

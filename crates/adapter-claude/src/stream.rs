@@ -8,7 +8,7 @@
 //! provider's own answer tool, and only when the run ended in success. It detects a lazy or failed review, not a
 //! hostile one: the model's commands could print what this reads (T-13).
 
-use fabrewk_core::adapter::{Report, Tokens, segments};
+use fabrewk_core::adapter::{self, Report, Tokens, segments};
 use serde_json::{Map, Value};
 use std::collections::BTreeMap;
 
@@ -79,7 +79,9 @@ fn grammar(text: &str) -> Option<Read> {
         if line.starts_with(char::is_whitespace) || line.ends_with(char::is_whitespace) || r.result.is_some() {
             return None;
         }
-        let event: Map<String, Value> = serde_json::from_str(line).ok()?;
+        let Value::Object(event) = adapter::json(line)? else {
+            return None;
+        };
         let kind = event.get("type").and_then(Value::as_str)?;
         // Turns are only the assistant's and the user's: a message anywhere else is evidence misplaced (P9C-2).
         if event.contains_key("message") && !matches!(kind, "assistant" | "user") {

@@ -452,3 +452,29 @@ fn a_lines_words_read_as_a_shell_reads_them() {
     assert_eq!(words("a\\"), None);
     assert_eq!(words(""), Some(vec![]));
 }
+
+/// `line` with `member` inserted after its first `{`, as raw text: a member named twice when the line already has it,
+/// which `serde_json::Value` cannot hold (P9D-1).
+fn twice(line: &str, member: &str) -> String {
+    line.replacen('{', &format!("{{{member},"), 1)
+}
+
+#[test]
+fn p9d_1_a_member_named_twice_is_void_at_every_event_and_in_the_result() {
+    let raw: Vec<&str> = RECORDED.lines().collect();
+    for (n, line) in raw.iter().enumerate() {
+        for member in [r#""type":false"#, r#""type":"turn.started""#] {
+            let mut v: Vec<String> = raw.iter().map(|l| (*l).to_owned()).collect();
+            v[n] = twice(line, member);
+            void(&(v.join("\n") + "\n"), &format!("{member} at {n}"));
+        }
+    }
+    // Inside an item: a boolean exit code hidden before the whole number.
+    let hidden = RECORDED.replacen(r#""exit_code":0"#, r#""exit_code":true,"exit_code":0"#, 1);
+    void(&hidden, "an exit code named twice");
+    // Inside the result's text: a verdict named twice.
+    let result = RECORDED.replacen(r#"{\"findings\":[]"#, r#"{\"verdict\":\"reject\",\"findings\":[]"#, 1);
+    assert_ne!(result, RECORDED);
+    let r = read(&result);
+    assert_eq!((r.result, r.examined), (None, 0));
+}

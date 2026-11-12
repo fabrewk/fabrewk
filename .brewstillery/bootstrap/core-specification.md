@@ -1042,7 +1042,10 @@ REQ-SEC-1 for the adapter, REQ-SEC-6, REQ-SEC-7, REQ-GATE-4's audit; 6.38's rule
   required, as OpenAI's strict structured output demands (the first real dispatch was refused for the optional
   `path`); the core's validation follows. The markers declared in the binary on Codex's behalf (D-062) are gone: each
   adapter declares its own, and `cli::main` takes the adapters and the backend only. The split of a command into its
-  simple commands (`segments`) moved into the core, shared by both audits.
+  simple commands (`segments`) moved into the core, shared by both audits. Both grammars read each line, and Codex's
+  its result's text, with `adapter::json`: JSON as `serde_json` reads it, except that an object naming a member twice
+  is no value, since `serde_json` keeps only the last and a stream could hide an anomaly behind it (P9D-1); it uses
+  `serde`'s traits, already approved and in the release build (D-036).
 - The module is `crates/adapter-codex` (ring `ToolAdapter`, 600 lines). Program `codex`, adapter name `codex`, version
   by `--version`, tokens reported; provider `openai`; markers `CODEX_SANDBOX` (its sandbox's on macOS, read from the
   binary), `CODEX_SANDBOX_NETWORK_DISABLED` and `CODEX_THREAD_ID` (both seen inside its sandbox in a real dispatch);

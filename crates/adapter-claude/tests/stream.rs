@@ -580,3 +580,20 @@ fn p9c_9_a_command_whose_run_record_shows_no_completed_output_examined_nothing()
     );
     void(&join(&v), "two answers in one turn");
 }
+
+/// A member named twice in any event of the recorded review, as raw text, which `serde_json::Value` cannot hold: the
+/// stream is void (P9D-1, found in part 9d's review and held for this adapter too).
+#[test]
+fn p9d_1_a_member_named_twice_is_void_at_every_event() {
+    let raw: Vec<&str> = RECORDED.lines().collect();
+    for (n, line) in raw.iter().enumerate() {
+        for member in [r#""type":false"#, r#""type":"rate_limit_event""#] {
+            let mut v: Vec<String> = raw.iter().map(|l| (*l).to_owned()).collect();
+            v[n] = line.replacen('{', &format!("{{{member},"), 1);
+            void(&(v.join("\n") + "\n"), &format!("{member} at {n}"));
+        }
+    }
+    let hidden = RECORDED.replacen(r#""is_error":false"#, r#""is_error":"no","is_error":false"#, 1);
+    assert_ne!(hidden, RECORDED);
+    void(&hidden, "an error flag named twice");
+}

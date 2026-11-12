@@ -94,6 +94,63 @@ pub struct Adapter {
     pub read: fn(&[u8]) -> Report,
 }
 
+/// One JSON value from `text`, or `None` when it is not one or an object in it names a member twice, of which
+/// `serde_json` would keep only the last (P9D-1): an adapter reads its stream's evidence as written, once.
+pub fn json(text: &str) -> Option<Value> {
+    serde_json::from_str::<Strict>(text).ok().map(|s| s.0)
+}
+
+/// A JSON value read by [`json`].
+struct Strict(Value);
+
+impl<'de> serde::Deserialize<'de> for Strict {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Strict, D::Error> {
+        d.deserialize_any(Strict(Value::Null))
+    }
+}
+
+impl<'de> serde::de::Visitor<'de> for Strict {
+    type Value = Strict;
+    fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.write_str("a JSON value whose objects name each member once")
+    }
+    fn visit_bool<E>(self, v: bool) -> Result<Strict, E> {
+        Ok(Strict(v.into()))
+    }
+    fn visit_i64<E>(self, v: i64) -> Result<Strict, E> {
+        Ok(Strict(v.into()))
+    }
+    fn visit_u64<E>(self, v: u64) -> Result<Strict, E> {
+        Ok(Strict(v.into()))
+    }
+    fn visit_f64<E>(self, v: f64) -> Result<Strict, E> {
+        Ok(Strict(v.into()))
+    }
+    fn visit_str<E>(self, v: &str) -> Result<Strict, E> {
+        Ok(Strict(v.into()))
+    }
+    fn visit_unit<E>(self) -> Result<Strict, E> {
+        Ok(Strict(Value::Null))
+    }
+    fn visit_seq<A: serde::de::SeqAccess<'de>>(self, mut seq: A) -> Result<Strict, A::Error> {
+        let mut out = Vec::new();
+        while let Some(Strict(v)) = seq.next_element()? {
+            out.push(v);
+        }
+        Ok(Strict(Value::Array(out)))
+    }
+    fn visit_map<A: serde::de::MapAccess<'de>>(self, mut map: A) -> Result<Strict, A::Error> {
+        let mut out = serde_json::Map::new();
+        while let Some(key) = map.next_key::<String>()? {
+            let Strict(v) = map.next_value()?;
+            if out.insert(key, v).is_some() {
+                return Err(serde::de::Error::custom("a member named twice"));
+            }
+        }
+        Ok(Strict(Value::Object(out)))
+    }
+}
+
 /// A tool found on this machine: its adapter, its executable and its release directory, both as they resolve.
 #[derive(Clone, Copy)]
 pub struct Tool<'a> {
