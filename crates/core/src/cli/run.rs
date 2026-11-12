@@ -495,10 +495,12 @@ fn attempt(
     let (allowed, names, paths) = &d.lanes;
     let allowed: Vec<&str> = allowed.iter().map(String::as_str).collect();
     let lanes = Lanes { allowed: &allowed, names, paths };
-    // What fails after the builder is not its output: Git's failure keeps the core's words as its own evidence, its
-    // own text being kept nowhere (P9E-11).
+    // What fails after the builder is not its output: the change set's own refusals name nothing; any other, Git's
+    // above all, keeps the core's words as its own evidence, Git's own text being kept nowhere until part 9g (P9E-11,
+    // D-083).
     let after = |e: Error| -> Result<(Error, bool, bool), Error> {
-        if e.code() != Some(Code::ToolFailed) {
+        let own = [Code::LaneViolation, Code::ProtectedPath, Code::ProtectedPathWildcard, Code::CredentialSuspected];
+        if e.code().is_some_and(|c| own.contains(&c)) {
             return Ok((e, true, false));
         }
         let file = keep(evidence, "candidate", &words(&e))?;

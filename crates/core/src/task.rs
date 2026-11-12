@@ -20,6 +20,8 @@ pub(crate) enum T {
     Hex(usize),
     /// A commit's or a tree's identifier: 40 or 64 hexadecimal digits.
     Commit,
+    /// A text Fabrewk copies from elsewhere (a path, a tool's report, a catalogue's name): any but the empty one.
+    Copied,
     /// A whole number, zero included.
     Nat,
     Id(char),
@@ -95,11 +97,11 @@ const RUN_STARTED: T = T::Obj(&[
 ]);
 const ATTEMPT_STARTED: T = T::Obj(&[
     ("role", T::One(&["build", "review"])),
-    ("profile", T::Text),
-    ("tool", T::Text),
-    ("version", T::Nullable(&T::Text)),
-    ("model", T::Text),
-    ("effort", T::Text),
+    ("profile", T::Copied),
+    ("tool", T::Copied),
+    ("version", T::Nullable(&T::Copied)),
+    ("model", T::Copied),
+    ("effort", T::Copied),
     ("allowedSeconds", T::Count),
 ]);
 const TOKENS: T =
@@ -107,7 +109,7 @@ const TOKENS: T =
 const ATTEMPT_ENDED: T = T::Obj(&[
     ("attempt", T::Count),
     ("outcome", T::One(&["success", "failure", "unknown"])),
-    ("model", T::Nullable(&T::Text)),
+    ("model", T::Nullable(&T::Copied)),
     ("usage", T::Obj(&[("seconds", T::Nullable(&T::Nat)), ("tokens", T::Nullable(&TOKENS))])),
     ("evidence", T::Nullable(&T::Obj(&[("stdout", T::Hex(64)), ("stderr", T::Hex(64))]))),
 ]);
@@ -117,7 +119,7 @@ const CANDIDATE: T = T::Obj(&[
     ("tree", T::Commit),
     (
         "changes",
-        T::List(&T::Obj(&[("path", T::Text), ("before", T::Nullable(&ENTRY)), ("after", T::Nullable(&ENTRY))])),
+        T::List(&T::Obj(&[("path", T::Copied), ("before", T::Nullable(&ENTRY)), ("after", T::Nullable(&ENTRY))])),
     ),
 ]);
 /// The codes a task halts with (REQ-TASK-5, REQ-RUN-10).
@@ -157,6 +159,7 @@ pub(crate) fn fit(t: &T, v: &Value, at: &str, content: &mut Option<String>) -> R
         (T::Bool, Value::Bool(_)) | (T::Base, Value::Null) => Ok(()),
         (T::Hex(n), Value::String(s)) => ok(is_hex(s, *n)),
         (T::Commit, Value::String(s)) => ok(is_hex(s, 40) || is_hex(s, 64)),
+        (T::Copied, Value::String(s)) => ok(!s.is_empty()),
         (T::Nat, Value::Number(n)) => ok(n.as_u64().is_some()),
         (T::Id(c), Value::String(s)) => ok(is_id(s, *c)),
         (T::Base, Value::String(s)) => ok(is_hex(s, 40) || is_hex(s, 64)),
@@ -407,6 +410,7 @@ pub(crate) fn format_of(schema: &T) -> Vec<FormatLine> {
             T::Count => "count",
             T::Bool => "bool",
             T::Hex(_) | T::Commit => "hex",
+            T::Copied => "text",
             T::Nat => "count",
             T::Id('s') => "stage-id",
             T::Id('p') => "proposal-id",

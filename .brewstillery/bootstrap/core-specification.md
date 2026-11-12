@@ -1156,7 +1156,10 @@ to REQ-RUN-7, REQ-RUN-10, REQ-TASK-3, REQ-TASK-5, REQ-CLI-3; S-5, S-6; D-079, D-
   `stdout` and `stderr` digests), `candidate-recorded` (exactly `commit`, `tree` and `changes`, each exactly `path`,
   `before` and `after`, `null` or a `mode` and an `oid`) and `task-halted` (exactly `code`, one of REQ-TASK-5's or
   `DISK_LOW`, and `reason`, the core's words with every path relative to the repository's root or, under the
-  person's home, written from `~/`, so that the record holds nothing of the machine's layout, P9E-2). The replay holds
+  person's home, written from `~/`, so that the record holds nothing of the machine's layout, P9E-2). What these
+  payloads copy from elsewhere (a changed path, the model a stream names, the tool's version, the catalogue's names) is
+  any text but the empty one, white space included, so that no name a tool or a file system gives leaves an event the
+  replay refuses. The replay holds
   `run-started` to its stream's head and to the authorization in force: the task's last `task-authorized` or its
   stage's last `stage-authorized` that binds it, whichever comes later in the task's events, which `run` names and
   from which the task's limits count (P9E-3; `authorize <stage> --run` relies on the stage's authorization only for a

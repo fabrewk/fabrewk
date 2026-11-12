@@ -342,8 +342,17 @@ fn the_runs_payloads_and_bindings_on_replay() {
         assert_eq!(t.replay().unwrap_err(), [code], "{payload}");
         fs::remove_file(path).unwrap();
     }
-    t.next(&fabrewk("attempt-started", attempt()));
-    let good = ended(&t.f, &t.stream, json!({"seconds": 0, "tokens": {"input": 0, "output": null, "cached": 3}}));
+    // What Fabrewk copies from a tool or the catalogue may be white space; only the empty text is none.
+    let mut blank = attempt();
+    blank["model"] = json!("");
+    let path = t.next(&fabrewk("attempt-started", blank));
+    assert_eq!(t.replay().unwrap_err(), [Code::RecordTransitionInvalid]);
+    fs::remove_file(path).unwrap();
+    let mut spaced = attempt();
+    spaced["version"] = json!(" ");
+    t.next(&fabrewk("attempt-started", spaced));
+    let mut good = ended(&t.f, &t.stream, json!({"seconds": 0, "tokens": {"input": 0, "output": null, "cached": 3}}));
+    good["model"] = json!(" ");
     let mut outcome = good.clone();
     outcome["outcome"] = json!("maybe");
     let mut tokens = good.clone();

@@ -611,6 +611,15 @@ fn a_branch_git_cannot_read_halts_naming_its_own_evidence() {
     assert!(dirs(&fx, "tmp", "attempt-").is_empty());
 }
 
+/// A changed path that is a name of white space alone is a path like any other: recorded, and the record replays.
+#[test]
+fn a_candidate_whose_path_is_white_space_is_recorded_and_replays() {
+    let fx = Fx::builder("space", "published", &format!("printf 'x' > ' '\n{SUCCESS}"));
+    let id = authorized(&fx, json!({"allowed": ["?"]}));
+    let new = halts(&fx, &id, "CONFINEMENT_UNAVAILABLE");
+    assert_eq!(new[3]["payload"]["changes"][0]["path"], " ");
+}
+
 /// A task's layer that a policy adopted after its authorization makes a widening is not granted by that authorization
 /// (P9E-12): the run refuses it, with nothing written, until an authorization names it.
 #[test]
