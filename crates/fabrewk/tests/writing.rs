@@ -438,6 +438,13 @@ fn refusal_protected_path_wildcard() {
     refused(&fx, &["propose", &name], "PROTECTED_PATH_WILDCARD", 1, "es");
     let name = proposal(&fx, "l.json", &file(json!({"allowed": ["Cargo.toml", "src/**"]})));
     ok(&fx.run(&["propose", &name]));
+    // The directory the repository's `core.hooksPath` names inside the working tree is protected too, read at each
+    // guard (S-4): under a wildcard it is refused; listed literally, kept.
+    fx.git(&["config", "core.hooksPath", "tools/hooks"]);
+    let name = proposal(&fx, "h.json", &file(json!({"allowed": ["tools/**"]})));
+    refused(&fx, &["propose", &name], "PROTECTED_PATH_WILDCARD", 1, "es");
+    let name = proposal(&fx, "hl.json", &file(json!({"allowed": ["tools/hooks/pre-commit", "tools/*.sh"]})));
+    ok(&fx.run(&["propose", &name]));
 }
 
 #[test]
@@ -621,14 +628,13 @@ fn refusal_check_unknown_for_a_shallow_history() {
 
 #[test]
 fn a_record_commit_git_refuses_leaves_the_events_written_and_says_so() {
-    // A hook that refuses every ref update (P7D3A-18, D-065): the events stay written and not committed, as after a
-    // race, the refusal says so, and the next write command commits them first.
+    // A branch whose ref Git cannot lock (P7D3A-18, D-065; a hook no longer runs, S-11): the events stay written and
+    // not committed, as after a race, the refusal says so, and the next write command commits them first.
     let fx = published("hook");
     fx.edit_policy(&policy_with(&fx, "\n[limits]\nminutes = 60\n"));
-    let hook = fx.root.join(".git/hooks/reference-transaction");
-    fs::write(&hook, "#!/bin/sh\nexit 1\n").unwrap();
     use std::os::unix::fs::PermissionsExt;
-    fs::set_permissions(&hook, fs::Permissions::from_mode(0o755)).unwrap();
+    let heads = fx.root.join(".git/refs/heads");
+    fs::set_permissions(&heads, fs::Permissions::from_mode(0o555)).unwrap();
     let head = fx.git(&["rev-parse", "HEAD"]);
     let doc = fx.run(&["adopt", "--say", SAY, "--json"]).doc();
     let e = &doc["refusals"][0];
@@ -637,7 +643,7 @@ fn a_record_commit_git_refuses_leaves_the_events_written_and_says_so() {
     assert_eq!(fx.git(&["rev-parse", "HEAD"]), head);
     let check = fx.run(&["check", "--json"]).doc();
     assert!(check["findings"].as_array().unwrap().iter().any(|f| f["code"] == "RECORD_UNCOMMITTED"), "{check}");
-    fs::remove_file(&hook).unwrap();
+    fs::set_permissions(&heads, fs::Permissions::from_mode(0o755)).unwrap();
     ok(&fx.run(&["propose", &proposal(&fx, "plan.json", &file(json!({})))]));
     let first = fx.git(&["log", "-1", "--format=%B", "HEAD~1"]);
     assert_eq!(first.matches("Fabrewk-Event: ").count(), 1, "the adoption in a commit of its own: {first}");
@@ -645,23 +651,27 @@ fn a_record_commit_git_refuses_leaves_the_events_written_and_says_so() {
 }
 
 #[test]
-fn a_record_commit_made_is_reported_made_when_the_index_is_held_after_it() {
-    // A hook that takes the index's lock once the ref is updated (P7D3A-21): the commit is made, the command says so,
-    // and the next write command brings the index to it.
-    let fx = published("late-index");
+fn req_reg_10_s_11_no_write_command_runs_a_hook_of_the_repository() {
+    // A repository whose `core.hooksPath` is a tracked directory with a `reference-transaction` hook, and the same
+    // hook in `.git/hooks/` (S-11, P-12): no write command runs either, and every record commit is made.
+    let fx = published("no-hook");
     fx.edit_policy(&policy_with(&fx, "\n[limits]\nminutes = 60\n"));
-    let hook = fx.root.join(".git/hooks/reference-transaction");
-    fs::write(&hook, "#!/bin/sh\nif [ \"$1\" = committed ]; then touch .git/index.lock; fi\nexit 0\n").unwrap();
     use std::os::unix::fs::PermissionsExt;
-    fs::set_permissions(&hook, fs::Permissions::from_mode(0o755)).unwrap();
-    let head = fx.git(&["rev-parse", "HEAD"]);
+    let ran = fx.root.join("hook-ran");
+    for dir in [fx.root.join("hooks"), fx.root.join(".git/hooks")] {
+        fs::create_dir_all(&dir).unwrap();
+        let hook = dir.join("reference-transaction");
+        fs::write(&hook, format!("#!/bin/sh\necho \"$1\" >> '{}'\nexit 1\n", ran.display())).unwrap();
+        fs::set_permissions(&hook, fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    fx.git(&["-c", "core.hooksPath=/dev/null", "add", "hooks"]);
+    fx.git(&["-c", "core.hooksPath=/dev/null", "commit", "-q", "-m", "hooks"]);
+    fx.git(&["config", "core.hooksPath", "hooks"]);
     ok(&fx.run(&["adopt", "--say", SAY]));
-    assert_eq!(fx.git(&["rev-parse", "HEAD~1"]), head);
-    fs::remove_file(&hook).unwrap();
-    fs::remove_file(fx.root.join(".git/index.lock")).unwrap();
-    assert_eq!(fx.run(&["check"]).status, 0, "{:?}", fx.run(&["check"]));
     ok(&fx.run(&["propose", &proposal(&fx, "plan.json", &file(json!({})))]));
-    assert_eq!(fx.git(&["diff", "--cached", "--name-only"]), "", "the index follows the record");
+    assert!(!ran.exists(), "a hook ran: {:?}", fs::read_to_string(&ran));
+    assert_eq!(fx.run(&["check"]).status, 0, "{:?}", fx.run(&["check"]));
+    assert_eq!(fx.git(&["log", "-2", "--format=%s"]), "fabrewk: record\nfabrewk: record");
 }
 
 #[test]

@@ -1,6 +1,8 @@
 //! The record in Git (REQ-REG-8's history walk, REQ-REG-10, REQ-REG-11). Every object is read as stored: replacement
-//! objects, grafts and the commit graph are off for every call. The record commit is built through a temporary index,
-//! so the person's staged and unstaged changes stay as they were, and the branch moves by compare-and-swap.
+//! objects, grafts and the commit graph are off for every call. Every call names a hooks directory under which no file
+//! can exist and turns the file-system monitor off, so no hook a repository or a candidate holds runs as Fabrewk's
+//! (S-11). The record commit is built through a temporary index, so the person's staged and unstaged changes stay as
+//! they were, and the branch moves by compare-and-swap.
 
 use super::replay::list_stream;
 use super::{Code, Error, fault, io_at, refuse};
@@ -42,7 +44,9 @@ impl Repo {
     }
 }
 
-fn command(repo: &Repo, args: &[&OsStr]) -> Command {
+/// Git, in `repo`'s working tree, reading every object as stored and running no hook (S-11): `/dev/null` is no
+/// directory, so no hook can be found under it.
+pub(crate) fn command(repo: &Repo, args: &[&OsStr]) -> Command {
     let mut c = Command::new("git");
     c.current_dir(&repo.root);
     for var in ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR", "GIT_OBJECT_DIRECTORY"] {
@@ -52,11 +56,12 @@ fn command(repo: &Repo, args: &[&OsStr]) -> Command {
         c.env_remove(var);
     }
     c.env("GIT_NO_REPLACE_OBJECTS", "1").env("GIT_GRAFT_FILE", "/dev/null");
-    c.args(["--no-replace-objects", "-c", "core.commitGraph=false"]).args(args);
+    c.args(["--no-replace-objects", "-c", "core.commitGraph=false", "-c", "core.hooksPath=/dev/null"]);
+    c.args(["-c", "core.fsmonitor=false"]).args(args);
     c
 }
 
-fn run(mut c: Command, input: &[u8]) -> Result<Output, Error> {
+pub(crate) fn run(mut c: Command, input: &[u8]) -> Result<Output, Error> {
     let mut child = c.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn().map_err(|e| {
         let code = if e.kind() == std::io::ErrorKind::NotFound { Code::ToolMissing } else { Code::ToolFailed };
         refuse(code, None, "git")
@@ -70,7 +75,7 @@ fn run(mut c: Command, input: &[u8]) -> Result<Output, Error> {
 }
 
 /// Runs git and gives its output, refusing `TOOL_FAILED` on a failure; git's own text never leaves this function.
-fn git(repo: &Repo, args: &[&OsStr], input: &[u8], index: Option<&Path>) -> Result<Vec<u8>, Error> {
+pub(crate) fn git(repo: &Repo, args: &[&OsStr], input: &[u8], index: Option<&Path>) -> Result<Vec<u8>, Error> {
     let mut c = command(repo, args);
     if let Some(index) = index {
         c.env("GIT_INDEX_FILE", index);
@@ -83,11 +88,11 @@ fn git(repo: &Repo, args: &[&OsStr], input: &[u8], index: Option<&Path>) -> Resu
     Ok(out.stdout)
 }
 
-fn line(bytes: Vec<u8>) -> String {
+pub(crate) fn line(bytes: Vec<u8>) -> String {
     String::from_utf8_lossy(&bytes).trim_end_matches('\n').to_owned()
 }
 
-fn os<'a>(items: &[&'a str]) -> Vec<&'a OsStr> {
+pub(crate) fn os<'a>(items: &[&'a str]) -> Vec<&'a OsStr> {
     items.iter().map(|s| OsStr::new(*s)).collect()
 }
 
@@ -135,6 +140,32 @@ pub(crate) fn signing_key(root: &Path) -> Option<String> {
     let file = origin.strip_prefix("file:").map(|f| root.join(f));
     let foreign = file.is_some_and(|f| crate::code::in_a_domain(&f));
     (!foreign && !value.is_empty()).then(|| value.to_owned())
+}
+
+/// The directory the repository's own `core.hooksPath` names (S-4), Fabrewk's own value aside, as paths relative to
+/// the working tree's root with a final `/` (`/` alone for the root itself): as written, and where its links lead,
+/// each when it lies inside the working tree; none when it is unset or lies outside. Read at each guard; a
+/// configuration Git cannot read is `TOOL_FAILED`.
+pub(crate) fn hooks_dir(repo: &Repo) -> Result<Vec<String>, Error> {
+    let args = os(&["config", "--show-origin", "-z", "--type=path", "--get-all", "core.hooksPath"]);
+    let out = run(command(repo, &args), b"")?;
+    if out.status.code() != Some(0) && out.status.code() != Some(1) {
+        return Err(refuse(Code::ToolFailed, Some(&repo.root), "git config could not read core.hooksPath"));
+    }
+    let fields: Vec<&[u8]> = out.stdout.split(|&b| b == 0).collect();
+    let value = fields.chunks(2).filter(|p| p.len() == 2 && p[0] != b"command line:").map(|p| p[1]).next_back();
+    let Some(value) = value.filter(|v| !v.is_empty()) else {
+        return Ok(Vec::new());
+    };
+    let path = crate::code::normal(&repo.root.join(<OsStr as std::os::unix::ffi::OsStrExt>::from_bytes(value)));
+    let root = crate::code::normal(&repo.root);
+    let canonical = (path.canonicalize(), root.canonicalize());
+    let mut dirs = Vec::new();
+    for (path, root) in [(Ok(path), Ok(root)), canonical] {
+        let rel = path.ok().zip(root.ok()).and_then(|(p, r)| Some(p.strip_prefix(r).ok()?.to_str()?.to_owned()));
+        dirs.extend(rel.map(|r| format!("{r}/")).filter(|d| !dirs.contains(d)));
+    }
+    Ok(dirs)
 }
 
 /// The repository's exclude file, `info/exclude` in its Git directory, as an absolute path.
@@ -391,6 +422,7 @@ fn attempt(
         let moved = run(command(repo, &os(&["update-ref", "-m", "fabrewk: record", branch, &commit, &old])), b"")?;
         if moved.status.success() {
             fault::point();
+            fault::pause("record-moved");
             // The commit is made and the branch moved: the person's index is brought to it, and if another Git holds
             // the index now, the next write command does it (`sync_index`), so the commit is never reported as not
             // made (P7D3A-21).

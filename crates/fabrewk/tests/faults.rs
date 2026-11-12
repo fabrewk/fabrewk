@@ -527,18 +527,17 @@ fn an_alambique_commit_made_is_reported_made_when_the_index_is_held_after_it() {
 }
 
 fn index_held(spaced: bool) {
-    // P8B-4: the hook takes the index's lock once the ref moves; the person is told to bring the index to the commit,
-    // and the record is committed by the next write command.
-    use std::os::unix::fs::PermissionsExt;
+    // P8B-4: another Git takes the index's lock once the ref moves (a hook no longer runs, S-11); the person is told
+    // to bring the index to the commit, and the record is committed by the next write command.
     // A path a shell would split is not printed as a command, but said in words.
     let fx = Fx::new(if spaced { "alambique index spaced" } else { "alambique-index" }, "published");
     fx.alambique(SMALL, "published");
     let id = alambique_proposal(&fx);
-    let hook = fx.root.join(".git/hooks/reference-transaction");
-    fs::write(&hook, "#!/bin/sh\nif [ \"$1\" = committed ]; then touch .git/index.lock; fi\nexit 0\n").unwrap();
-    fs::set_permissions(&hook, fs::Permissions::from_mode(0o755)).unwrap();
     let head = fx.git(&["rev-parse", "HEAD"]);
-    let ran = fx.run(&["approve", &id, "--say", SAY, "--json"]);
+    let dir = tmp("alambique-index-steps");
+    let child = paused(&fx, &["approve", &id, "--say", SAY, "--json"], "record-moved", &dir);
+    fs::write(fx.root.join(".git/index.lock"), b"").unwrap();
+    let ran = resume(child, "record-moved", &dir);
     assert_eq!(ran.status, 1, "{ran:?}");
     let detail = ran.doc()["refusals"][0]["detail"].as_str().unwrap().to_owned();
     let fix = if spaced {
@@ -548,7 +547,6 @@ fn index_held(spaced: bool) {
     };
     assert!(detail.contains(fix) && detail.contains("events are written"), "{detail}");
     assert_ne!(fx.git(&["rev-parse", "HEAD"]), head, "the alambique's commit is made");
-    fs::remove_file(&hook).unwrap();
     fs::remove_file(fx.root.join(".git/index.lock")).unwrap();
     fx.git(&["add", ".brewstillery/ALAMBIQUE.md"]);
     assert_eq!(fx.git(&["diff", "--cached", "--name-only"]), "");
@@ -561,7 +559,6 @@ fn index_held(spaced: bool) {
 #[test]
 fn an_alambique_commit_made_in_an_own_repository_names_that_repository_in_the_fix() {
     // P8B-6: the command printed runs from where the person is, so it names the record's repository.
-    use std::os::unix::fs::PermissionsExt;
     let fx = Fx::new("alambique-own", "own-repository");
     let domain = fx.domain.to_str().unwrap().to_owned();
     let inner = |args: &[&str]| fx.git(&[&["-C", domain.as_str()][..], args].concat());
@@ -574,15 +571,15 @@ fn an_alambique_commit_made_in_an_own_repository_names_that_repository_in_the_fi
     inner(&["add", "-A"]);
     inner(&["commit", "-q", "-m", "record"]);
     let id = alambique_proposal(&fx);
-    let hook = fx.domain.join(".git/hooks/reference-transaction");
-    fs::write(&hook, "#!/bin/sh\nif [ \"$1\" = committed ]; then touch .git/index.lock; fi\nexit 0\n").unwrap();
-    fs::set_permissions(&hook, fs::Permissions::from_mode(0o755)).unwrap();
-    let ran = fx.run(&["approve", &id, "--say", SAY, "--json"]);
+    // Another Git takes the index's lock once the ref moves (a hook no longer runs, S-11).
+    let steps = tmp("alambique-own-steps");
+    let child = paused(&fx, &["approve", &id, "--say", SAY, "--json"], "record-moved", &steps);
+    fs::write(fx.domain.join(".git/index.lock"), b"").unwrap();
+    let ran = resume(child, "record-moved", &steps);
     assert_eq!(ran.status, 1, "{ran:?}");
     let detail = ran.doc()["refusals"][0]["detail"].as_str().unwrap().to_owned();
     let fix = format!("run git -C {domain} add ALAMBIQUE.md;");
     assert!(detail.contains(&fix), "{detail}");
-    fs::remove_file(&hook).unwrap();
     fs::remove_file(fx.domain.join(".git/index.lock")).unwrap();
     // The command as printed, run from the product's root, brings that index to the commit.
     fx.git(&["-C", &domain, "add", "ALAMBIQUE.md"]);
@@ -632,4 +629,34 @@ fn p8c_7_a_lock_replaced_by_a_link_between_the_check_and_the_open_is_not_followe
             assert_eq!(fs::read(&outside).unwrap(), b"x");
         }
     }
+}
+
+#[test]
+fn a_record_commit_made_is_reported_made_when_the_index_is_held_after_it() {
+    // Another Git takes the index's lock once the ref is updated (P7D3A-21; a hook no longer runs, S-11): the commit
+    // is made, the command says so, and the next write command brings the index to it.
+    let fx = ready("late-index");
+    let dir = tmp("late-index-steps");
+    let head = fx.git(&["rev-parse", "HEAD"]);
+    let child = paused(&fx, &["adopt", "--say", SAY], "record-moved", &dir);
+    fs::write(fx.root.join(".git/index.lock"), b"").unwrap();
+    let ran = resume(child, "record-moved", &dir);
+    assert_eq!(ran.status, 0, "{ran:?}");
+    assert_eq!(fx.git(&["rev-parse", "HEAD~1"]), head);
+    fs::remove_file(fx.root.join(".git/index.lock")).unwrap();
+    assert_eq!(fx.run(&["check"]).status, 0, "{:?}", fx.run(&["check"]));
+    let plan = json!({
+        "stage": {"lang": "en", "goal": "Build it.", "budget": {"dispatches": 6, "minutes": 120}, "checks": {}, "settings": {}},
+        "tasks": [{
+            "lang": "en", "goal": "Make it.", "requirements": [{"text": "It builds.", "criterion": "cargo build passes"}],
+            "base": "0".repeat(40), "dependencies": [], "allowed": ["src/**"],
+            "profiles": {"build": "build", "review": "review"}, "checks": [],
+            "limits": {"rounds": 3, "dispatches": 6, "minutes": 120}, "delegationLanguage": "en", "settings": {},
+        }],
+    });
+    fs::write(fx.root.join("plan.json"), serde_json::to_vec(&plan).unwrap()).unwrap();
+    let proposed = fx.run(&["propose", "plan.json"]);
+    assert_eq!(proposed.status, 0, "{proposed:?}");
+    // The person's staged edit stays; the record's files are in the index as the branch holds them.
+    assert_eq!(fx.git(&["diff", "--cached", "--name-only"]), "README.md", "the index follows the record");
 }

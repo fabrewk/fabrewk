@@ -308,6 +308,9 @@ fn rendered(lang: &str) -> Vec<(String, String)> {
         "dispatches",
         "tokens",
         "role",
+        "evidence",
+        "tmp",
+        "bytes",
     ]
     .iter()
     .map(|p| (*p, "x"))

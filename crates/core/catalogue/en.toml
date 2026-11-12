@@ -304,6 +304,9 @@ waiting = "What waits, and for whom:"
 waits-maestro = "For a maestro: {line}"
 waits-integrator = "For the integrator: {line}"
 waits-none = "Nothing waits for anyone."
+local = "Fabrewk's work areas hold: local/evidence/ {evidence}, local/tmp/ {tmp}."
+size = "{bytes} bytes"
+size-unknown = "an unknown size (a directory cannot be read)"
 
 [mode]
 about = "The publication modes"
@@ -469,12 +472,14 @@ about = "What each settings key means"
 "limits.rounds" = "Review rounds by default"
 "limits.dispatches" = "Dispatches by default"
 "limits.minutes" = "Minutes by default"
+"limits.freeDiskMegabytes" = "Free megabytes needed before each copy"
 "checks.*.command" = "The check's command, without a shell"
 "checks.*.network" = "Whether the check has network"
 "checks.*.minutes" = "The check's time limit"
 "checks.*.tools" = "Tools the check needs"
 "review.differentProvider" = "Review by another provider"
 "gate.protectedPaths" = "Paths no task may touch"
+"gate.protectedNames" = "Names a change may reach, at any depth, only when listed literally"
 "git.signOff" = "A sign-off on Fabrewk's commits"
 "extensions.*.digest" = "The extension's digest"
 "extensions.*.network" = "Whether the extension has network"
@@ -521,13 +526,18 @@ next = "Run it where Fabrewk has a confinement backend; the detail says what is 
 [code.CREDENTIAL_SUSPECTED]
 about = "A file that looks like a credential"
 reason = "A file looks like a credential. The match is a heuristic, a cooperative control."
-next = "Remove the credential from the domain, and replace it if it was ever committed or shared."
+next = "Remove the credential where it was found, and replace it if it was ever committed or shared."
 
 [code.DEPENDENCY_OPEN]
 about = "A run of a task whose dependencies are not integrated (REQ-TASK-3)"
 reason = "A task it depends on is not integrated yet."
 next = "Bring that task to its end first:"
 run = "fabrewk status"
+
+[code.DISK_LOW]
+about = "Too little free space before a copy, or a free space that cannot be read (REQ-RUN-10)"
+reason = "The file system that holds .brewstillery/local/ has less free space than limits.freeDiskMegabytes, or its free space cannot be read."
+next = "Free space on that disk, or lower limits.freeDiskMegabytes in the project's settings."
 
 [code.DOMAIN_NOT_IGNORED]
 about = "A domain that the product's repository would publish, in a mode that must not publish it"
@@ -554,6 +564,11 @@ about = "fabrewk config was given a key path that no setting declares"
 reason = "No setting is declared at this key path."
 next = "See every setting and its key path:"
 run = "fabrewk config"
+
+[code.LANE_VIOLATION]
+about = "A candidate that changes what its task does not allow (REQ-RUN-3)"
+reason = "The agent's copy changes a file outside the task's allowed files, a path that is not valid text, or leaves an entry that is not a file, a link or a directory."
+next = "Read what the agent changed; authorize the task again with wider allowed files, or reject it."
 
 [code.LIMIT_UNOBSERVABLE]
 about = "A token limit on a profile whose tool reports no tokens"
@@ -611,12 +626,12 @@ next = "Give the folder to its owner only (mode 0700)."
 
 [code.PROTECTED_PATH]
 about = "A task's allowed files that reach a protected path"
-reason = "The allowed files reach a protected path."
+reason = "The allowed files, or the agent's copy, reach a protected path (.git or .brewstillery)."
 next = "Narrow the allowed files so that they reach no protected path."
 
 [code.PROTECTED_PATH_WILDCARD]
 about = "A wildcard among the allowed files that matches a protected path"
-reason = "A wildcard among the allowed files matches a protected path."
+reason = "A wildcard among the allowed files matches a protected path or name."
 next = "List the protected file literally, or narrow the wildcard."
 
 [code.RECORD_ABSENT]

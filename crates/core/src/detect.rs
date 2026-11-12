@@ -33,10 +33,12 @@ pub struct Program {
     pub skills: &'static [&'static str],
 }
 
-/// The core's own programs (AD-4), found in `PATH` only, as the core runs them. `ssh-keygen` prints no version.
-pub const CORE: [Program; 2] = [
+/// The core's own programs (AD-4), found in `PATH` only, as the core runs them. `ssh-keygen` prints no version, and
+/// POSIX gives `df`, which tells the free space before a copy (REQ-RUN-10), none.
+pub const CORE: [Program; 3] = [
     Program { adapter: None, executable: "git", version: &["--version"], tokens: false, skills: &[] },
     Program { adapter: None, executable: "ssh-keygen", version: &[], tokens: false, skills: &[] },
+    Program { adapter: None, executable: "df", version: &[], tokens: false, skills: &[] },
 ];
 
 /// How a present program was found: in `PATH`, or where `machine.toml` declares it.

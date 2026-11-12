@@ -145,10 +145,40 @@ fn status_shows_each_stage_and_task_and_an_identifier_its_events() {
 }
 
 #[test]
+fn req_run_10_status_shows_what_the_work_areas_hold() {
+    // REQ-DOM-5 as S-3 amended it: the bytes of `local/evidence/` and `local/tmp/`, however deep, no link followed.
+    let fx = published("sizes");
+    let deep: std::path::PathBuf = (0..40).map(|i| format!("d{i}")).collect();
+    let tmp = fx.domain.join("local/tmp/t-00000001-1").join(&deep);
+    fs::create_dir_all(&tmp).unwrap();
+    fs::write(tmp.join("f"), vec![b'x'; 1000]).unwrap();
+    std::os::unix::fs::symlink("/usr", tmp.join("link")).unwrap();
+    let evidence = fx.domain.join("local/evidence/run");
+    fs::create_dir_all(&evidence).unwrap();
+    fs::write(evidence.join("stdout"), vec![b'y'; 300]).unwrap();
+    fs::write(evidence.join("stderr"), vec![b'z'; 20]).unwrap();
+    let doc = fx.run(&["status", "--json"]).doc();
+    assert_eq!(doc["local"], serde_json::json!({"evidence": 320, "tmp": 1000}), "{doc}");
+    let size = |n: &str| cli::say("es", "status.size", &[("bytes", n)]);
+    let line = cli::say("es", "status.local", &[("evidence", &size("320")), ("tmp", &size("1000"))]);
+    assert!(fx.run(&["status"]).stdout.contains(&line));
+    // A directory that cannot be listed gives an unknown size, never a smaller one.
+    fs::set_permissions(&evidence, fs::Permissions::from_mode(0o000)).unwrap();
+    let doc = fx.run(&["status", "--json"]).doc();
+    fs::set_permissions(&evidence, fs::Permissions::from_mode(0o700)).unwrap();
+    assert_eq!(doc["local"], serde_json::json!({"evidence": null, "tmp": 1000}), "{doc}");
+}
+
+#[test]
 fn refusal_record_absent() {
     let fx = Fx::bare("absent", "published");
     let out = fx.run(&["status"]);
-    assert_eq!((out.status, out.stdout.trim()), (0, cli::say("en", "status.absent", &[]).as_str()));
+    let size = cli::say("en", "status.size", &[("bytes", "0")]);
+    let local = cli::say("en", "status.local", &[("evidence", &size), ("tmp", &size)]);
+    assert_eq!(
+        (out.status, out.stdout.trim()),
+        (0, format!("{}\n{local}", cli::say("en", "status.absent", &[])).as_str())
+    );
     assert_eq!(fx.run(&["status", "--json"]).doc()["record"], "absent");
     assert_eq!(refused(&fx, &["check"], "RECORD_ABSENT", 3, "en")["check"], "C4");
     refused(&fx, &["check"], "POLICY_ABSENT", 3, "en");
@@ -578,8 +608,8 @@ const PINNED: &[(&str, &str)] = &[
         ":object .refusals:array .refusals[]:object .refusals[].code:string .refusals[].detail:string .refusals[].next:string .refusals[].path:null|string .refusals[].reason:string .refusals[].run:null|string .schema:string",
     ),
     (
-        "fabrewk.status/2",
-        ":object .mode:null|string .next:array .next[]:string .policy:null|object .policy.digest:string .policy.pending:bool|null .problems:array .problems[]:object .problems[].code:string .problems[].detail:string .problems[].next:string .problems[].path:null|string .problems[].reason:string .problems[].run:null|string .record:string .schema:string .stages:array .stages[]:object .stages[].goal:string .stages[].id:string .stages[].state:string .stages[].tasks:array .stages[].tasks[]:object .stages[].tasks[].goal:string .stages[].tasks[].id:string .stages[].tasks[].state:string .waiting:array .waiting[]:object .waiting[].detail:string .waiting[].id:string .waiting[].since:string .waiting[].what:string .waiting[].who:string",
+        "fabrewk.status/3",
+        ":object .local:object .local.evidence:null|number .local.tmp:null|number .mode:null|string .next:array .next[]:string .policy:null|object .policy.digest:string .policy.pending:bool|null .problems:array .problems[]:object .problems[].code:string .problems[].detail:string .problems[].next:string .problems[].path:null|string .problems[].reason:string .problems[].run:null|string .record:string .schema:string .stages:array .stages[]:object .stages[].goal:string .stages[].id:string .stages[].state:string .stages[].tasks:array .stages[].tasks[]:object .stages[].tasks[].goal:string .stages[].tasks[].id:string .stages[].tasks[].state:string .waiting:array .waiting[]:object .waiting[].detail:string .waiting[].id:string .waiting[].since:string .waiting[].what:string .waiting[].who:string",
     ),
     (
         "fabrewk.subject/2",

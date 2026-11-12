@@ -153,10 +153,7 @@ fn plan(cx: &Cx, path: &Path, file: &Value, record: &Replay) -> Result<Plan<Prop
         let widen: Vec<String> = layers.iter().flat_map(|(_, l)| l.keys().cloned()).collect();
         let eff = settings::effective(&policy, None, None, &layers, &widen)
             .map_err(|e| at(format!("settings: {}", e.detail())))?;
-        let protected = match eff.values.get("gate.protectedPaths") {
-            Some((Val::List(l), _)) => l.clone(),
-            _ => Vec::new(),
-        };
+        let protected = crate::candidate::protected_paths(&eff, &product(cx)).map_err(Failed::from)?;
         task::wildcards(&allowed, &protected)
             .map_err(|e| refuse(Code::ProtectedPathWildcard, Some(path), format!("tasks[{i}]: {}", e.detail())))?;
         if let Some(n) = &name
@@ -197,4 +194,9 @@ pub(super) fn run(cx: &Cx, file: &str) -> Result<Out, Failed> {
     next.extend(proposed.tasks.iter().map(|t| format!("fabrewk status {}", t.0)));
     text += &cx.next(&next.iter().map(String::as_str).collect::<Vec<_>>());
     Ok(Out::new(doc, text))
+}
+
+/// The product's repository, where the command runs: its Git configuration names the hooks directory a guard reads.
+pub(super) fn product(cx: &Cx) -> crate::record::Repo {
+    crate::record::Repo { root: cx.root.clone(), prefix: std::path::PathBuf::new() }
 }

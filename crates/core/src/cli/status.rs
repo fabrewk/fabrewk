@@ -25,7 +25,7 @@ fn text_of<'a>(e: &'a Event, field: &str) -> &'a str {
 
 fn overview(cx: &Cx) -> Result<Out, Failed> {
     let mut doc = json!({
-        "schema": "fabrewk.status/2", "record": "absent", "problems": [], "policy": null, "mode": null,
+        "schema": "fabrewk.status/3", "record": "absent", "problems": [], "policy": null, "mode": null, "local": null,
         "stages": [], "waiting": [], "next": [],
     });
     let mut text = String::new();
@@ -53,10 +53,36 @@ fn overview(cx: &Cx) -> Result<Out, Failed> {
             next.extend(waiting(cx, record, &mut doc, &mut text));
         }
     }
+    let [evidence, tmp] = ["evidence", "tmp"].map(|d| held(&cx.domain.join("local").join(d)));
+    doc["local"] = json!({"evidence": evidence, "tmp": tmp});
+    let words = |n: Option<u64>| {
+        n.map_or_else(|| cx.t("status.size-unknown", &[]), |n| cx.t("status.size", &[("bytes", &n.to_string())]))
+    };
     text = text.trim_end().to_owned() + "\n";
+    text += &format!("{}\n", cx.t("status.local", &[("evidence", &words(evidence)), ("tmp", &words(tmp))]));
     text += &cx.next(&next.iter().map(String::as_str).collect::<Vec<_>>());
     doc["next"] = json!(next);
     Ok(Out::new(doc, text))
+}
+
+/// How many bytes the files under `dir` hold (REQ-DOM-5, S-3), following no link, however deep; an absent directory
+/// holds none, and one that cannot be listed whole gives `None`.
+fn held(dir: &std::path::Path) -> Option<u64> {
+    if std::fs::symlink_metadata(dir).is_err_and(|e| e.kind() == std::io::ErrorKind::NotFound) {
+        return Some(0);
+    }
+    let (mut sum, mut left) = (0, vec![dir.to_path_buf()]);
+    while let Some(path) = left.pop() {
+        let meta = std::fs::symlink_metadata(&path).ok()?;
+        if meta.is_dir() {
+            for entry in std::fs::read_dir(&path).ok()? {
+                left.push(entry.ok()?.path());
+            }
+        } else if meta.is_file() {
+            sum += meta.len();
+        }
+    }
+    Some(sum)
 }
 
 /// What waits and for whom (REQ-VIEW-1, PD-33), in the person's language; gives the commands for the person who

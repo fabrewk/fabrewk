@@ -279,11 +279,13 @@ pub fn lane(allowed: &[&str]) -> Result<(), Error> {
 }
 
 /// REQ-GATE-9: `PROTECTED_PATH_WILDCARD` for a pattern holding `*` or `?` that can match a protected path, or a path
-/// under a protected directory (one written with a final `/`); a protected path listed literally is kept.
+/// under a protected directory (one written with a final `/`; `/` alone is the whole tree); a protected path listed
+/// literally is kept.
 pub fn wildcards(allowed: &[&str], protected: &[String]) -> Result<(), Error> {
     for p in allowed.iter().filter(|p| p.contains(['*', '?'])) {
         let segs = pattern(p)?;
         let reaches = |q: &String| match q.strip_suffix('/') {
+            Some("") => true,
             // The pattern matches the directory itself; or some of its segments match it and some are left, or the
             // last of those is a `**` that goes on.
             Some(dir) => (0..=segs.len()).any(|i| {

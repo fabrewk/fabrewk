@@ -12,7 +12,7 @@ Muestra la salud del registro, la política vigente y el estado de cada etapa y 
 
 Movimientos que puede causar: ninguno.
 
-Documentos con --json: `fabrewk.status/2`, `fabrewk.subject/2`
+Documentos con --json: `fabrewk.status/3`, `fabrewk.subject/2`
 
 ## `fabrewk config [<key>] [--json]`
 
@@ -166,8 +166,8 @@ Rechazos
 
 - `STAGE_CLOSED`: La etapa está cerrada, así que no se le puede agregar ninguna tarea.
 - `TASK_INVALID`: Los campos de una etapa o de una tarea no son válidos.
-- `PROTECTED_PATH`: Los archivos permitidos alcanzan una ruta protegida.
-- `PROTECTED_PATH_WILDCARD`: Un comodín entre los archivos permitidos coincide con una ruta protegida.
+- `PROTECTED_PATH`: Los archivos permitidos, o la copia del agente, alcanzan una ruta protegida (.git o .brewstillery).
+- `PROTECTED_PATH_WILDCARD`: Un comodín entre los archivos permitidos coincide con una ruta o un nombre protegidos.
 - `CHECK_DUPLICATE`: Una comprobación tiene dos definiciones distintas.
 - `RECORD_ABSENT`: Aquí no hay registro.
 - `POLICY_ABSENT`: No hay una política adoptada, así que no hay configuración efectiva ni mantenedores.
@@ -220,8 +220,8 @@ Rechazos
 - `WORDS_COPIED`: Las palabras dadas son el ejemplo que imprime la ayuda, no las tuyas.
 - `TASK_CHANGED`: La tarea, o el head de su flujo, cambió después de mostrarse.
 - `CHECK_DUPLICATE`: Una comprobación tiene dos definiciones distintas.
-- `PROTECTED_PATH`: Los archivos permitidos alcanzan una ruta protegida.
-- `PROTECTED_PATH_WILDCARD`: Un comodín entre los archivos permitidos coincide con una ruta protegida.
+- `PROTECTED_PATH`: Los archivos permitidos, o la copia del agente, alcanzan una ruta protegida (.git o .brewstillery).
+- `PROTECTED_PATH_WILDCARD`: Un comodín entre los archivos permitidos coincide con una ruta o un nombre protegidos.
 - `WIDENING_UNNAMED`: Un cambio amplía la autoridad sin nombrarse.
 - `LIMIT_UNOBSERVABLE`: Hay un límite de tokens para una herramienta que no informa los tokens que usa, así que el límite no se podría cumplir.
 - `DEPENDENCY_OPEN`: Una tarea de la que depende aún no está integrada.

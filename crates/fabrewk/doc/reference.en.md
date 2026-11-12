@@ -12,7 +12,7 @@ Shows the record's health, the policy in force and the state of each stage and t
 
 Moves it may cause: none.
 
-Documents with --json: `fabrewk.status/2`, `fabrewk.subject/2`
+Documents with --json: `fabrewk.status/3`, `fabrewk.subject/2`
 
 ## `fabrewk config [<key>] [--json]`
 
@@ -166,8 +166,8 @@ Refusals
 
 - `STAGE_CLOSED`: The stage is closed, so no task can be added to it.
 - `TASK_INVALID`: A stage's or a task's fields are not valid.
-- `PROTECTED_PATH`: The allowed files reach a protected path.
-- `PROTECTED_PATH_WILDCARD`: A wildcard among the allowed files matches a protected path.
+- `PROTECTED_PATH`: The allowed files, or the agent's copy, reach a protected path (.git or .brewstillery).
+- `PROTECTED_PATH_WILDCARD`: A wildcard among the allowed files matches a protected path or name.
 - `CHECK_DUPLICATE`: One check has two different definitions.
 - `RECORD_ABSENT`: There is no record here.
 - `POLICY_ABSENT`: No policy is adopted, so there is no effective configuration and no maintainer.
@@ -220,8 +220,8 @@ Refusals
 - `WORDS_COPIED`: The words given are the example that help prints, not your own.
 - `TASK_CHANGED`: The task, or its stream's head, changed after it was shown.
 - `CHECK_DUPLICATE`: One check has two different definitions.
-- `PROTECTED_PATH`: The allowed files reach a protected path.
-- `PROTECTED_PATH_WILDCARD`: A wildcard among the allowed files matches a protected path.
+- `PROTECTED_PATH`: The allowed files, or the agent's copy, reach a protected path (.git or .brewstillery).
+- `PROTECTED_PATH_WILDCARD`: A wildcard among the allowed files matches a protected path or name.
 - `WIDENING_UNNAMED`: A change widens authority without being named.
 - `LIMIT_UNOBSERVABLE`: A token limit is set for a tool that does not report the tokens it uses, so the limit could not be kept.
 - `DEPENDENCY_OPEN`: A task it depends on is not integrated yet.

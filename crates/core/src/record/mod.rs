@@ -7,7 +7,7 @@
 mod canon;
 mod event;
 pub mod fault;
-mod git;
+pub(crate) mod git;
 mod mark;
 mod replay;
 pub(crate) mod sign;

@@ -589,7 +589,7 @@ last sweep did not see every task's last event (the integrator) and, when none i
 wait lists the commands that exist for it, without words, and never `authorize`, which needs the digest `status <id>`
 shows. (4) `status` lists the same waits, for whom and since when, in the person's language, and offers as next steps
 only the commands of the person who reads: a maestro's to a maestro, the integrator's to whoever is no maintainer, none
-to a maintainer with nothing to decide; its document is `fabrewk.status/2`, with `waiting`. (5) `RULES.md` holds the twelve
+to a maintainer with nothing to decide; its document is `fabrewk.status/2`, with `waiting` (`fabrewk.status/3` from part 9b, with `local`). (5) `RULES.md` holds the twelve
 base rules of the binary's catalogue (D-074) then the project rules of the stream `rules`, in the order of their numbers.
 (6) `close <stage> --say` is the maestro's move on an authorized stage: `MOVE_NOT_ALLOWED`, `ROLE_FORBIDDEN`, the words,
 then the table's guards in order: a task neither integrated nor rejected (`STAGE_OPEN_TASKS`); a maintainer of the policy
@@ -878,6 +878,50 @@ texts are (P7D3B-2); the documents carry each text as it is, JSON escaping it.
   T-18, T-25 with P8C-8) and the backend's six (T-04, T-08, T-10, T-24, T-29, and the idle `pasta`). The adapters'
   (T-05, T-13, T-22) come with parts 9c and 9d. `run` keeps refusing `CONFINEMENT_UNAVAILABLE` at the command line
   until part 9e, which is also the first to keep a probe's pass in `local/cache/detected.json`.
+
+**The copy and the candidate, as part 9b fixed them (`confinement-design.md` 3.8; REQ-RUN-3, REQ-RUN-4, REQ-RUN-10,
+REQ-SEC-3, REQ-GATE-9, S-2, S-3, S-4, S-11).**
+
+- The library is `crates/core/src/candidate.rs`: `export`, `changes`, `commit`, `free_space`, `protected_paths` and
+  `protected_names`. `run` reaches none of them at the command line until part 9e, which records a failed export
+  (`TOOL_FAILED`, PD-21) and `candidate-recorded`; the integration's recomputation is part 9g's.
+- Every Git command Fabrewk runs names `/dev/null` as its hooks directory (no file can exist under it, so no hook is
+  found) and `core.fsmonitor=false` (S-11). Tests that had a hook make Git fail now lock a ref's directory or pause the
+  command (`record-moved`) while another Git takes the index's lock.
+- The export writes the tree from the objects' bytes (`git cat-file --batch`), files `0644` or `0755` as the tree
+  records them, links as links; a submodule's entry is an empty directory, unchanged while it stays empty. An entry of
+  a mode Git does not write, a path with an empty, `.` or `..` component, or a path below a non-directory is
+  `TOOL_FAILED`; so is a commit that is not 40 or 64 hexadecimal digits.
+- A protected component (`.git`, `.brewstillery`, at any depth, in the export and in the copy) is compared under ASCII
+  case folding, with HFS+'s ignorable code points removed, NTFS's trailing dots and spaces and alternate stream
+  dropped, in each part between backslashes, and NTFS's short names `git~1` and `brewst~1`.
+- The walk makes a directory or file the cell closed readable by its owner again, keeping the executable bit. The base's
+  ignore rules are only the base tree's `.gitignore` files, written apart under the attempt's directory and read by
+  `git check-ignore --no-index` in a repository of their own made with no template, `core.excludesFile` at
+  `/dev/null` and `core.ignoreCase` off: neither the copy's rules nor the person's `info/exclude` or global excludes.
+- The guards, in order: a protected component (`PROTECTED_PATH`, in the walk, before any Git command); an entry that
+  is not a file, a link or a directory outside the ignored paths, a changed path that is not valid text, or one no
+  allowed file matches, a deletion included (`LANE_VIOLATION`); a change that reaches a protected name or path and
+  matches no allowed file without a wildcard (`PROTECTED_PATH_WILDCARD`); a changed file or link whose name, or a
+  changed file whose content, looks like a credential (`CREDENTIAL_SUSPECTED`). Nothing is written into the object
+  store until they pass: `commit` writes the objects.
+- `gate.protectedNames` is compared with each component under ASCII case folding (a case-insensitive file system
+  reads `claude.md` as `CLAUDE.md`). Its default lists the seven names of D-076, declared in the core's key on the
+  adapters' behalf until parts 9c and 9d, as `main.rs` declares their markers (D-062).
+- `gate.protectedPaths` gains the hooks directory always, not only at its default, so that no layer drops it: as
+  written and where its links lead, each when inside the working tree (`/` alone when it is the root, which protects
+  every path). On paths, a change at a protected directory, under it, or at a path above it (a link or a file in the
+  directory's place) reaches it. `propose` and `authorize` read it too.
+- The candidate's message is `fabrewk: candidate for <task-id>`, a blank line, `Co-authored-by: <tool> (<provider>,
+  <model>) <noreply@fabrewk.invalid>` (an address no mail reaches) and, with `git.signOff`, `Signed-off-by:` with the
+  committer's name and address as Git gives them. A name with a character outside printable ASCII, or one of `<`, `>`,
+  `(`, `)` and `,`, empty or longer than 100 bytes, is `TOOL_FAILED`, since a stream may report it. The branch
+  `fabrewk/<task-id>` moves from the candidate the caller names, or from absent, by compare-and-swap; otherwise
+  `TOOL_FAILED`.
+- `DISK_LOW` reads `df -Pk -- <dir>` with an empty environment and `LC_ALL=C`: one line after the header, whose
+  capacity (digits and `%`) follows three counts, the third the space available. `limits.freeDiskMegabytes` is a key
+  of the project file only. `status` shows the bytes `local/evidence/` and `local/tmp/` hold (`fabrewk.status/3`, with
+  `local`: `evidence` and `tmp`, each a number or `null` when a directory cannot be listed).
 
 ### EXT: extensions
 

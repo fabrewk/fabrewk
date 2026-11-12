@@ -157,7 +157,7 @@ fn req_set_8_detection_is_fresh_at_every_start_and_the_effective_set_is_permitte
 
     let d = detect::detect(&domain, &e, &modules, Some(&path));
     assert!(is_utc_timestamp(&d.at), "{}", d.at);
-    assert_eq!(names(&d, Space::Program), ["fake-bwrap", "git", "ssh-keygen"]);
+    assert_eq!(names(&d, Space::Program), ["df", "fake-bwrap", "git", "ssh-keygen"]);
     assert_eq!(names(&d, Space::Tool), ["claude", "codex", "other"]);
     assert_eq!(names(&d, Space::Required), ["fake-cargo"]);
     let c = found(&d, "claude");

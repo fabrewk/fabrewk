@@ -6,7 +6,7 @@ _fabrewk() {
     else
         case $_fabrewk_command in
         status) _fabrewk_words='--json --help' ;;
-        config) _fabrewk_words='--json --help project.name languages.canonicalDocumentationLanguage languages.documentationLanguages languages.codeLanguage languages.evidenceLanguage languages.delegationLanguage languages.agentInteraction languages.interfaceLanguage maintainer.alias environment.shell limits.rounds limits.dispatches limits.minutes review.differentProvider gate.protectedPaths git.signOff' ;;
+        config) _fabrewk_words='--json --help project.name languages.canonicalDocumentationLanguage languages.documentationLanguages languages.codeLanguage languages.evidenceLanguage languages.delegationLanguage languages.agentInteraction languages.interfaceLanguage maintainer.alias environment.shell limits.rounds limits.dispatches limits.minutes limits.freeDiskMegabytes review.differentProvider gate.protectedPaths gate.protectedNames git.signOff' ;;
         check) _fabrewk_words='--json --help' ;;
         adopt) _fabrewk_words='--say --say-lang --widen --json --help' ;;
         propose) _fabrewk_words='--json --help' ;;

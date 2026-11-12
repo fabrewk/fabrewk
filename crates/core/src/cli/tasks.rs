@@ -273,10 +273,7 @@ fn authorize_plan(cx: &Cx, id: &str, options: &Options, record: &Replay) -> Resu
                 for (p, layers) in payloads.iter().zip(&sets) {
                     let named: Vec<String> = layers.iter().flat_map(|(_, l)| l.keys().cloned()).collect();
                     let eff = settings::effective(&policy, None, None, layers, &named)?;
-                    let protected = match eff.values.get("gate.protectedPaths") {
-                        Some((Val::List(l), _)) => l.clone(),
-                        _ => Vec::new(),
-                    };
+                    let protected = crate::candidate::protected_paths(&eff, &super::propose::product(cx))?;
                     task::wildcards(&allowed(p).iter().map(String::as_str).collect::<Vec<_>>(), &protected)?;
                 }
             }

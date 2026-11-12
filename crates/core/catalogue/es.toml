@@ -271,6 +271,9 @@ waiting = "Qué espera, y a quién:"
 waits-maestro = "Para un maestro: {line}"
 waits-integrator = "Para el integrador: {line}"
 waits-none = "Nada espera a nadie."
+local = "Las áreas de trabajo de Fabrewk contienen: local/evidence/ {evidence}, local/tmp/ {tmp}."
+size = "{bytes} bytes"
+size-unknown = "un tamaño desconocido (no se puede leer un directorio)"
 
 [mode]
 published = "publicado en el repositorio del producto"
@@ -423,12 +426,14 @@ declared = "{path}, {version}; declarado en machine.toml; verificado por uso por
 "limits.rounds" = "Rondas de revisión predeterminadas"
 "limits.dispatches" = "Despachos predeterminados"
 "limits.minutes" = "Minutos predeterminados"
+"limits.freeDiskMegabytes" = "Megabytes libres necesarios antes de cada copia"
 "checks.*.command" = "El comando de la comprobación, sin shell"
 "checks.*.network" = "Si la comprobación tiene red"
 "checks.*.minutes" = "El límite de tiempo de la comprobación"
 "checks.*.tools" = "Las herramientas que necesita la comprobación"
 "review.differentProvider" = "Revisión por otro proveedor"
 "gate.protectedPaths" = "Rutas que ninguna tarea puede tocar"
+"gate.protectedNames" = "Nombres que un cambio alcanza, a cualquier profundidad, solo si están listados literalmente"
 "git.signOff" = "Un sign-off en los commits de Fabrewk"
 "extensions.*.digest" = "El resumen de la extensión"
 "extensions.*.network" = "Si la extensión tiene red"
@@ -465,12 +470,16 @@ next = "Córrelo donde Fabrewk tenga un mecanismo de confinamiento; el detalle d
 
 [code.CREDENTIAL_SUSPECTED]
 reason = "Un archivo parece una credencial. La coincidencia es una heurística, un control cooperativo."
-next = "Quita la credencial del dominio, y reemplázala si alguna vez se confirmó o se compartió."
+next = "Quita la credencial de donde se encontró, y reemplázala si alguna vez se confirmó o se compartió."
 
 [code.DEPENDENCY_OPEN]
 reason = "Una tarea de la que depende aún no está integrada."
 next = "Primero lleva esa tarea a su fin:"
 run = "fabrewk status"
+
+[code.DISK_LOW]
+reason = "El sistema de archivos que contiene .brewstillery/local/ tiene menos espacio libre que limits.freeDiskMegabytes, o no se puede leer su espacio libre."
+next = "Libera espacio en ese disco, o baja limits.freeDiskMegabytes en los ajustes del proyecto."
 
 [code.DOMAIN_NOT_IGNORED]
 reason = "El repositorio del producto no ignora .brewstillery/, así que un commit ahí lo publicaría."
@@ -492,6 +501,10 @@ next = "Cambia a la rama que guarda el registro y corre el comando de nuevo."
 reason = "Ningún ajuste está declarado en esta ruta de clave."
 next = "Consulta cada ajuste y su ruta de clave:"
 run = "fabrewk config"
+
+[code.LANE_VIOLATION]
+reason = "La copia del agente cambia un archivo fuera de los archivos permitidos de la tarea, una ruta que no es texto válido, o deja una entrada que no es un archivo, un enlace ni un directorio."
+next = "Lee lo que cambió el agente; autoriza la tarea de nuevo con archivos permitidos más amplios, o recházala."
 
 [code.LIMIT_UNOBSERVABLE]
 reason = "Hay un límite de tokens para una herramienta que no informa los tokens que usa, así que el límite no se podría cumplir."
@@ -538,11 +551,11 @@ reason = "La carpeta privada da acceso a alguien más que su dueño, así que Fa
 next = "Deja la carpeta solo para su dueño (modo 0700)."
 
 [code.PROTECTED_PATH]
-reason = "Los archivos permitidos alcanzan una ruta protegida."
+reason = "Los archivos permitidos, o la copia del agente, alcanzan una ruta protegida (.git o .brewstillery)."
 next = "Reduce los archivos permitidos para que no alcancen ninguna ruta protegida."
 
 [code.PROTECTED_PATH_WILDCARD]
-reason = "Un comodín entre los archivos permitidos coincide con una ruta protegida."
+reason = "Un comodín entre los archivos permitidos coincide con una ruta o un nombre protegidos."
 next = "Lista el archivo protegido literalmente, o reduce el comodín."
 
 [code.RECORD_ABSENT]

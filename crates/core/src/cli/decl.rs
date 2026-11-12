@@ -68,7 +68,7 @@ pub const COMMANDS: &[Command] = &[
         flags: READ,
         moves: &[],
         refusals: &[],
-        schemas: &["fabrewk.status/2", "fabrewk.subject/2"],
+        schemas: &["fabrewk.status/3", "fabrewk.subject/2"],
     },
     Command {
         name: "config",
