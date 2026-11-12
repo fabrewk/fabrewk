@@ -144,8 +144,9 @@ pub(crate) fn signing_key(root: &Path) -> Option<String> {
 
 /// The directory the repository's own `core.hooksPath` names (S-4), Fabrewk's own value aside, as paths relative to
 /// the working tree's root with a final `/` (`/` alone for the root itself): as written, and where its links lead,
-/// each when it lies inside the working tree, with every link the path passes through inside it (whose change moves
-/// the directory); a component that is not text protects the directory above it. None when it is unset or lies
+/// each when it lies inside the working tree, with every path its reading passes through inside it, a link or a
+/// directory a `..` leaves (whose change to a link moves the directory, P9B-12), but those above the directory, which
+/// the guard covers already; a component that is not text protects the directory above it. None when it is unset or lies
 /// outside. Read at each guard; a configuration Git cannot read is `TOOL_FAILED`.
 pub(crate) fn hooks_dir(repo: &Repo) -> Result<Vec<String>, Error> {
     let args = os(&["config", "--show-origin", "-z", "--type=path", "--get-all", "core.hooksPath"]);
@@ -165,8 +166,12 @@ pub(crate) fn hooks_dir(repo: &Repo) -> Result<Vec<String>, Error> {
         let Ok(rel) = path.strip_prefix(root) else { return };
         let text: Vec<&str> = rel.components().map_while(|c| c.as_os_str().to_str()).collect();
         let whole = text.len() == rel.components().count();
-        // A link met lies below the root as resolved, never at it, so a file's path is never empty.
-        let rel = if dir || !whole { format!("{}/", text.join("/")) } else { text.join("/") };
+        let rel = match text.join("/") {
+            r if dir || !whole => format!("{r}/"),
+            // A path that leaves the root and comes back to it passes through the root, which is no path of its own.
+            r if r.is_empty() => return,
+            r => r,
+        };
         if !dirs.contains(&rel) {
             dirs.push(rel);
         }
@@ -177,20 +182,21 @@ pub(crate) fn hooks_dir(repo: &Repo) -> Result<Vec<String>, Error> {
     add(&crate::code::normal(&root.join(value)), &root, true);
     // Git runs a hook from the working tree's root, so the root's own links spend nothing of the path's.
     let root = repo.root.canonicalize().map_err(unreadable)?;
-    let (path, links) = physical(&root, value);
-    if let Some(path) = path {
-        add(&path, &root, true);
+    let (path, passed) = physical(&root, value);
+    if let Some(path) = &path {
+        add(path, &root, true);
     }
-    for link in links {
-        add(&link, &root, false);
+    for p in passed.iter().filter(|p| !path.as_ref().is_some_and(|d| d.starts_with(p))) {
+        add(p, &root, false);
     }
     Ok(dirs)
 }
 
 /// `rel` read from `from`, absolute, as the kernel reads a path (P9B-2): each link met is replaced by where it leads
 /// before what follows it, a `..` after a link included, and the part that does not exist yet is kept as written.
-/// Gives it, `None` past 40 links, and the links it passed through, the 41st included: the kernel meets the same ones
-/// first, so a path past the limit can be made to resolve only by changing one of them (P9B-9).
+/// Gives it, `None` past 40 links, and every path it passed through, links and directories alike, up to the 41st
+/// link: the kernel meets the same ones first, so a path past the limit can be made to resolve only by changing one
+/// of them (P9B-9).
 fn physical(from: &Path, rel: &Path) -> (Option<PathBuf>, Vec<PathBuf>) {
     use std::path::Component;
     let parts = |p: &Path| -> Vec<std::ffi::OsString> {
@@ -204,17 +210,18 @@ fn physical(from: &Path, rel: &Path) -> (Option<PathBuf>, Vec<PathBuf>) {
             .collect()
     };
     let mut out = if rel.is_absolute() { PathBuf::from("/") } else { from.to_path_buf() };
-    let (mut todo, mut links) = (parts(rel), Vec::new());
+    let (mut todo, mut passed, mut links) = (parts(rel), Vec::new(), 0);
     while let Some(c) = todo.pop() {
         if c == ".." {
             out.pop();
             continue;
         }
         out.push(&c);
+        passed.push(out.clone());
         if let Ok(target) = std::fs::read_link(&out) {
-            links.push(out.clone());
-            if links.len() > 40 {
-                return (None, links);
+            links += 1;
+            if links > 40 {
+                return (None, passed);
             }
             out.pop();
             if target.is_absolute() {
@@ -223,7 +230,7 @@ fn physical(from: &Path, rel: &Path) -> (Option<PathBuf>, Vec<PathBuf>) {
             todo.extend(parts(&target));
         }
     }
-    (Some(out), links)
+    (Some(out), passed)
 }
 
 /// The repository's exclude file, `info/exclude` in its Git directory, as an absolute path.

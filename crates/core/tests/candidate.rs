@@ -471,6 +471,23 @@ fn s_4_a_tracked_hooks_directory_under_a_wildcard_is_refused() {
         fs::create_dir(longer.work().join("tools/hooks")).unwrap();
         longer.put("tools/hooks/pre-commit", b"#!/bin/sh\n");
         refused(longer.changes_with(&["m*", "tools/**"], &protected), Code::ProtectedPathWildcard);
+        // A directory a `..` leaves, which a change could make a link, is protected too, existing or not (P9B-12).
+        let files: &[(&[u8], &[u8])] = &[(b"a/readme", b"r\n"), (b"hooks/pre-commit", b"#!/bin/sh\n")];
+        let left = Base::new("hooks-left", files, &[]);
+        git(&left.root, &["config", "core.hooksPath", "a/../hooks"]);
+        let protected = candidate::protected_paths(&eff, &left.repo()).unwrap();
+        assert_eq!(protected, ["Cargo.toml", "hooks/", "a"]);
+        left.export();
+        fs::remove_dir_all(left.work().join("a")).unwrap();
+        symlink("tools/sub", left.work().join("a")).unwrap();
+        left.put("tools/sub/readme", b"r\n");
+        left.put("tools/hooks/pre-commit", b"#!/bin/sh\n");
+        refused(left.changes_with(&["a*", "a/**", "tools/**"], &protected), Code::ProtectedPathWildcard);
+        git(&left.root, &["config", "core.hooksPath", "b/../hooks"]);
+        assert_eq!(candidate::protected_paths(&eff, &left.repo()).unwrap(), ["Cargo.toml", "hooks/", "b"]);
+        // A path that passes through the root on its way outside protects nothing: the root is no path of its own.
+        git(&left.root, &["config", "core.hooksPath", "../repo/../elsewhere/hooks"]);
+        assert_eq!(candidate::protected_paths(&eff, &left.repo()).unwrap(), ["Cargo.toml"]);
         // A root given relative to the working directory is read as the same root (P9B-11).
         std::env::set_current_dir(&linked.root).unwrap();
         let relative = Repo { root: PathBuf::from("."), prefix: PathBuf::new() };

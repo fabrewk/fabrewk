@@ -915,9 +915,10 @@ REQ-SEC-3, REQ-GATE-9, S-2, S-3, S-4, S-11).**
   written and where its links lead, read from the working tree's root as the kernel reads the path when Git runs a
   hook there (a link replaced before a `..` that follows it; a part that does not exist yet kept as written; the
   root's own links spending none of the 40, a root given relative read as the same root), each when inside the
-  working tree, with each link the path passes through (changing one moves the directory; past the limit, the 41
-  met, since the kernel meets the same ones first), and a component that is not text protecting the directory above
-  it (`/` alone when it is the root, which protects
+  working tree, with each path its reading passes through, a link or a directory a `..` leaves (changing one to a
+  link moves the directory; past the limit, those met up to the 41st link, since the kernel meets the same ones
+  first), but those above the directory, which the guard covers already, and a component that is not text
+  protecting the directory above it (`/` alone when it is the root, which protects
   every path). On paths, a change at a protected directory, under it, or at a path above it (a link or a file in the
   directory's place) reaches it. `propose` and `authorize` read it too.
 - The candidate's message is `fabrewk: candidate for <task-id>`, a blank line, `Co-authored-by: <tool> (<provider>,
