@@ -149,7 +149,8 @@ pub(crate) fn signing_key(root: &Path) -> Option<String> {
 pub(crate) fn hooks_dir(repo: &Repo) -> Result<Vec<String>, Error> {
     let args = os(&["config", "--show-origin", "-z", "--type=path", "--get-all", "core.hooksPath"]);
     let out = run(command(repo, &args), b"")?;
-    if out.status.code() != Some(0) && out.status.code() != Some(1) {
+    // Fabrewk's own value is always on the command line, so the key is never unset and any failure is Git's.
+    if !out.status.success() {
         return Err(refuse(Code::ToolFailed, Some(&repo.root), "git config could not read core.hooksPath"));
     }
     let fields: Vec<&[u8]> = out.stdout.split(|&b| b == 0).collect();

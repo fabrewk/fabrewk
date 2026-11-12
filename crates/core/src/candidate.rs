@@ -261,8 +261,9 @@ fn walk(work: &Path) -> Result<(Paths<Found>, BTreeSet<Vec<u8>>), Error> {
             } else if kind.is_file() {
                 let mode = meta.permissions().mode();
                 // Made readable by its owner, as a closed directory is; its executable bit is kept.
-                if mode & 0o400 == 0 {
-                    fs::set_permissions(entry.path(), fs::Permissions::from_mode(mode | 0o400))
+                let readable = mode | 0o400;
+                if readable != mode {
+                    fs::set_permissions(entry.path(), fs::Permissions::from_mode(readable))
                         .map_err(io(&entry.path()))?;
                 }
                 found.insert(path, Found::File { executable: mode & 0o100 != 0 });
@@ -317,15 +318,12 @@ fn ignored(
     }
 }
 
-/// `bytes` quoted as C quotes it, which `git hash-object --stdin-paths` reads back exactly, whatever a name holds.
+/// `bytes` quoted as C quotes it, every byte as its octal escape, which `git hash-object --stdin-paths` reads back
+/// exactly, whatever a name holds.
 fn quoted(bytes: &[u8]) -> Vec<u8> {
     let mut out = vec![b'"'];
     for &b in bytes {
-        match b {
-            b'"' | b'\\' => out.extend([b'\\', b]),
-            0x20..=0x7e => out.push(b),
-            _ => out.extend(format!("\\{b:03o}").bytes()),
-        }
+        out.extend(format!("\\{b:03o}").bytes());
     }
     out.extend(b"\"\n");
     out

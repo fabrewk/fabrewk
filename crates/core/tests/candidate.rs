@@ -552,7 +552,8 @@ fn pd_45_the_candidate_names_its_agent_and_the_sign_off_the_project_asks() {
         assert_eq!(fs::read_to_string(b.root.join("README.md")).unwrap(), "unstaged\n");
         assert_eq!(git(&b.root, &["rev-parse", "HEAD"]), b.base, "the record branch is untouched");
         // A name no trailer can carry, as a hostile stream might report it, is refused.
-        for model in ["a\nSigned-off-by: someone", "x <y>", "", "é"] {
+        let long = "m".repeat(101);
+        for model in ["a\nSigned-off-by: someone", "x <y>", "", "é", &long] {
             let agent = Agent { model, ..AGENT };
             let r = candidate::commit(
                 &b.repo(),
@@ -569,6 +570,33 @@ fn pd_45_the_candidate_names_its_agent_and_the_sign_off_the_project_asks() {
         }
         let r = candidate::commit(&b.repo(), &b.base, &changes, b.work(), &b.scratch.root, "x", &AGENT, false, None);
         refused(r, Code::ToolFailed);
+        let longest = Agent { model: &long[..100], ..AGENT };
+        let r = candidate::commit(
+            &b.repo(),
+            &b.base,
+            &changes,
+            b.work(),
+            &b.scratch.root,
+            "t-00000003",
+            &longest,
+            false,
+            None,
+        );
+        assert!(git(&b.root, &["log", "-1", "--format=%B", &r.unwrap().commit]).contains(&long[..100]));
+        // A copy changed after its change set was read is refused, never committed as the set says.
+        b.put("src/a.rs", b"a3\n");
+        let r = candidate::commit(
+            &b.repo(),
+            &b.base,
+            &changes,
+            b.work(),
+            &b.scratch.root,
+            "t-00000004",
+            &AGENT,
+            false,
+            None,
+        );
+        assert!(refused(r, Code::ToolFailed).contains("changed after"));
     });
 }
 
@@ -621,6 +649,10 @@ fn refusal_disk_low() {
         let spaced = fake("spaced", &format!("{header}; echo 'my disk 9 3 4096 1% /mnt/a b 7%'"));
         assert_eq!(candidate::free_space(&dir, 4, Some(&spaced)).unwrap(), 4);
         refused(candidate::free_space(&dir, 5, Some(&spaced)), Code::DiskLow);
+        // A name that holds three counts and a word with `%` is no capacity; the capacity is the first that follows
+        // three counts.
+        let counted = fake("counted", &format!("{header}; echo 'my 1 2 3 x% 9 3 4096 1% /'"));
+        assert_eq!(candidate::free_space(&dir, 4, Some(&counted)).unwrap(), 4);
     });
 }
 
@@ -649,5 +681,110 @@ fn an_entry_of_a_base_is_read_as_its_mode_says() {
         assert_eq!(candidate::protected_names(&effective(&[])), Vec::<String>::new());
         let entry = Entry { mode: Mode::Executable, oid: String::new() };
         assert_eq!(entry.mode.git(), "100755");
+    });
+}
+
+/// Runs Git at `dir` with `input` on its standard input; gives its output, trimmed.
+fn git_input(dir: &Path, args: &[&str], input: &[u8]) -> String {
+    use std::io::Write;
+    let mut child = std::process::Command::new("git")
+        .current_dir(dir)
+        .args(args)
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    child.stdin.take().unwrap().write_all(input).unwrap();
+    let out = child.wait_with_output().unwrap();
+    assert!(out.status.success(), "git {args:?}");
+    String::from_utf8(out.stdout).unwrap().trim().to_owned()
+}
+
+#[test]
+fn a_base_is_named_by_its_id_and_its_tree_is_never_written_through_a_link() {
+    isolated("a_base_is_named_by_its_id_and_its_tree_is_never_written_through_a_link", || {
+        let b = Base::new("crafted", &[], &[]);
+        let (wide, long) = ("g".repeat(40), "a".repeat(41));
+        for id in ["HEAD", "main", &b.base[..8], &b.base[..39], &wide, &long, "--output=x", &b.base.to_uppercase()] {
+            let why = refused(candidate::export(&b.repo(), id, b.work()), Code::ToolFailed);
+            assert!(why.contains("names no commit"), "{id}: {why}");
+        }
+        assert_eq!(listing(b.work()), Vec::<Vec<u8>>::new());
+        // A tree that holds `a` twice, as a link and as a directory, as only a hostile history can: the copy never
+        // writes through the link, which leads outside it.
+        let outside = tmp("crafted-outside");
+        fs::create_dir_all(&outside).unwrap();
+        let raw = |hex: &str| -> Vec<u8> {
+            (0..hex.len()).step_by(2).map(|i| u8::from_str_radix(&hex[i..i + 2], 16).unwrap()).collect()
+        };
+        let file = git_input(&b.root, &["hash-object", "-w", "--stdin"], b"x\n");
+        let target = git_input(&b.root, &["hash-object", "-w", "--stdin"], outside.as_os_str().as_bytes());
+        let sub = git_input(&b.root, &["mktree"], format!("100644 blob {file}\tb\n").as_bytes());
+        let mut tree = b"120000 a\0".to_vec();
+        tree.extend(raw(&target));
+        tree.extend(b"40000 a\0");
+        tree.extend(raw(&sub));
+        let tree = git_input(&b.root, &["hash-object", "-t", "tree", "--literally", "-w", "--stdin"], &tree);
+        let commit = git_input(&b.root, &["commit-tree", &tree, "-m", "crafted"], b"");
+        let why = refused(candidate::export(&b.repo(), &commit, b.work()), Code::ToolFailed);
+        assert!(why.contains("not a directory"), "{why}");
+        assert_eq!(listing(&outside), Vec::<Vec<u8>>::new(), "nothing was written through the link");
+    });
+}
+
+#[test]
+fn a_submodule_the_cell_filled_leaves_and_what_it_holds_enters() {
+    isolated("a_submodule_the_cell_filled_leaves_and_what_it_holds_enters", || {
+        let b = Base::new("submodule", &[], &[]);
+        let sub = git(&b.root, &["rev-parse", "HEAD"]);
+        git(&b.root, &["update-index", "--add", "--cacheinfo", &format!("160000,{sub},vendor/sub")]);
+        git(&b.root, &["-c", "core.hooksPath=/dev/null", "commit", "-q", "-m", "sub"]);
+        let b = Base { base: git(&b.root, &["rev-parse", "HEAD"]), ..b };
+        b.export();
+        b.put("vendor/sub/x", b"x\n");
+        let changes = b.changes(&["**"]).unwrap();
+        assert_eq!(paths(&changes), ["vendor/sub", "vendor/sub/x"]);
+        assert_eq!(changes[0].after, None, "the submodule leaves");
+        let c = b.commit(&changes, false, None);
+        assert_eq!(
+            git(&b.root, &["ls-tree", "-r", &c.commit, "vendor"]),
+            format!("100644 blob {}\tvendor/sub/x", { git_input(&b.root, &["hash-object", "--stdin"], b"x\n") })
+        );
+    });
+}
+
+#[test]
+fn s_2_a_linked_gitignore_holds_no_rule_and_a_path_no_rule_matches_enters() {
+    isolated("s_2_a_linked_gitignore_holds_no_rule_and_a_path_no_rule_matches_enters", || {
+        // Git never reads a `.gitignore` that is a link; neither does the copy, which then reads no rule at all.
+        let b = Base::new("linked-rules", &[], &[(".gitignore", "pipe")]);
+        b.export();
+        run(Path::new("/"), "mkfifo", &[b.work().join("pipe").to_str().unwrap()]);
+        let why = refused(b.changes(&["**"]), Code::LaneViolation);
+        assert!(why.contains("\"pipe\""), "{why}");
+        assert!(!b.scratch.root.join("rules").exists(), "no rule, so no rules repository");
+        // A new path that no rule of the base matches enters the change set.
+        let b = Base::new("unmatched-rules", &[(b".gitignore", b"*.log\n")], &[]);
+        b.export();
+        b.put("src/new.rs", b"new\n");
+        assert_eq!(paths(&b.changes(&["**"]).unwrap()), ["src/new.rs"]);
+    });
+}
+
+#[test]
+fn s_4_a_protected_directory_replaced_by_a_file_is_guarded_and_a_path_beside_it_is_not() {
+    isolated("s_4_a_protected_directory_replaced_by_a_file_is_guarded_and_a_path_beside_it_is_not", || {
+        let b = Base::new("replaced", &[(b".github/ci.yml", b"ci\n")], &[]);
+        b.export();
+        fs::remove_dir_all(b.work().join(".github")).unwrap();
+        b.put(".github", b"not a directory\n");
+        let why = refused(b.changes_with(&["**"], &[".github/".into()]), Code::ProtectedPathWildcard);
+        assert!(why.contains("\".github\""), "{why}");
+        assert_eq!(paths(&b.changes_with(&["**"], &["tools/".into()]).unwrap()), [".github", ".github/ci.yml"]);
+        // A protected path written as a file guards that path alone.
+        let file = ["Cargo.toml".to_owned()];
+        assert_eq!(paths(&b.changes_with(&["**"], &file).unwrap()), [".github", ".github/ci.yml"]);
+        b.put("Cargo.toml", b"[package]\n");
+        refused(b.changes_with(&["**"], &file), Code::ProtectedPathWildcard);
     });
 }
