@@ -4004,3 +4004,20 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   task's authorization (no longer a cap); no stage budget until a later part.
 - Consequences: `core-specification.md` ("as part 9e fixed it"); `plan.md`; R-043.
 - Sources: chat of session 34; `core-specification.md` REQ-RUN-2, REQ-TASK-3, REQ-TASK-5; D-053 point 4.
+
+## D-083 — Part 9e: Git's own output kept as evidence by part 9g, for every command
+
+- Status: decided
+- Decided: 2026-11-12
+- Origin: maintainer XEL in session 34's chat, after Codex's third pass (P9E-11): "Llevarlo a la parte 9g
+  (Recomendado)".
+- Decision: since phase 7 every Git command the core runs has its standard error discarded and its exit status
+  unrecorded (`record/git.rs`), so a failure of Git reaches the person and the record as `TOOL_FAILED` with the core's
+  words alone. Part 9g, which handles Git's failures at integration (PD-11), changes that for every command: Git's
+  standard error and exit status kept in `local/evidence/`, named by the failure, as REQ-RUN-6 and REQ-REG-13 ask.
+  Part 9e corrects only its own part of P9E-11: a failure of Git while a candidate is made names an evidence file of
+  its own with the core's words, never the builder's output.
+- Reason: the change touches every write path, not the run's; the alternatives offered were doing it in part 9e, or
+  declaring Git's text never kept as an interpretation of REQ-RUN-6 and PD-36.
+- Consequences: `plan.md` (row 9g gains it); `core-specification.md` ("as part 9e fixed it"); R-043.
+- Sources: chat of session 34; Codex's third pass of part 9e (P9E-11).

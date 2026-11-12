@@ -323,6 +323,7 @@ Rechazos
 - `DEPENDENCY_OPEN`: Una tarea de la que depende aún no está integrada.
 - `BASE_MOVED`: El producto en la punta de la rama del registro no es el que dejaron la base de la tarea o la última integración de sus dependencias.
 - `LOCK_HELD`: Otro comando de Fabrewk tiene el candado del registro de este repositorio, u otra tarea está en ejecución: un escritor y una ejecución a la vez.
+- `WIDENING_UNNAMED`: Un cambio amplía la autoridad sin nombrarse.
 - `ALAMBIQUE_UNAPPROVED`: El alambique no es el texto que un maestro aprobó por última vez: cambió a mano, o nunca se aprobó.
 - `RECORD_ABSENT`: Aquí no hay registro.
 - `POLICY_ABSENT`: No hay una política adoptada, así que no hay configuración efectiva ni mantenedores.

@@ -141,11 +141,11 @@ fn a_fake_builder_reaches_a_recorded_candidate() {
         json!({"task": id, "head": at, "authorization": {"stream": stream(&id), "seq": before, "digest": digest(before)}, "base": base})
     );
     assert_eq!(new[0]["say"]["text"], SAY);
-    // The attempt: its role, profile, tool, the model and effort requested, and the time it is allowed: the profile's
+    // The attempt: its role, profile, tool and the version it reported (PD-29), the model and effort requested, and the time it is allowed: the profile's
     // minute (REQ-RUN-1).
     assert_eq!(
         new[1]["payload"],
-        json!({"role": "build", "profile": "build", "tool": "claude", "model": "claude-sonnet-5-5", "effort": "low", "allowedSeconds": 60})
+        json!({"role": "build", "profile": "build", "tool": "claude", "version": "2.1.316 (Claude Code)", "model": "claude-sonnet-5-5", "effort": "low", "allowedSeconds": 60})
     );
     // Its end: the model observed, Fabrewk's seconds and the tool's tokens (S-5), and the digests of what it printed,
     // kept in the evidence store, readable by its owner only (REQ-REG-13, PD-28).
@@ -565,6 +565,43 @@ fn the_change_set_halts_a_candidate_it_refuses() {
         assert!(fx.git(&["branch", "--list", &format!("fabrewk/{id}")]).is_empty(), "{code}");
     }
     assert!(dirs(&fx, "tmp", "attempt-").is_empty());
+}
+
+/// A failure of Git while the candidate is made, after the builder succeeded (P9E-11): the halt names evidence of its
+/// own, holding the core's words, never the builder's output.
+#[test]
+fn a_candidate_git_cannot_make_halts_naming_its_own_evidence() {
+    let fx = Fx::builder("git-fails", "published", &format!("{WRITES}{SUCCESS}"));
+    let id = authorized(&fx, json!({}));
+    let lock = fx.root.join(format!(".git/refs/heads/fabrewk/{id}.lock"));
+    fs::create_dir_all(lock.parent().unwrap()).unwrap();
+    fs::write(&lock, "").unwrap();
+    let new = halts(&fx, &id, "TOOL_FAILED");
+    assert_eq!(new[2]["payload"]["outcome"], "success");
+    let reason = new[3]["payload"]["reason"].as_str().unwrap();
+    let evidence = dirs(&fx, "evidence", &format!("attempt-{id}"))[0].join("candidate");
+    let shown = evidence.strip_prefix(&fx.root).unwrap().display().to_string();
+    assert!(reason.contains(&shown) && !reason.contains("its output is kept"), "{reason}");
+    assert_eq!(fs::metadata(&evidence).unwrap().permissions().mode() & 0o777, 0o600);
+    fs::remove_file(lock).unwrap();
+}
+
+/// A task's layer that a policy adopted after its authorization makes a widening is not granted by that authorization
+/// (P9E-12): the run refuses it, with nothing written, until an authorization names it.
+#[test]
+fn refusal_widening_unnamed_at_run_after_a_stricter_policy() {
+    let fx = Fx::builder("widening", "published", &format!("{WRITES}{SUCCESS}"));
+    let paths = json!(["Cargo.toml", "Cargo.lock", ".github/"]);
+    let id = authorized(&fx, json!({"settings": {"gate.protectedPaths": paths}}));
+    let text = fs::read_to_string(fx.domain.join("settings.toml")).unwrap();
+    fx.edit_policy(&format!(
+        "{text}\n[gate]\nprotectedPaths = [\"Cargo.toml\", \"Cargo.lock\", \".github/\", \"src/secret.txt\"]\n"
+    ));
+    let digest = fx.run(&["status", "--json"]).doc()["policy"]["digest"].clone();
+    let ran = fx.run(&["adopt", "--say", "La ajusto."]);
+    assert_eq!(ran.status, 0, "{ran:?} {digest}");
+    let e = refused(&fx, &["run", &id, "--say", SAY], "WIDENING_UNNAMED", 1, "es");
+    assert!(e["detail"].as_str().unwrap().contains("gate.protectedPaths"), "{e}");
 }
 
 #[test]

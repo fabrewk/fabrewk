@@ -323,6 +323,7 @@ Refusals
 - `DEPENDENCY_OPEN`: A task it depends on is not integrated yet.
 - `BASE_MOVED`: The product at the record branch's head is not the one the task's base, or the last of its dependencies' integrations, left.
 - `LOCK_HELD`: Another Fabrewk command holds the lock of this repository's record, or another task is running: one writer and one run at a time.
+- `WIDENING_UNNAMED`: A change widens authority without being named.
 - `ALAMBIQUE_UNAPPROVED`: The alambique is not the text a maestro last approved: it changed by hand, or it was never approved.
 - `RECORD_ABSENT`: There is no record here.
 - `POLICY_ABSENT`: No policy is adopted, so there is no effective configuration and no maintainer.

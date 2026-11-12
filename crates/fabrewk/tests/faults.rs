@@ -754,7 +754,7 @@ fn p9e_8_a_recovery_stopped_at_any_write_is_made_again_whole() {
         let at = json!({"seq": events.len(), "digest": sha256_hex(&fs::read(file).unwrap())});
         let run = json!({"task": id, "head": at, "authorization": {"stream": stream, "seq": at["seq"], "digest": at["digest"]}, "base": events[0]["payload"]["base"]});
         appended(&fx, &stream, "run-started", run, true);
-        let attempt = json!({"role": "build", "profile": "build", "tool": "claude", "model": "m", "effort": "low", "allowedSeconds": 60});
+        let attempt = json!({"role": "build", "profile": "build", "tool": "claude", "version": null, "model": "m", "effort": "low", "allowedSeconds": 60});
         appended(&fx, &stream, "attempt-started", attempt, false);
         let seq = fx.events(&stream).len();
         let copy = fx.domain.join(format!("local/tmp/attempt-{id}-{seq}"));

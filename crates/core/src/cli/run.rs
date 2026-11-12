@@ -169,6 +169,8 @@ struct Dispatch {
     backend: Option<&'static Backend>,
     detection: Detection,
     tool: String,
+    /// The tool's version as it reported it (PD-29), `None` when it reported none.
+    version: Option<String>,
     exe: PathBuf,
     release: PathBuf,
     profile: String,
@@ -249,7 +251,19 @@ fn prepare(cx: &Cx, record: &Replay, policy: &Policy, stream: &str, fresh: bool)
         (Source::Stage(stage_id.to_owned()), super::propose::layer(&stage[0].value["payload"])),
         (Source::Task(stream["task-".len()..].to_owned()), super::propose::layer(p)),
     ];
-    let named: Vec<String> = layers.iter().flat_map(|(_, l)| l.keys().cloned()).collect();
+    // The widenings the authorization in force named, read against the policy in force now (P9E-12); an
+    // authorization this command writes checked its own.
+    let named: Vec<String> = match in_force(record, stream) {
+        _ if fresh => layers.iter().flat_map(|(_, l)| l.keys().cloned()).collect(),
+        found => {
+            let at = found.map(|(by, _)| {
+                record.streams[by["stream"].as_str().unwrap_or_default()][by["seq"].as_u64().unwrap_or(1) as usize - 1]
+                    .value["payload"]["widened"]
+                    .clone()
+            });
+            at.and_then(|w| serde_json::from_value(w).ok()).unwrap_or_default()
+        }
+    };
     let machine = crate::machine::machine_file(&cx.folder()?)?;
     let eff = settings::effective(policy, None, machine.as_ref(), &layers, &named)?;
     let detection = detect::detect(&cx.domain, &eff, &cx.modules, std::env::var_os("PATH").as_deref());
@@ -263,6 +277,7 @@ fn prepare(cx: &Cx, record: &Replay, policy: &Policy, stream: &str, fresh: bool)
     let adapter = adapter.ok_or_else(|| missing(format!("{tool}: no built-in adapter is named {name}")))?;
     let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_default();
     let found = detection.get(Space::Tool, &tool).map(|f| f.path.clone()).unwrap_or_default();
+    let version = detection.get(Space::Tool, &tool).and_then(|f| f.version.clone());
     let (exe, release) = adapter::resolve(adapter, &found, &[&home, &cx.root])?;
     // S-6: a required tool is present only when the cell shows it, under its system directories.
     if let Some(backend) = cx.backend {
@@ -306,6 +321,7 @@ fn prepare(cx: &Cx, record: &Replay, policy: &Policy, stream: &str, fresh: bool)
         backend: cx.backend,
         detection,
         tool,
+        version,
         exe,
         release,
         profile: profile.to_owned(),
@@ -386,27 +402,36 @@ fn go(mut d: Dispatch, a: &mut Appender, mut prepared: Vec<(String, Prepared)>) 
     };
     a.write(stream.clone(), started)?;
     let started = json!({
-        "role": "build", "profile": d.profile, "tool": d.tool, "model": d.model, "effort": d.effort,
-        "allowedSeconds": d.allowed,
+        "role": "build", "profile": d.profile, "tool": d.tool, "version": d.version, "model": d.model,
+        "effort": d.effort, "allowedSeconds": d.allowed,
     });
     let seq = a.fabrewk(&stream, "attempt-started", started)?.seq;
     out["attempt"] = json!(seq);
     let name = attempt_name(&stream, seq);
     let scratch = Scratch::create(&d.domain, &name)?;
     let evidence = confine::evidence(&d.domain, &name)?;
-    let (e, remove) = attempt(&d, a, &mut out, (&programs, backend), seq, &scratch, &evidence)?;
+    let (e, remove, named) = attempt(&d, a, &mut out, (&programs, backend), seq, &scratch, &evidence)?;
     // A cell the backend could not show ended keeps its directories, unread (principle 4).
     if remove {
         scratch.remove()?;
     }
-    // A failure names its evidence (REQ-REG-13); the halt that follows a candidate is no failure (D-082).
-    let failed = out["candidate"].is_null();
-    halt(a, &mut out, &d, &e, failed.then_some(evidence.as_path()))?;
+    // A failure of the builder names its evidence (REQ-REG-13); one of what follows it names its own, or none.
+    halt(a, &mut out, &d, &e, named.then_some(evidence.as_path()))?;
     Ok(out)
 }
 
+/// Keeps `words`, the core's own, in the evidence file `name`, `0600` (REQ-REG-13); gives its path.
+fn keep(evidence: &Path, name: &str, words: &str) -> Result<PathBuf, Error> {
+    let file = evidence.join(name);
+    let mut options = std::fs::File::options();
+    let made = options.write(true).create_new(true).mode(0o600).open(&file);
+    made.and_then(|mut f| f.write_all(words.as_bytes())).map_err(crate::code::io_at(&file))?;
+    Ok(file)
+}
+
 /// The attempt: the copy, the dispatch, its end and, on success, the change set and the candidate. Gives the halt that
-/// follows, and whether the attempt's directories may be removed.
+/// follows, whether the attempt's directories may be removed, and whether the halt is the builder's, whose output it
+/// names.
 fn attempt(
     d: &Dispatch,
     a: &mut Appender,
@@ -415,7 +440,7 @@ fn attempt(
     seq: u64,
     scratch: &Scratch,
     evidence: &Path,
-) -> Result<(Error, bool), Error> {
+) -> Result<(Error, bool, bool), Error> {
     let stream = &d.stream;
     let end = |a: &mut Appender, outcome: &str, model: Option<&str>, usage: Value, kept: Value| {
         let payload = json!({"attempt": seq, "outcome": outcome, "model": model, "usage": usage, "evidence": kept});
@@ -423,12 +448,10 @@ fn attempt(
     };
     // PD-21: a failed export ends the attempt before any process starts; its words are kept as evidence.
     if let Err(e) = candidate::export(&d.product, &d.base, &scratch.work) {
-        let file = evidence.join("export");
-        let mut kept = std::fs::File::options();
-        let kept = kept.write(true).create_new(true).mode(0o600).open(&file);
-        kept.and_then(|mut f| f.write_all(words(&e).as_bytes())).map_err(crate::code::io_at(&file))?;
+        let file = keep(evidence, "export", &words(&e))?;
         end(a, "failure", None, adapter::usage(None, None), Value::Null)?;
-        return Ok((refuse(Code::ToolFailed, Some(evidence), "the base could not be exported for the attempt"), true));
+        let why = format!("the base could not be exported for the attempt; why is kept in {}", file.display());
+        return Ok((refuse(Code::ToolFailed, Some(&file), why), true, false));
     }
     let tool = Tool { adapter: d.adapter, executable: &d.exe, release: &d.release };
     let schema = adapter::schema(Role::Build).to_string();
@@ -441,11 +464,11 @@ fn attempt(
         Err(u) if !u.ended => {
             end(a, "unknown", None, adapter::usage(None, None), Value::Null)?;
             let why = format!("its cell could not be shown ended, so it is left unread: {}", words(&u.error));
-            return Ok((refuse(Code::OutcomeUnknown, Some(evidence), why), false));
+            return Ok((refuse(Code::OutcomeUnknown, Some(evidence), why), false, true));
         }
         Err(u) => {
             end(a, "failure", None, adapter::usage(None, None), Value::Null)?;
-            return Ok((u.error, true));
+            return Ok((u.error, true, true));
         }
         Ok(ran) => ran,
     };
@@ -467,14 +490,24 @@ fn attempt(
     let outcome = if failed.is_some() { "failure" } else { "success" };
     end(a, outcome, report.model.as_deref(), adapter::usage(Some(ran.seconds), report.tokens), kept)?;
     if let Some(e) = failed {
-        return Ok((e, true));
+        return Ok((e, true, true));
     }
     let (allowed, names, paths) = &d.lanes;
     let allowed: Vec<&str> = allowed.iter().map(String::as_str).collect();
     let lanes = Lanes { allowed: &allowed, names, paths };
+    // What fails after the builder is not its output: Git's failure keeps the core's words as its own evidence, its
+    // own text being kept nowhere (P9E-11).
+    let after = |e: Error| -> Result<(Error, bool, bool), Error> {
+        if e.code() != Some(Code::ToolFailed) {
+            return Ok((e, true, false));
+        }
+        let file = keep(evidence, "candidate", &words(&e))?;
+        let why = format!("{}; the candidate could not be made, and why is kept in {}", words(&e), file.display());
+        Ok((refuse(Code::ToolFailed, Some(&file), why), true, false))
+    };
     let changes = match candidate::changes(&d.product, &d.base, &scratch.work, &scratch.root, &lanes) {
         Ok(c) => c,
-        Err(e) if e.code().is_some() => return Ok((e, true)),
+        Err(e) if e.code().is_some() => return after(e),
         Err(e) => return Err(e),
     };
     let task = &stream["task-".len()..];
@@ -494,7 +527,7 @@ fn attempt(
     );
     let c = match made {
         Ok(c) => c,
-        Err(e) if e.code().is_some() => return Ok((e, true)),
+        Err(e) if e.code().is_some() => return after(e),
         Err(e) => return Err(e),
     };
     let entry = |e: &Option<candidate::Entry>| e.as_ref().map(|e| json!({"mode": e.mode.git(), "oid": e.oid}));
@@ -506,7 +539,7 @@ fn attempt(
         "its candidate is on fabrewk/{task}; this version does not run the checks and the review yet, which part 9f \
          builds"
     );
-    Ok((refuse(Code::ConfinementUnavailable, None, why), true))
+    Ok((refuse(Code::ConfinementUnavailable, None, why), true, false))
 }
 
 /// What `run` reports: the task, its attempt and candidate, and the halt it waits on (exit 4, REQ-CLI-3).

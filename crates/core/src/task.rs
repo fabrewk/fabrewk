@@ -97,6 +97,7 @@ const ATTEMPT_STARTED: T = T::Obj(&[
     ("role", T::One(&["build", "review"])),
     ("profile", T::Text),
     ("tool", T::Text),
+    ("version", T::Nullable(&T::Text)),
     ("model", T::Text),
     ("effort", T::Text),
     ("allowedSeconds", T::Count),

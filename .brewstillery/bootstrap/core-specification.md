@@ -1126,6 +1126,9 @@ to REQ-RUN-7, REQ-RUN-10, REQ-TASK-3, REQ-TASK-5, REQ-CLI-3; S-5, S-6; D-079, D-
   refusing: `task-halted` from `authorized`, with no `run-started`, exit 4, since only an authorization moves a halted
   task and grants it more. The others refuse with nothing written. `authorize --run` evaluates the run's refusing
   guards before writing either move (D-062 point 1) and writes the authorization before a halt.
+- The layers' widenings (P9E-12): a run reads the stage's and the task's layers against the policy in force with the
+  widenings the authorization in force named; a layer a later, stricter policy makes a widening is refused
+  (`WIDENING_UNNAMED`, nothing written) until an authorization names it.
 - REQ-RUN-2's tools (S-6): the tool resolves to its release (`TOOL_MISSING`, part 9c), and each of the profile's
   required tools resolves under the system directories the backend shows (`Backend::system`; for bubblewrap `/usr`,
   `/bin`, `/sbin`, `/lib`, `/lib64`), else `TOOL_MISSING` saying it lives outside what a cell shows.
@@ -1146,8 +1149,9 @@ to REQ-RUN-7, REQ-RUN-10, REQ-TASK-3, REQ-TASK-5, REQ-CLI-3; S-5, S-6; D-079, D-
   (D-079, D-081); no token appears in the words.
 - The events, under the lock and in one record commit: `run-started` (the person's, exactly `task`, `head`,
   `authorization`, the `stream`, `seq` and `digest` of the `task-authorized` or `stage-authorized` it relies on, and
-  `base`, 40 or 64 hexadecimal digits), `attempt-started` (exactly `role`, `profile`, `tool`, `model`, the provider's
-  name of the model requested, `effort` and `allowedSeconds`), `attempt-ended` (exactly `attempt`, the place of its
+  `base`, 40 or 64 hexadecimal digits), `attempt-started` (exactly `role`, `profile`, `tool`, `version`, the tool's
+  version as it reported it or `null` (PD-29, P9E-10), `model`, the provider's name of the model requested, `effort`
+  and `allowedSeconds`), `attempt-ended` (exactly `attempt`, the place of its
   start, `outcome`, `model`, observed or `null`, `usage` as S-5 fixed it, and `evidence`, `null` or exactly the
   `stdout` and `stderr` digests), `candidate-recorded` (exactly `commit`, `tree` and `changes`, each exactly `path`,
   `before` and `after`, `null` or a `mode` and an `oid`) and `task-halted` (exactly `code`, one of REQ-TASK-5's or
@@ -1166,7 +1170,10 @@ to REQ-RUN-7, REQ-RUN-10, REQ-TASK-3, REQ-TASK-5, REQ-CLI-3; S-5, S-6; D-079, D-
   `failure` (a run ended at its time, its output past 32 MiB, a stream with no result, a result that does not fit:
   `TOOL_FAILED` naming the evidence), `unknown` when the backend cannot show its cell ended (`OUTCOME_UNKNOWN`, its
   directories kept unread). On success the change set's refusals halt with their codes (`LANE_VIOLATION`,
-  `PROTECTED_PATH`, `PROTECTED_PATH_WILDCARD`, `CREDENTIAL_SUSPECTED`); else the candidate is committed on
+  `PROTECTED_PATH`, `PROTECTED_PATH_WILDCARD`, `CREDENTIAL_SUSPECTED`), naming no evidence, and a failure of Git while
+  the change set or the candidate is made halts `TOOL_FAILED` naming an evidence file of its own, `candidate`, `0600`,
+  holding the core's words, never the builder's output (P9E-11; Git's own output and exit status are kept nowhere in
+  the core until part 9g keeps them for every command, D-083); else the candidate is committed on
   `fabrewk/<task>` from where the branch is, its co-author the catalogue's tool name, the adapter's provider and the
   model observed (the one requested when the stream names none), and recorded. The attempt's directories are removed;
   its evidence is kept.

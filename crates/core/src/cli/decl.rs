@@ -181,6 +181,7 @@ pub const COMMANDS: &[Command] = &[
             DependencyOpen,
             BaseMoved,
             LockHeld,
+            WideningUnnamed,
             AlambiqueUnapproved,
         ],
         schemas: &["fabrewk.run/1"],

@@ -370,7 +370,7 @@ pub fn started(f: &Fixture, stream: &str) -> Value {
 
 /// An attempt's start (part 9e).
 pub fn attempt() -> Value {
-    json!({"role": "build", "profile": "build", "tool": "claude", "model": "m", "effort": "low", "allowedSeconds": 60})
+    json!({"role": "build", "profile": "build", "tool": "claude", "version": null, "model": "m", "effort": "low", "allowedSeconds": 60})
 }
 
 /// The end of the last attempt `stream` started on disk, with `usage` (part 9e, S-5).

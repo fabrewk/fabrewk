@@ -592,7 +592,7 @@ fn pd_09_a_task_left_running_is_halted_by_the_next_write_command_then_moved() {
     ok(&authorize(&fx, &stage_id, &[]));
     let stream = format!("task-{}", ids[0]);
     start_by_hand(&fx, &ids[0]);
-    let attempt = json!({"role": "build", "profile": "build", "tool": "claude", "model": "m", "effort": "low", "allowedSeconds": 60});
+    let attempt = json!({"role": "build", "profile": "build", "tool": "claude", "version": null, "model": "m", "effort": "low", "allowedSeconds": 60});
     by_hand(&fx, &stream, "attempt-started", attempt, false);
     assert_eq!(state(&fx, &ids[0]), "running");
     let open = fx.events(&stream).len();
@@ -626,7 +626,7 @@ fn a_task_left_running_after_its_attempts_end_is_halted_and_its_copy_removed() {
     ok(&authorize(&fx, &id, &[]));
     let stream = format!("task-{id}");
     start_by_hand(&fx, &id);
-    let attempt = json!({"role": "build", "profile": "build", "tool": "claude", "model": "m", "effort": "low", "allowedSeconds": 60});
+    let attempt = json!({"role": "build", "profile": "build", "tool": "claude", "version": null, "model": "m", "effort": "low", "allowedSeconds": 60});
     by_hand(&fx, &stream, "attempt-started", attempt, false);
     let seq = fx.events(&stream).len();
     let end = json!({"attempt": seq, "outcome": "success", "model": null, "usage": {"seconds": 1, "tokens": null}, "evidence": null});
