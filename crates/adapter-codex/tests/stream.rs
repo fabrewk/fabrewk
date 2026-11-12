@@ -478,3 +478,36 @@ fn p9d_1_a_member_named_twice_is_void_at_every_event_and_in_the_result() {
     let r = read(&result);
     assert_eq!((r.result, r.examined), (None, 0));
 }
+
+/// An item keeps its kind from its start to its completion, through its updates, even between two kinds whose fields
+/// are the same (P9D-2).
+#[test]
+fn p9d_2_an_item_that_changes_its_kind_is_void() {
+    let thinking =
+        |phase: &str, id: &str, kind: &str| json!({"type": phase, "item": {"id": id, "type": kind, "text": "t"}});
+    // The result's message started as reasoning.
+    let mut v = lines();
+    v.insert(RESULT, thinking("item.started", "item_3", "reasoning"));
+    void(&join(&v), "a start as reasoning, a completion as a message");
+    let (from, to) = inner();
+    for (first, then) in [("reasoning", "agent_message"), ("agent_message", "reasoning")] {
+        void_at_every(
+            &lines(),
+            &[
+                thinking("item.started", "k", first),
+                thinking("item.updated", "k", then),
+                thinking("item.completed", "k", first),
+            ],
+            from,
+            to,
+            "an update of another kind",
+        );
+        void_at_every(
+            &lines(),
+            &[thinking("item.started", "k", first), thinking("item.completed", "k", then)],
+            from,
+            to,
+            "a completion of another kind",
+        );
+    }
+}
