@@ -3641,3 +3641,100 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Measured: the core 7,965 of 11,000 counted lines (+335, projected 250); the backend 276 of 400 (projected 300).
 - Not done: `run` past confinement at the command line, and keeping a probe's pass from a command (part 9e); the
   roles' cells (parts 9b to 9h build them on this contract).
+
+## R-040 — Session 31, part 9b: the attempt's copy, the change set and the candidate
+
+- Status: recorded
+- Date: 2026-11-12
+- Who: integrator Claude Code, `claude-opus-5-5`, effort high (D-078). Reviewer: Codex `codex-cli 0.166.0`,
+  `gpt-6.1-sol`, effort high, launched as the `codex-review` skill says (a disposable clone under `target/review-9b/`
+  with a copy of the Cargo registry, `workspace-write`, no network, a user scope capped at 3 GB). No subagent.
+- Start: HEAD `9780ad8`, tree clean.
+- Read: `STATUS.md`, `AGENTS.md`, `plan.md`, `confinement-design.md` (3.8, section 4: S-2, S-3, S-4, S-11),
+  `core-specification.md` (REQ-RUN-3, REQ-RUN-4, REQ-RUN-10, REQ-SEC-3, REQ-GATE-9, REQ-REG-10, REQ-GATE-8, the
+  amendments of phase 9's opening, sections 8, 11.3, 11.4 and 12), this file (D-075 to D-078, R-039), the skills
+  `verify-part`, `codex-review` and `differential-review`, and the code of `record/git.rs`, `record/store.rs`,
+  `task.rs`, `scan.rs`, `detect.rs`, `settings/keys.rs`, `cli/propose.rs`, `cli/tasks.rs`, `cli/status.rs` and the
+  binary's tests that used a Git hook. No file of the private folder or of a tool's credentials was read; no model was
+  called by the integrator.
+- Decided by the maestro in this session: after Codex's provider cut a fourth pass short (below), that pass is a
+  narrow re-check, the corrections' scope only, as the `codex-review` skill describes a re-check; the fifth pass was
+  the same.
+- Written: `crates/core/src/candidate.rs` (the export, the walk, the change set and its guards, the candidate commit,
+  `free_space`, the protected paths and names); `crates/core/tests/candidate.rs` (20 tests); in `record/git.rs`, S-11
+  (`core.hooksPath=/dev/null` and `core.fsmonitor=false` on every Git command Fabrewk runs) and `hooks_dir`; the codes
+  `DISK_LOW` and `LANE_VIOLATION`; the keys `limits.freeDiskMegabytes` and `gate.protectedNames`; `df` among the core's
+  programs; `propose` and `authorize` reading the hooks directory; `status` showing what `local/evidence/` and
+  `local/tmp/` hold (`fabrewk.status/3`); the catalogues; the generated reference; three of the binary's tests that
+  made Git fail through a hook (P7D3A-18 by a ref directory made read-only, P7D3A-21 by a test that no write command
+  runs a hook, P8B-4 and its own-repository variant by a pause at the new fault point `record-moved`); the paragraph
+  "The copy and the candidate, as part 9b fixed them" in `core-specification.md` and `fabrewk.status/3` in its
+  section 8c paragraph; `plan.md`; `STATUS.md`; this entry.
+- Interpretations the maestro may want to read (none contradicts a requirement; each is in the new paragraph):
+  1. A path Git refuses to hold in a tree (a `.gitmodules` that is a link, or a name Windows or macOS reads as one
+     under `core.protectNTFS` or `core.protectHFS`) is left out by `update-index` with exit status 0 (Git 2.56), so the
+     change set is written over the base into an index apart and read back, and such a path is `PROTECTED_PATH`
+     (P9B-1). `commit` checks its own index the same way before it writes any object (`TOOL_FAILED`).
+  2. The hooks directory is read from the repository's configuration at each guard and resolved from the working
+     tree's root as the kernel resolves it when Git runs a hook: a link before a `..` that follows it, a part not made
+     yet kept as written, a relative root made absolute, the root's own links free of the limit of 40. Protected are
+     the directory as written and as resolved, and every path the reading passes through that is not above it (a link,
+     or a directory a `..` leaves, since either changed to a link moves the directory); past the limit, those met up
+     to the 41st link; a component that is not text protects the directory above it (P9B-2, P9B-4, P9B-7 to P9B-9,
+     P9B-11, P9B-12). Where the hooks directory leads outside the working tree, nothing inside is protected for it.
+  3. `DISK_LOW` reads `df -Pk`, since the core has no `statvfs` without a new runtime crate (AD-4). A count is anything
+     `df` may print in its columns and a capacity digits with `%` or `-`, so the real columns are always a reading; a
+     line read in more than one place, or whose space available is not a count, refuses (P9B-3, P9B-5, P9B-10). A
+     file system whose name or mount point looks like `df`'s columns is therefore refused as unreadable: the safe side.
+- Codex, five complete passes and three launches cut short, confirmed blocking findings by pass: 3, 5, 3, 1, 0.
+  1. Pass 1 (`05be515`): P9B-1 (above), P9B-2 (the hooks directory through a link not protected when absent, or read
+     lexically across `..`), P9B-3 (a `df` name holding counts and a capacity read as the free space).
+  2. Pass 2 (`f60190b`): cut twice by Codex's provider ("flagged for possible cybersecurity risk"), with no report;
+     the second launch only added a line of context to the prompt. Its stream named five defects, which the integrator
+     confirmed and corrected (`b6c4a47`): P9B-4 (a root reached through a link spending the limit), P9B-5 (a negative
+     space available), P9B-6 (`commit` writing objects before its index check), P9B-7 (a hooks component that is not
+     text), P9B-8 (a link before `..` unprotected). Both cut launches had read the `differential-review` skill's
+     adversarial guide; from pass 3 on the prompt asks Codex not to read `.brewstillery/skills/` and to report each
+     finding as an input, an expected result and an actual one.
+  3. Pass 3 (`a270cab`): P9B-1 to P9B-8 confirmed closed; P9B-9 (the links met before the limit dropped), P9B-10 (a
+     capacity of `-` or a count past `i64`), P9B-11 (a relative root).
+  4. Pass 4 (`1be3e9e`): its first launch cut by the provider, with no report; the maestro chose a narrow re-check.
+     P9B-9 to P9B-11 confirmed closed; P9B-12 (a directory a `..` leaves, made a link).
+  5. Pass 5 (`ca8bc8a`), narrow: P9B-12 confirmed closed in its three forms; **accept**.
+  Each new test failed without its correction, checked by hand for every one (for a case behind an earlier assertion
+  of the same test, with that assertion removed). Codex's sandbox cannot bind sockets, so it ran the suites without the
+  backend and the two tests that need one; the backend's tests ran on this machine.
+- Mutation, with `--features fabrewk-core/fault-injection`, `--test-workspace true`, `ulimit -v 1600000`, `--timeout
+  180`, each run in its own named user scope:
+  1. The part (`9635088`, `--in-diff`): 221 mutants in 2 hours: 163 caught, 40 unviable, 18 missed. Killed by tests:
+     the `df` parser, malformed commit identifiers, a crafted tree holding `a` as a link and as a directory (the export
+     refuses to write through the link), a submodule the cell filled, a `.gitignore` that is a link, a new path no rule
+     matches, a protected directory replaced by a file, the trailer's 100 bytes, a copy changed after its change set.
+     Removed by simplifying: `quoted` escapes every byte; `hooks_dir`'s exit status 1, which Fabrewk's own value on
+     the command line makes impossible; the readable bit compared before it is set. **Declared equivalent: one**, the
+     check that `cat-file --batch` answers with the identifier it was asked (`contents`): Git echoes each full
+     identifier it is given, so only a broken Git could tell the mutant from the original. The focused run over those
+     corrections, 29 mutants: 27 caught, the equivalent, and `path == q` in `guarded`, which the first run had counted
+     caught only because an unrelated test failed by chance (below); a case was added and `guarded`'s five mutants were
+     caught (`05be515`).
+  2. Over P9B-1 to P9B-3 (`1c7da86`): 33 mutants, 26 caught, 3 unviable, 4 missed in the limit of 40 links; a chain of
+     exactly 40 and a loop were tested (`f60190b`); the run over `physical`, 9: 7 caught, 2 timeouts (the count made to
+     shrink or stay: loops caught by the timeout).
+  3. Over P9B-4 to P9B-8 (`b6c4a47`): 27, 24 caught, 2 unviable, 1 missed: an arm no path reached, removed (`a270cab`);
+     the run over `hooks_dir`, 11: 10 caught, 1 unviable. P9B-12's correction made that arm reachable again, with a case.
+  4. Over P9B-9 to P9B-11 (`1be3e9e`): 22, all caught. Over P9B-12 (`ca8bc8a`): 20, all caught.
+- A test that fails by chance, older than this part: the test of REQ-REG-6 on a payload of the wrong shape in
+  `crates/core/tests/fermento.rs` (`req_reg_6_a_payload_of_the_wrong_shape_...`) can get `LOCK_HELD`: the record's
+  lock is an `flock` on a descriptor opened with `O_CLOEXEC`, and a process another test thread starts holds it from
+  its fork until its `exec`. A command of Fabrewk runs in one thread and does not suffer it; the tests and the mutation
+  runs do: it made one mutant look caught, and Codex met it in passes 1 and 5. Not corrected here; its destination is
+  the maestro's (a retry in the tests, or a lock the record takes and releases in one process); it is in `STATUS.md`.
+- Clean clone of `ca8bc8a`: 452 tests, `crash` 3 and `faults` 20 green, the musl build, `budget check` (the core
+  8,601 of 11,000, the backend 276 of 400, 4 direct runtime crates, 31 in the release build, the binary 2,429,288
+  bytes), clippy with and without `fault-injection`, fmt and `cargo deny` clean; `--version --json` lists no feature.
+  An earlier clean clone of `05be515` was green too (451 tests).
+- Measured: the core 8,601 of 11,000 counted lines (+636, projected 400); the backend 276 of 400, unchanged.
+- Not done: `run` past confinement at the command line; recording a failed export as `attempt-ended` with
+  `TOOL_FAILED` (PD-21's record half); `candidate-recorded`'s payload; the checks' and the reviewer's copies deleted
+  unread (parts 9e and 9f); the integration's recomputation of the change set and writing the working tree from the
+  objects (part 9g); the adapters' own declaration of their instruction names (parts 9c, 9d).
