@@ -182,3 +182,12 @@ fn p9d_1_a_streams_json_is_read_as_serde_json_reads_it_but_a_member_named_twice_
         assert_eq!(adapter::json(text), None, "{text}");
     }
 }
+
+#[test]
+fn a_backslash_and_a_newline_join_two_lines_only_outside_single_quotes() {
+    assert_eq!(adapter::segments("echo 'a\\\nb'"), ["echo 'a\\\nb'"]);
+    assert_eq!(adapter::segments("echo \"a\\\nb\""), ["echo \"ab\""]);
+    assert_eq!(adapter::segments("echo a\\\nb"), ["echo ab"]);
+    // Nor does a backslash escape anything there: the quote closes, and the separator after it splits.
+    assert_eq!(adapter::segments("echo 'a\\' ; ls"), ["echo 'a\\'", "ls"]);
+}

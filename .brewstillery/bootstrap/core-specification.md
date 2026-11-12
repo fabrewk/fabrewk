@@ -1083,8 +1083,9 @@ REQ-SEC-1 for the adapter, REQ-SEC-6, REQ-SEC-7, REQ-GATE-4's audit; 6.38's rule
 - Codex's stream has one grammar (`crates/adapter-codex/src/stream.rs`): lines ended by a newline alone, a final
   newline not a blank line, each line one compact JSON object; `thread.started` with a text `thread_id` first,
   `turn.started` second; then `item.started`, `item.updated` and `item.completed`, each holding exactly `type` and
-  `item`, and `error` notices holding exactly a text `message`; one `turn.completed` with an object `usage`, or one
-  `turn.failed` with an `error` holding exactly a text `message`, last, after every item started was completed. An item
+  `item`, and `error` notices holding exactly a text `message`; one `turn.completed` with an object `usage`, last, after
+  every item started was completed. A `turn.failed` is outside the grammar: a failed turn gives no result, usage or
+  examination, as a void stream does, so it is read as one (the mutation run showed the two readings the same). An item
   holds exactly the fields of its kind, of their types: `agent_message` and `reasoning` a text `text`;
   `command_execution` a text `command` and `aggregated_output`, an `exit_code` null while `in_progress`, a whole
   number when `completed`, either when `failed` or `declined`, and that `status`; `file_change` its `changes` (`path`,
@@ -1093,8 +1094,8 @@ REQ-SEC-1 for the adapter, REQ-SEC-6, REQ-SEC-7, REQ-GATE-4's audit; 6.38's rule
   command; may complete without a start. Any other event, item kind (an MCP call, another agent's, a web search),
   field, type or order voids the whole stream: no result, model, tokens or examination. The `error` notices are what
   the tool recovered from (a real run without network wrote "Reconnecting... n/5"); a fatal one ends in `turn.failed`.
-  The result is the last `agent_message`'s text read as a JSON object, when the turn completed; a turn that failed, or
-  a last message that is not an object, gives none and examines nothing. Examination counts each command that
+  The result is the last `agent_message`'s text read as a JSON object; a last message that is not an object gives
+  none and examines nothing. Examination counts each command that
   completed with status 0 and a non-blank output, by the simple commands of its script: Codex shows a command as its
   words quoted for a shell, so a shell's `-c` or `-lc` with one script counts the script's, any other command its own
   line's, and one whose quoting does not close none; messages, reasoning, plans and edits never count. The stream does

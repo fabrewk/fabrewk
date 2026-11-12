@@ -511,3 +511,58 @@ fn p9d_2_an_item_that_changes_its_kind_is_void() {
         );
     }
 }
+
+/// What the mutation of part 9d showed untested: the grammar's first two events, each kind's exact fields and types,
+/// an item's status at its start and at a completion with no start.
+#[test]
+fn the_first_events_and_every_kind_hold_exactly_their_fields_and_types() {
+    let all = lines();
+    // The thread's start, then the turn's, and only there.
+    for v in [
+        all[1..].to_vec(),
+        [&all[..1], &all[2..]].concat(),
+        [vec![all[1].clone(), all[0].clone()], all[2..].to_vec()].concat(),
+    ] {
+        void(&join(&v), "the first two events");
+    }
+    for first in [
+        json!({"type": "thread.started", "thread_id": "t", "x": 1}),
+        json!({"type": "thread.started", "thread_id": ""}),
+    ] {
+        let mut v = all.clone();
+        v[0] = first.clone();
+        void(&join(&v), &first.to_string());
+    }
+    let (from, to) = inner();
+    let bad = [
+        json!({"type": "error", "message": 5}),
+        json!({"type": "error", "message": "m", "x": 1}),
+        json!({"type": "item.completed", "item": {"id": "f", "type": "file_change", "changes": [], "status": "done"}}),
+        json!({"type": "item.completed", "item": {"id": "f", "type": "file_change", "changes": [{"path": "a", "kind": "update", "x": 1}], "status": "completed"}}),
+        json!({"type": "item.completed", "item": {"id": "f", "type": "file_change", "changes": [{"path": 5, "kind": "update"}], "status": "completed"}}),
+        json!({"type": "item.completed", "item": {"id": "f", "type": "file_change", "changes": [{"path": "a", "kind": "rename"}], "status": "completed"}}),
+        json!({"type": "item.completed", "item": {"id": "t", "type": "todo_list", "items": [{"text": "a", "completed": true, "x": 1}]}}),
+        json!({"type": "item.completed", "item": {"id": "t", "type": "todo_list", "items": [{"text": 5, "completed": true}]}}),
+        json!({"type": "item.completed", "item": {"id": "t", "type": "todo_list", "items": [{"text": "a", "completed": "yes"}]}}),
+        // A completion with no start, still running.
+        command(json!("x"), "item.completed", json!("cat a"), "", Value::Null, "in_progress"),
+    ];
+    for b in bad {
+        void_at_every(&all, std::slice::from_ref(&b), from, to, &b.to_string());
+    }
+    // A start that is already finished, then its completion.
+    let line = "/bin/sh -lc 'cat a'";
+    let started = command(json!("x"), "item.started", json!(line), "ok\n", json!(0), "completed");
+    let done = command(json!("x"), "item.completed", json!(line), "ok\n", json!(0), "completed");
+    void_at_every(&all, &[started, done], from, to, "a start already completed");
+}
+
+#[test]
+fn only_a_shells_c_or_lc_with_one_script_counts_its_script() {
+    // Three words that are not a shell's script count as the line: quoted separators do not split it.
+    for line in ["cat -n 'a;b'", "python3 -c 'a; b'", "/bin/sh -x 'a; b'", "/usr/bin/env -c 'a | b'"] {
+        assert_eq!(count(line), 1, "{line}");
+    }
+    assert_eq!(count("/usr/bin/zsh -c 'a; b'"), 2);
+    assert_eq!(count("dash -lc 'a && b && c'"), 3);
+}

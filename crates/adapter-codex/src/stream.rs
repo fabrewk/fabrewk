@@ -1,11 +1,11 @@
 //! Codex's stream (`exec --json`, as 0.166.0 writes it) and the audit of what a reviewer ran (REQ-GATE-4, PD-25,
 //! PD-26). One grammar, listed here and nowhere else, read only once the cell has ended: one compact JSON object per
 //! line, lines ended by a newline alone; `thread.started`, then `turn.started`; then items started, updated and
-//! completed, and notices of errors the tool recovered from; one `turn.completed` or `turn.failed`, last. Every event
-//! and item holds exactly its fields, of their types. Anything else is an anomaly, and any anomaly voids the whole
-//! stream: no result, no usage, no examination (T-12). The result is the last message of the agent, read as a JSON
-//! object, when the turn completed. Examination counts the simple commands of each command that completed with status
-//! 0 and printed something, and only when the turn completed; a command that failed, was declined or printed nothing
+//! completed, and notices of errors the tool recovered from; one `turn.completed`, last. Every event and item holds
+//! exactly its fields, of their types. Anything else is an anomaly, and any anomaly voids the whole stream: no result,
+//! no usage, no examination (T-12); a turn that failed (`turn.failed`) gives nothing more, so it is read as one. The
+//! result is the last message of the agent, read as a JSON object. Examination counts the simple commands of each
+//! command that completed with status 0 and printed something; a command that failed, was declined or printed nothing
 //! examined nothing. It detects a lazy or failed review, not a hostile one: the model's commands could print what this
 //! reads (T-13). The stream does not say which model answered.
 
@@ -26,15 +26,15 @@ struct Read {
     items: BTreeMap<String, Item>,
     message: Option<String>,
     examined: u64,
-    /// The turn's end: its usage when it completed, `None` inside when it failed.
-    end: Option<Option<Map<String, Value>>>,
+    /// The turn's usage, once it completed.
+    end: Option<Map<String, Value>>,
 }
 
 pub fn read(out: &[u8]) -> Report {
     let Some(r) = std::str::from_utf8(out).ok().and_then(grammar) else {
         return Report::default();
     };
-    let Some(Some(usage)) = r.end else {
+    let Some(usage) = r.end else {
         return Report::default();
     };
     let tokens = Some(tokens(&usage));
@@ -93,13 +93,7 @@ fn grammar(text: &str) -> Option<Read> {
                     event.get("usage").and_then(Value::as_object).filter(|_| exactly(&event, &["type", "usage"]))?;
                 // Every item started was completed before the end (PD-26.7).
                 r.items.values().all(|i| i.done).then_some(())?;
-                r.end = Some(Some(usage.clone()));
-            }
-            (_, "turn.failed") => {
-                let error =
-                    event.get("error").and_then(Value::as_object).filter(|_| exactly(&event, &["type", "error"]))?;
-                (exactly(error, &["message"]) && string(error, "message").is_some()).then_some(())?;
-                r.end = Some(None);
+                r.end = Some(usage.clone());
             }
             _ => return None,
         }
