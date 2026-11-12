@@ -4021,3 +4021,17 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   declaring Git's text never kept as an interpretation of REQ-RUN-6 and PD-36.
 - Consequences: `plan.md` (row 9g gains it); `core-specification.md` ("as part 9e fixed it"); R-043.
 - Sources: chat of session 34; Codex's third pass of part 9e (P9E-11).
+
+## D-084 — Part 9e: a narrow fifth pass of Codex
+
+- Status: decided
+- Decided: 2026-11-12
+- Origin: maintainer XEL in session 34's chat, after Codex's fourth pass, confirmed blocking findings 4, 2, 2, 2 (two
+  retries without progress): "Quinta pasada estrecha (Recomendado)".
+- Decision: the fifth pass confirms P9E-13 and P9E-14 closed in every form and looks for findings only in the scope
+  of their corrections (the recovery under the lock; Git's failures while the candidate is made), as D-079 point 3
+  did for part 9c. An accept closes the review.
+- Reason: every pass closed all earlier findings and found new, narrower windows of the same two classes. The
+  alternatives offered: a whole fifth pass; closing with P9E-13 and P9E-14 corrected and declared, unconfirmed.
+- Consequences: R-043.
+- Sources: chat of session 34; Codex's passes 1 to 4 of part 9e.
