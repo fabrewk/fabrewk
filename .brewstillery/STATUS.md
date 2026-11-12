@@ -368,7 +368,8 @@ repository, is imported into the single registry at production and then stays re
   part 9e). Mutation: 155 mutants, the 3 missed killed, none equivalent. Clean clone of `c64b9c1`: 498 tests, `crash`
   3 and `faults` 20 green, musl build, `budget check`, clippy, fmt, `cargo deny` clean. Measured: the core +275
   (projected 150), the adapter 295 (projected 500). Seven interpretations the maestro may want to read are in R-041.
-  The chance failure with `LOCK_HELD` of R-040 still waits for the maestro's destination.
+  The chance failure with `LOCK_HELD` of R-040 is closed: a session releases its lock on the description a forked
+  child shares (D-080).
 - **Next: part 9d (plan, "Phase 9").** The Codex module, on 9c's contract: launch per role, its machine rule (never
   in a directory that holds other repositories), its preflight and its stream audit, its markers moved from the
   binary into its module, its protected names (`AGENTS.md`, `.codex`, `.agents`) held within `gate.protectedNames`'

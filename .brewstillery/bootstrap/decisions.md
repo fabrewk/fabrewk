@@ -3854,3 +3854,24 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   expiry refused, the packet's size bounded (part 9e); the reviewer's dispatch, `review-recorded`, `REVIEW_UNEXAMINED`
   and PD-25 and PD-26 through the whole flow (part 9f); Codex's module (part 9d). The chance failure of R-040
   (`LOCK_HELD` in a test) did not occur in this part's runs; its destination is still the maestro's.
+
+## D-080 — R-040's chance `LOCK_HELD`: the session releases its lock on the shared description
+
+- Status: decided
+- Decided: 2026-11-12
+- Origin: maintainer XEL in session 32's chat, before closing it: "¿Es conveniente resolver el pendiente del fallo
+  ocasional con LOCK_HELD de R-040 ..? Si es así, hagamoslo, si no es así proyectalo al corte o parte que resulte
+  conveniente". The integrator judged it worth resolving now: part 9e multiplies the tests that start processes in
+  parallel, and the failure had once made a missed mutant look caught (R-040).
+- Decision: ending a record session (`record/store.rs`, `Session`'s `Drop`) releases the lock explicitly
+  (`File::unlock`), which frees the open file description, not only its descriptor. A process another thread forks
+  while a session holds the lock shares that description until it executes its program; closing the descriptor
+  alone left the lock held by it, and the next writer of the same test process got `LOCK_HELD`. Neither a retry in
+  the tests nor a lock taken in another process was needed. A command of Fabrewk runs in one thread and never
+  suffered it.
+- Shown by: `record::store::tests::ending_a_session_releases_the_lock_a_forked_copy_of_its_descriptor_still_shares`,
+  which holds a copy of the descriptor as a forked child would; it failed with `LOCK_HELD` before the correction.
+  The core's `fermento` tests ran fifteen times in a row without the failure; the whole suite (499 tests), `crash` and
+  `faults` green; mutation over the change, one mutant, caught.
+- Consequences: R-040's and R-041's open destination is closed; `STATUS.md`.
+- Sources: chat of session 32; R-040.

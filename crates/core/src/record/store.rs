@@ -43,6 +43,15 @@ pub struct Session {
     record: Option<Replay>,
 }
 
+/// Ending a session releases the lock on its open file description, not only this descriptor: a process another
+/// thread forked meanwhile shares that description until it executes its program, and closing the descriptor alone
+/// would leave the lock held by it (R-040).
+impl Drop for Session {
+    fn drop(&mut self) {
+        let _ = self._lock.unlock();
+    }
+}
+
 impl Session {
     /// Opens a write command (REQ-REG-5, REQ-REG-8, REQ-REG-11). First, reading only: with `repo` (the modes
     /// that commit), that the repository's root is its main working tree's (`NOT_A_REPOSITORY` otherwise: a linked
@@ -413,4 +422,32 @@ fn open_lock(domain: &Path, path: &Path) -> Result<File, Error> {
 
 fn sync_dir(dir: &Path) -> Result<(), Error> {
     File::open(dir).and_then(|d| d.sync_all()).map_err(io_at(dir))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct NoKeys;
+    impl Verify for NoKeys {
+        fn verify(&self, _: &Replay) -> Result<(), Vec<Error>> {
+            Ok(())
+        }
+    }
+
+    /// A process another thread forks while a session holds the lock shares the lock's open file description until
+    /// it executes its program; ending the session releases the lock all the same (R-040's chance `LOCK_HELD`).
+    #[test]
+    fn ending_a_session_releases_the_lock_a_forked_copy_of_its_descriptor_still_shares() {
+        let tmp = concat!(env!("CARGO_MANIFEST_DIR"), "/../../target/tmp");
+        let domain = Path::new(tmp).join(format!("lock-shared-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&domain);
+        fs::create_dir_all(&domain).unwrap();
+        let first = Session::begin(&domain, None, &NoKeys).unwrap();
+        let copy = first._lock.try_clone().unwrap();
+        drop(first);
+        let second = Session::begin(&domain, None, &NoKeys);
+        assert!(second.is_ok(), "{:?}", second.err());
+        drop(copy);
+    }
 }
