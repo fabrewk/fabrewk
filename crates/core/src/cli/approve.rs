@@ -93,7 +93,7 @@ fn proposal(cx: &Cx, id: &str, options: &Options, record: &Replay) -> Result<Pla
     let case = if edit.is_some() { "alambique" } else { "rules" };
     let events = vec![(target.to_owned(), draft)];
     let out = Approved { case, id: p.id.clone(), digest };
-    Ok(Plan { events, signer: Some(signer), sealed: false, view: None, alambique: edit, out })
+    Ok(Plan { events, signer: Some(signer), sealed: false, view: None, alambique: edit, then: None, out })
 }
 
 fn direct(cx: &Cx, options: &Options, record: &Replay) -> Result<Plan<Approved>, Failed> {
@@ -133,6 +133,7 @@ fn direct(cx: &Cx, options: &Options, record: &Replay) -> Result<Plan<Approved>,
         sealed: false,
         view: None,
         alambique: Some(edit),
+        then: None,
         out,
     })
 }

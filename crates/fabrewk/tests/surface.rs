@@ -311,6 +311,12 @@ fn rendered(lang: &str) -> Vec<(String, String)> {
         "evidence",
         "tmp",
         "bytes",
+        "branch",
+        "seconds",
+        "input",
+        "output",
+        "cached",
+        "why",
     ]
     .iter()
     .map(|p| (*p, "x"))
@@ -383,6 +389,7 @@ fn pd_34_every_key_has_words_in_every_catalogue() {
         "format",
         "type",
         "words",
+        "run",
     ];
     for file in std::fs::read_dir(dir).unwrap() {
         let text = std::fs::read_to_string(file.unwrap().path()).unwrap();

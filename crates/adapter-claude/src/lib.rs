@@ -28,6 +28,7 @@ pub const ADAPTER: Adapter = Adapter {
     residual: &["tool-credential", "audit-limit", "tool-flags"],
     machine: &[".git"],
     credential: ".claude/.credentials.json",
+    expiry,
     env: &ENV,
     release,
     command,
@@ -43,6 +44,12 @@ const ENV: [(&str, &str); 5] = [
     ("DISABLE_ERROR_REPORTING", "1"),
     ("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "1"),
 ];
+
+/// When the login expires: its OAuth token's `expiresAt`, in milliseconds since 1970 (D-079). Only that field is read.
+fn expiry(bytes: &[u8]) -> Option<u64> {
+    let credential = fabrewk_core::adapter::json(std::str::from_utf8(bytes).ok()?)?;
+    Some(credential.get("claudeAiOauth")?.get("expiresAt")?.as_u64()? / 1000)
+}
 
 /// The directory that holds the executable: Claude Code's installer keeps one executable per version in a directory
 /// named `versions`; an executable anywhere else has no release this adapter can tell, so none is bound.

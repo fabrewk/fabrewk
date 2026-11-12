@@ -956,7 +956,12 @@ fn run_by_hand(fx: &Fx, stream: &str) {
         "limits": first["limits"], "shown": "0".repeat(64), "widened": [],
     });
     let h = s.append(stream, Some(&head), &person("task-authorized", bound), Some(&signer)).unwrap();
-    s.append(stream, Some(&h), &person("run-started", json!({})), Some(&signer)).unwrap();
+    let at = json!({"seq": h.seq, "digest": h.digest});
+    let run = json!({
+        "task": &stream["task-".len()..], "head": at, "authorization": {"stream": stream, "seq": h.seq, "digest": h.digest},
+        "base": first["base"],
+    });
+    s.append(stream, Some(&h), &person("run-started", run), Some(&signer)).unwrap();
     s.finish(&fabrewk_core::identity::PolicyVerifier, &[]).unwrap();
     fx.commit("run");
 }
@@ -971,7 +976,13 @@ fn append_raw(fx: &Fx, stream: &str, kind: &str) {
         policy: fx.events("project")[0]["payload"]["digest"].as_str().unwrap().to_owned(),
         instance: "SHA256:fixture".into(),
         say: None,
-        payload: json!({}),
+        // An attempt's end of its shape (part 9e), naming an attempt that never started.
+        payload: match kind {
+            "attempt-ended" => {
+                json!({"attempt": 1, "outcome": "success", "model": null, "usage": {"seconds": 1, "tokens": null}, "evidence": null})
+            }
+            _ => json!({}),
+        },
     };
     s.append(stream, head.as_ref(), &draft, None).unwrap();
     drop(s);

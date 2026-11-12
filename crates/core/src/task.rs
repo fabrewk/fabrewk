@@ -18,6 +18,10 @@ pub(crate) enum T {
     Count,
     Bool,
     Hex(usize),
+    /// A commit's or a tree's identifier: 40 or 64 hexadecimal digits.
+    Commit,
+    /// A whole number, zero included.
+    Nat,
     Id(char),
     Base,
     Value,
@@ -83,6 +87,56 @@ const STAGE_AUTHORIZED: T = T::Obj(&[
     ("widened", T::List(&T::Text)),
 ]);
 const TASK_REJECTED: T = T::Obj(&[("task", T::Id('t')), ("head", HEAD)]);
+const RUN_STARTED: T = T::Obj(&[
+    ("task", T::Id('t')),
+    ("head", HEAD),
+    ("authorization", T::Obj(&[("stream", T::Text), ("seq", T::Count), ("digest", T::Hex(64))])),
+    ("base", T::Commit),
+]);
+const ATTEMPT_STARTED: T = T::Obj(&[
+    ("role", T::One(&["build", "review"])),
+    ("profile", T::Text),
+    ("tool", T::Text),
+    ("model", T::Text),
+    ("effort", T::Text),
+    ("allowedSeconds", T::Count),
+]);
+const TOKENS: T =
+    T::Obj(&[("input", T::Nullable(&T::Nat)), ("output", T::Nullable(&T::Nat)), ("cached", T::Nullable(&T::Nat))]);
+const ATTEMPT_ENDED: T = T::Obj(&[
+    ("attempt", T::Count),
+    ("outcome", T::One(&["success", "failure", "unknown"])),
+    ("model", T::Nullable(&T::Text)),
+    ("usage", T::Obj(&[("seconds", T::Nullable(&T::Nat)), ("tokens", T::Nullable(&TOKENS))])),
+    ("evidence", T::Nullable(&T::Obj(&[("stdout", T::Hex(64)), ("stderr", T::Hex(64))]))),
+]);
+const ENTRY: T = T::Obj(&[("mode", T::One(&["100644", "100755", "120000", "160000"])), ("oid", T::Commit)]);
+const CANDIDATE: T = T::Obj(&[
+    ("commit", T::Commit),
+    ("tree", T::Commit),
+    (
+        "changes",
+        T::List(&T::Obj(&[("path", T::Text), ("before", T::Nullable(&ENTRY)), ("after", T::Nullable(&ENTRY))])),
+    ),
+]);
+/// The codes a task halts with (REQ-TASK-5, REQ-RUN-10).
+pub const HALTS: [&str; 14] = [
+    "ROUNDS_EXHAUSTED",
+    "BUDGET_EXHAUSTED",
+    "NO_PROGRESS",
+    "PROVIDER_MISSING",
+    "OUTCOME_UNKNOWN",
+    "LANE_VIOLATION",
+    "PROTECTED_PATH",
+    "PROTECTED_PATH_WILDCARD",
+    "CREDENTIAL_SUSPECTED",
+    "REVIEW_INVALID",
+    "REVIEW_UNEXAMINED",
+    "TOOL_FAILED",
+    "CONFINEMENT_UNAVAILABLE",
+    "DISK_LOW",
+];
+const TASK_HALTED: T = T::Obj(&[("code", T::One(&HALTS)), ("reason", T::Text)]);
 const SWEPT: T = T::Obj(&[("alias", T::Text), ("head", HEAD)]);
 const STAGE_CLOSED: T = T::Obj(&[("stage", T::Id('s')), ("head", HEAD), ("sweeps", T::List(&SWEPT))]);
 
@@ -101,6 +155,8 @@ pub(crate) fn fit(t: &T, v: &Value, at: &str, content: &mut Option<String>) -> R
         (T::Count, Value::Number(n)) => ok(n.as_u64().is_some_and(|n| n > 0)),
         (T::Bool, Value::Bool(_)) | (T::Base, Value::Null) => Ok(()),
         (T::Hex(n), Value::String(s)) => ok(is_hex(s, *n)),
+        (T::Commit, Value::String(s)) => ok(is_hex(s, 40) || is_hex(s, 64)),
+        (T::Nat, Value::Number(n)) => ok(n.as_u64().is_some()),
         (T::Id(c), Value::String(s)) => ok(is_id(s, *c)),
         (T::Base, Value::String(s)) => ok(is_hex(s, 40) || is_hex(s, 64)),
         (T::Value, v) if value(v).is_some() => Ok(()),
@@ -167,6 +223,11 @@ pub fn check(kind: &str, p: &Value) -> Result<(), Error> {
         "task-authorized" => (&TASK_AUTHORIZED, Level::Task),
         "task-rejected" => (&TASK_REJECTED, Level::Task),
         "stage-closed" => (&STAGE_CLOSED, Level::Stage),
+        "run-started" => (&RUN_STARTED, Level::Task),
+        "attempt-started" => (&ATTEMPT_STARTED, Level::Task),
+        "attempt-ended" => (&ATTEMPT_ENDED, Level::Task),
+        "candidate-recorded" => (&CANDIDATE, Level::Task),
+        "task-halted" => (&TASK_HALTED, Level::Task),
         _ => return Ok(()),
     };
     let fail = |code: Code, why: String| refuse(code, None, format!("{kind}: {why}"));
@@ -344,7 +405,8 @@ pub(crate) fn format_of(schema: &T) -> Vec<FormatLine> {
             T::Tag => "tag",
             T::Count => "count",
             T::Bool => "bool",
-            T::Hex(_) => "hex",
+            T::Hex(_) | T::Commit => "hex",
+            T::Nat => "count",
             T::Id('s') => "stage-id",
             T::Id('p') => "proposal-id",
             T::Id(_) => "task-id",

@@ -10,7 +10,7 @@ use super::{Cx, Failed, Options, get};
 use crate::code::{Code, Error, refuse};
 use crate::detect::{self, Space};
 use crate::identity::{self, GitSigner, PolicyVerifier};
-use crate::record::{Draft, Head, Publication, Replay, Repo, Say, Session};
+use crate::record::{Draft, Head, Prepared, Publication, Replay, Repo, Say, Session};
 use crate::settings::{self, Policy, Val};
 use crate::{alambique, fermento, view};
 use crate::{domain, machine};
@@ -99,7 +99,44 @@ pub(super) struct Plan<T> {
     pub sealed: bool,
     pub view: Option<View>,
     pub alambique: Option<Edit>,
+    /// What writes the events instead, once they are made and signed, under the lock (a run, part 9e): it may write
+    /// others of Fabrewk's own after, or instead of, them; what it gives the command reports.
+    pub then: Option<Then>,
     pub out: T,
+}
+
+/// A write command's continuation under the lock (see [`Plan::then`]).
+pub(super) type Then = Box<dyn FnOnce(&mut Appender, Vec<(String, Prepared)>) -> Result<serde_json::Value, Error>>;
+
+/// What a continuation writes with: the session, the machine's identity and the policy in force for Fabrewk's own
+/// events, what it wrote, and the programs and tools a use verified, which the detection kept then marks.
+pub(super) struct Appender<'s> {
+    session: &'s mut Session,
+    instance: String,
+    policy: String,
+    written: Vec<(String, Head)>,
+    pub used: Vec<(Space, String)>,
+}
+
+impl Appender<'_> {
+    /// Writes an event made and signed before (compare-and-swap on its stream's head).
+    pub fn write(&mut self, stream: String, p: Prepared) -> Result<(), Error> {
+        let head = self.session.write(p)?;
+        self.written.push((stream, head));
+        Ok(())
+    }
+
+    /// Appends one of Fabrewk's own events of `kind` to `stream`, after the head it has now.
+    pub fn fabrewk(&mut self, stream: &str, kind: &str, payload: serde_json::Value) -> Result<Head, Error> {
+        crate::record::fault::point();
+        let actor = serde_json::json!({"kind": "fabrewk"});
+        let (instance, policy) = (self.instance.clone(), self.policy.clone());
+        let draft = Draft { kind: kind.into(), actor, policy, instance, say: None, payload };
+        let p = self.session.prepare(stream, self.session.head(stream)?.as_ref(), &draft, None)?;
+        let head = p.head().clone();
+        self.write(stream.to_owned(), p)?;
+        Ok(head)
+    }
 }
 
 /// The alambique's approval (REQ-FER-5): the digest of the file as the plan saw it, the text to
@@ -122,6 +159,8 @@ pub(super) struct View {
 pub(super) struct Written {
     pub events: Vec<(String, Head)>,
     pub commit: Option<String>,
+    /// What the continuation gave, if any.
+    pub ran: serde_json::Value,
 }
 
 fn head_in(record: &Replay, stream: &str) -> Option<Head> {
@@ -136,6 +175,66 @@ fn head_in(record: &Replay, stream: &str) -> Option<Head> {
 /// person's key signs. The lock is held until the last cache is written.
 pub(super) fn run<T>(cx: &Cx, plan: impl Fn(&Replay) -> Result<Plan<T>, Failed>) -> Result<(T, Written), Failed> {
     let record = cx.record.as_ref().map_err(|e| Failed::from(e.clone()))?;
+    let states = crate::table::current(record).unwrap_or_default();
+    if !states.values().any(|s| *s == "running") {
+        return apply(cx, record, &plan);
+    }
+    apply(cx, record, &|r: &Replay| recovery(cx, r))?;
+    let record = crate::record::replay(&cx.domain, &PolicyVerifier)?;
+    apply(cx, &record, &plan)
+}
+
+/// REQ-RUN-5: every task left `running` by a process that no longer runs (none holds the lock, which a run keeps for
+/// its whole run) has its open attempt ended as `unknown`, counted, and halts (`OUTCOME_UNKNOWN`); its attempt's
+/// directories, whose cell ended with that process, are removed. Its own record commit, before the command's.
+fn recovery(cx: &Cx, record: &Replay) -> Result<Plan<()>, Failed> {
+    let policy = state(cx, record)?.policy;
+    let mut events = Vec::new();
+    let mut gone = Vec::new();
+    for (stream, s) in crate::table::current(record)? {
+        if s != "running" {
+            continue;
+        }
+        let draft = |kind: &str, payload| Draft {
+            kind: kind.into(),
+            actor: serde_json::json!({"kind": "fabrewk"}),
+            policy: policy.digest.clone(),
+            instance: String::new(),
+            say: None,
+            payload,
+        };
+        if let Some(open) = super::run::open_attempt(&record.streams[&stream]) {
+            let payload = serde_json::json!({
+                "attempt": open, "outcome": "unknown", "model": null,
+                "usage": crate::adapter::usage(None, None), "evidence": null,
+            });
+            events.push((stream.clone(), draft("attempt-ended", payload)));
+            gone.push(cx.domain.join("local/tmp").join(super::run::attempt_name(&stream, open)));
+        }
+        let reason = "the process that ran it no longer runs; its attempt is counted as spent, and a retry spends a \
+                      dispatch";
+        events.push((stream, draft("task-halted", serde_json::json!({"code": "OUTCOME_UNKNOWN", "reason": reason}))));
+    }
+    let then: Then = Box::new(move |a, prepared| {
+        for (stream, p) in prepared {
+            a.write(stream, p)?;
+        }
+        // Following no link, and only what exists: a run killed before it made them left none.
+        for root in gone.into_iter().filter(|d| std::fs::symlink_metadata(d).is_ok_and(|m| m.is_dir())) {
+            let [home, tmp, work] = ["home", "tmp", "work"].map(|d| root.join(d));
+            crate::confine::Scratch { root, home, tmp, work }.remove()?;
+        }
+        Ok(serde_json::Value::Null)
+    });
+    Ok(Plan { events, signer: None, sealed: false, view: None, alambique: None, then: Some(then), out: () })
+}
+
+/// Runs a write command's `plan` on `record` (see [`run`]).
+fn apply<T>(
+    cx: &Cx,
+    record: &Replay,
+    plan: &dyn Fn(&Replay) -> Result<Plan<T>, Failed>,
+) -> Result<(T, Written), Failed> {
     // A record cut below this machine's mark is a rollback before anything it lacks is missed.
     crate::record::check_mark(&cx.domain, record)?;
     let mode = state(cx, record)?.mode;
@@ -162,12 +261,13 @@ pub(super) fn run<T>(cx: &Cx, plan: impl Fn(&Replay) -> Result<Plan<T>, Failed>)
     session.refresh(&PolicyVerifier)?;
     let record = session.record().ok_or_else(|| refuse(Code::RecordAbsent, Some(&cx.domain), "no event"))?;
     let planned = plan(record)?;
+    let policy = state(cx, record)?.policy.digest;
     let mut heads: BTreeMap<String, Option<Head>> =
         planned.events.iter().map(|(s, _)| (s.clone(), head_in(record, s))).collect();
     // The machine key is made under a temporary name and put in place only once every event is signed, so that a key
     // that cannot sign leaves the private folder as it was (P7D3A-1).
     let (instance, pending) = machine::prepare_instance(&folder)?;
-    let mut prepared = Vec::new();
+    let mut prepared: Vec<(String, Prepared)> = Vec::new();
     for (i, (stream, mut draft)) in planned.events.into_iter().enumerate() {
         draft.instance = instance.clone();
         if planned.sealed && i == 0 {
@@ -178,6 +278,14 @@ pub(super) fn run<T>(cx: &Cx, plan: impl Fn(&Replay) -> Result<Plan<T>, Failed>)
         }
         let signer = draft.say.as_ref().and(planned.signer.as_ref()).map(|s| s as &dyn crate::record::Sign);
         let expected = heads.get(&stream).cloned().flatten();
+        // A run binds its stream's head as made here and, when the same command authorizes it, that authorization.
+        if draft.kind == "run-started" {
+            draft.payload["head"] = serde_json::json!({"seq": expected.as_ref().map(|h| h.seq), "digest": expected.as_ref().map(|h| &h.digest)});
+            if let Some((by, p)) = prepared.last().filter(|_| draft.payload["authorization"].is_null()) {
+                let h = p.head();
+                draft.payload["authorization"] = serde_json::json!({"stream": by, "seq": h.seq, "digest": h.digest});
+            }
+        }
         let p = session.prepare(&stream, expected.as_ref(), &draft, signer)?;
         heads.insert(stream.clone(), Some(p.head().clone()));
         prepared.push((stream, p));
@@ -202,10 +310,6 @@ pub(super) fn run<T>(cx: &Cx, plan: impl Fn(&Replay) -> Result<Plan<T>, Failed>)
     }
     session.commit_uncommitted(&PolicyVerifier)?;
     crate::record::fault::pause("before-append");
-    let mut written = Vec::new();
-    for (stream, p) in prepared {
-        written.push((stream, session.write(p)?));
-    }
     // A change that comes after the events are written leaves them written, as a failed record commit does (D-065).
     let late = |what: &str| {
         let rest = format!("; this command's events are written and not committed, and {what}");
@@ -214,6 +318,20 @@ pub(super) fn run<T>(cx: &Cx, plan: impl Fn(&Replay) -> Result<Plan<T>, Failed>)
             other => other,
         }
     };
+    let (mut written, mut ran, mut used) = (Vec::new(), serde_json::Value::Null, Vec::new());
+    match planned.then {
+        None => {
+            for (stream, p) in prepared {
+                written.push((stream, session.write(p)?));
+            }
+        }
+        Some(then) => {
+            let mut a = Appender { session: &mut session, instance: instance.clone(), policy, written, used };
+            let result = then(&mut a, prepared);
+            (written, used) = (a.written, a.used);
+            ran = result.map_err(late("the next write command ends what it left"))?;
+        }
+    }
     // The alambique is put in place and committed alone before the record commit, which the events it depends on
     // precede (REQ-REG-10).
     if let Some(a) = &planned.alambique {
@@ -255,7 +373,10 @@ pub(super) fn run<T>(cx: &Cx, plan: impl Fn(&Replay) -> Result<Plan<T>, Failed>)
     // Every write command ran both: Git for the mode's checks or the commit, `ssh-keygen` for the machine key.
     detection.used(Space::Program, "ssh-keygen");
     detection.used(Space::Program, "git");
+    for (space, name) in &used {
+        detection.used(*space, name);
+    }
     detection.keep(&cx.domain)?;
     drop(session);
-    Ok((planned.out, Written { events: written, commit }))
+    Ok((planned.out, Written { events: written, commit, ran }))
 }

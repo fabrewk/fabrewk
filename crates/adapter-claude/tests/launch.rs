@@ -175,7 +175,7 @@ fn req_sec_6_a_dispatch_leaves_the_fixture_home_byte_identical_and_cannot_rewrit
     let (exe, rel) = adapter::resolve(&ADAPTER, &release(&d, DISPATCHED), &[&d.join("home")]).unwrap();
     let home = d.join("home");
     std::fs::create_dir_all(home.join(".claude/skills/mine")).unwrap();
-    std::fs::write(home.join(".claude/.credentials.json"), "{\"fixture\":\"credential\"}\n").unwrap();
+    std::fs::write(home.join(".claude/.credentials.json"), CREDENTIAL).unwrap();
     std::fs::set_permissions(home.join(".claude/.credentials.json"), std::fs::Permissions::from_mode(0o600)).unwrap();
     std::fs::write(home.join(".claude/settings.json"), "{\"hooks\":{\"x\":1}}\n").unwrap();
     std::fs::write(home.join(".claude.json"), "{\"person\":true}\n").unwrap();
@@ -218,6 +218,53 @@ fn req_sec_6_a_dispatch_leaves_the_fixture_home_byte_identical_and_cannot_rewrit
         scratch.remove().unwrap();
     }
     assert_eq!(snapshot(&home), before);
+}
+
+/// A fixture's credential, whose login expires in 2100.
+const CREDENTIAL: &str = "{\"claudeAiOauth\":{\"accessToken\":\"fixture\",\"expiresAt\":4102444800000}}\n";
+
+/// D-079: a login that expires within the attempt's minutes, or whose expiry cannot be read, is refused before any
+/// process starts; only `expiresAt` is read.
+#[test]
+fn d_079_a_login_that_expires_within_the_attempt_is_refused_before_any_process() {
+    let d = dir("expiry");
+    let (exe, rel) = adapter::resolve(&ADAPTER, &release(&d, DISPATCHED), &[&d.join("home")]).unwrap();
+    let home = d.join("home");
+    std::fs::create_dir_all(home.join(".claude")).unwrap();
+    let domain = d.join("domain");
+    let p = programs(&domain);
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64;
+    let oauth = |at: String| format!("{{\"claudeAiOauth\":{{\"accessToken\":\"secret-token\",\"expiresAt\":{at}}}}}");
+    let cases = [
+        (oauth((now + 59_000).to_string()), "within the attempt's 1 minutes"),
+        (oauth((now - 1_000).to_string()), "within the attempt's 1 minutes"),
+        (oauth("\"soon\"".into()), "cannot be read"),
+        ("{\"claudeAiOauth\":{}}".into(), "cannot be read"),
+        ("not json".into(), "cannot be read"),
+    ];
+    for (i, (credential, why)) in cases.iter().enumerate() {
+        std::fs::write(home.join(".claude/.credentials.json"), credential).unwrap();
+        let scratch = Scratch::create(&domain, &format!("e{i}")).unwrap();
+        let evidence = confine::evidence(&domain, &format!("e{i}")).unwrap();
+        let launch = Launch { role: Role::Build, packet: "{}", schema: "{}", model: "m", effort: "low" };
+        let limits = Limits { time: Duration::from_secs(60), bytes: 1 << 20 };
+        let t = Tool { adapter: &ADAPTER, executable: &exe, release: &rel };
+        let u = adapter::dispatch(t, &BACKEND, &p, &launch, &home, &scratch, &evidence, limits).unwrap_err();
+        assert!(u.ended && u.error.code() == Some(Code::ToolFailed), "{:?}", u.error);
+        assert!(u.error.detail().contains(why) && !u.error.detail().contains("secret"), "{}", u.error.detail());
+        assert_eq!(std::fs::read_dir(&evidence).unwrap().count(), 0);
+        assert_eq!(std::fs::read_dir(&scratch.work).unwrap().count(), 0);
+    }
+    // Past the attempt's end it runs.
+    std::fs::write(home.join(".claude/.credentials.json"), oauth((now + 120_000).to_string())).unwrap();
+    let scratch = Scratch::create(&domain, "later").unwrap();
+    let evidence = confine::evidence(&domain, "later").unwrap();
+    let schema = adapter::schema(Role::Build).to_string();
+    let launch = Launch { role: Role::Build, packet: "{}", schema: &schema, model: "m", effort: "low" };
+    let limits = Limits { time: Duration::from_secs(60), bytes: 1 << 20 };
+    let t = Tool { adapter: &ADAPTER, executable: &exe, release: &rel };
+    let (ran, _) = adapter::dispatch(t, &BACKEND, &p, &launch, &home, &scratch, &evidence, limits).unwrap();
+    assert_eq!(ran.end, End::Exited(0));
 }
 
 #[test]

@@ -11,6 +11,7 @@ mod close;
 mod config;
 mod decl;
 mod propose;
+mod run;
 mod status;
 mod sweep;
 mod tasks;
@@ -43,6 +44,7 @@ pub const DONE: i32 = 0;
 pub const REFUSED: i32 = 1;
 pub const USAGE: i32 = 2;
 pub const FOUND: i32 = 3;
+pub const WAITING: i32 = 4;
 pub const INTERNAL: i32 = 70;
 
 /// What a command gives: its document, its human text, where the text goes and the exit status.

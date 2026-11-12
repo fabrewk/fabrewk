@@ -90,6 +90,9 @@ pub struct Started {
 pub struct Backend {
     pub name: &'static str,
     pub programs: &'static [Program],
+    /// The system directories every cell shows read-only (3.3): a required tool is present for a dispatch only when
+    /// its executable, as it resolves, lies under one (S-6).
+    pub system: &'static [&'static str],
     /// Starts a cell, writing what it needs in the scratch directory and any output of its own in the evidence
     /// directory, files `0600`; gives its direct child with both output channels piped and its command released.
     /// Once a process exists it never ends it itself: a failure after that is `Started::failed`, with the command held.

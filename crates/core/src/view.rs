@@ -9,6 +9,7 @@ use crate::code::{Code, Error, io_at, refuse, unlinked};
 use crate::record::{Event, Publication, Replay, StreamKind, stream_kind};
 use crate::settings::{self, Val};
 use crate::{alambique, domain, fermento, identity, table};
+use serde_json::Value;
 use std::path::{Path, PathBuf};
 
 /// The views' files in the domain.
@@ -164,13 +165,22 @@ pub fn waits(record: &Replay) -> Vec<Wait> {
     out
 }
 
-/// A task's usage (PD-39): its dispatches, and its tokens as the tool reported them; a sum with a
-/// part not reported, or an attempt not ended, is unknown, never zero.
-fn usage(events: &[Event]) -> Option<(usize, Option<u64>)> {
+/// A task's usage (PD-39, S-5): its dispatches, then Fabrewk's seconds and the tool's tokens read, written and read
+/// from the cache, each a sum that is unknown, never zero, when a part was not observed or an attempt has not ended.
+fn usage(events: &[Event]) -> Option<(usize, [Option<u64>; 4])> {
     let started = events.iter().filter(|e| e.kind == "attempt-started").count();
     let ended: Vec<&Event> = events.iter().filter(|e| e.kind == "attempt-ended").collect();
-    let tokens = ended.iter().try_fold(0u64, |sum, e| sum.checked_add(e.value["payload"]["usage"]["tokens"].as_u64()?));
-    (started > 0).then_some((started, tokens.filter(|_| ended.len() == started)))
+    let sum = |part: &dyn Fn(&Value) -> &Value| {
+        let all = ended.iter().try_fold(0u64, |sum, e| sum.checked_add(part(&e.value["payload"]["usage"]).as_u64()?));
+        all.filter(|_| ended.len() == started)
+    };
+    let sums = [
+        sum(&|u| &u["seconds"]),
+        sum(&|u| &u["tokens"]["input"]),
+        sum(&|u| &u["tokens"]["output"]),
+        sum(&|u| &u["tokens"]["cached"]),
+    ];
+    (started > 0).then_some((started, sums))
 }
 
 /// `STATUS.md` in `lang`: the record's health, the stages with their tasks, what waits for each maestro and for the
@@ -255,12 +265,12 @@ pub fn status(record: &Replay, lang: &str) -> String {
     if used.is_empty() {
         out += &format!("{}\n", t("view.usage-none", &[]));
     }
-    for (name, (dispatches, tokens)) in used {
-        let tokens = tokens.map_or_else(|| t("view.unknown", &[]), |n| n.to_string());
-        out += &format!(
-            "- {}\n",
-            t("view.usage-line", &[("id", &name[5..]), ("dispatches", &dispatches.to_string()), ("tokens", &tokens)])
-        );
+    for (name, (dispatches, sums)) in used {
+        let [seconds, input, output, cached] =
+            sums.map(|n| n.map_or_else(|| t("view.unknown", &[]), |n| n.to_string()));
+        let params = [("id", &name[5..]), ("dispatches", &dispatches.to_string()), ("seconds", &seconds)];
+        let more = [("input", &*input), ("output", &output), ("cached", &cached)];
+        out += &format!("- {}\n", t("view.usage-line", &[&params[..], &more[..]].concat()));
     }
     out
 }

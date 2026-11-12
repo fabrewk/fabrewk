@@ -170,6 +170,7 @@ fn plan(cx: &Cx, path: &Path, file: &Value, record: &Replay) -> Result<Plan<Prop
         sealed: false,
         view: None,
         alambique: None,
+        then: None,
         out: Proposed { stage: (stage_id, new, goal), tasks: out },
     })
 }

@@ -3984,3 +3984,23 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Not done: `run` dispatching at the command line, a preflight's pass kept as verified by use, a credential refused
   when it expires or would be renewed within the attempt (D-079, D-081), the packet's size bound (part 9e); the
   reviewer's dispatch and PD-25 and PD-26 through the whole flow (part 9f).
+
+## D-082 — Part 9e: the run halts on its candidate until part 9f; the budget per authorization and per stage
+
+- Status: decided
+- Decided: 2026-11-12
+- Origin: maintainer XEL in session 34's chat, answering the integrator's two questions before any code: "Detener
+  CONFINEMENT_UNAVAILABLE (Recomendado)" and "Tarea desde su autorización (Recomendado)".
+- Decision:
+  1. Until part 9f runs the checks and the review, `run` halts a task whose candidate it recorded with
+     `CONFINEMENT_UNAVAILABLE`, its reason saying where the candidate is and that part 9f builds the rest, exit 4, as
+     `run` refused until part 9e with that code (D-053 point 4). Part 9f replaces the halt with the gate.
+  2. A task's limits (dispatches, minutes, tokens) count from its last authorization, so that `authorize` grants them
+     anew; its stage's budget counts every attempt of the stage's tasks, a cap that no authorization raises (spent,
+     the stage's remaining tasks can only be rejected). Tokens counted are those read fresh and written, never those
+     read from the cache; an unknown part, with a token limit, spends the limit.
+- Reason: the specification leaves both open. The alternatives offered: leaving the task `running`, for the next
+  write command to halt `OUTCOME_UNKNOWN` (calling unknown an outcome that is known); a stage budget renewed with each
+  task's authorization (no longer a cap); no stage budget until a later part.
+- Consequences: `core-specification.md` ("as part 9e fixed it"); `plan.md`; R-043.
+- Sources: chat of session 34; `core-specification.md` REQ-RUN-2, REQ-TASK-3, REQ-TASK-5; D-053 point 4.

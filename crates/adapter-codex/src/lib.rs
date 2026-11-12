@@ -31,12 +31,23 @@ pub const ADAPTER: Adapter = Adapter {
     residual: &["tool-credential", "audit-limit", "tool-flags"],
     machine: &[".git"],
     credential: ".codex/auth.json",
+    expiry,
     env: &[],
     release,
     command,
     preflight,
     read,
 };
+
+/// How long Codex keeps a ChatGPT login before it renews it, rewriting its credential: about eight days, by its
+/// documentation (D-081).
+const RENEWAL: u64 = 8 * 86_400;
+
+/// When Codex would renew its login: its `last_refresh` and [`RENEWAL`] (D-081). Only that field is read.
+fn expiry(bytes: &[u8]) -> Option<u64> {
+    let auth = fabrewk_core::adapter::json(std::str::from_utf8(bytes).ok()?)?;
+    fabrewk_core::record::seconds_of(auth.get("last_refresh")?.as_str()?)?.checked_add(RENEWAL)
+}
 
 /// The release that holds `bin/codex`: its installer keeps one directory per version under `releases/`, with the
 /// helpers its sandbox and its searches use beside `bin/`; an executable anywhere else has no release this adapter can

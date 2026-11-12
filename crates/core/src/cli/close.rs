@@ -83,6 +83,7 @@ pub(super) fn close(cx: &Cx, id: &str, options: &Options) -> Result<Out, Failed>
             sealed: false,
             view: None,
             alambique: None,
+            then: None,
             out,
         })
     };

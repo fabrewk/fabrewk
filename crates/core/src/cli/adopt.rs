@@ -32,6 +32,7 @@ pub(super) fn run(cx: &Cx, options: &Options) -> Result<Out, Failed> {
             sealed: true,
             view: None,
             alambique: None,
+            then: None,
             out: adoption,
         })
     };

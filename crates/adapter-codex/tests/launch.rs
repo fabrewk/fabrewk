@@ -177,6 +177,68 @@ echo '{"type":"item.completed","item":{"id":"i","type":"agent_message","text":"{
 echo '{"type":"turn.completed","usage":{"input_tokens":3,"cached_input_tokens":1,"output_tokens":2}}'
 "#;
 
+/// A fixture's credential, last renewed `ago` seconds before now.
+fn credential(ago: u64) -> String {
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() - ago;
+    let at = time(now);
+    format!(
+        "{{\"auth_mode\":\"chatgpt\",\"tokens\":{{\"access_token\":\"secret-token\"}},\"last_refresh\":\"{at}\"}}\n"
+    )
+}
+
+/// `secs` since 1970 as an RFC 3339 time with a fraction, as Codex writes `last_refresh`.
+fn time(secs: u64) -> String {
+    let mut date = std::process::Command::new("date");
+    let out = date.args(["-u", "-d", &format!("@{secs}"), "+%Y-%m-%dT%H:%M:%S.123456Z"]).output().unwrap();
+    String::from_utf8(out.stdout).unwrap().trim().to_owned()
+}
+
+/// D-081: a login Codex would renew within the attempt's minutes (its `last_refresh` and about eight days), or one
+/// whose renewal cannot be read, is refused before any process starts; only `last_refresh` is read.
+#[test]
+fn d_081_a_login_codex_would_renew_within_the_attempt_is_refused_before_any_process() {
+    let d = dir("renewal");
+    let home = d.join("home");
+    let (exe, rel) = adapter::resolve(&ADAPTER, &release(&d, DISPATCHED), &[&home]).unwrap();
+    std::fs::create_dir_all(home.join(".codex")).unwrap();
+    let domain = d.join("domain");
+    let p = programs(&domain);
+    let eight = 8 * 86_400;
+    let cases = [
+        (credential(eight - 30), "within the attempt's 1 minutes"),
+        (credential(eight + 1), "within the attempt's 1 minutes"),
+        ("{\"auth_mode\":\"chatgpt\",\"last_refresh\":\"yesterday\"}".into(), "cannot be read"),
+        ("{\"auth_mode\":\"chatgpt\"}".into(), "cannot be read"),
+        (
+            "{\"last_refresh\":\"2026-01-01T00:00:00Z\",\"last_refresh\":\"2099-01-01T00:00:00Z\"}".into(),
+            "cannot be read",
+        ),
+    ];
+    for (i, (credential, why)) in cases.iter().enumerate() {
+        std::fs::write(home.join(".codex/auth.json"), credential).unwrap();
+        let scratch = Scratch::create(&domain, &format!("r{i}")).unwrap();
+        let evidence = confine::evidence(&domain, &format!("r{i}")).unwrap();
+        let launch = Launch { role: Role::Build, packet: "{}", schema: "{}", model: "m", effort: "low" };
+        let limits = Limits { time: Duration::from_secs(60), bytes: 1 << 20 };
+        let t = Tool { adapter: &ADAPTER, executable: &exe, release: &rel };
+        let u = adapter::dispatch(t, &BACKEND, &p, &launch, &home, &scratch, &evidence, limits).unwrap_err();
+        assert!(u.ended && u.error.code() == Some(Code::ToolFailed), "{i}: {:?}", u.error);
+        assert!(u.error.detail().contains(why) && !u.error.detail().contains("secret"), "{}", u.error.detail());
+        assert_eq!(std::fs::read_dir(&evidence).unwrap().count(), 0);
+        assert_eq!(std::fs::read_dir(&scratch.work).unwrap().count(), 0);
+    }
+    // Renewed long enough ago that the renewal falls after the attempt's end, it runs.
+    std::fs::write(home.join(".codex/auth.json"), credential(eight - 120)).unwrap();
+    let scratch = Scratch::create(&domain, "later").unwrap();
+    let evidence = confine::evidence(&domain, "later").unwrap();
+    let schema = adapter::schema(Role::Build).to_string();
+    let launch = Launch { role: Role::Build, packet: "{}", schema: &schema, model: "m", effort: "low" };
+    let limits = Limits { time: Duration::from_secs(60), bytes: 1 << 20 };
+    let t = Tool { adapter: &ADAPTER, executable: &exe, release: &rel };
+    let (ran, _) = adapter::dispatch(t, &BACKEND, &p, &launch, &home, &scratch, &evidence, limits).unwrap();
+    assert_eq!(ran.end, End::Exited(0));
+}
+
 #[test]
 fn req_sec_6_a_dispatch_leaves_the_fixture_home_byte_identical_and_cannot_rewrite_the_credential() {
     let d = dir("dispatch");
@@ -184,7 +246,7 @@ fn req_sec_6_a_dispatch_leaves_the_fixture_home_byte_identical_and_cannot_rewrit
     let (exe, rel) = adapter::resolve(&ADAPTER, &release(&d, DISPATCHED), &[&home]).unwrap();
     std::fs::create_dir_all(home.join(".codex/skills/mine")).unwrap();
     std::fs::create_dir_all(home.join(".agents/skills/theirs")).unwrap();
-    std::fs::write(home.join(".codex/auth.json"), "{\"fixture\":\"credential\"}\n").unwrap();
+    std::fs::write(home.join(".codex/auth.json"), credential(0)).unwrap();
     std::fs::set_permissions(home.join(".codex/auth.json"), std::fs::Permissions::from_mode(0o600)).unwrap();
     std::fs::write(home.join(".codex/config.toml"), "[hooks]\nx = 1\n").unwrap();
     std::fs::write(home.join(".codex/AGENTS.md"), "the person's instructions\n").unwrap();

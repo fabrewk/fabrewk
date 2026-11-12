@@ -23,7 +23,7 @@ pub use mark::check_mark;
 pub use replay::{Event, Replay, replay};
 pub use sign::{KeySigner, Sign, Verify, carried_key, check};
 pub use store::{Head, Prepared, Session};
-pub use time::{is_utc_timestamp, now_utc};
+pub use time::{is_utc_timestamp, now_utc, seconds_of};
 
 pub use crate::code::{Code, Error};
 pub(crate) use crate::code::{io_at, refuse};

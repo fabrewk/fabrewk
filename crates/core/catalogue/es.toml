@@ -156,6 +156,12 @@ stage = "Se autorizó la etapa {id} y las tareas que ata:"
 bound = "La tarea {id}: {goal}"
 widened = "Ampliaciones nombradas: {keys}."
 
+[run]
+done = "Se corrió la tarea {id}."
+attempt = "Intento {n} (el lugar de su inicio en los eventos de la tarea)."
+candidate = "Candidato {commit} en {branch}."
+halted = "La tarea {id} está detenida con {code} y espera a una persona: un maestro la autoriza otra vez o la rechaza."
+
 [reject]
 done = "Se rechazó la tarea {id}: es definitivo."
 
@@ -184,6 +190,7 @@ exits = "Estados de salida"
 1 = "rechazado: se imprimió un código y no se escribió nada."
 2 = "error de uso: no se aceptó la línea de comandos."
 3 = "la verificación encontró un problema."
+4 = "la corrida se detuvo y espera a una persona: la tarea está detenida."
 70 = "error interno."
 
 [check]
@@ -264,6 +271,7 @@ no-stages = "No se ha propuesto ninguna etapa."
 stage = "Etapa {id}, {state}: {goal}"
 task = "Tarea {id}, {state}: {goal}"
 in-stage = "En la etapa {stage}."
+halted = "Detenida con {code}: {why}"
 events = "Eventos, en orden:"
 event = "{what} ({kind}), por {by}, el {at}"
 allowed = "Movimientos que la tabla de transiciones permite desde aquí: {moves}."
@@ -458,6 +466,21 @@ reason = "El registro termina un intento que no está abierto."
 next = "Una persona examina el evento indicado; Fabrewk nunca repara el registro."
 run = "fabrewk check"
 
+[code.ATTEMPT_REPLACED]
+reason = "El registro termina un intento que ya se terminó como desconocido y que otro posterior reemplazó."
+next = "Una persona examina el evento indicado; Fabrewk nunca repara el registro."
+run = "fabrewk check"
+
+[code.BASE_MOVED]
+reason = "El producto en la punta de la rama del registro no es el que dejaron la base de la tarea o la última integración de sus dependencias."
+next = "La tarea no puede correr sobre un producto que se movió; un maestro lee su estado y la rechaza o la propone de nuevo:"
+run = "fabrewk status"
+
+[code.BUDGET_EXHAUSTED]
+reason = "Los despachos, minutos o tokens de la tarea o de su etapa están gastados, o no se puede saber lo gastado; no se despacha nada más."
+next = "La tarea espera a una persona: un maestro la autoriza otra vez, lo que concede de nuevo los límites de la tarea, o la rechaza."
+run = "fabrewk status"
+
 [code.CHECK_DUPLICATE]
 reason = "Una comprobación tiene dos definiciones distintas."
 next = "Deja una sola definición de la comprobación, en la etapa o en el proyecto."
@@ -534,6 +557,11 @@ run = "fabrewk status"
 [code.NOT_A_REPOSITORY]
 reason = "Esta no es la raíz del árbol de trabajo principal del repositorio."
 next = "Córrelo en la raíz del árbol de trabajo principal del repositorio."
+
+[code.OUTCOME_UNKNOWN]
+reason = "El proceso que corría el intento de la tarea ya no corre, así que su resultado es desconocido; el intento cuenta como gastado, y reintentar gasta un despacho."
+next = "La tarea espera a una persona: un maestro la autoriza otra vez o la rechaza."
+run = "fabrewk status"
 
 [code.POLICY_ABSENT]
 reason = "No hay una política adoptada, así que no hay configuración efectiva ni mantenedores."
@@ -831,8 +859,8 @@ integrated = "Último trabajo integrado"
 integrated-none = "Aún no se ha integrado nada."
 integrated-line = "La tarea {id} se integró el {at}: {goal}"
 usage = "Consumo"
-usage-none = "No se ha registrado ningún envío."
-usage-line = "Tarea {id}: {dispatches} envíos, tokens: {tokens}."
+usage-none = "No se ha registrado ningún despacho."
+usage-line = "Tarea {id}: {dispatches} despachos, {seconds} segundos; tokens leídos {input}, escritos {output}, leídos de la caché {cached}."
 unknown = "desconocido"
 rules-title = "Reglas para los agentes de este proyecto"
 rules-notice = "Este archivo lo genera Fabrewk a partir de sus reglas base y de las reglas del proyecto que un maestro aprobó. No lo edites: una regla del proyecto cambia mediante una propuesta que un maestro aprueba."

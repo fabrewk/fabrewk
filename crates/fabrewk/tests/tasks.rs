@@ -65,7 +65,7 @@ fn one(fx: &Fx, more: Value) -> String {
 /// What `status <id>` shows that an authorization binds: its text and its digest.
 fn shown(fx: &Fx, id: &str) -> (String, String) {
     let doc = fx.run(&["status", id, "--json"]).doc();
-    assert_eq!(doc["schema"], "fabrewk.subject/2");
+    assert_eq!(doc["schema"], "fabrewk.subject/3");
     (doc["shown"]["text"].as_str().unwrap().to_owned(), doc["shown"]["digest"].as_str().unwrap().to_owned())
 }
 
@@ -110,9 +110,35 @@ fn head_of(fx: &Fx, stream: &str) -> Value {
     json!({"seq": h.seq, "digest": h.digest})
 }
 
-/// Starts the run of an authorized task by hand, as phase 9's `run` will record it.
+/// The digest of the event at `seq` of `stream`.
+fn digest_at(fx: &Fx, stream: &str, seq: usize) -> String {
+    let dir = fx.domain.join("data/events").join(stream);
+    let mut files: Vec<_> =
+        fs::read_dir(dir).unwrap().map(|e| e.unwrap().path()).filter(|p| p.extension().unwrap() == "json").collect();
+    files.sort();
+    sha256_hex(&fs::read(&files[seq - 1]).unwrap())
+}
+
+/// Starts the run of an authorized task by hand, as `run` records it (part 9e), relying on its last authorization:
+/// its own, else its stage's.
 fn start_by_hand(fx: &Fx, id: &str) {
-    by_hand(fx, &format!("task-{id}"), "run-started", json!({}), true);
+    let stream = format!("task-{id}");
+    let events = fx.events(&stream);
+    let stage = format!("stage-{}", events[0]["payload"]["stage"].as_str().unwrap());
+    let last = |stream: &str, kind: &str| {
+        let at = fx.events(stream).iter().rposition(|e| e["kind"] == kind)? + 1;
+        Some(json!({"stream": stream, "seq": at, "digest": digest_at(fx, stream, at)}))
+    };
+    let authorization = last(&stream, "task-authorized").or_else(|| last(&stage, "stage-authorized")).unwrap();
+    let run = json!({
+        "task": id, "head": head_of(fx, &stream), "authorization": authorization, "base": events[0]["payload"]["base"],
+    });
+    by_hand(fx, &stream, "run-started", run, true);
+}
+
+/// A halt's payload (part 9e).
+fn halt(code: &str) -> Value {
+    json!({"code": code, "reason": "A reason."})
 }
 
 /// Takes an authorized task to `accepted` by hand.
@@ -158,7 +184,7 @@ fn pd_37_status_shows_what_an_authorization_binds_and_authorize_signs_its_digest
     let ran = fx.run(&["authorize", &id, "--seen", &digest, "--say", SAY, "--json"]);
     assert_eq!(ran.status, 0, "{ran:?}");
     let doc = ran.doc();
-    assert_eq!((doc["schema"].as_str(), doc["subject"].as_str()), (Some("fabrewk.authorized/1"), Some("task")));
+    assert_eq!((doc["schema"].as_str(), doc["subject"].as_str()), (Some("fabrewk.authorized/2"), Some("task")));
     assert_eq!((&doc["id"], &doc["tasks"], &doc["widened"]), (&json!(id), &json!([id]), &json!([])));
     let e = last(&fx, &stream);
     assert_eq!(e["kind"], "task-authorized");
@@ -239,7 +265,7 @@ fn refusal_task_changed() {
     // The stream's head moved since it was read: the task was authorized, then halted.
     let read = shown(&fx, a).1;
     ok(&authorize(&fx, a, &[]));
-    by_hand(&fx, &format!("task-{a}"), "task-halted", json!({}), false);
+    by_hand(&fx, &format!("task-{a}"), "task-halted", halt("TOOL_FAILED"), false);
     assert_eq!(state(&fx, a), "halted");
     refused(&fx, &["authorize", a, "--seen", &read, "--say", SAY], "TASK_CHANGED", 1, "es");
     ok(&authorize(&fx, a, &[]));
@@ -293,8 +319,10 @@ fn req_task_3_authorizing_a_stage_binds_each_task_that_waits_in_order() {
     // No widening named, no line says one was.
     let widened = cli::say("es", "authorize.widened", &[("keys", "")]);
     assert!(!ran.stdout.contains(widened.trim_end()), "{ran:?}");
-    // Run, the stage's first task waits for confinement; its dependent one, for the first to be integrated.
-    refused(&fx, &["run", &stage_id, "--say", SAY], "CONFINEMENT_UNAVAILABLE", 1, "es");
+    // Run, the stage's first task is refused for its profile, which the fixture's catalogue lacks (REQ-RUN-2); its
+    // dependent one, for the first to be integrated.
+    let e = refused(&fx, &["run", &stage_id, "--say", SAY], "SETTINGS_INVALID", 1, "es");
+    assert!(e["detail"].as_str().unwrap().contains("profiles.build: no such profile"), "{e}");
     let e = refused(&fx, &["run", &ids[1], "--say", SAY], "DEPENDENCY_OPEN", 1, "es");
     assert!(e["detail"].as_str().unwrap().contains(&ids[0]), "{e}");
 }
@@ -499,20 +527,19 @@ fn identifiers_the_commands_do_not_take_are_usage_errors() {
     assert_eq!(fx.snapshot(), before);
 }
 
-// ---- run, up to confinement (D-053 point 4, D-068) ------------------------------------------------------------------
+// ---- run: its refusals before the run (D-053 point 4, D-068; part 9e) ----------------------------------------------
 
 #[test]
-fn refusal_confinement_unavailable_and_authorize_run_writes_nothing() {
-    let fx = Fx::new("confinement", "published");
+fn authorize_run_evaluates_the_runs_refusals_before_writing_either_move() {
+    let fx = Fx::new("authorize-run", "published");
     let id = one(&fx, json!({}));
-    // `authorize --run` evaluates both moves' guards before writing either (D-062 point 1).
+    // `authorize --run` evaluates both moves' refusing guards before writing either (D-062 point 1): here the profile,
+    // which the fixture's catalogue lacks (REQ-RUN-2).
     let digest = shown(&fx, &id).1;
-    let e =
-        refused(&fx, &["authorize", &id, "--seen", &digest, "--say", SAY, "--run"], "CONFINEMENT_UNAVAILABLE", 1, "es");
-    assert!(e["detail"].as_str().unwrap().contains("phase 9"), "{e}");
+    refused(&fx, &["authorize", &id, "--seen", &digest, "--say", SAY, "--run"], "SETTINGS_INVALID", 1, "es");
     assert_eq!(state(&fx, &id), "proposed");
     ok(&authorize(&fx, &id, &[]));
-    refused(&fx, &["run", &id, "--say", SAY], "CONFINEMENT_UNAVAILABLE", 1, "es");
+    refused(&fx, &["run", &id, "--say", SAY], "SETTINGS_INVALID", 1, "es");
     assert_eq!(fx.events(&format!("task-{id}")).len(), 2);
     // A task's `--run` runs that task, not the first of its stage that may run: its dependency, authorized and not
     // integrated, refuses it.
@@ -525,13 +552,7 @@ fn refusal_confinement_unavailable_and_authorize_run_writes_nothing() {
     assert!(e["detail"].as_str().unwrap().contains(&ids[0]), "{e}");
     // A stage's `--run` runs its first task that may run, after the authorization.
     let digest = shown(&fx, &stage_id).1;
-    refused(
-        &fx,
-        &["authorize", &stage_id, "--seen", &digest, "--say", SAY, "--run"],
-        "CONFINEMENT_UNAVAILABLE",
-        1,
-        "es",
-    );
+    refused(&fx, &["authorize", &stage_id, "--seen", &digest, "--say", SAY, "--run"], "SETTINGS_INVALID", 1, "es");
     assert_eq!(state(&fx, &ids[1]), "proposed");
 }
 
@@ -562,17 +583,48 @@ fn req_task_3_a_stages_tasks_are_ordered_by_their_dependencies_and_only_its_own_
     assert_eq!(state(&fx, &elsewhere[0]), "proposed");
 }
 
+/// PD-09: a task whose run's process died, in `running`, is ended and halted by the next write command (REQ-RUN-5),
+/// which then makes its own move: `reject` rejects it, `run` of another task is not refused for it.
 #[test]
-fn refusal_lock_held_while_another_task_runs() {
-    let fx = Fx::new("one-at-a-time", "published");
+fn pd_09_a_task_left_running_is_halted_by_the_next_write_command_then_moved() {
+    let fx = Fx::new("pd-09", "published");
     let (stage_id, ids) = propose(&fx, stage(json!({})), vec![task(json!({})), task(json!({"goal": "Two."}))]);
     ok(&authorize(&fx, &stage_id, &[]));
+    let stream = format!("task-{}", ids[0]);
     start_by_hand(&fx, &ids[0]);
+    let attempt = json!({"role": "build", "profile": "build", "tool": "claude", "model": "m", "effort": "low", "allowedSeconds": 60});
+    by_hand(&fx, &stream, "attempt-started", attempt, false);
     assert_eq!(state(&fx, &ids[0]), "running");
-    let e = refused(&fx, &["run", &ids[1], "--say", SAY], "LOCK_HELD", 1, "es");
-    assert!(e["detail"].as_str().unwrap().contains(&ids[0]), "{e}");
-    // `run <stage>` reaches the task that waits, and the same guard.
-    refused(&fx, &["run", &stage_id, "--say", SAY], "LOCK_HELD", 1, "es");
+    let open = fx.events(&stream).len();
+    let ran = fx.run(&["reject", &ids[0], "--say", SAY, "--json"]);
+    assert_eq!(ran.status, 0, "{ran:?}");
+    let events = fx.events(&stream);
+    let kinds: Vec<&str> = events[open..].iter().map(|e| e["kind"].as_str().unwrap()).collect();
+    assert_eq!(kinds, ["attempt-ended", "task-halted", "task-rejected"]);
+    let end = &events[open]["payload"];
+    assert_eq!(
+        end,
+        &json!({"attempt": open, "outcome": "unknown", "model": null, "usage": {"seconds": null, "tokens": null}, "evidence": null})
+    );
+    assert_eq!(events[open + 1]["payload"]["code"], "OUTCOME_UNKNOWN");
+    assert_eq!(state(&fx, &ids[0]), "rejected");
+    // The recovery is its own record commit, before the command's; `check` finds the record and the views whole.
+    assert_eq!(fx.git(&["log", "--format=%s", "-2"]), "fabrewk: record\nfabrewk: record");
+    ok(&fx.run(&["check"]));
+    // A later end of the attempt is a second end (PD-09), at the command and on replay.
+    by_hand_raw(&fx, &stream, "attempt-ended", end.clone());
+    let doc = fx.run(&["check", "--json"]).doc();
+    assert!(doc["findings"].as_array().unwrap().iter().any(|f| f["code"] == "ATTEMPT_ENDED"), "{doc}");
+}
+
+/// Appends an event of Fabrewk's to `stream` as a process that ignores the record's rules would, with no commit.
+fn by_hand_raw(fx: &Fx, stream: &str, kind: &str, payload: Value) {
+    let mut s = Session::begin(&fx.domain, None, &PolicyVerifier).unwrap();
+    let head = s.head(stream).unwrap();
+    let policy = fx.events("project")[0]["payload"]["digest"].as_str().unwrap().to_owned();
+    let actor = json!({"kind": "fabrewk"});
+    let d = Draft { kind: kind.into(), actor, policy, instance: "SHA256:fixture".into(), say: None, payload };
+    s.append(stream, head.as_ref(), &d, None).unwrap();
 }
 
 // ---- reject --------------------------------------------------------------------------------------------------------
@@ -593,7 +645,7 @@ fn reject_binds_the_task_and_its_head_and_is_final() {
     // Halted, it may still be rejected.
     let id = one(&fx, json!({}));
     ok(&authorize(&fx, &id, &[]));
-    by_hand(&fx, &format!("task-{id}"), "task-halted", json!({}), false);
+    by_hand(&fx, &format!("task-{id}"), "task-halted", halt("TOOL_FAILED"), false);
     ok(&fx.run(&["reject", &id, "--say", SAY]));
 }
 
@@ -613,8 +665,9 @@ fn refusal_merge_in_progress_closes_by_default_until_phase_9() {
     refused(&fx, &["reject", &id, "--say", SAY], "MERGE_IN_PROGRESS", 1, "es");
     // A candidate recorded after the acceptance is not the one accepted.
     start_by_hand(&fx, &id);
-    by_hand(&fx, &stream, "candidate-recorded", json!({}), false);
-    by_hand(&fx, &stream, "task-halted", json!({}), false);
+    let candidate = json!({"commit": "1".repeat(40), "tree": "2".repeat(40), "changes": []});
+    by_hand(&fx, &stream, "candidate-recorded", candidate, false);
+    by_hand(&fx, &stream, "task-halted", halt("CONFINEMENT_UNAVAILABLE"), false);
     ok(&fx.run(&["reject", &id, "--say", SAY]));
     assert_eq!(state(&fx, &id), "rejected");
 }

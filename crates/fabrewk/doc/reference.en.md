@@ -12,7 +12,7 @@ Shows the record's health, the policy in force and the state of each stage and t
 
 Moves it may cause: none.
 
-Documents with --json: `fabrewk.status/3`, `fabrewk.subject/2`
+Documents with --json: `fabrewk.status/3`, `fabrewk.subject/3`
 
 ## `fabrewk config [<key>] [--json]`
 
@@ -207,9 +207,9 @@ A maestro authorizes a task, or a stage and its tasks, as status showed it, nami
 - `--json`: Gives the output as one JSON document with a schema field.
 - `--help`: Shows this help.
 
-Moves it may cause: `task-authorized` (task authorized), `stage-authorized` (stage authorized), `run-started` (run started).
+Moves it may cause: `task-authorized` (task authorized), `stage-authorized` (stage authorized), `run-started` (run started), `attempt-started` (attempt started), `attempt-ended` (attempt ended), `candidate-recorded` (candidate recorded), `task-halted` (task halted).
 
-Documents with --json: `fabrewk.authorized/1`
+Documents with --json: `fabrewk.authorized/2`
 
 Refusals
 
@@ -225,9 +225,9 @@ Refusals
 - `WIDENING_UNNAMED`: A change widens authority without being named.
 - `LIMIT_UNOBSERVABLE`: A token limit is set for a tool that does not report the tokens it uses, so the limit could not be kept.
 - `DEPENDENCY_OPEN`: A task it depends on is not integrated yet.
+- `BASE_MOVED`: The product at the record branch's head is not the one the task's base, or the last of its dependencies' integrations, left.
 - `LOCK_HELD`: Another Fabrewk command holds the lock of this repository's record, or another task is running: one writer and one run at a time.
 - `ALAMBIQUE_UNAPPROVED`: The alambique is not the text a maestro last approved: it changed by hand, or it was never approved.
-- `CONFINEMENT_UNAVAILABLE`: No agent runs unconfined, and this machine or this version has no confinement to give it.
 - `RECORD_ABSENT`: There is no record here.
 - `POLICY_ABSENT`: No policy is adopted, so there is no effective configuration and no maintainer.
 - `RECORD_BROKEN`: The record is broken: its files are not one unbroken chain.
@@ -309,9 +309,9 @@ A maestro starts the confined run of an authorized task, or of a stage's next on
 - `--json`: Gives the output as one JSON document with a schema field.
 - `--help`: Shows this help.
 
-Moves it may cause: `run-started` (run started).
+Moves it may cause: `run-started` (run started), `attempt-started` (attempt started), `attempt-ended` (attempt ended), `candidate-recorded` (candidate recorded), `task-halted` (task halted).
 
-Documents with --json: 
+Documents with --json: `fabrewk.run/1`
 
 Refusals
 
@@ -321,9 +321,9 @@ Refusals
 - `WORDS_MISSING`: A person's move needs your own words, given with --say: not empty, and valid UTF-8 text.
 - `WORDS_COPIED`: The words given are the example that help prints, not your own.
 - `DEPENDENCY_OPEN`: A task it depends on is not integrated yet.
+- `BASE_MOVED`: The product at the record branch's head is not the one the task's base, or the last of its dependencies' integrations, left.
 - `LOCK_HELD`: Another Fabrewk command holds the lock of this repository's record, or another task is running: one writer and one run at a time.
 - `ALAMBIQUE_UNAPPROVED`: The alambique is not the text a maestro last approved: it changed by hand, or it was never approved.
-- `CONFINEMENT_UNAVAILABLE`: No agent runs unconfined, and this machine or this version has no confinement to give it.
 - `RECORD_ABSENT`: There is no record here.
 - `POLICY_ABSENT`: No policy is adopted, so there is no effective configuration and no maintainer.
 - `RECORD_BROKEN`: The record is broken: its files are not one unbroken chain.
@@ -590,4 +590,5 @@ Documents with --json: `fabrewk.refused/1`, `fabrewk.usage/1`, `fabrewk.internal
 - `1`: refused: a code was printed, and nothing was written.
 - `2`: usage error: the command line was not accepted.
 - `3`: the check found a problem.
+- `4`: the run stopped and waits for a person: the task is halted.
 - `70`: internal error.

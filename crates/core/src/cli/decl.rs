@@ -68,7 +68,7 @@ pub const COMMANDS: &[Command] = &[
         flags: READ,
         moves: &[],
         refusals: &[],
-        schemas: &["fabrewk.status/3", "fabrewk.subject/2"],
+        schemas: &["fabrewk.status/3", "fabrewk.subject/3"],
     },
     Command {
         name: "config",
@@ -129,7 +129,15 @@ pub const COMMANDS: &[Command] = &[
         arg: Some("id"),
         required: true,
         flags: &["seen", "say", "say-lang", "widen", "run", "json", "help"],
-        moves: &["task-authorized", "stage-authorized", "run-started"],
+        moves: &[
+            "task-authorized",
+            "stage-authorized",
+            "run-started",
+            "attempt-started",
+            "attempt-ended",
+            "candidate-recorded",
+            "task-halted",
+        ],
         refusals: &[
             AgentEnvironment,
             MoveNotAllowed,
@@ -143,11 +151,11 @@ pub const COMMANDS: &[Command] = &[
             WideningUnnamed,
             LimitUnobservable,
             DependencyOpen,
+            BaseMoved,
             LockHeld,
             AlambiqueUnapproved,
-            ConfinementUnavailable,
         ],
-        schemas: &["fabrewk.authorized/1"],
+        schemas: &["fabrewk.authorized/2"],
     },
     Command {
         name: "reject",
@@ -163,7 +171,7 @@ pub const COMMANDS: &[Command] = &[
         arg: Some("id"),
         required: true,
         flags: &["say", "say-lang", "json", "help"],
-        moves: &["run-started"],
+        moves: &["run-started", "attempt-started", "attempt-ended", "candidate-recorded", "task-halted"],
         refusals: &[
             AgentEnvironment,
             MoveNotAllowed,
@@ -171,11 +179,11 @@ pub const COMMANDS: &[Command] = &[
             WordsMissing,
             WordsCopied,
             DependencyOpen,
+            BaseMoved,
             LockHeld,
             AlambiqueUnapproved,
-            ConfinementUnavailable,
         ],
-        schemas: &[],
+        schemas: &["fabrewk.run/1"],
     },
     Command {
         name: "sweep",
@@ -274,8 +282,8 @@ pub const PROGRAM_FLAGS: [&str; 2] = ["help", "version"];
 /// The documents every command may give besides its own: a refusal, a usage error, an internal error, the version.
 pub const SCHEMAS: [&str; 4] = ["fabrewk.refused/1", "fabrewk.usage/1", "fabrewk.internal/1", "fabrewk.version/1"];
 
-/// The exit statuses of this phase (REQ-CLI-3); 4 and 10 come with phase 9.
-pub const EXITS: [i32; 5] = [0, 1, 2, 3, 70];
+/// The exit statuses of this phase (REQ-CLI-3): 4 since part 9e; 10 comes with part 9h.
+pub const EXITS: [i32; 6] = [0, 1, 2, 3, 4, 70];
 
 /// What the command line asks for.
 #[derive(Debug)]

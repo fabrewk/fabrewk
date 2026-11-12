@@ -25,7 +25,8 @@ use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
 /// The backend, as the binary wires it on Linux.
-pub const BACKEND: Backend = Backend { name: "bubblewrap", programs: &PROGRAMS, start, stop, residual: &RESIDUAL };
+pub const BACKEND: Backend =
+    Backend { name: "bubblewrap", programs: &PROGRAMS, system: &SYSTEM, start, stop, residual: &RESIDUAL };
 
 /// The programs it drives, detected at every start like the core's own (REQ-SET-8, S-1).
 pub const PROGRAMS: [Program; 2] = [
@@ -127,6 +128,9 @@ fn etc_files(network: Network, uid: u32, gid: u32) -> [(&'static str, String); 5
     ]
 }
 
+/// The system directories every cell shows read-only: `/usr`, and the others as the host has them.
+const SYSTEM: [&str; 5] = ["/usr", "/bin", "/sbin", "/lib", "/lib64"];
+
 /// `bwrap`'s arguments for `cell`, with the written files of `/etc` in `etc`. No value of the environment is in them
 /// (T-23): the cell reads it from a file.
 pub fn arguments(cell: &Cell, etc: &Path) -> Vec<OsString> {
@@ -138,7 +142,7 @@ pub fn arguments(cell: &Cell, etc: &Path) -> Vec<OsString> {
     }
     put(&[&"--ro-bind", &"/usr", &"/usr"]);
     // As the host has them: a link is made again, anything else bound read-only where it exists.
-    for dir in ["/bin", "/sbin", "/lib", "/lib64"] {
+    for dir in &SYSTEM[1..] {
         match fs::read_link(dir) {
             Ok(target) => put(&[&"--symlink", &target, &dir]),
             Err(_) => put(&[&"--ro-bind-try", &dir, &dir]),

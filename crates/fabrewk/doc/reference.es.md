@@ -12,7 +12,7 @@ Muestra la salud del registro, la política vigente y el estado de cada etapa y 
 
 Movimientos que puede causar: ninguno.
 
-Documentos con --json: `fabrewk.status/3`, `fabrewk.subject/2`
+Documentos con --json: `fabrewk.status/3`, `fabrewk.subject/3`
 
 ## `fabrewk config [<key>] [--json]`
 
@@ -207,9 +207,9 @@ Un maestro autoriza una tarea, o una etapa y sus tareas, tal como status las mos
 - `--json`: Da la salida como un solo documento JSON con un campo schema.
 - `--help`: Muestra esta ayuda.
 
-Movimientos que puede causar: `task-authorized` (tarea autorizada), `stage-authorized` (etapa autorizada), `run-started` (ejecución iniciada).
+Movimientos que puede causar: `task-authorized` (tarea autorizada), `stage-authorized` (etapa autorizada), `run-started` (ejecución iniciada), `attempt-started` (intento iniciado), `attempt-ended` (intento terminado), `candidate-recorded` (candidato registrado), `task-halted` (tarea detenida).
 
-Documentos con --json: `fabrewk.authorized/1`
+Documentos con --json: `fabrewk.authorized/2`
 
 Rechazos
 
@@ -225,9 +225,9 @@ Rechazos
 - `WIDENING_UNNAMED`: Un cambio amplía la autoridad sin nombrarse.
 - `LIMIT_UNOBSERVABLE`: Hay un límite de tokens para una herramienta que no informa los tokens que usa, así que el límite no se podría cumplir.
 - `DEPENDENCY_OPEN`: Una tarea de la que depende aún no está integrada.
+- `BASE_MOVED`: El producto en la punta de la rama del registro no es el que dejaron la base de la tarea o la última integración de sus dependencias.
 - `LOCK_HELD`: Otro comando de Fabrewk tiene el candado del registro de este repositorio, u otra tarea está en ejecución: un escritor y una ejecución a la vez.
 - `ALAMBIQUE_UNAPPROVED`: El alambique no es el texto que un maestro aprobó por última vez: cambió a mano, o nunca se aprobó.
-- `CONFINEMENT_UNAVAILABLE`: Ningún agente corre sin confinamiento, y este equipo o esta versión no tiene un confinamiento que darle.
 - `RECORD_ABSENT`: Aquí no hay registro.
 - `POLICY_ABSENT`: No hay una política adoptada, así que no hay configuración efectiva ni mantenedores.
 - `RECORD_BROKEN`: El registro está roto: sus archivos no forman una sola cadena sin cortes.
@@ -309,9 +309,9 @@ Un maestro inicia la ejecución confinada de una tarea autorizada, o de la sigui
 - `--json`: Da la salida como un solo documento JSON con un campo schema.
 - `--help`: Muestra esta ayuda.
 
-Movimientos que puede causar: `run-started` (ejecución iniciada).
+Movimientos que puede causar: `run-started` (ejecución iniciada), `attempt-started` (intento iniciado), `attempt-ended` (intento terminado), `candidate-recorded` (candidato registrado), `task-halted` (tarea detenida).
 
-Documentos con --json: 
+Documentos con --json: `fabrewk.run/1`
 
 Rechazos
 
@@ -321,9 +321,9 @@ Rechazos
 - `WORDS_MISSING`: Un movimiento de persona necesita tus propias palabras, dadas con --say: no vacías y en texto UTF-8 válido.
 - `WORDS_COPIED`: Las palabras dadas son el ejemplo que imprime la ayuda, no las tuyas.
 - `DEPENDENCY_OPEN`: Una tarea de la que depende aún no está integrada.
+- `BASE_MOVED`: El producto en la punta de la rama del registro no es el que dejaron la base de la tarea o la última integración de sus dependencias.
 - `LOCK_HELD`: Otro comando de Fabrewk tiene el candado del registro de este repositorio, u otra tarea está en ejecución: un escritor y una ejecución a la vez.
 - `ALAMBIQUE_UNAPPROVED`: El alambique no es el texto que un maestro aprobó por última vez: cambió a mano, o nunca se aprobó.
-- `CONFINEMENT_UNAVAILABLE`: Ningún agente corre sin confinamiento, y este equipo o esta versión no tiene un confinamiento que darle.
 - `RECORD_ABSENT`: Aquí no hay registro.
 - `POLICY_ABSENT`: No hay una política adoptada, así que no hay configuración efectiva ni mantenedores.
 - `RECORD_BROKEN`: El registro está roto: sus archivos no forman una sola cadena sin cortes.
@@ -590,4 +590,5 @@ Documentos con --json: `fabrewk.refused/1`, `fabrewk.usage/1`, `fabrewk.internal
 - `1`: rechazado: se imprimió un código y no se escribió nada.
 - `2`: error de uso: no se aceptó la línea de comandos.
 - `3`: la verificación encontró un problema.
+- `4`: la corrida se detuvo y espera a una persona: la tarea está detenida.
 - `70`: error interno.

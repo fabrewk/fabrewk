@@ -5,7 +5,7 @@
 
 use crate::code::{Code, Error, refuse};
 use crate::record::{Event, Replay, StreamKind, stream_kind, subject_digest};
-use serde_json::json;
+use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::LazyLock;
 
@@ -132,11 +132,12 @@ fn invalid(e: &Event, why: impl Into<String>) -> Error {
 
 /// The replay held to the table (REQ-REG-6; D-047, D-053). Each stage and task stream's moves are allowed from the
 /// state its earlier events left, with their payloads' content (REQ-TASK-2, REQ-TASK-3) and their bindings to their
-/// own subject's identifier, digest and previous head (PD-06; a rejection and an acceptance bind no digest, part
-/// 7d3b); a stage's authorization makes each task it binds
-/// authorized after the head it names, which its stream must hold (`RECORD_ROLLBACK` otherwise). A second end of an
-/// attempt is `ATTEMPT_ENDED` (PD-10); an attempt that starts while another is open, or a move out of `running` with
-/// one open, is `RECORD_TRANSITION_INVALID`, as is every other failure: each attempt ends exactly once (REQ-RUN-1).
+/// own subject's identifier, digest and previous head (PD-06; a rejection, an acceptance and a run bind no digest, part
+/// 7d3b; a run binds the authorization in force too, part 9e); a stage's authorization makes each task it binds
+/// authorized after the head it names, which its stream must hold (`RECORD_ROLLBACK` otherwise). An end names its
+/// attempt: a second end is `ATTEMPT_ENDED` (PD-10), the end of one a later attempt replaced `ATTEMPT_REPLACED` (PD-08);
+/// an attempt that starts while another is open, or a move out of `running` with one open, is
+/// `RECORD_TRANSITION_INVALID`, as is every other failure: each attempt ends exactly once (REQ-RUN-1).
 pub fn validate(record: &Replay) -> Result<(), Vec<Error>> {
     let mut errors = current(record).err().unwrap_or_default();
     match crate::fermento::proposals(record) {
@@ -148,7 +149,7 @@ pub fn validate(record: &Replay) -> Result<(), Vec<Error>> {
 
 /// The state of every stage and task stream after its events, held to the table as [`validate`] holds them.
 pub fn current(record: &Replay) -> Result<BTreeMap<String, &'static str>, Vec<Error>> {
-    let (mut covers, mut out, mut errors) = (BTreeSet::new(), BTreeMap::new(), Vec::new());
+    let (mut covers, mut out, mut errors) = (Covers::new(), BTreeMap::new(), Vec::new());
     let of = |k| record.streams.iter().filter(move |(n, _)| stream_kind(n) == Some(k));
     for s in of(StreamKind::Stage) {
         match stage(record, s, &mut covers) {
@@ -173,7 +174,7 @@ fn walk(subject: &str, state: Option<&str>, e: &Event, digest: &str) -> Result<&
         _ => x,
     };
     crate::task::check(&e.kind, &e.value["payload"]).map_err(content)?;
-    if ["stage-authorized", "stage-closed", "task-authorized", "task-accepted", "task-rejected"]
+    if ["stage-authorized", "stage-closed", "task-authorized", "task-accepted", "task-rejected", "run-started"]
         .contains(&e.kind.as_str())
     {
         let p = &e.value["payload"];
@@ -186,11 +187,15 @@ fn walk(subject: &str, state: Option<&str>, e: &Event, digest: &str) -> Result<&
     Ok(m.to)
 }
 
-fn stage(
-    record: &Replay,
-    (name, events): (&String, &Vec<Event>),
-    covers: &mut BTreeSet<(String, u64)>,
-) -> Result<&'static str, Error> {
+/// Each task a stage's authorization binds, at its stream's head then: the authorization's stream, place and digest.
+type Covers = BTreeMap<(String, u64), Value>;
+
+/// An authorization as `run-started` names it: its stream, its place and its digest.
+fn authorization(e: &Event) -> Value {
+    json!({"stream": e.stream, "seq": e.seq, "digest": e.digest})
+}
+
+fn stage(record: &Replay, (name, events): (&String, &Vec<Event>), covers: &mut Covers) -> Result<&'static str, Error> {
     let digest = subject_digest(&events[0].value["payload"]).unwrap_or_default();
     let mut state = None;
     for e in events {
@@ -214,17 +219,13 @@ fn stage(
                     format!("{stream}: a head its stream does not hold"),
                 ));
             }
-            covers.insert((stream, seq));
+            covers.insert((stream, seq), authorization(e));
         }
     }
     Ok(state.unwrap_or_default())
 }
 
-fn task(
-    record: &Replay,
-    (name, events): (&String, &Vec<Event>),
-    covers: &BTreeSet<(String, u64)>,
-) -> Result<&'static str, Error> {
+fn task(record: &Replay, (name, events): (&String, &Vec<Event>), covers: &Covers) -> Result<&'static str, Error> {
     let payload = &events[0].value["payload"];
     let digest = subject_digest(payload).unwrap_or_default();
     let stage = format!("stage-{}", payload["stage"].as_str().unwrap_or_default());
@@ -236,22 +237,46 @@ fn task(
         return Err(invalid(&events[0], format!("{missing}: no such stage or task")));
     }
     let authorize = find("task", "task-authorized").expect("the table holds task-authorized");
-    let (mut state, mut open) = (None, false);
+    // The open attempt and every attempt started, by the place of its start; the authorization in force.
+    let (mut state, mut open, mut started, mut auth) = (None, None, BTreeSet::new(), Value::Null);
     for e in events {
-        let to = walk("task", state, e, &digest)?;
-        if e.kind == "attempt-ended" && !open {
-            return Err(refuse(Code::AttemptEnded, Some(&e.path), "an attempt ended twice, or never started"));
+        // An end names its attempt (REQ-RUN-1, REQ-RUN-5): one already ended, or replaced by a later one, is refused
+        // whatever the state, before the move.
+        if e.kind == "attempt-ended" {
+            let attempt = e.value["payload"]["attempt"].as_u64();
+            if attempt.is_none_or(|a| Some(a) != open) {
+                let code = match attempt {
+                    Some(a) if started.range(a + 1..).next().is_some() && started.contains(&a) => Code::AttemptReplaced,
+                    Some(a) if started.contains(&a) => Code::AttemptEnded,
+                    _ if open.is_none() => Code::AttemptEnded,
+                    _ => Code::RecordTransitionInvalid,
+                };
+                return Err(refuse(code, Some(&e.path), "an attempt ended twice, or never started, or was replaced"));
+            }
         }
-        if open && (e.kind == "attempt-started" || to != "running") {
+        let to = walk("task", state, e, &digest)?;
+        if open.is_some() && (e.kind == "attempt-started" || to != "running") {
             return Err(invalid(e, "an attempt is open: it ends before another starts or the task leaves running"));
         }
-        open = (open || e.kind == "attempt-started") && e.kind != "attempt-ended";
+        if e.kind == "run-started" && e.value["payload"]["authorization"] != auth {
+            return Err(invalid(e, "the run names another authorization than the one in force"));
+        }
+        match e.kind.as_str() {
+            "attempt-started" => {
+                open = Some(e.seq);
+                started.insert(e.seq);
+            }
+            "attempt-ended" => open = None,
+            "task-authorized" => auth = authorization(e),
+            _ => {}
+        }
         state = Some(to);
-        if covers.contains(&(name.clone(), e.seq)) {
+        if let Some(by) = covers.get(&(name.clone(), e.seq)) {
             if !authorize.from.contains(&to) {
                 return Err(invalid(e, "a stage's authorization binds a task that waits for none"));
             }
             state = Some(authorize.to);
+            auth = by.clone();
         }
     }
     Ok(state.unwrap_or_default())

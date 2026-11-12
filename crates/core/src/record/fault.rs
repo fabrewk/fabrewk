@@ -63,3 +63,13 @@ pub(crate) fn pause(name: &str) {
     #[cfg(not(feature = "fault-injection"))]
     let _ = name;
 }
+
+/// The seconds of a minute of a limit: sixty, or with the feature those `FABREWK_FAULT_MINUTE` names, so that a test
+/// can spend a task's minutes in seconds (part 9e).
+pub(crate) fn minute() -> u64 {
+    #[cfg(feature = "fault-injection")]
+    if let Some(n) = std::env::var("FABREWK_FAULT_MINUTE").ok().and_then(|n| n.parse().ok()) {
+        return n;
+    }
+    60
+}

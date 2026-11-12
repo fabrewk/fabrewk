@@ -660,3 +660,53 @@ fn a_record_commit_made_is_reported_made_when_the_index_is_held_after_it() {
     // The person's staged edit stays; the record's files are in the index as the branch holds them.
     assert_eq!(fx.git(&["diff", "--cached", "--name-only"]), "README.md", "the index follows the record");
 }
+
+// ---- A builder's time (part 9e; PD-28, REQ-TASK-5's minutes, S-5) ---------------------------------------------------
+
+/// A task proposed on the fixture's head with `limits`, authorized through the binary; gives its identifier.
+fn authorized_with(fx: &Fx, limits: Value) -> String {
+    let head = fx.git(&["rev-parse", "HEAD"]);
+    let task = json!({
+        "lang": "en", "goal": "Make it.", "requirements": [{"text": "It builds.", "criterion": "it builds"}],
+        "base": head, "dependencies": [], "allowed": ["src/**"], "profiles": {"build": "build", "review": "review"},
+        "checks": [], "limits": limits, "delegationLanguage": "en", "settings": {"profiles.build.minutes": 2},
+    });
+    let stage = json!({"lang": "en", "goal": "Build it.", "budget": {"dispatches": 6, "minutes": 120}, "checks": {}, "settings": {}});
+    fs::write(fx.root.join("plan.json"), serde_json::to_vec(&json!({"stage": stage, "tasks": [task]})).unwrap())
+        .unwrap();
+    let ran = fx.run(&["propose", "plan.json", "--json"]);
+    fs::remove_file(fx.root.join("plan.json")).unwrap();
+    let id = ran.doc()["tasks"][0]["id"].as_str().unwrap().to_owned();
+    let digest = fx.run(&["status", &id, "--json"]).doc()["shown"]["digest"].as_str().unwrap().to_owned();
+    // The task's layer raises the profile's minutes: a widening, named.
+    let ran = fx.run(&["authorize", &id, "--seen", &digest, "--say", SAY, "--widen", "profiles.build.minutes"]);
+    assert_eq!(ran.status, 0, "{ran:?}");
+    id
+}
+
+/// A builder that prints, then sleeps past its time: its cell is ended at the profile's minutes (here two seconds a
+/// minute, `FABREWK_FAULT_MINUTE`), what it printed is kept as evidence (PD-28), and the task halts `TOOL_FAILED`; when
+/// the task's own minutes are what ended it, `BUDGET_EXHAUSTED`.
+#[test]
+fn pd_28_a_builder_that_times_out_keeps_its_output_and_halts() {
+    let fx = Fx::builder("timeout", "published", "echo printed-before; echo said-before >&2; sleep 30\n");
+    for (limits, code, why) in [
+        (json!({"rounds": 3, "dispatches": 6, "minutes": 120}), "TOOL_FAILED", "ended at its time limit"),
+        (json!({"rounds": 3, "dispatches": 6, "minutes": 1}), "BUDGET_EXHAUSTED", "minutes are spent"),
+    ] {
+        let id = authorized_with(&fx, limits);
+        let ran = fx.run_env(&["run", &id, "--say", SAY], &[("FABREWK_FAULT_MINUTE", "2")]);
+        assert_eq!(ran.status, 4, "{ran:?}");
+        let events = fx.events(&format!("task-{id}"));
+        let (end, halt) = (&events[events.len() - 2]["payload"], &events[events.len() - 1]["payload"]);
+        assert_eq!((end["outcome"].as_str(), halt["code"].as_str()), (Some("failure"), Some(code)), "{events:?}");
+        assert!(halt["reason"].as_str().unwrap().contains(why), "{halt}");
+        let seconds = end["usage"]["seconds"].as_u64().unwrap();
+        assert!((1..10).contains(&seconds), "{seconds}");
+        let attempt = end["attempt"].as_u64().unwrap();
+        let evidence = fx.domain.join(format!("local/evidence/attempt-{id}-{attempt}"));
+        assert_eq!(fs::read_to_string(evidence.join("stdout")).unwrap(), "printed-before\n");
+        assert_eq!(fs::read_to_string(evidence.join("stderr")).unwrap(), "said-before\n");
+        assert_eq!(end["evidence"]["stdout"], sha256_hex(b"printed-before\n"));
+    }
+}

@@ -2,8 +2,8 @@
 //! <digest> --say <words> [--widen <key>]… [--run]`, `reject <task> --say <words>` and `run <task|stage> --say
 //! <words>`, each a maestro's signed move whose guards run in the order section 4's table lists them, after the move
 //! itself (`MOVE_NOT_ALLOWED`); and what an authorization binds, which `status <id>` shows with the digest that
-//! `authorize` takes with `--seen` (REQ-GATE-7, PD-37). Until phase 9 builds a confinement backend, `run` and
-//! `authorize --run` refuse `CONFINEMENT_UNAVAILABLE`, with nothing written.
+//! `authorize` takes with `--seen` (REQ-GATE-7, PD-37). `run` and `authorize --run` run the task past confinement
+//! (part 9e, `super::run`).
 
 use super::adopt::written_lines;
 use super::propose::layer;
@@ -15,7 +15,6 @@ use crate::settings::{self, Source, Val};
 use crate::{table, task};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
-use std::convert::Infallible;
 
 type States = BTreeMap<String, &'static str>;
 type Stream<'a> = (&'a String, &'a Vec<Event>);
@@ -165,41 +164,6 @@ pub(super) fn bound<'a>(cx: &Cx, record: &'a Replay, states: &States, stream: &s
     Some(Bound { digest: sha256_hex(text.as_bytes()), text, tasks })
 }
 
-/// The refusal that stops a run of `task`, in the order of section 4's `run-started` (D-053 point 4, D-068): its
-/// dependencies integrated (`DEPENDENCY_OPEN`), no task running (`LOCK_HELD`: tasks run one at a time, REQ-TASK-3), the
-/// alambique approved (`ALAMBIQUE_UNAPPROVED`, REQ-FER-7: before confinement, D-073), then confinement, which refuses
-/// until part 9e builds the run past it (`CONFINEMENT_UNAVAILABLE`; the backend exists since part 9a). The policy in force is the write path's
-/// guard; `BASE_MOVED` and REQ-RUN-2 are phase 9's (D-068).
-fn start(cx: &Cx, record: &Replay, states: &States, task: &str) -> Error {
-    let m = table::find("task", "run-started").expect("the table holds run-started");
-    let state = |n: &str| states.get(n).copied().unwrap_or("none");
-    let refused = table::evaluate(m, |g| match g.name {
-        "DEPENDENCY_OPEN" => {
-            match dependencies(&record.streams[task]).find(|d| state(&format!("task-{d}")) != "integrated") {
-                Some(d) => Err(refuse(Code::DependencyOpen, None, format!("{d} is {}", state(&format!("task-{d}"))))),
-                None => Ok(()),
-            }
-        }
-        "LOCK_HELD" => match states.iter().find(|(_, s)| **s == "running") {
-            Some((n, _)) => {
-                Err(refuse(Code::LockHeld, None, format!("{} is running; tasks run one at a time", &n[5..])))
-            }
-            None => Ok(()),
-        },
-        "ALAMBIQUE_UNAPPROVED" => crate::alambique::check(record, &cx.domain),
-        "CONFINEMENT_UNAVAILABLE" => Err(refuse(
-            Code::ConfinementUnavailable,
-            None,
-            "this version does not dispatch yet; phase 9 builds the run past confinement in its part 9e",
-        )),
-        _ => Ok(()),
-    });
-    match refused {
-        Err(e) => e,
-        Ok(()) => unreachable!("confinement refuses until part 9e builds the run past it"),
-    }
-}
-
 /// The first task of stage `id` that may start a run, in the stage's order (`run <stage>`, section 5);
 /// `MOVE_NOT_ALLOWED` when none may.
 fn first_to_run(record: &Replay, states: &States, id: &str) -> Result<String, Error> {
@@ -293,14 +257,19 @@ fn authorize_plan(cx: &Cx, id: &str, options: &Options, record: &Replay) -> Resu
         }
         Ok(())
     })?;
-    if options.run {
-        // Both moves' guards are evaluated before either is written: the run's, on the states the authorization leaves
-        // (D-062 point 1).
-        let mut after = states.clone();
-        after.extend(b.tasks.iter().map(|(n, _)| ((*n).clone(), "authorized")));
-        let next = if subject == "task" { stream.clone() } else { first_to_run(record, &after, &stage[6..])? };
-        return Err(start(cx, record, &after, &next).into());
-    }
+    // With `--run`, the run's guards are evaluated on the states the authorization leaves, before either is written
+    // (D-062 point 1); its `run-started` follows the authorization, with the same words.
+    let run = match options.run {
+        false => None,
+        true => {
+            let mut after = states.clone();
+            after.extend(b.tasks.iter().map(|(n, _)| ((*n).clone(), "authorized")));
+            let next = if subject == "task" { stream.clone() } else { first_to_run(record, &after, &stage[6..])? };
+            let (_, actor, _) = who.as_ref().expect("ROLE_FORBIDDEN is a guard of every authorization");
+            let who = (actor.clone(), say.clone().expect("WORDS_MISSING is a guard of every authorization"));
+            Some((next.clone(), super::run::start(cx, record, (&policy, &after), &next, true, who)?))
+        }
+    };
     let (_, actor, signer) = who.expect("ROLE_FORBIDDEN is a guard of every authorization");
     let mut widened: Vec<String> = effs.iter().flat_map(|e| e.widened.clone()).collect();
     widened.sort();
@@ -326,7 +295,12 @@ fn authorize_plan(cx: &Cx, id: &str, options: &Options, record: &Replay) -> Resu
         tasks: b.tasks.iter().map(|(n, e)| (n[5..].to_owned(), goal(e))).collect(),
         widened,
     };
-    Ok(Plan { events: vec![(stream, draft)], signer: Some(signer), sealed: false, view: None, alambique: None, out })
+    let mut events = vec![(stream, draft)];
+    let then = run.map(|(next, (started, then))| {
+        events.push((next, started));
+        then
+    });
+    Ok(Plan { events, signer: Some(signer), sealed: false, view: None, alambique: None, then, out })
 }
 
 /// `fabrewk authorize <stage|task> --seen <digest> --say <words> [--widen <key>]… [--run]`.
@@ -342,8 +316,15 @@ pub(super) fn authorize(cx: &Cx, id: &str, options: &Options) -> Result<Out, Fai
     }
     let tasks: Vec<&String> = a.tasks.iter().map(|(t, _)| t).collect();
     let mut doc = json!({
-        "schema": "fabrewk.authorized/1", "subject": a.subject, "id": a.id, "tasks": tasks, "widened": a.widened,
+        "schema": "fabrewk.authorized/2", "subject": a.subject, "id": a.id, "tasks": tasks, "widened": a.widened,
+        "run": null,
     });
+    // With `--run`, what the run reports follows, with the events of both moves and the exit it gives.
+    if !written.ran.is_null() {
+        let run = super::run::report(cx, &written.ran, &written);
+        doc["run"] = run.doc;
+        return Ok(Out { doc, text: text + &run.text, ..run });
+    }
     text += &written_lines(cx, &written, &mut doc);
     text += &cx.next(&[&format!("fabrewk run {}", a.id), &format!("fabrewk status {}", a.id)]);
     Ok(Out::new(doc, text))
@@ -384,6 +365,7 @@ pub(super) fn reject(cx: &Cx, id: &str, options: &Options) -> Result<Out, Failed
             sealed: false,
             view: None,
             alambique: None,
+            then: None,
         })
     };
     let (task, written) = write::run(cx, plan)?;
@@ -394,12 +376,11 @@ pub(super) fn reject(cx: &Cx, id: &str, options: &Options) -> Result<Out, Failed
     Ok(Out::new(doc, text))
 }
 
-/// `fabrewk run <task|stage> --say <words>` (D-053 point 4, D-062 point 2): the move, or a stage's first task that may
-/// start a run, the person and their words, then the run's guards up to confinement, which refuses until phase 9: so
-/// it never writes.
+/// `fabrewk run <task|stage> --say <words>` (D-053 point 4, D-062 point 2; part 9e): the move, or a stage's first
+/// task that may start a run, the person and their words, then the run's guards and the run itself (`super::run`).
 pub(super) fn run(cx: &Cx, id: &str, options: &Options) -> Result<Out, Failed> {
     write::not_an_agent(cx)?;
-    let plan = |record: &Replay| -> Result<Plan<Infallible>, Failed> {
+    let plan = |record: &Replay| -> Result<Plan<()>, Failed> {
         let policy = write::state(cx, record)?.policy;
         let (subject, stream) = resolve(record, id, true, "run")?;
         let states = table::current(record)?;
@@ -407,10 +388,12 @@ pub(super) fn run(cx: &Cx, id: &str, options: &Options) -> Result<Out, Failed> {
             "task" => table::step("task", states.get(&stream).copied(), "run-started").map(|_| stream)?,
             _ => first_to_run(record, &states, &stream["stage-".len()..])?,
         };
-        let (alias, _, _) = write::person(cx, &policy, "run-started")?;
-        write::words(cx, &policy, &alias, options)?;
-        Err(start(cx, record, &states, &task).into())
+        let (alias, actor, signer) = write::person(cx, &policy, "run-started")?;
+        let say = write::words(cx, &policy, &alias, options)?;
+        let (draft, then) = super::run::start(cx, record, (&policy, &states), &task, false, (actor, say))?;
+        let events = vec![(task, draft)];
+        Ok(Plan { events, signer: Some(signer), sealed: false, view: None, alambique: None, then: Some(then), out: () })
     };
-    let (never, _) = write::run(cx, plan)?;
-    match never {}
+    let ((), written) = write::run(cx, plan)?;
+    Ok(super::run::report(cx, &written.ran, &written))
 }

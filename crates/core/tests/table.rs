@@ -219,8 +219,11 @@ impl Task {
 fn refusal_record_transition_invalid_from_the_table() {
     let t = Task::new("table-moves");
     t.authorize();
-    t.next(&person("run-started", "Corre.", json!({})));
-    for kind in ["attempt-started", "attempt-ended", "candidate-recorded", "check-recorded", "review-recorded"] {
+    t.next(&person("run-started", "Corre.", started(&t.f, &t.stream)));
+    t.next(&fabrewk("attempt-started", attempt()));
+    t.next(&fabrewk("attempt-ended", ended(&t.f, &t.stream, seconds(1))));
+    t.next(&fabrewk("candidate-recorded", candidate()));
+    for kind in ["check-recorded", "review-recorded"] {
         t.next(&fabrewk(kind, json!({})));
     }
     let verified = t.next(&fabrewk("task-verified", json!({})));
@@ -230,10 +233,10 @@ fn refusal_record_transition_invalid_from_the_table() {
     assert_eq!(t.replay().unwrap_err(), [Code::RecordTransitionInvalid]);
     fs::remove_file(integrated).unwrap();
     // From `verified` a run starts again (a revalidation); from `proposed`, with no authorization, it does not.
-    t.next(&person("run-started", "Revalida.", json!({})));
+    t.next(&person("run-started", "Revalida.", started(&t.f, &t.stream)));
     t.replay().unwrap();
     let other = Task::new("table-unauthorized");
-    other.next(&person("run-started", "Corre.", json!({})));
+    other.next(&person("run-started", "Corre.", started(&other.f, &other.stream)));
     assert_eq!(other.replay().unwrap_err(), [Code::RecordTransitionInvalid]);
     let _ = verified;
 }
@@ -242,23 +245,132 @@ fn refusal_record_transition_invalid_from_the_table() {
 fn pd_10_a_second_end_of_an_attempt_on_replay() {
     let t = Task::new("pd10");
     t.authorize();
-    t.next(&person("run-started", "Corre.", json!({})));
-    t.next(&fabrewk("attempt-started", json!({})));
-    t.next(&fabrewk("attempt-ended", json!({})));
+    t.next(&person("run-started", "Corre.", started(&t.f, &t.stream)));
+    t.next(&fabrewk("attempt-started", attempt()));
+    t.next(&fabrewk("attempt-ended", ended(&t.f, &t.stream, seconds(1))));
     t.replay().unwrap();
-    let second = t.next(&fabrewk("attempt-ended", json!({})));
+    let second = t.next(&fabrewk("attempt-ended", ended(&t.f, &t.stream, seconds(1))));
     assert_eq!(t.replay().unwrap_err(), [Code::AttemptEnded]);
     fs::remove_file(second).unwrap();
     // A new attempt starts only once the last one ended, and the task leaves `running` with none open (REQ-RUN-1).
-    t.next(&fabrewk("attempt-started", json!({})));
-    let replacing = t.next(&fabrewk("attempt-started", json!({})));
+    t.next(&fabrewk("attempt-started", attempt()));
+    let replacing = t.next(&fabrewk("attempt-started", attempt()));
     assert_eq!(t.replay().unwrap_err(), [Code::RecordTransitionInvalid]);
     fs::remove_file(replacing).unwrap();
-    let halted = t.next(&fabrewk("task-halted", json!({})));
+    let halt = t.next(&fabrewk("task-halted", halted("TOOL_FAILED")));
     assert_eq!(t.replay().unwrap_err(), [Code::RecordTransitionInvalid]);
-    fs::remove_file(halted).unwrap();
-    t.next(&fabrewk("attempt-ended", json!({})));
-    t.next(&fabrewk("task-halted", json!({})));
+    fs::remove_file(halt).unwrap();
+    t.next(&fabrewk("attempt-ended", ended(&t.f, &t.stream, seconds(1))));
+    t.next(&fabrewk("task-halted", halted("TOOL_FAILED")));
+    t.replay().unwrap();
+}
+
+#[test]
+fn refusal_attempt_replaced_on_replay() {
+    let t = Task::new("attempt-replaced");
+    t.authorize();
+    t.next(&person("run-started", "Corre.", started(&t.f, &t.stream)));
+    t.next(&fabrewk("attempt-started", attempt()));
+    // Ended as unknown by a later command (REQ-RUN-5), then authorized and run again.
+    let first = ended(&t.f, &t.stream, json!({"seconds": null, "tokens": null}));
+    t.next(&fabrewk("attempt-ended", first.clone()));
+    t.next(&fabrewk("task-halted", halted("OUTCOME_UNKNOWN")));
+    t.authorize();
+    t.next(&person("run-started", "Corre.", started(&t.f, &t.stream)));
+    t.next(&fabrewk("attempt-started", attempt()));
+    t.replay().unwrap();
+    // A late result for the first attempt, which the second replaced (PD-08): while the second runs, and after it.
+    let late = t.next(&fabrewk("attempt-ended", first.clone()));
+    assert_eq!(t.replay().unwrap_err(), [Code::AttemptReplaced]);
+    fs::remove_file(late).unwrap();
+    // An end that names no attempt while one is open, or an event that is no attempt's start.
+    for attempt in [99, 3] {
+        let mut wrong = first.clone();
+        wrong["attempt"] = json!(attempt);
+        let path = t.next(&fabrewk("attempt-ended", wrong));
+        assert_eq!(t.replay().unwrap_err(), [Code::RecordTransitionInvalid], "{attempt}");
+        fs::remove_file(path).unwrap();
+    }
+    t.next(&fabrewk("attempt-ended", ended(&t.f, &t.stream, seconds(2))));
+    t.next(&fabrewk("task-halted", halted("TOOL_FAILED")));
+    let late = t.next(&fabrewk("attempt-ended", first));
+    assert_eq!(t.replay().unwrap_err(), [Code::AttemptReplaced]);
+    fs::remove_file(late).unwrap();
+    // The second attempt's own end again, after the task left running, is a second end.
+    let again = t.next(&fabrewk("attempt-ended", ended(&t.f, &t.stream, seconds(2))));
+    assert_eq!(t.replay().unwrap_err(), [Code::AttemptEnded]);
+    fs::remove_file(again).unwrap();
+    t.replay().unwrap();
+}
+
+#[test]
+fn the_runs_payloads_and_bindings_on_replay() {
+    let t = Task::new("run-payloads");
+    t.authorize();
+    // A run bound to another authorization, to another head, or of another shape.
+    let mut other = started(&t.f, &t.stream);
+    other["authorization"]["digest"] = json!("0".repeat(64));
+    let mut moved = started(&t.f, &t.stream);
+    moved["head"]["seq"] = json!(1);
+    let mut no_base = started(&t.f, &t.stream);
+    no_base.as_object_mut().unwrap().remove("base");
+    let mut null_base = started(&t.f, &t.stream);
+    null_base["base"] = Value::Null;
+    for (run, code) in [
+        (other, Code::RecordTransitionInvalid),
+        (moved, Code::RecordTransitionInvalid),
+        (no_base, Code::RecordVersionUnknown),
+        (null_base, Code::RecordVersionUnknown),
+    ] {
+        let path = t.next(&person("run-started", "Corre.", run.clone()));
+        assert_eq!(t.replay().unwrap_err(), [code], "{run}");
+        fs::remove_file(sig(&path)).unwrap();
+        fs::remove_file(path).unwrap();
+    }
+    t.next(&person("run-started", "Corre.", started(&t.f, &t.stream)));
+    // Each of Fabrewk's own kinds of the run holds its fields, of their types and sets.
+    let mut role = attempt();
+    role["role"] = json!("check");
+    let mut zero = attempt();
+    zero["allowedSeconds"] = json!(0);
+    for (kind, payload, code) in [
+        ("attempt-started", role, Code::RecordTransitionInvalid),
+        ("attempt-started", zero, Code::RecordTransitionInvalid),
+        ("attempt-started", json!({}), Code::RecordVersionUnknown),
+    ] {
+        let path = t.next(&fabrewk(kind, payload.clone()));
+        assert_eq!(t.replay().unwrap_err(), [code], "{payload}");
+        fs::remove_file(path).unwrap();
+    }
+    t.next(&fabrewk("attempt-started", attempt()));
+    let good = ended(&t.f, &t.stream, json!({"seconds": 0, "tokens": {"input": 0, "output": null, "cached": 3}}));
+    let mut outcome = good.clone();
+    outcome["outcome"] = json!("maybe");
+    let mut tokens = good.clone();
+    tokens["usage"]["tokens"] = json!(3);
+    let mut evidence = good.clone();
+    evidence["evidence"] = json!({"stdout": "0".repeat(64)});
+    for (payload, code) in [
+        (outcome, Code::RecordTransitionInvalid),
+        (tokens, Code::RecordVersionUnknown),
+        (evidence, Code::RecordVersionUnknown),
+    ] {
+        let path = t.next(&fabrewk("attempt-ended", payload.clone()));
+        assert_eq!(t.replay().unwrap_err(), [code], "{payload}");
+        fs::remove_file(path).unwrap();
+    }
+    t.next(&fabrewk("attempt-ended", good));
+    let mut change = candidate();
+    change["changes"] = json!([{"path": "src/a", "before": null, "after": {"mode": "100600", "oid": "3".repeat(40)}}]);
+    let path = t.next(&fabrewk("candidate-recorded", change));
+    assert_eq!(t.replay().unwrap_err(), [Code::RecordTransitionInvalid]);
+    fs::remove_file(path).unwrap();
+    t.next(&fabrewk("candidate-recorded", candidate()));
+    // A halt's code is one of REQ-TASK-5's.
+    let path = t.next(&fabrewk("task-halted", halted("LOCK_HELD")));
+    assert_eq!(t.replay().unwrap_err(), [Code::RecordTransitionInvalid]);
+    fs::remove_file(path).unwrap();
+    t.next(&fabrewk("task-halted", halted("CONFINEMENT_UNAVAILABLE")));
     t.replay().unwrap();
 }
 
@@ -279,7 +391,7 @@ fn pd_06_an_approval_bound_to_another_task_or_head_is_refused() {
     fs::remove_file(copy).unwrap();
     // In its own stream it binds; re-appended later, after a halt, it names an old head.
     t.next(&approval);
-    t.next(&fabrewk("task-halted", json!({"code": "NO_PROGRESS"})));
+    t.next(&fabrewk("task-halted", halted("NO_PROGRESS")));
     t.replay().unwrap();
     let again = t.next(&approval);
     assert_eq!(t.replay().unwrap_err(), [Code::RecordTransitionInvalid]);
@@ -353,7 +465,7 @@ fn req_task_3_a_stage_authorization_authorizes_the_tasks_it_binds() {
     assert_eq!(t.replay().unwrap_err(), [Code::RecordTransitionInvalid]);
     fs::remove_file(sig(&path)).unwrap();
     fs::remove_file(path).unwrap();
-    t.next(&person("run-started", "Corre.", json!({})));
+    t.next(&person("run-started", "Corre.", started(&t.f, &t.stream)));
     t.replay().unwrap();
     // A second `stage-authorized` is no move of an authorized stage.
     t.next_in(&stage, &person("stage-authorized", "Autorizo.", stage_binding(json!([]))));
@@ -927,46 +1039,60 @@ fn id_of(t: &Task) -> String {
 }
 
 /// `STATUS.md`'s usage line for the task, as the view words it.
-fn usage_line(t: &Task, dispatches: usize, tokens: &str) -> String {
+/// The usage line of `t` (S-5): its dispatches, then its seconds and its tokens read, written and read from the cache.
+fn usage_line(t: &Task, dispatches: usize, sums: [&str; 4]) -> String {
     let n = dispatches.to_string();
-    fabrewk_core::cli::say("en", "view.usage-line", &[("id", &id_of(t)), ("dispatches", &n), ("tokens", tokens)])
+    let [seconds, input, output, cached] = sums;
+    let params = [("id", &*id_of(t)), ("dispatches", &n), ("seconds", seconds)];
+    let more = [("input", input), ("output", output), ("cached", cached)];
+    fabrewk_core::cli::say("en", "view.usage-line", &[&params[..], &more[..]].concat())
 }
 
 fn running(name: &str) -> Task {
     let t = Task::new(name);
     t.authorize();
-    t.next(&person("run-started", "Corre.", json!({})));
+    t.next(&person("run-started", "Corre.", started(&t.f, &t.stream)));
     t
+}
+
+/// A usage of `seconds` and of tokens `cached` read from the cache, the others 1 (S-5).
+fn cached(seconds: Value, cached: Value) -> Value {
+    json!({"seconds": seconds, "tokens": {"input": 1, "output": 1, "cached": cached}})
 }
 
 #[test]
 fn pd_39_the_view_shows_tokens_as_reported_unknown_when_a_part_is_not_and_zero_only_when_reported() {
     let unknown = fabrewk_core::cli::say("en", "view.unknown", &[]);
-    let cases: [(&str, Vec<Value>, Option<&str>); 7] = [
-        ("reported-none", vec![json!({"usage": {"tokens": null}})], None),
-        ("reported-absent", vec![json!({})], None),
-        ("reported-zero", vec![json!({"usage": {"tokens": 0}})], Some("0")),
-        ("reported-sum", vec![json!({"usage": {"tokens": 5}}), json!({"usage": {"tokens": 7}})], Some("12")),
-        ("reported-mix", vec![json!({"usage": {"tokens": 5}}), json!({"usage": {"tokens": null}})], None),
-        ("reported-zero-and-none", vec![json!({"usage": {"tokens": 0}}), json!({})], None),
+    let u = unknown.as_str();
+    let cases: [(&str, Vec<Value>, [&str; 4]); 7] = [
+        ("reported-none", vec![json!({"seconds": 4, "tokens": null})], ["4", u, u, u]),
+        ("reported-absent", vec![cached(json!(4), Value::Null)], ["4", "1", "1", u]),
+        ("reported-zero", vec![cached(json!(0), json!(0))], ["0", "1", "1", "0"]),
+        ("reported-sum", vec![cached(json!(2), json!(5)), cached(json!(3), json!(7))], ["5", "2", "2", "12"]),
+        ("reported-mix", vec![cached(json!(2), json!(5)), cached(Value::Null, Value::Null)], [u, "2", "2", u]),
+        (
+            "reported-zero-and-none",
+            vec![cached(json!(1), json!(0)), json!({"seconds": 1, "tokens": null})],
+            ["2", u, u, u],
+        ),
         // A sum that does not fit is not a figure: unknown, and no panic.
-        ("reported-overflow", vec![json!({"usage": {"tokens": u64::MAX}}), json!({"usage": {"tokens": 1}})], None),
+        ("reported-overflow", vec![cached(json!(1), json!(u64::MAX)), cached(json!(1), json!(1))], ["2", "2", "2", u]),
     ];
-    for (name, ends, tokens) in cases {
+    for (name, ends, sums) in cases {
         let t = running(&format!("view-usage-{name}"));
-        for end in &ends {
-            t.next(&fabrewk("attempt-started", json!({})));
-            t.next(&fabrewk("attempt-ended", end.clone()));
+        for usage in &ends {
+            t.next(&fabrewk("attempt-started", attempt()));
+            t.next(&fabrewk("attempt-ended", ended(&t.f, &t.stream, usage.clone())));
         }
         let status = view::status(&t.f.replay(), "en");
-        assert!(status.contains(&usage_line(&t, ends.len(), tokens.unwrap_or(&unknown))), "{name}: {status}");
+        assert!(status.contains(&usage_line(&t, ends.len(), sums)), "{name}: {status}");
     }
     // An attempt that never ended is unknown, whatever the earlier ones reported.
     let t = running("view-usage-open");
-    t.next(&fabrewk("attempt-started", json!({})));
-    t.next(&fabrewk("attempt-ended", json!({"usage": {"tokens": 3}})));
-    t.next(&fabrewk("attempt-started", json!({})));
-    assert!(view::status(&t.f.replay(), "en").contains(&usage_line(&t, 2, &unknown)));
+    t.next(&fabrewk("attempt-started", attempt()));
+    t.next(&fabrewk("attempt-ended", ended(&t.f, &t.stream, cached(json!(1), json!(1)))));
+    t.next(&fabrewk("attempt-started", attempt()));
+    assert!(view::status(&t.f.replay(), "en").contains(&usage_line(&t, 2, [u, u, u, u])));
     // A task with no dispatch has no line.
     let t = running("view-usage-none");
     let status = view::status(&t.f.replay(), "en");
@@ -976,11 +1102,11 @@ fn pd_39_the_view_shows_tokens_as_reported_unknown_when_a_part_is_not_and_zero_o
 #[test]
 fn pd_40_a_task_waits_for_the_maestro_since_its_halt_and_not_while_it_runs() {
     let t = running("view-halt");
-    t.next(&fabrewk("attempt-started", json!({})));
+    t.next(&fabrewk("attempt-started", attempt()));
     // The stage of the fixture is not authorized, so it waits; the running task does not.
     assert!(view::waits(&t.f.replay()).iter().all(|w| w.id != id_of(&t)), "a running task waits for no one");
-    t.next(&fabrewk("attempt-ended", json!({"usage": {"tokens": 1}})));
-    let halt = t.next(&fabrewk("task-halted", json!({"code": "NO_PROGRESS"})));
+    t.next(&fabrewk("attempt-ended", ended(&t.f, &t.stream, seconds(1))));
+    let halt = t.next(&fabrewk("task-halted", halted("NO_PROGRESS")));
     let at: Value = serde_json::from_slice(&fs::read(halt).unwrap()).unwrap();
     let waits: Vec<_> = view::waits(&t.f.replay()).into_iter().filter(|w| w.id == id_of(&t)).collect();
     assert_eq!(waits.len(), 1, "{waits:?}");
@@ -994,8 +1120,8 @@ fn pd_40_a_task_waits_for_the_maestro_since_its_halt_and_not_while_it_runs() {
     assert!(status.contains(&fabrewk_core::cli::say("en", "view.halted", &[("code", "NO_PROGRESS")])), "{status}");
     // Authorized again, then run to a candidate that is verified: it waits to be accepted, with no halt code.
     let t = running("view-verified");
-    t.next(&fabrewk("attempt-started", json!({})));
-    t.next(&fabrewk("attempt-ended", json!({})));
+    t.next(&fabrewk("attempt-started", attempt()));
+    t.next(&fabrewk("attempt-ended", ended(&t.f, &t.stream, seconds(1))));
     t.next(&fabrewk("task-verified", json!({})));
     let waits: Vec<_> = view::waits(&t.f.replay()).into_iter().filter(|w| w.id == id_of(&t)).collect();
     assert_eq!((waits[0].what, waits[0].detail.as_str()), ("task-verified", ""));

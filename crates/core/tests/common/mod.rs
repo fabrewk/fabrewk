@@ -344,6 +344,57 @@ pub fn bound(f: &Fixture, stream: &str) -> Value {
     })
 }
 
+/// The events of `stream` on disk, in order, with their digests.
+fn on_disk(f: &Fixture, stream: &str) -> Vec<(Value, String)> {
+    let read = |p: &PathBuf| std::fs::read(p).unwrap();
+    f.events(stream).iter().map(|p| (serde_json::from_slice(&read(p)).unwrap(), sha256_hex(&read(p)))).collect()
+}
+
+/// The payload of a run that starts after the head `stream` has on disk now, relying on its last `task-authorized`,
+/// else its stage's last `stage-authorized` (part 9e); with neither, on a made-up one.
+pub fn started(f: &Fixture, stream: &str) -> Value {
+    let events = on_disk(f, stream);
+    let last = |stream: &str, kind: &str| {
+        let events = on_disk(f, stream);
+        let at = events.iter().rposition(|(e, _)| e["kind"] == kind)?;
+        Some(json!({"stream": stream, "seq": at + 1, "digest": events[at].1}))
+    };
+    let stage = format!("stage-{}", events[0].0["payload"]["stage"].as_str().unwrap());
+    let auth = last(stream, "task-authorized").or_else(|| last(&stage, "stage-authorized"));
+    let auth = auth.unwrap_or_else(|| json!({"stream": stream, "seq": 1, "digest": "0".repeat(64)}));
+    json!({
+        "task": &stream["task-".len()..], "head": {"seq": events.len(), "digest": events.last().unwrap().1},
+        "authorization": auth, "base": "0".repeat(40),
+    })
+}
+
+/// An attempt's start (part 9e).
+pub fn attempt() -> Value {
+    json!({"role": "build", "profile": "build", "tool": "claude", "model": "m", "effort": "low", "allowedSeconds": 60})
+}
+
+/// The end of the last attempt `stream` started on disk, with `usage` (part 9e, S-5).
+pub fn ended(f: &Fixture, stream: &str, usage: Value) -> Value {
+    let events = on_disk(f, stream);
+    let at = events.iter().rposition(|(e, _)| e["kind"] == "attempt-started").map_or(1, |i| i + 1);
+    json!({"attempt": at, "outcome": "success", "model": null, "usage": usage, "evidence": null})
+}
+
+/// A usage with `seconds` and no tokens reported.
+pub fn seconds(n: u64) -> Value {
+    json!({"seconds": n, "tokens": null})
+}
+
+/// A halt with `code` (part 9e).
+pub fn halted(code: &str) -> Value {
+    json!({"code": code, "reason": "A reason."})
+}
+
+/// A candidate's record with no change (part 9e).
+pub fn candidate() -> Value {
+    json!({"commit": "1".repeat(40), "tree": "2".repeat(40), "changes": []})
+}
+
 /// Removes, once per test process, the fixtures of test processes that have ended (their names carry the process's
 /// identifier), opening every directory first; so that runs that repeat, as mutation testing does, do not fill the
 /// disk (session 21).

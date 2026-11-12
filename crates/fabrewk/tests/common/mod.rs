@@ -66,6 +66,8 @@ pub struct Fx {
     pub domain: PathBuf,
     pub home: PathBuf,
     pub keys: PathBuf,
+    /// The `PATH` the binary runs with, when not the machine's: a fake builder's, before the machine's.
+    pub path: Option<std::ffi::OsString>,
 }
 
 pub fn public(keys: &Path, who: &str) -> String {
@@ -96,19 +98,24 @@ impl Fx {
     /// set to `xel`'s, committed; in a `mode` other than `published` the product ignores the domain instead of
     /// committing it. No record yet.
     pub fn bare(name: &str, mode: &str) -> Fx {
+        Fx::bare_with(name, mode, "")
+    }
+
+    /// [`Fx::bare`] with `more` appended to the project file.
+    pub fn bare_with(name: &str, mode: &str, more: &str) -> Fx {
         let base = tmp(name);
         let (root, home, keys) = (base.join("repo"), base.join("home"), base.join("keys"));
         let domain = root.join(".brewstillery");
         for d in [&domain.join("xel"), &home, &keys] {
             std::fs::create_dir_all(d).unwrap();
         }
-        let fx = Fx { root, domain, home, keys };
+        let fx = Fx { root, domain, home, keys, path: None };
         for alias in ["xel", "stranger"] {
             let key = fx.keys.join(alias);
             fx.program("ssh-keygen", &["-q", "-t", "ed25519", "-N", "", "-C", alias, "-f", key.to_str().unwrap()]);
         }
         std::fs::write(fx.domain.join(".gitignore"), "local/\n").unwrap();
-        std::fs::write(fx.domain.join("settings.toml"), policy_text(&fx.keys)).unwrap();
+        std::fs::write(fx.domain.join("settings.toml"), policy_text(&fx.keys) + more).unwrap();
         std::fs::write(fx.domain.join("xel/settings.toml"), PERSONAL).unwrap();
         std::fs::write(fx.domain.join("xel/fermento.md"), fermento(INPUT)).unwrap();
         std::fs::write(fx.root.join("README.md"), "fixture\n").unwrap();
@@ -127,7 +134,12 @@ impl Fx {
 
     /// [`Fx::bare`] with the policy adopted and the publication mode decided as `mode`, all committed.
     pub fn new(name: &str, mode: &str) -> Fx {
-        let fx = Fx::bare(name, mode);
+        Fx::new_with(name, mode, "")
+    }
+
+    /// [`Fx::new`] with `more` appended to the project file.
+    pub fn new_with(name: &str, mode: &str, more: &str) -> Fx {
+        let fx = Fx::bare_with(name, mode, more);
         fx.adopt(mode);
         if mode == "published" {
             fx.commit("record");
@@ -234,7 +246,7 @@ impl Fx {
         let task = json!({
             "stage": &stage["stage-".len()..], "lang": "en", "goal": "Make it.",
             "requirements": [{"text": "It builds.", "criterion": "cargo build passes"}],
-            "base": "0".repeat(40), "dependencies": [], "allowed": ["src/**"],
+            "base": self.git(&["rev-parse", "HEAD"]), "dependencies": [], "allowed": ["src/**"],
             "profiles": {"build": "build", "review": "review"}, "checks": [],
             "limits": {"rounds": 3, "dispatches": 6, "minutes": 120}, "delegationLanguage": "en", "settings": {},
         });
@@ -257,13 +269,13 @@ impl Fx {
 
     /// As [`Fx::run`], with `PATH` replaced.
     pub fn run_with(&self, args: &[&str], path: Option<&std::ffi::OsStr>) -> Ran {
-        run_in(&self.root, &self.home, args, path)
+        run_in(&self.root, &self.home, args, path.or(self.path.as_deref()))
     }
 
     /// As [`Fx::run`], with arguments that need not be UTF-8 and variables added to the environment.
     pub fn run_os(&self, args: &[std::ffi::OsString], env: &[(&str, &std::ffi::OsStr)]) -> Ran {
         let mut c = Command::new(env!("CARGO_BIN_EXE_fabrewk"));
-        isolate(&mut c, &self.home, None);
+        isolate(&mut c, &self.home, self.path.as_deref());
         for (k, v) in env {
             c.env(k, v);
         }
@@ -304,6 +316,53 @@ impl Fx {
         std::fs::write(self.domain.join("settings.toml"), text).unwrap();
         self.git(&["add", ".brewstillery/settings.toml"]);
         self.git(&["commit", "-q", "-m", "policy"]);
+    }
+
+    /// [`Fx::new_with`] with the catalogue of [`BUILDER`], a fake Claude Code that runs `script` in its cell when it
+    /// is dispatched (its preflight passes), its directory first in `PATH`, and a credential in the home that expires
+    /// in 2100 (part 9e).
+    pub fn builder(name: &str, mode: &str, script: &str) -> Fx {
+        Fx::builder_with(name, mode, script, "")
+    }
+
+    /// [`Fx::builder`] with `more` appended to the project file.
+    pub fn builder_with(name: &str, mode: &str, script: &str, more: &str) -> Fx {
+        let mut fx = Fx::new_with(name, mode, &format!("{BUILDER}{more}"));
+        let dir = fx.root.parent().unwrap().join("tool/versions");
+        std::fs::create_dir_all(&dir).unwrap();
+        fx.fake(script);
+        let path =
+            std::env::join_paths(std::iter::once(dir).chain(std::env::split_paths(&std::env::var_os("PATH").unwrap())));
+        fx.path = Some(path.unwrap());
+        std::fs::create_dir_all(fx.home.join(".claude")).unwrap();
+        let credential = fx.home.join(".claude/.credentials.json");
+        std::fs::write(&credential, "{\"claudeAiOauth\":{\"accessToken\":\"fixture\",\"expiresAt\":4102444800000}}")
+            .unwrap();
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&credential, std::fs::Permissions::from_mode(0o600)).unwrap();
+        fx
+    }
+
+    /// Replaces the fake builder's script (see [`Fx::builder`]): its version, then `script`.
+    pub fn fake(&self, script: &str) {
+        self.fake_raw(&format!("case \"$1\" in --version) echo '2.1.316 (Claude Code)'; exit 0;; esac\n{script}"));
+    }
+
+    /// Replaces the fake builder with a shell script of `script` alone.
+    pub fn fake_raw(&self, script: &str) {
+        use std::os::unix::fs::PermissionsExt;
+        let exe = self.root.parent().unwrap().join("tool/versions/claude");
+        let _ = std::fs::remove_file(&exe);
+        std::fs::write(&exe, format!("#!/bin/sh\n{script}")).unwrap();
+        std::fs::set_permissions(&exe, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+
+    /// Starts the built binary with `args` in the fixture's root, as [`Fx::run`] runs it, without waiting for it.
+    pub fn spawn(&self, args: &[&str]) -> std::process::Child {
+        let mut c = Command::new(env!("CARGO_BIN_EXE_fabrewk"));
+        isolate(&mut c, &self.home, self.path.as_deref());
+        c.current_dir(&self.root).args(args).stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::piped());
+        c.spawn().unwrap()
     }
 
     /// Every file and directory under the root, the home and the keys, with its mode and bytes.
@@ -380,6 +439,15 @@ impl Drop for Fx {
         }
     }
 }
+
+/// The catalogue a fake builder's fixture adopts: Claude Code, one model, a builder's and a reviewer's profile, each
+/// with a minute (part 9e).
+pub const BUILDER: &str = "\n[tools.claude]\nadapter = \"claude-code\"\nproviders = [\"anthropic\"]\n\n[providers.anthropic]\nallowed = true\n\n[models.sonnet]\nprovider = \"anthropic\"\nid = \"claude-sonnet-5-5\"\nefforts = [\"low\"]\n\n[profiles.build]\nkind = \"build\"\ntool = \"claude\"\nmodel = \"sonnet\"\neffort = \"low\"\nminutes = 1\n\n[profiles.review]\nkind = \"review\"\ntool = \"claude\"\nmodel = \"sonnet\"\neffort = \"low\"\nminutes = 1\n";
+
+/// The stream of a fake builder's successful run: its model, its summary and its tokens, cached ones included.
+pub const SUCCESS: &str = r#"echo '{"type":"system","subtype":"init","model":"claude-sonnet-5-5"}'
+echo '{"type":"result","subtype":"success","is_error":false,"structured_output":{"summary":"Done."},"usage":{"input_tokens":10,"cache_creation_input_tokens":2,"output_tokens":5,"cache_read_input_tokens":7}}'
+"#;
 
 /// Removes, once per test process, the fixtures of test processes that have ended (their names carry the process's
 /// identifier), opening every directory first; so that runs that repeat, as mutation testing does, do not fill the

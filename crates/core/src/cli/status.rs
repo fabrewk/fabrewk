@@ -228,6 +228,14 @@ fn subject(cx: &Cx, id: &str) -> Result<Out, Failed> {
     if let Some(stage) = stage {
         text += &format!("{}\n", cx.t("status.in-stage", &[("stage", stage)]));
     }
+    // A halted task says why it waits: the code, its catalogue reason and the halt's own words (PD-08).
+    let halt = events.iter().rev().find(|e| e.kind == "task-halted").filter(|_| state == "halted");
+    let halt = halt.map(|e| (text_of(e, "code"), text_of(e, "reason")));
+    if let Some((code, reason)) = halt {
+        let why = cx.t(&format!("code.{code}.reason"), &[]);
+        text += &format!("{}\n", cx.t("status.halted", &[("code", code), ("why", &why)]));
+        text += &format!("  {}\n", super::tasks::verbatim(reason, "  "));
+    }
     text += &format!("{}\n", cx.t("status.events", &[]));
     let mut list = Vec::new();
     for e in events {
@@ -262,9 +270,9 @@ fn subject(cx: &Cx, id: &str) -> Result<Out, Failed> {
     text += &cx.next(&next.iter().map(String::as_str).collect::<Vec<_>>());
     let shown = bound.map(|b| json!({"text": b.text, "digest": b.digest}));
     let doc = json!({
-        "schema": "fabrewk.subject/2", "id": short, "subject": subject, "state": state, "goal": text_of(first, "goal"),
+        "schema": "fabrewk.subject/3", "id": short, "subject": subject, "state": state, "goal": text_of(first, "goal"),
         "lang": text_of(first, "lang"), "stage": stage, "events": list, "allowed": allowed, "shown": shown,
-        "next": next,
+        "next": next, "halt": halt.map(|(code, reason)| json!({"code": code, "reason": reason})),
     });
     Ok(Out::new(doc, text))
 }

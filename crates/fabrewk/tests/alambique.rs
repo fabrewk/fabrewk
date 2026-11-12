@@ -325,13 +325,15 @@ fn req_fer_6_a_rules_proposal_is_recorded_in_its_stream_and_leaves_the_alambique
 
 #[test]
 fn req_fer_7_a_byte_changed_by_hand_is_unapproved_until_a_maestro_approves_it() {
-    let fx = published("direct");
+    // A fake builder's catalogue, so that REQ-RUN-2, before it in the table, passes (part 9e).
+    let fx = Fx::builder("direct", "published", SUCCESS);
+    fx.alambique(DOC, "published");
     ok(&fx.run(&["check"]));
     // A status key changed by hand outside an edit, and a proposal's state typed into the alambique (REQ-FER-8).
     fs::write(fx.domain.join("ALAMBIQUE.md"), DOC.replace("[decidido]", "[propuesto]")).unwrap();
     let e = refused(&fx, &["check"], "ALAMBIQUE_UNAPPROVED", 3, "es");
     assert_eq!((e["check"].as_str(), e["control"].as_str()), (Some("C7"), Some("effective")));
-    // `run` refuses it before confinement, with nothing written.
+    // `run` refuses it after REQ-RUN-2 and before confinement, with nothing written.
     let (_, task) = fx.stage_and_task();
     let (shown, id) =
         (fx.run(&["status", &task, "--json"]).doc()["shown"]["digest"].as_str().unwrap().to_owned(), task);

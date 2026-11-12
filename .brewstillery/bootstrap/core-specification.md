@@ -1112,6 +1112,70 @@ REQ-SEC-1 for the adapter, REQ-SEC-6, REQ-SEC-7, REQ-GATE-4's audit; 6.38's rule
   inside a cell was not provoked. As D-079 closed it for Claude Code, part 9e refuses a dispatch whose credential
   would be renewed within the attempt's minutes, reading only `last_refresh` (D-081).
 
+**The run, building side, as part 9e fixed it (`confinement-design.md` 3.7 to 3.9; REQ-RUN-1, REQ-RUN-2, REQ-RUN-5
+to REQ-RUN-7, REQ-RUN-10, REQ-TASK-3, REQ-TASK-5, REQ-CLI-3; S-5, S-6; D-079, D-081, D-082).**
+
+- `run` is `crates/core/src/cli/run.rs`. `run-started`'s guards are evaluated in the table's order: `DEPENDENCY_OPEN`,
+  `BASE_MOVED`, `LOCK_HELD`, REQ-RUN-2 (the profile, `SETTINGS_INVALID`; its tool and required tools, `TOOL_MISSING`;
+  the budget; the packet's size) and `ALAMBIQUE_UNAPPROVED` before anything is written; then, under the lock, which a
+  run holds to its end (REQ-REG-5), `CONFINEMENT_UNAVAILABLE` (the backend, its probe and the tool's preflight) and
+  `DISK_LOW`. A guard whose code is one of REQ-TASK-5's (with `DISK_LOW`, REQ-RUN-10) halts the task instead of
+  refusing: `task-halted` from `authorized`, with no `run-started`, exit 4, since only an authorization moves a halted
+  task and grants it more. The others refuse with nothing written. `authorize --run` evaluates the run's refusing
+  guards before writing either move (D-062 point 1) and writes the authorization before a halt.
+- REQ-RUN-2's tools (S-6): the tool resolves to its release (`TOOL_MISSING`, part 9c), and each of the profile's
+  required tools resolves under the system directories the backend shows (`Backend::system`; for bubblewrap `/usr`,
+  `/bin`, `/sbin`, `/lib`, `/lib64`), else `TOOL_MISSING` saying it lives outside what a cell shows.
+- The budget (D-082): the task's `limits` count the attempts since its last `task-authorized` (a stage's authorization
+  counts from the start), so an authorization grants them anew; its stage's `budget` counts every attempt of the
+  stage's tasks, a cap no authorization raises. Dispatches are attempts started; minutes are attempts' `seconds`, an
+  unknown one counting the whole time its attempt was allowed (S-5); tokens are `input` plus `output`, never `cached`,
+  and an unknown part with a token limit is spent (`BUDGET_EXHAUSTED`, saying so). An attempt is allowed the profile's
+  `minutes`, less when the task's or the stage's minutes left are fewer; a builder ended at a time so lessened halts
+  `BUDGET_EXHAUSTED`, at its own `TOOL_FAILED`. Minutes are sixty seconds, or with `fault-injection` the seconds
+  `FABREWK_FAULT_MINUTE` names, for tests.
+- The packet is the tool's last argument: one of more than 120,000 bytes halts `TOOL_FAILED` before any attempt.
+- The preflight's pass is kept as verified by use for the tool's path and version in `local/cache/detected.json`, as
+  the backend's probe is; a tool not verified is preflighted at its run.
+- Each adapter declares `expiry`, read from the credential's bytes: Claude Code's `claudeAiOauth.expiresAt` (in
+  milliseconds), Codex's `last_refresh` (RFC 3339 in UTC, `Z`) plus eight days. `adapter::dispatch` refuses
+  `TOOL_FAILED` before any process starts when that time falls within the attempt's allowed time, or cannot be read
+  (D-079, D-081); no token appears in the words.
+- The events, under the lock and in one record commit: `run-started` (the person's, exactly `task`, `head`,
+  `authorization`, the `stream`, `seq` and `digest` of the `task-authorized` or `stage-authorized` it relies on, and
+  `base`, 40 or 64 hexadecimal digits), `attempt-started` (exactly `role`, `profile`, `tool`, `model`, the provider's
+  name of the model requested, `effort` and `allowedSeconds`), `attempt-ended` (exactly `attempt`, the place of its
+  start, `outcome`, `model`, observed or `null`, `usage` as S-5 fixed it, and `evidence`, `null` or exactly the
+  `stdout` and `stderr` digests), `candidate-recorded` (exactly `commit`, `tree` and `changes`, each exactly `path`,
+  `before` and `after`, `null` or a `mode` and an `oid`) and `task-halted` (exactly `code`, one of REQ-TASK-5's or
+  `DISK_LOW`, and `reason`, the core's words with every path relative to the repository's root, so that the record
+  holds nothing of the machine's layout). The replay holds `run-started` to its stream's head and to the authorization
+  in force; an `attempt-ended` names its attempt: one already ended is `ATTEMPT_ENDED`, one a later attempt replaced
+  `ATTEMPT_REPLACED`, both before the move is checked, and an end naming no attempt while one is open
+  `RECORD_TRANSITION_INVALID`.
+- The attempt: its directories `local/tmp/attempt-<task>-<seq>/` and its evidence `local/evidence/attempt-<task>-<seq>/`;
+  the base exported into `work` (a failure ends the attempt `failure` with no evidence digests, keeps the core's words
+  in the evidence file `export`, `0600`, and halts `TOOL_FAILED` naming it, PD-21); the builder dispatched with the
+  role's packet and schema; its end: `success` when it exited 0 and its stream's result fits the build's schema, else
+  `failure` (a run ended at its time, its output past 32 MiB, a stream with no result, a result that does not fit:
+  `TOOL_FAILED` naming the evidence), `unknown` when the backend cannot show its cell ended (`OUTCOME_UNKNOWN`, its
+  directories kept unread). On success the change set's refusals halt with their codes (`LANE_VIOLATION`,
+  `PROTECTED_PATH`, `PROTECTED_PATH_WILDCARD`, `CREDENTIAL_SUSPECTED`); else the candidate is committed on
+  `fabrewk/<task>` from where the branch is, its co-author the catalogue's tool name, the adapter's provider and the
+  model observed (the one requested when the stream names none), and recorded. The attempt's directories are removed;
+  its evidence is kept.
+- Until part 9f runs the checks and the review, a recorded candidate halts the task `CONFINEMENT_UNAVAILABLE`, its
+  reason saying where the candidate is and that part 9f builds the rest (D-082). `run <stage>` runs its first task
+  that may run and stops there.
+- REQ-RUN-5: every write command, before its own plan, finds the tasks left `running` (none can have a live process,
+  since a run holds the lock to its end; a second writer meanwhile is `LOCK_HELD`), ends each open attempt `unknown`
+  with `seconds` and `tokens` `null`, halts the task `OUTCOME_UNKNOWN` and removes the attempt's directories, in a
+  record commit of its own; then the command plans on that record. `status <id>` shows a halted task's code, its
+  catalogue reason and the halt's words (`fabrewk.subject/3`, with `halt`); `STATUS.md` shows a task's dispatches,
+  seconds and tokens read, written and read from the cache, each sum unknown when a part is.
+- `run`'s document is `fabrewk.run/1` (`id`, `attempt`, `candidate`, `halt`, and the events and commit written);
+  `authorize`'s is `fabrewk.authorized/2`, with `run`, `null` or the run's document. Exit status 4 is the run's halt.
+
 ### EXT: extensions
 
 - **REQ-EXT-1.** Extension `<name>` is the program `fabrewk-<name>`, run as `fabrewk <name> …`, only when

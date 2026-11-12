@@ -183,7 +183,7 @@ fn req_reg_4_a_removed_maestro_signs_nothing_after_the_adoption() {
     let ana = moved("task-authorized", "ana", "maestro", &first, bound(&f, &stream));
     let h2 = append(&f, &stream, &ana, &f.stranger());
     // Later moves of the task: from `authorized`, a run starts.
-    let ana = moved("run-started", "ana", "maestro", &first, json!({}));
+    let ana = moved("run-started", "ana", "maestro", &first, started(&f, &stream));
     // A second adoption removes `ana`; its seal holds the task's head.
     let second = adopt(&f, &policy_text(&f, None, ""), &["maintainers.ana"]);
     let last = ok(&f).streams["project"].last().unwrap().value.clone();
@@ -197,7 +197,7 @@ fn req_reg_4_a_removed_maestro_signs_nothing_after_the_adoption() {
     fs::remove_file(&forged).unwrap();
     // The concurrent work of a maestro who keeps their key and role is accepted, whichever policy it cites.
     for cites in [&first, &second] {
-        let xel = moved("run-started", "xel", "maestro", cites, json!({}));
+        let xel = moved("run-started", "xel", "maestro", cites, started(&f, &stream));
         let path = f.forge(&stream, 3, Some(&h2.digest), &xel, Some(&f.signer()));
         ok(&f);
         fs::remove_file(sig(&path)).unwrap();
@@ -215,13 +215,13 @@ fn req_reg_4_a_removed_maestro_signs_nothing_after_the_adoption() {
     text = text.replace(&public(&f, "xel"), &public(&f, "stranger"));
     let third_digest = sha256_hex(text.as_bytes());
     adopt(&f, &text, &["maintainers.xel.key"]);
-    let xel = moved("run-started", "xel", "maestro", &second, json!({}));
+    let xel = moved("run-started", "xel", "maestro", &second, started(&f, &stream));
     let h = ok(&f).streams[&stream].last().unwrap().digest.clone();
     let path = f.forge(&stream, 3, Some(&h), &xel, Some(&f.signer()));
     assert_eq!(refused(&f), [Code::RecordSignatureInvalid]);
     fs::remove_file(sig(&path)).unwrap();
     fs::remove_file(&path).unwrap();
-    let xel = moved("run-started", "xel", "maestro", &third_digest, json!({}));
+    let xel = moved("run-started", "xel", "maestro", &third_digest, started(&f, &stream));
     let path = f.forge(&stream, 3, Some(&h), &xel, Some(&f.stranger()));
     ok(&f);
     fs::remove_file(sig(&path)).unwrap();
@@ -558,7 +558,7 @@ fn req_reg_4_a_maestro_made_contributor_signs_nothing_after_the_adoption() {
             &stream,
             3,
             Some(&h2.digest),
-            &moved("run-started", "ana", role, &first, json!({})),
+            &moved("run-started", "ana", role, &first, started(&f, &stream)),
             Some(&f.stranger()),
         );
         assert_eq!(refused(&f), [Code::RecordSignatureInvalid], "{role}");

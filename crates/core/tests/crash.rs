@@ -41,7 +41,11 @@ fn scenario(f: &Fixture) {
     let draft = person("task-authorized", "Autorizo.", bound(f, &stream));
     let h = s.append(&stream, Some(&h), &draft, Some(&f.signer())).unwrap();
     say(format!("appended {stream} {}", h.digest));
-    let h = s.append(&stream, Some(&h), &person("run-started", "Corre.", json!({})), Some(&f.signer())).unwrap();
+    let run = json!({
+        "task": &stream["task-".len()..], "head": {"seq": h.seq, "digest": h.digest},
+        "authorization": {"stream": stream, "seq": h.seq, "digest": h.digest}, "base": "0".repeat(40),
+    });
+    let h = s.append(&stream, Some(&h), &person("run-started", "Corre.", run), Some(&f.signer())).unwrap();
     say(format!("appended {stream} {}", h.digest));
     std::fs::write(f.domain.join("STATUS.md"), "view\n").unwrap();
     say(format!("committed {}", s.finish(&f.verifier(), &[PathBuf::from("STATUS.md")]).unwrap().unwrap()));
@@ -49,7 +53,7 @@ fn scenario(f: &Fixture) {
     let mut s = Session::begin(&f.domain, f.repo(), &f.verifier()).unwrap();
     s.commit_uncommitted(&f.verifier()).unwrap();
     let h = s.head(&stream).unwrap();
-    let h = s.append(&stream, h.as_ref(), &fabrewk("attempt-started", json!({})), None).unwrap();
+    let h = s.append(&stream, h.as_ref(), &fabrewk("attempt-started", attempt()), None).unwrap();
     say(format!("appended {stream} {}", h.digest));
     say(format!("committed {}", s.finish(&f.verifier(), &[]).unwrap().unwrap()));
 }

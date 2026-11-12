@@ -46,8 +46,14 @@ fn never(_: &Cell, _: &Programs, _: &Path, _: &Path) -> Result<Started, Error> {
     panic!("a verified backend is not probed again")
 }
 
-const UNCONFINED: Backend =
-    Backend { name: "unconfined", programs: &PROGRAMS, start: unconfined, stop, residual: &["kernel"] };
+const UNCONFINED: Backend = Backend {
+    name: "unconfined",
+    programs: &PROGRAMS,
+    system: &["/usr"],
+    start: unconfined,
+    stop,
+    residual: &["kernel"],
+};
 
 fn domain(name: &str) -> PathBuf {
     let d = common::tmp(name).join(".brewstillery");

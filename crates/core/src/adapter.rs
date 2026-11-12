@@ -81,6 +81,10 @@ pub struct Adapter {
     /// The tool's credential, relative to the person's home; bound read-only at the same place under the cell's home
     /// (3.6), never copied.
     pub credential: &'static str,
+    /// When the credential's login ends for a cell, from its bytes: the second (since 1970) at which it expires or the
+    /// tool would renew it, which a read-only bind keeps it from doing (D-079, D-081); `None` when that cannot be
+    /// read. Only that one field is read.
+    pub expiry: fn(&[u8]) -> Option<u64>,
     /// The variables the tool runs with, beyond the cell's own.
     pub env: &'static [(&'static str, &'static str)],
     /// The tool's release directory, from its executable as it resolves; `None` when it cannot be told.
@@ -261,6 +265,22 @@ pub fn dispatch(
         );
         return Err(early(refuse(Code::ToolFailed, Some(&declared), why)));
     };
+    // A login the tool would renew within the attempt is refused: the bind keeps it from rewriting the file (D-079,
+    // D-081).
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
+    let expiry = std::fs::read(&credential).ok().as_deref().and_then(tool.adapter.expiry);
+    let minutes = limits.time.as_secs().div_ceil(60);
+    let why = match expiry {
+        Some(at) if at > now.saturating_add(limits.time.as_secs()) => None,
+        Some(_) => Some(format!(
+            "{name}: its login expires, or the tool would renew it, within the attempt's {minutes} minutes; renew \
+             the login with the tool, then run again"
+        )),
+        None => Some(format!("{name}: when its login expires cannot be read from {}", declared.display())),
+    };
+    if let Some(why) = why {
+        return Err(early(refuse(Code::ToolFailed, Some(&declared), why)));
+    }
     let schema = scratch.home.join("schema.json");
     std::fs::write(&schema, launch.schema).map_err(io_at(&schema)).map_err(early)?;
     let argv = (tool.adapter.command)(tool.executable, launch);

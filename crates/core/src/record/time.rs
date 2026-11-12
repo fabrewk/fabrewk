@@ -21,6 +21,23 @@ fn format_utc(secs: u64) -> String {
     format!("{year:04}-{month:02}-{day:02}T{:02}:{:02}:{:02}Z", rem / 3_600, rem % 3_600 / 60, rem % 60)
 }
 
+/// The seconds since 1970-01-01 of a UTC timestamp [`is_utc_timestamp`] accepts, its fraction dropped; `None` for any
+/// other text or a time before 1970.
+pub fn seconds_of(s: &str) -> Option<u64> {
+    if !is_utc_timestamp(s) {
+        return None;
+    }
+    let n = |r: std::ops::Range<usize>| s[r].parse::<u64>().ok();
+    let (year, month, day) = (n(0..4)?, n(5..7)?, n(8..10)?);
+    // Days from a civil date (H. Hinnant's algorithm), the inverse of `format_utc`'s.
+    let y = year - u64::from(month <= 2);
+    let (era, yoe) = (y / 400, y % 400);
+    let doy = (153 * (if month > 2 { month - 3 } else { month + 9 }) + 2) / 5 + day - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    let days = (era * 146_097 + doe).checked_sub(719_468)?;
+    Some(days * 86_400 + n(11..13)? * 3_600 + n(14..16)? * 60 + n(17..19)?)
+}
+
 /// Whether `s` is a UTC timestamp in RFC 3339: `YYYY-MM-DDTHH:MM:SS`, an optional fraction, then `Z`.
 pub fn is_utc_timestamp(s: &str) -> bool {
     let b = s.as_bytes();
@@ -53,6 +70,11 @@ mod tests {
     #[test]
     fn req_reg_2_at_is_rfc3339_utc() {
         assert!(is_utc_timestamp(&now_utc()));
+        for secs in [0, 59, 951_782_400, 1_709_251_199, 1_798_761_600 + 86_399, 4_102_444_800] {
+            assert_eq!(seconds_of(&format_utc(secs)), Some(secs), "{secs}");
+        }
+        assert_eq!(seconds_of("2026-11-12T10:00:00.999Z"), seconds_of("2026-11-12T10:00:00Z"));
+        assert_eq!((seconds_of("1969-12-31T23:59:59Z"), seconds_of("2026-11-12")), (None, None));
         for good in ["2026-11-05T10:00:00Z", "2024-02-29T23:59:60Z", "2026-01-01T00:00:00.123456789Z"] {
             assert!(is_utc_timestamp(good), "{good}");
         }
