@@ -429,6 +429,20 @@ fn s_4_a_tracked_hooks_directory_under_a_wildcard_is_refused() {
         parent.export();
         parent.put("tools/hooks/pre-commit", b"#!/bin/sh\necho planted\n");
         refused(parent.changes_with(&["tools/**"], &protected), Code::ProtectedPathWildcard);
+        // The kernel follows 40 links in a path, so a chain of 40 is read where it leads; a loop protects the
+        // directory as written only.
+        let mut chain: Vec<(String, String)> = (1..40).map(|i| (format!("l{i}"), format!("l{}", i + 1))).collect();
+        chain.push(("l40".into(), "tools".into()));
+        chain.extend([("x1".into(), "x2".into()), ("x2".into(), "x1".into())]);
+        let chain: Vec<(&str, &str)> = chain.iter().map(|(a, b)| (a.as_str(), b.as_str())).collect();
+        let linked = Base::new("hooks-chain", &[(b"tools/readme", b"r\n")], &chain);
+        git(&linked.root, &["config", "core.hooksPath", "l1/hooks"]);
+        assert_eq!(
+            candidate::protected_paths(&eff, &linked.repo()).unwrap(),
+            ["Cargo.toml", "l1/hooks/", "tools/hooks/"]
+        );
+        git(&linked.root, &["config", "core.hooksPath", "x1/hooks"]);
+        assert_eq!(candidate::protected_paths(&eff, &linked.repo()).unwrap(), ["Cargo.toml", "x1/hooks/"]);
         // Outside the working tree it protects nothing here.
         git(&b.root, &["config", "core.hooksPath", "/elsewhere/hooks"]);
         assert_eq!(candidate::protected_paths(&eff, &b.repo()).unwrap(), ["Cargo.toml"]);
