@@ -1158,7 +1158,7 @@ to REQ-RUN-7, REQ-RUN-10, REQ-TASK-3, REQ-TASK-5, REQ-CLI-3; S-5, S-6; D-079, D-
   `DISK_LOW`, and `reason`, the core's words with every path relative to the repository's root or, under the
   person's home, written from `~/`, so that the record holds nothing of the machine's layout, P9E-2). What these
   payloads copy from elsewhere (a changed path, the model a stream names, the tool's version, the catalogue's names) is
-  any text but the empty one, white space included, so that no name a tool or a file system gives leaves an event the
+  any text, white space and the empty text included, so that no name a tool or a file system gives leaves an event the
   replay refuses. The replay holds
   `run-started` to its stream's head and to the authorization in force: the task's last `task-authorized` or its
   stage's last `stage-authorized` that binds it, whichever comes later in the task's events, which `run` names and
@@ -1179,7 +1179,7 @@ to REQ-RUN-7, REQ-RUN-10, REQ-TASK-3, REQ-TASK-5, REQ-CLI-3; S-5, S-6; D-079, D-
   candidate's branch is included (P9E-11, P9E-14; Git's own output and exit status are kept nowhere in
   the core until part 9g keeps them for every command, D-083); else the candidate is committed on
   `fabrewk/<task>` from where the branch is, its co-author the catalogue's tool name, the adapter's provider and the
-  model observed (the one requested when the stream names none), and recorded. The attempt's directories are removed;
+  model observed (the one requested when the stream names none, or only white space), and recorded. The attempt's directories are removed;
   its evidence is kept.
 - Until part 9f runs the checks and the review, a recorded candidate halts the task `CONFINEMENT_UNAVAILABLE`, its
   reason saying where the candidate is and that part 9f builds the rest (D-082). `run <stage>` runs its first task

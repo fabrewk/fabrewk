@@ -20,7 +20,8 @@ pub(crate) enum T {
     Hex(usize),
     /// A commit's or a tree's identifier: 40 or 64 hexadecimal digits.
     Commit,
-    /// A text Fabrewk copies from elsewhere (a path, a tool's report, a catalogue's name): any but the empty one.
+    /// A text Fabrewk copies from elsewhere (a path, a tool's report, a catalogue's name): any, the empty one included,
+    /// so that nothing a tool or a file system gives can leave an event the replay refuses.
     Copied,
     /// A whole number, zero included.
     Nat,
@@ -159,7 +160,7 @@ pub(crate) fn fit(t: &T, v: &Value, at: &str, content: &mut Option<String>) -> R
         (T::Bool, Value::Bool(_)) | (T::Base, Value::Null) => Ok(()),
         (T::Hex(n), Value::String(s)) => ok(is_hex(s, *n)),
         (T::Commit, Value::String(s)) => ok(is_hex(s, 40) || is_hex(s, 64)),
-        (T::Copied, Value::String(s)) => ok(!s.is_empty()),
+        (T::Copied, Value::String(_)) => Ok(()),
         (T::Nat, Value::Number(n)) => ok(n.as_u64().is_some()),
         (T::Id(c), Value::String(s)) => ok(is_id(s, *c)),
         (T::Base, Value::String(s)) => ok(is_hex(s, 40) || is_hex(s, 64)),

@@ -518,7 +518,8 @@ fn attempt(
         Err(e) if e.code().is_some() => return after(e),
         Err(e) => return Err(e),
     };
-    let model = report.model.as_deref().unwrap_or(&d.model);
+    // The model observed names the co-author, or the one requested when the stream names none, or only white space.
+    let model = report.model.as_deref().filter(|m| !m.trim().is_empty()).unwrap_or(&d.model);
     let agent = Agent { tool: tool_name, provider: d.adapter.provider, model };
     let made = candidate::commit(
         &d.product,

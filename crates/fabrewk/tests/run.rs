@@ -620,6 +620,19 @@ fn a_candidate_whose_path_is_white_space_is_recorded_and_replays() {
     assert_eq!(new[3]["payload"]["changes"][0]["path"], " ");
 }
 
+/// A stream that names an empty model: recorded as it said, and the record replays.
+#[test]
+fn an_empty_model_a_stream_names_is_recorded_and_replays() {
+    let fx = Fx::builder(
+        "empty-model",
+        "published",
+        &format!("{WRITES}{}", SUCCESS.replace(r#""model":"claude-sonnet-5-5""#, r#""model":"""#)),
+    );
+    let id = authorized(&fx, json!({}));
+    let new = halts(&fx, &id, "CONFINEMENT_UNAVAILABLE");
+    assert_eq!(new[2]["payload"]["model"], "");
+}
+
 /// A task's layer that a policy adopted after its authorization makes a widening is not granted by that authorization
 /// (P9E-12): the run refuses it, with nothing written, until an authorization names it.
 #[test]
