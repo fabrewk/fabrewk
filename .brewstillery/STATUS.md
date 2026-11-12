@@ -7,16 +7,16 @@ view generated from that registry. Technical files are in English by default (D-
 
 **Phases 0 to 7 are closed (D-037, D-040, D-070). Phase 7 (the first code) was split into parts 7a, 7b, 7c1, 7c2a,
 7c2b, 7d1, 7d2, 7s, 7d3a and 7d3b (D-041, D-047, D-048, D-050, D-053, D-059, D-062), the last the task commands
-(D-068, D-069, R-034); phase 8, the core's part 2, was split into 8a, 8b and 8c (D-072) and all three are closed, and so is the phase (D-077); phase 9 is open: its design is accepted and it is cut into parts 9a to 9i (D-075, D-076); parts 9a to 9c are closed and 9d is next.** The repository holds the first code at its root: a
+(D-068, D-069, R-034); phase 8, the core's part 2, was split into 8a, 8b and 8c (D-072) and all three are closed, and so is the phase (D-077); phase 9 is open: its design is accepted and it is cut into parts 9a to 9i (D-075, D-076); parts 9a to 9d are closed and 9e is next.** The repository holds the first code at its root: a
 Cargo workspace with one crate per ring (`crates/core`, `crates/fabrewk`, the binary, which runs the core's command
-surface, `crates/confine-bwrap`, the confinement backend for Linux, and `crates/adapter-claude`, Claude Code's adapter) and the size counter `tools/budget`, the licence files, `deny.toml` and a root `.gitignore` with `/target`.
+surface, `crates/confine-bwrap`, the confinement backend for Linux, `crates/adapter-claude`, Claude Code's adapter, and `crates/adapter-codex`, Codex's) and the size counter `tools/budget`, the licence files, `deny.toml` and a root `.gitignore` with `/target`.
 The record is built in `crates/core/src/record/`, the settings in `crates/core/src/settings/`, identity in
 `identity.rs`, the private folder and the machine file in `machine.rs`, detection and profiles in `detect.rs`, the
 domain's layout in `domain.rs`, the transition table in `table.rs`, the payloads and pattern guards in `task.rs`, the
 credential scan in `scan.rs`, the fermento in `fermento.rs`, the alambique and the rules in `alambique.rs`, the cell's contract and its runner in `confine.rs`, the attempt's copy, its change set and the candidate in `candidate.rs`, the tool adapter's contract in `adapter.rs`, and the command surface in `crates/core/src/cli/` with its catalogue in
 `crates/core/catalogue/` (`en`, `es`); `fabrewk status`, `fabrewk config` and `fabrewk check` read, and `fabrewk
 adopt`, `fabrewk propose`, `fabrewk authorize`, `fabrewk reject`, `fabrewk sweep`, `fabrewk discard`, `fabrewk approve`, `fabrewk close` and `fabrewk run` (up to confinement) write, through one
-write path in `crates/core/src/cli/write.rs`. The skills the maestro approved are in `.brewstillery/skills/`, listed in `AGENTS.md`. The core counts 8,876 of 11,000 lines, the backend 276 of 400 and Claude Code's adapter 295 of 600, formatted at width 120 (D-049, D-054, D-074, D-075). No `data/` exists in this
+write path in `crates/core/src/cli/write.rs`. The skills the maestro approved are in `.brewstillery/skills/`, listed in `AGENTS.md`. The core counts 8,985 of 11,000 lines, the backend 276 of 400, Claude Code's adapter 264 of 600 and Codex's 313 of 600, formatted at width 120 (D-049, D-054, D-074, D-075). No `data/` exists in this
 repository, whose project file still holds bootstrap keys, so `fabrewk check` here reports them. The domain is
 `.brewstillery/`, hidden (D-032).
 
@@ -370,23 +370,40 @@ repository, is imported into the single registry at production and then stays re
   (projected 150), the adapter 295 (projected 500). Seven interpretations the maestro may want to read are in R-041.
   The chance failure with `LOCK_HELD` of R-040 is closed: a session releases its lock on the description a forked
   child shares (D-080).
-- **Next: part 9d (plan, "Phase 9").** The Codex module, on 9c's contract: launch per role, its machine rule (never
-  in a directory that holds other repositories), its preflight and its stream audit, its markers moved from the
-  binary into its module, its protected names (`AGENTS.md`, `.codex`, `.agents`) held within `gate.protectedNames`'
-  default by a test as Claude Code's are. Inputs: the design's 3.6 and 3.9; REQ-SEC-1 (adapter), REQ-SEC-7,
-  REQ-GATE-4 (audit); 6.38's rule of this machine; the 9c paragraph of `core-specification.md` and R-041; Codex's own
-  documentation; one recorded real stream. The permission and the budget to run the real Codex are asked when part
-  9d starts, as D-079 asked them for Claude Code; its credential (`~/.codex/auth.json`) raises 3.6's question again.
-- **Start prompt:** `Eres el integrador de Fabrewk; fase 9, parte 9d: el módulo de Codex sobre el contrato del
-  adaptador; empieza por .brewstillery/STATUS.md`. Model and effort: Claude Code on Opus 5.5 (`claude-opus-5-5`),
-  effort high; Codex GPT-6.1 Sol, effort high, reviews. Read the skills `verify-part` and `codex-review` before the
-  checks and the review, and `differential-review` before a pass. The backend's and the adapters' launch tests run
-  real cells and need `bwrap`, `pasta`, `socat`, `python3` and the network; Codex's sandbox cannot run them nor bind
-  sockets, which is no finding. `verify-part`'s `ulimit -v 1000000` no longer fits the core's build: 1,600,000 was
-  used (the skill is the maestro's to change). When waiting for Codex, wait on the launching command itself. Codex's
-  prompt asks it not to read `.brewstillery/skills/` and to report each finding as an input, an expected result and
-  an actual one; a narrow re-check of a part's corrections ran whole each time (R-040, R-041). The ignored tests in
-  `crates/adapter-claude/tests/real.rs` show how the real tool was run.
+- **Part 9d closed (session 33, R-042, D-081).** Codex's module (`crates/adapter-codex`): its release per version
+  (`releases/<version>/` with its own `bwrap` and `rg`), its launch per role (`exec` with `--strict-config`, so that a
+  setting a version renamed stops it; a permission profile per role, `:workspace` or `:read-only`, with no network and
+  the credential's folder unreadable; approvals, `AGENTS.md`, skills, rules, hooks, plugins, the web, updates,
+  telemetry and the unified execution off, each shown by `codex debug prompt-input` or a real run), its preflight (its
+  own sandbox under each role's profile, which Codex starts without a model and which fails closed), its markers moved
+  from the binary (plus `CODEX_THREAD_ID`), its protected names, and the one grammar of its stream with the audit of a
+  reviewer's commands. The contract gained each adapter's machine rule (a launch directory holding `.git` anywhere
+  refuses, `CONFINEMENT_UNAVAILABLE`, before any process: 6.38), the role's schema written in the cell, every property
+  of a role's schema required (a finding's `path` a text or `null`, as OpenAI's strict output demands), and
+  `adapter::json`, which refuses a JSON member named twice. With the maestro's permission the real Codex ran four
+  dispatches (`gpt-6-luna`, low; the first refused by the provider for its schema): four streams recorded and kept
+  whole, the sandbox probed from inside, the person's credential unchanged. A renewal of its login inside a cell is
+  closed by refusing in part 9e (D-081), as D-079 did for Claude Code. Codex reviewed twice (confirmed blocking 1, 0):
+  P9D-1, a member named twice hiding an anomaly, also in Claude Code's grammar of 9c, corrected in both. Mutation: 169
+  mutants, the 16 missed tested or removed but one declared equivalent. Clean clone of `e2e3465`: 542 tests, `crash` 3
+  and `faults` 20 green, musl build, `budget check`, clippy, fmt, `cargo deny` clean. Measured: the core +109
+  (projected 30), Codex's adapter 313 (projected 500). Six interpretations the maestro may want to read are in R-042.
+- **Next: part 9e (plan, "Phase 9").** The run, building side: `run` past confinement, attempts and their recovery,
+  the checks before dispatch (each tool's credential refused when it expires or would be renewed within the attempt's
+  minutes: Claude Code's `expiresAt`, D-079; Codex's `last_refresh` plus about eight days, D-081), the preflight's pass
+  kept as verified by use, the packet's size bound, the halts, the events' payloads, exit status 4. Inputs: REQ-RUN-1,
+  REQ-RUN-2, REQ-RUN-5 to REQ-RUN-7, REQ-TASK-3 (`BASE_MOVED` at `run`), REQ-TASK-5 (building side); S-5, S-6; the 9a
+  to 9d paragraphs of `core-specification.md`; R-039 to R-042. Its acceptance asks a fake builder, not a real tool.
+- **Start prompt:** `Eres el integrador de Fabrewk; fase 9, parte 9e: la corrida del lado constructor (run más allá
+  del confinamiento, intentos y recuperación); empieza por .brewstillery/STATUS.md`. Model and effort: Claude Code on
+  Opus 5.5 (`claude-opus-5-5`), effort high; Codex GPT-6.1 Sol, effort high, reviews. Read the skills `verify-part`
+  and `codex-review` before the checks and the review, and `differential-review` before a pass. The backend's and the
+  adapters' launch tests run real cells and need `bwrap`, `pasta`, `socat`, `python3` and the network; Codex's sandbox
+  cannot run them nor bind sockets, which is no finding. `verify-part`'s `ulimit -v 1000000` no longer fits the core's
+  build: 1,600,000 was used (the skill is the maestro's to change). When waiting for Codex, wait on the launching
+  command itself. Codex's prompt asks it not to read `.brewstillery/skills/` and to report each finding as an input,
+  an expected result and an actual one. A mutation run over a whole part takes about two hours on this machine; a
+  rerun limited by `--file` or `--re` needs `--test-workspace true`, or tests in other packages are left out.
 
 Carried without blocking, with destinations, in D-013. A phase that does not pass is corrected and retried; it
 never ends the project (D-003).

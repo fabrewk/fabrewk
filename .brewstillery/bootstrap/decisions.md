@@ -3900,3 +3900,87 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   renewal, declaring it, or leaving it to part 9e.
 - Consequences: `core-specification.md` ("as part 9d fixed them"); `plan.md` (row 9e gains Codex's refusal); R-042.
 - Sources: chat of session 33; `confinement-design.md` 3.6; D-079.
+
+## R-042 — Session 33, part 9d: Codex's module on the adapter's contract
+
+- Status: recorded
+- Date: 2026-11-12
+- Who: integrator Claude Code, `claude-opus-5-5`, effort high (D-078). Reviewer: Codex `codex-cli 0.166.0`,
+  `gpt-6.1-sol`, effort high, launched as the `codex-review` skill says. One subagent of the `web-fetch` kind read
+  Codex's documentation (its non-interactive mode, configuration reference, sandboxing and approvals, environment
+  variables, `AGENTS.md`, authentication, and `exec_events.rs` in its source for the stream's events).
+- Start: HEAD `ad1d8b7`, tree clean.
+- Read: `STATUS.md`, `AGENTS.md`, `plan.md` (phase 9), `confinement-design.md` 3.6 to 3.10 and sections 6 and 7,
+  `core-specification.md` (the 9c paragraph), `past-defect-cases.md` (PD-25 to PD-28), the alambique's 6.38 and 6.51,
+  this file (D-079, R-041, D-080, D-075's point 2); the skills `differential-review`, `codex-review` and `verify-part`;
+  the code of `adapter.rs`, `cli/mod.rs`, `crates/adapter-claude` (source and tests), `crates/fabrewk`, `tools/budget`.
+  Of the person's Codex credential, only its date, size, digest and the fields `auth_mode` and `last_refresh` (D-081);
+  no file of the private folder.
+- Decided by the maestro in this session: D-081.
+- The real tool without a model, in rough cells and in Fabrewk's: `--strict-config` refuses an unknown setting, so
+  each setting was checked; `codex features list`; `codex debug prompt-input` with an `AGENTS.md`, an
+  `AGENTS.override.md`, skills in `.agents/skills` and `.codex/skills` and a project's `.codex/config.toml` planted in the
+  copy: by default the model sees the override and both skills; with the adapter's settings none of them; `codex sandbox`
+  nested in a cell: under `:workspace` a seccomp filter, no new privileges, only `lo`, `/work` and `/tmp` writable,
+  the home not; under `:read-only` nothing writable; with user namespaces disabled it ends with status 1 and runs
+  nothing; no `.git`, `.codex`, `.agents` or `.aws` created in the copy; a permission profile with
+  `filesystem={"/home/agent/.codex"="none"}` makes the credential's folder unreadable and unlistable (an unknown access
+  value refuses). Without network a run writes `error` notices ("Reconnecting... n/5") and an `error` item, then
+  stops at its limit, hence `unbounded_connection_retries` off.
+- The real tool with a model (D-081 point 1), `gpt-6-luna` at effort `low`, four dispatches: the first, a review, was
+  refused by the provider in two seconds because the review's schema had an optional `path` (OpenAI's strict output
+  requires every property; kept as `failed.jsonl`); then a review (`review.jsonl`), a review that ran a silent command
+  and the probe of the sandbox (`probe.jsonl`, the two joined to keep within four), and a build (`build.jsonl`). What
+  they showed: the stream's events; commands shown as `/bin/sh -lc '<script>'`; a silent command's empty
+  `aggregated_output`; no model named; inside the sandbox a direct socket refused, no name resolution, the credential's
+  folder unreadable, the home and a reviewer's `/work` not writable, and the variables `CODEX_SANDBOX_NETWORK_DISABLED`
+  and `CODEX_THREAD_ID`; the credential's date, size and digest unchanged after all four; the tool's own folder in the
+  cell's home filled with its databases, logs and model catalogue, and the bind's mount point left empty. The
+  streams hold no figure of the account and were kept whole.
+- Written: `crates/adapter-codex` (ring `ToolAdapter`: `lib.rs`, `stream.rs`; tests `launch.rs`, `stream.rs` with four
+  recorded streams, `real.rs`, ignored); `crates/core/src/adapter.rs` (the machine rule and `holds`, `SCHEMA` written
+  by `dispatch`, every property of a role's schema required, `json`, `segments` moved from Claude Code's module);
+  `cli/mod.rs` and `main.rs` (no markers on an adapter's behalf); Claude Code's module (`machine`, `json`, the moved
+  `segments`); `serde` a direct dependency of the core (its traits, approved in D-036 and already in the release
+  build); the tests of the core, of Claude Code's module and of the binary that follow; `tools/budget` (the ring, at its
+  kind's ceiling, D-075 point 2); the paragraph "as part 9d fixed them" in `core-specification.md` and two amendments
+  to the 9c one; `plan.md`; `STATUS.md`; D-081 and this entry.
+- Interpretations the maestro may want to read (each in the new paragraph):
+  1. 6.38's rule ("Codex is launched inside a repository, never in `~/Dev`") becomes, as 3.9 restated it, a machine
+     rule each adapter declares: the launch directory, the attempt's copy, may hold no `.git` at any depth; both
+     adapters declare it. Codex 0.166.0 no longer creates the folders of the 2026-10-04 incident (tested).
+  2. A review's finding now holds `path` always, a text or `null`, for both tools: one schema both providers' strict
+     modes accept rather than one rewritten per adapter.
+  3. Codex's `input` tokens are `input_tokens` less `cached_input_tokens`; `output` holds the reasoning; the model
+     observed is unknown, since its stream does not name it.
+  4. `error` notices are admitted anywhere after the turn's start (a real run wrote them while reconnecting); a
+     `turn.failed` voids the stream, which gives the same report as reading it.
+  5. What 0.166.0 offers its model and no setting removes (a JavaScript `exec` over its tools, the tools to start
+     other agents) is declared under T-22; another agent's item voids the stream.
+  6. `CODEX_THREAD_ID` joins Codex's markers: seen inside its sandbox, and set whatever its network.
+- Codex, two passes, confirmed blocking findings by pass: 1, 0.
+  1. Pass 1 (`aff72d6`): P9D-1, a JSON member named twice hid an anomaly behind a valid value (`serde_json` keeps the
+     last), in both adapters' grammars, Claude Code's of part 9c included. Corrected by `adapter::json`
+     (`3951b86`); each new test failed without it.
+  2. Pass 2 (`3951b86`): P9D-1 closed in every form Codex built (7,455 variants); **accept**. P9D-2, not blocking: no
+     test held an item's kind across an update or a completion; tested in `1c09fa0`, the test failing with the check
+     removed.
+  Codex's sandbox cannot run `bwrap`, `pasta` or bind sockets; those tests ran on this machine.
+- The integrator's own review before the first pass turned off Codex's `view_image` (a read by path outside the
+  sandbox of the model's commands), and found the reviewer's preflight step passing on a failed redirection to
+  `/dev/null`; it now passes only on "Read-only file system", and a fake sandbox that leaves the copy writable fails it.
+- Mutation, with `--features fabrewk-core/fault-injection`, `--test-workspace true`, `ulimit -v 1600000`, `--timeout
+  180`, in its own user scope, over the part's diff (`1c09fa0`): 169 mutants in 2 hours, 139 caught, 14 unviable, 16
+  missed. Two (the `turn.failed` arm) were equivalent, so the arm was removed; one is declared equivalent:
+  `Strict::expecting` only words the error `json` discards. The other thirteen are tested (`e2e3465`). The reruns over
+  the corrections: Codex's `stream.rs` 110 mutants, 106 caught, 4 unviable; the core's `segments` and reader 27, all
+  caught but `expecting` and one that a new case caught on its own rerun (17 of 17).
+- Clean clone of `e2e3465`: 542 tests (10 ignored: the real tools' and a kept stream's), `crash` 3 and `faults` 20
+  green, the musl build, `budget check` (the core 8,985 of 11,000, the backend 276 of 400, Claude Code's adapter 264
+  of 600, Codex's 313 of 600, 5 direct runtime crates, 31 in the release build, the binary 2,429,288 bytes), clippy
+  with and without `fault-injection`, fmt and `cargo deny` clean; `--version --json` lists no feature.
+- Measured: the core +109 (projected 30), Claude Code's adapter −31 (its `segments` moved), Codex's 313 (projected
+  about 500).
+- Not done: `run` dispatching at the command line, a preflight's pass kept as verified by use, a credential refused
+  when it expires or would be renewed within the attempt (D-079, D-081), the packet's size bound (part 9e); the
+  reviewer's dispatch and PD-25 and PD-26 through the whole flow (part 9f).
