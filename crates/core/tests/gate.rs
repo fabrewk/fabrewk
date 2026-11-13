@@ -41,6 +41,9 @@ fn refusal_evidence_stale_each_input_of_an_identity_changes_it() {
     }
     // The name is the check's key, not an input of its identity.
     assert_eq!(base, gate::identity(&product, &renamed, &policy, platform));
+    // The platform is the operating system, the processor and the backend.
+    let (os, arch) = (std::env::consts::OS, std::env::consts::ARCH);
+    assert_eq!(gate::platform("bubblewrap"), format!("{os}-{arch}-bubblewrap"));
 }
 
 /// REQ-GATE-5: a verification holds only with every check's identity current, none more or less, and a review accept
