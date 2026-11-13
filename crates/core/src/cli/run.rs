@@ -401,7 +401,13 @@ fn prepare(
         r => Some(r?),
     };
     let same = review.as_ref().is_some_and(|r| r.adapter.provider == build.adapter.provider);
-    let widened = named.iter().any(|k| k == "review.differentProvider");
+    // Only an authorization that named the key grants a reviewer of the builder's provider; a layer's own keys, which an
+    // authorization this command writes admits to read the settings, do not (P9F-1).
+    let granted = match fresh {
+        Some(widen) => widen.to_vec(),
+        None => named.clone(),
+    };
+    let widened = granted.iter().any(|k| k == "review.differentProvider");
     if same && differ == "require" && !widened {
         halts.push(provider(format!("the reviewer's provider, {}, is the builder's", build.adapter.provider)));
     }

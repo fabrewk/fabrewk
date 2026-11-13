@@ -26,10 +26,12 @@ fn texts(v: &Value) -> impl Iterator<Item = String> + '_ {
 }
 
 /// REQ-GATE-1: a task's required checks, by name: the union of its own (`task`, its proposal), its build profile's and
-/// those its stage (`stage`, its proposal) approved, each with its definition, the stage's or the policy's, which
-/// `CHECK_DUPLICATE` keeps one; `SETTINGS_INVALID` for a name neither defines. A tool a check names must be found on
+/// those its stage (`stage`, its proposal) approved, each with its definition, the stage's or the policy's, which must be
+/// the same, as the policy in force reads (`CHECK_DUPLICATE`); `SETTINGS_INVALID` for a name neither defines. A tool a check names must be found on
 /// the cell's own `PATH`, under the system directories a cell shows (S-6), else `TOOL_MISSING`.
 pub fn required(eff: &Effective, task: &Value, stage: &Value) -> Result<Vec<Check>, Error> {
+    // A policy adopted after the stage may define one of its checks otherwise (P9F-2).
+    crate::task::duplicates(&stage["checks"], eff)?;
     let mut names: BTreeSet<String> = texts(&task["checks"]).collect();
     let profile = format!("profiles.{}.checks", task["profiles"]["build"].as_str().unwrap_or_default());
     if let Some((Val::List(l), _)) = eff.values.get(&profile) {

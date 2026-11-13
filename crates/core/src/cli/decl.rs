@@ -198,6 +198,7 @@ pub const COMMANDS: &[Command] = &[
             RoundsExhausted,
             BudgetExhausted,
             ProviderMissing,
+            CheckDuplicate,
         ],
         schemas: &["fabrewk.run/1"],
     },

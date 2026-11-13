@@ -994,6 +994,15 @@ fn req_gate_1_2_the_required_checks_run_confined_on_a_fresh_export() {
     let new = halts(&fx, &ids[0], "CONFINEMENT_UNAVAILABLE");
     assert_eq!(kinds(&new), ["task-halted"]);
     assert!(new[0]["payload"]["reason"].as_str().unwrap().contains("network"), "{new:?}");
+    // A stage's check the policy defines alike, then otherwise once adopted again: refused, nothing run (P9F-2).
+    let twice = json!({"checks": {"twice": {"command": ["true"], "network": false, "minutes": 1, "tools": []}}});
+    let (_, ids) = plan(&fx, twice, vec![json!({})]);
+    ok(&authorize(&fx, &ids[0], &[]));
+    let text = fs::read_to_string(fx.domain.join("settings.toml")).unwrap();
+    fx.edit_policy(&format!("{text}\n[checks.twice]\ncommand = [\"false\"]\nminutes = 1\n"));
+    ok(&fx.run(&["adopt", "--say", "La ajusto.", "--widen", "checks.twice"]));
+    let e = refused(&fx, &["run", &ids[0], "--say", SAY], "CHECK_DUPLICATE", 1, "es");
+    assert!(e["detail"].as_str().unwrap().contains("twice"), "{e}");
     // A required check that neither the policy nor the stage defines, and a tool a check names that no cell shows.
     let id = authorized(&fx, json!({"checks": ["nowhere"]}));
     refused(&fx, &["run", &id, "--say", SAY], "SETTINGS_INVALID", 1, "es");
@@ -1073,6 +1082,20 @@ fn refusal_provider_missing_and_the_limitation_recorded() {
     assert_eq!(auth["payload"]["widened"], json!(["review.differentProvider"]));
     let new = verifies(&fx, &id);
     assert_eq!(new.iter().find(|e| e["kind"] == "review-recorded").unwrap()["payload"]["limited"], true);
+    // Authorized and run at once, the layer's own key is no naming of it (P9F-1).
+    let id = plan(&fx, json!({}), vec![require.clone()]).1.remove(0);
+    let ran = authorize(&fx, &id, &["--run"]);
+    assert_eq!(ran.status, 4, "{ran:?}");
+    let last = fx.events(&stream(&id)).pop().unwrap();
+    assert_eq!(
+        (last["kind"].as_str(), last["payload"]["code"].as_str()),
+        (Some("task-halted"), Some("PROVIDER_MISSING"))
+    );
+    // A stage's layer, the same.
+    let (stage, ids) = plan(&fx, json!({"settings": {"review.differentProvider": "require"}}), vec![json!({})]);
+    let ran = authorize(&fx, &stage, &["--run"]);
+    assert_eq!(ran.status, 4, "{ran:?}");
+    assert_eq!(fx.events(&stream(&ids[0])).pop().unwrap()["payload"]["code"], "PROVIDER_MISSING");
     // `off`, a widening the authorization names, records no limitation.
     let id = plan(&fx, json!({}), vec![json!({"settings": {"review.differentProvider": "off"}})]).1.remove(0);
     ok(&authorize(&fx, &id, &["--widen", "review.differentProvider"]));

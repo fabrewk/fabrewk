@@ -328,6 +328,7 @@ Refusals
 - `ROUNDS_EXHAUSTED`: The task's review rounds since its authorization are spent; no round more is started.
 - `BUDGET_EXHAUSTED`: The task's or its stage's dispatches, minutes or tokens are spent, or what was spent cannot be known; nothing more is dispatched.
 - `PROVIDER_MISSING`: review.differentProvider is require, and the review profile's provider is the builder's, or its tool is absent.
+- `CHECK_DUPLICATE`: One check has two different definitions.
 - `RECORD_ABSENT`: There is no record here.
 - `POLICY_ABSENT`: No policy is adopted, so there is no effective configuration and no maintainer.
 - `RECORD_BROKEN`: The record is broken: its files are not one unbroken chain.

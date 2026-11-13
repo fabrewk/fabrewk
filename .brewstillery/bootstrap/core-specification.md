@@ -1216,7 +1216,8 @@ REQ-RUN-8, REQ-RUN-9, REQ-TASK-5; D-085).**
   the one before it, nor that one below the one before it; then the next round starts with no person's move (PD-33),
   carrying the previous round's confirmed findings and the checks that did not pass. Both roles' packets carry it.
 - The required checks (REQ-GATE-1): the task's own `checks`, its build profile's `profiles.<name>.checks` and every check
-  its stage approved, by name, each defined by the stage or by the policy (`CHECK_DUPLICATE` keeps them one); a name
+  its stage approved, by name, each defined by the stage or by the policy; a stage's definition that the policy in force
+  defines otherwise, as one adopted after the stage may, is `CHECK_DUPLICATE` at the run too (P9F-2), and a name
   neither defines is `SETTINGS_INVALID`. A tool a check names must be found on the cell's own `PATH` (`/usr/bin:/bin`),
   else `TOOL_MISSING` (S-6); its version is the first line its `--version` prints, `null` when none.
 - A check's cell (3.4): its copy writable at `/work`, its home and `/tmp`, no network, no credential, no namespace of its
@@ -1242,7 +1243,8 @@ REQ-RUN-8, REQ-RUN-9, REQ-TASK-5; D-085).**
   (PD-25: "invalid output whatever its verdict"). `review.differentProvider`: with the reviewer's provider, as its
   adapter declares it, the builder's, `require` halts `PROVIDER_MISSING` before any dispatch, and so does an absent
   reviewer's tool, which otherwise refuses `TOOL_MISSING`; an authorization naming `--widen review.differentProvider`
-  records it in `widened` though no layer widens it, and the run goes on with the limitation; `prefer` records the
+  records it in `widened` though no layer widens it, and the run goes on with the limitation (only the authorization's
+  naming counts, never a layer that sets the key, P9F-1); `prefer` records the
   limitation; `off` none. `status <id>` says when the last review has it.
 - Revalidation (REQ-RUN-9): `run` on a `verified` task whose evidence is stale, or on an `authorized` task authorized
   from `verified`, `accepted` or after `merge-failed` (the event before the authorization in force), keeps the task's
@@ -1268,7 +1270,7 @@ REQ-RUN-8, REQ-RUN-9, REQ-TASK-5; D-085).**
   its `run-started`); an earlier run's, left unread, stay.
 - The run's document stays `fabrewk.run/1`: `halt` is `null` once the task is verified, and `attempt` names the last
   attempt. `run` and `authorize --run` record `check-recorded`, `review-recorded` and `task-verified`; `run` from
-  `verified` may refuse `ROUNDS_EXHAUSTED`, `BUDGET_EXHAUSTED` and `PROVIDER_MISSING`.
+  `verified` may refuse `ROUNDS_EXHAUSTED`, `BUDGET_EXHAUSTED` and `PROVIDER_MISSING`, and any run `CHECK_DUPLICATE`.
 
 ### EXT: extensions
 

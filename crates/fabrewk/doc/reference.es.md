@@ -328,6 +328,7 @@ Rechazos
 - `ROUNDS_EXHAUSTED`: Las rondas de revisión de la tarea desde su autorización están gastadas; no se empieza ninguna ronda más.
 - `BUDGET_EXHAUSTED`: Los despachos, minutos o tokens de la tarea o de su etapa están gastados, o no se puede saber lo gastado; no se despacha nada más.
 - `PROVIDER_MISSING`: review.differentProvider es require, y el proveedor del perfil de revisión es el del constructor, o su herramienta no está.
+- `CHECK_DUPLICATE`: Una comprobación tiene dos definiciones distintas.
 - `RECORD_ABSENT`: Aquí no hay registro.
 - `POLICY_ABSENT`: No hay una política adoptada, así que no hay configuración efectiva ni mantenedores.
 - `RECORD_BROKEN`: El registro está roto: sus archivos no forman una sola cadena sin cortes.
