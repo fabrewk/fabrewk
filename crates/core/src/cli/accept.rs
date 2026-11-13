@@ -45,15 +45,20 @@ fn verified<'e>(events: &'e [Event], tree: &str) -> Option<(&'e Value, &'e Value
 /// its state and, but from `verified`, its record branch is at its candidate: the task as an authorization shows it,
 /// then the candidate, its files, its checks with their identities and its review, in the person's language; and the
 /// digest of that rendering, which `accept` takes with `--seen`.
-pub(super) fn acceptance<'a>(cx: &Cx, record: &'a Replay, stream: &str) -> Option<Bound<'a>> {
-    let (name, events) = record.streams.get_key_value(stream)?;
-    let state = table::current(record).ok()?.get(stream).copied();
-    table::step("task", state, "task-accepted").ok()?;
-    let (_, at) = located(cx, events).ok()??;
-    if state != Some("verified") && !at {
-        return None;
+pub(super) fn acceptance<'a>(cx: &Cx, record: &'a Replay, stream: &str) -> Result<Option<Bound<'a>>, Error> {
+    let Some((name, events)) = record.streams.get_key_value(stream) else { return Ok(None) };
+    let state = table::current(record).ok().and_then(|s| s.get(stream).copied());
+    if table::step("task", state, "task-accepted").is_err() {
+        return Ok(None);
     }
-    let c = &events.iter().rfind(|e| e.kind == "candidate-recorded")?.value["payload"];
+    // Where the branch is, read from a Git that may fail, which is said, never taken for a place (P9G-13).
+    let Some((_, at)) = located(cx, events)? else { return Ok(None) };
+    if state != Some("verified") && !at {
+        return Ok(None);
+    }
+    let Some(c) = events.iter().rfind(|e| e.kind == "candidate-recorded").map(|e| &e.value["payload"]) else {
+        return Ok(None);
+    };
     let lang = cx.lang_in(record);
     let t = |k: &str, p: &[(&str, &str)]| say(lang, &format!("accept.{k}"), p);
     let s = |v: &Value| v.as_str().unwrap_or_default().to_owned();
@@ -83,7 +88,7 @@ pub(super) fn acceptance<'a>(cx: &Cx, record: &'a Replay, stream: &str) -> Optio
         }
         None => text += &format!("  {}\n", t("unverified", &[])),
     }
-    Some(Bound { digest: sha256_hex(text.as_bytes()), text, tasks: vec![(name, events)] })
+    Ok(Some(Bound { digest: sha256_hex(text.as_bytes()), text, tasks: vec![(name, events)] }))
 }
 
 /// A task's integration, owned, as a write command plans it from a record: where, the task, its stage and its events,
@@ -324,7 +329,7 @@ fn plan(cx: &Cx, id: &str, options: &Options, record: &Replay) -> Result<Plan<St
     table::evaluate(m, |g| -> Result<(), Failed> {
         match g.name {
             "REQ-GATE-7" => {
-                shown = acceptance(cx, record, &stream).map(|b| b.digest).unwrap_or_default();
+                shown = acceptance(cx, record, &stream)?.map(|b| b.digest).unwrap_or_default();
                 if options.seen.as_deref() != Some(shown.as_str()) {
                     let why = format!("what status {id} shows now is not what --seen names; read it again");
                     return Err(refuse(Code::TaskChanged, None, why).into());

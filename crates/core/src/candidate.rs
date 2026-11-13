@@ -322,7 +322,7 @@ fn ignored(
     match out.status.code() {
         Some(0) => Ok(out.stdout.split(|&b| b == 0).filter(|p| !p.is_empty()).map(<[u8]>::to_vec).collect()),
         Some(1) => Ok(BTreeSet::new()),
-        _ => Err(failed(Some(&repo.root), "git check-ignore failed")),
+        _ => Err(git::failed(&rules_repo, &args, &out)),
     }
 }
 
@@ -590,15 +590,14 @@ pub fn commit(
         let tree = line(git::git(repo, &os(&["write-tree"]), b"", Some(&index))?);
         let commit = line(git::git(repo, &os(&["commit-tree", &tree, "-p", base, "-F", "-"]), text.as_bytes(), None)?);
         let branch = format!("refs/heads/fabrewk/{task}");
-        let moved = git::run(
-            git::command(
-                repo,
-                &os(&["update-ref", "-m", "fabrewk: candidate", &branch, &commit, previous.unwrap_or_default()]),
-            ),
-            b"",
-        )?;
+        let update = os(&["update-ref", "-m", "fabrewk: candidate", &branch, &commit, previous.unwrap_or_default()]);
+        let moved = git::run(git::command(repo, &update), b"")?;
         if !moved.status.success() {
-            return Err(failed(Some(&repo.root), format!("fabrewk/{task} is not where the record says it is")));
+            let why = format!(
+                "fabrewk/{task} is not where the record says it is: {}",
+                git::failed(repo, &update, &moved).detail()
+            );
+            return Err(failed(Some(&repo.root), why));
         }
         Ok(Candidate { commit, tree })
     })();

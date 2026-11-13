@@ -1146,3 +1146,70 @@ fn p9g_10_p9g_11_a_failed_reading_of_a_commit_is_no_absence() {
     assert_eq!(last_of(&fx, &id)["kind"], "task-accepted");
     refused(&fx, &["reject", &id, "--say", SAY], "MERGE_IN_PROGRESS", 1, "es");
 }
+
+/// P9G-13, P9G-14 and the sweep of their class (D-083, D-086 point 3): wherever a write command reads a state from Git
+/// (the branch checked out, the key it signs with, the main working tree, the base's ignore rules, the candidate's
+/// branch), a Git that fails is `TOOL_FAILED`, or keeps its code, with Git's exit status and evidence named, never
+/// taken for that state; `status` says it too, writing nothing.
+#[test]
+fn p9g_13_p9g_14_a_failed_git_is_never_a_state() {
+    let fx = Fx::builder("p9g-13", "unpublished", &format!("{WRITES}{SUCCESS}"));
+    let id = verified_task(&fx, json!({}), json!({}));
+    let kept = |ran: &Ran, code: &str| {
+        let doc = ran.doc();
+        let e = doc["refusals"].as_array().unwrap().iter().find(|e| e["code"] == code).cloned();
+        let e = e.unwrap_or_else(|| panic!("{code}: {doc}"));
+        assert!(e["detail"].as_str().unwrap().contains("Git's output is kept in"), "{code}: {e}");
+    };
+    for (fault, code) in [
+        ("symbolic-ref -q HEAD", "TOOL_FAILED"),
+        ("user.signingkey", "TOOL_FAILED"),
+        ("worktree list", "NOT_A_REPOSITORY"),
+    ] {
+        let ran = fx.run_env(&["reject", &id, "--say", SAY, "--json"], &[("FABREWK_FAULT_GIT", fault)]);
+        assert_eq!(ran.status, 1, "{fault}: {ran:?}");
+        kept(&ran, code);
+    }
+    let before = fx.snapshot();
+    let ran = fx.run_env(&["status", &id], &[("FABREWK_FAULT_GIT", "rev-parse --verify -q refs/heads/")]);
+    assert_eq!(ran.status, 1, "{ran:?}");
+    assert!(ran.stderr.contains("TOOL_FAILED") && ran.stderr.contains("exit status 129"), "{ran:?}");
+    assert_eq!(fx.snapshot(), before, "a reading command keeps nothing");
+    // The run: the base's ignore rules (a base that has some), and the candidate's branch.
+    fs::write(fx.root.join(".gitignore"), "*.log\n").unwrap();
+    fx.git(&["add", ".gitignore"]);
+    fx.git(&["commit", "-q", "-m", "ignore rules"]);
+    for fault in ["check-ignore --no-index", "fabrewk: candidate"] {
+        let other = verified_task_halting(&fx, fault);
+        let halt = last_of(&fx, &other);
+        assert_eq!(
+            (&halt["kind"], &halt["payload"]["code"]),
+            (&json!("task-halted"), &json!("TOOL_FAILED")),
+            "{fault}"
+        );
+        assert!(halt["payload"]["reason"].as_str().unwrap().contains("Git's output is kept in"), "{fault}: {halt}");
+    }
+}
+
+/// A task proposed and authorized, then run with `FABREWK_FAULT_GIT` naming `fault`, which halts it; gives its identifier.
+fn verified_task_halting(fx: &Fx, fault: &str) -> String {
+    let head = fx.git(&["rev-parse", "HEAD"]);
+    let plan = json!({
+        "stage": {"lang": "en", "goal": "Halt.", "budget": {"dispatches": 6, "minutes": 120}, "checks": {}, "settings": {}},
+        "tasks": [{
+            "lang": "en", "goal": fault, "requirements": [{"text": "It builds.", "criterion": "it builds"}],
+            "base": head, "dependencies": [], "allowed": ["src/**"], "profiles": {"build": "build", "review": "review"},
+            "checks": [], "limits": {"rounds": 3, "dispatches": 6, "minutes": 120}, "delegationLanguage": "en",
+            "settings": {},
+        }],
+    });
+    fs::write(fx.root.join("plan.json"), serde_json::to_vec(&plan).unwrap()).unwrap();
+    let ran = fx.run(&["propose", "plan.json", "--json"]);
+    fs::remove_file(fx.root.join("plan.json")).unwrap();
+    let id = ran.doc()["tasks"][0]["id"].as_str().unwrap().to_owned();
+    let digest = fx.run(&["status", &id, "--json"]).doc()["shown"]["digest"].as_str().unwrap().to_owned();
+    assert_eq!(fx.run(&["authorize", &id, "--seen", &digest, "--say", SAY]).status, 0);
+    let ran = fx.run_env(&["run", &id, "--say", SAY], &[("FABREWK_FAULT_GIT", fault)]);
+    assert_eq!(ran.status, 4, "{fault}: {ran:?}");
+    id
+}

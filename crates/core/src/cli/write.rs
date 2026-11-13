@@ -50,6 +50,8 @@ pub(super) fn not_an_agent(cx: &Cx) -> Result<(), Error> {
 /// `ROLE_FORBIDDEN` when Git names no key, the key is no maintainer's, or the role may not make the move (REQ-ID-3).
 pub(super) fn person(cx: &Cx, policy: &Policy, kind: &str) -> Result<(String, serde_json::Value, GitSigner), Error> {
     let forbidden = |why: &str| refuse(Code::RoleForbidden, None, why.to_owned());
+    // A Git that cannot say which key it signs with is its failure, never a key unset (D-083).
+    crate::record::signing_key_read(&cx.root)?;
     let key = identity::signing(&cx.root)
         .ok_or_else(|| forbidden("Git names no signing key (user.signingkey) that reads as a public key"))?;
     let alias = identity::holder(&policy.settings, &key.public).ok_or_else(|| {

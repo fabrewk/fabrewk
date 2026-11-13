@@ -1347,7 +1347,11 @@ REQ-GATE-10, REQ-REG-10, REQ-RUN-6, REQ-REG-13; S-4, S-11; D-083, D-086, D-087).
   or the index holds it, so that a Git that fails is never taken for its absence (P9G-3); a ref that exists and names
   no commit keeps what its reading printed too (P9G-9); only exit status 1 of `rev-parse --verify -q` says that a name
   resolves to no commit, any other is a failed Git (P9G-11, P9G-12); and where the record branch is, read by a write
-  command, is never taken from a Git that failed (P9G-10). Such a refusal writes that directory and nothing else, a fourth kind of
+  command, is never taken from a Git that failed (P9G-10). The same holds wherever a write command reads a state from
+  Git (P9G-13, P9G-14): the branch checked out (exit status 1 of `symbolic-ref -q` alone is `HEAD_DETACHED`), the key
+  Git signs with (exit status 1 of `git config --get` alone is an unset key), the main working tree (`NOT_A_REPOSITORY`
+  naming Git's evidence), the base's ignore rules, the candidate's branch, and what an acceptance binds; `status` says
+  such a failure with Git's exit status, keeping nothing. Such a refusal writes that directory and nothing else, a fourth kind of
   refusal that writes (11.2 rule 4). Reading commands keep nothing. With `fault-injection`, `FABREWK_FAULT_GIT` makes a
   Git command whose words hold its text fail as Git fails on an option it does not know.
 - With `fault-injection`, the pauses `before-move` (before the second check), `before-update-ref` and `after-move`.

@@ -197,10 +197,24 @@ pub(crate) fn ignores(repo: &Repo, path: &Path) -> Result<bool, Error> {
 /// Git's `user.signingkey` in the repository at `root`, a path or a `key::` literal (D-055); `None` when it is unset or
 /// Git cannot say.
 pub(crate) fn signing_key(root: &Path) -> Option<String> {
+    signing_key_read(root).ok().flatten()
+}
+
+/// [`signing_key`] for a write command: a Git that cannot say is its failure, with its evidence, never an unset key;
+/// Git's exit status 1 alone says that the key is unset.
+pub(crate) fn signing_key_read(root: &Path) -> Result<Option<String>, Error> {
     let repo = Repo { root: root.to_path_buf(), prefix: PathBuf::new() };
     let args = os(&["config", "--show-origin", "-z", "--type=path", "--get", "user.signingkey"]);
-    let out = run(command(&repo, &args), b"").ok().filter(|o| o.status.success())?;
-    let text = String::from_utf8(out.stdout).ok()?;
+    let out = run(command(&repo, &args), b"")?;
+    match out.status.code() {
+        Some(0) => Ok(read_key(root, out.stdout)),
+        Some(1) => Ok(None),
+        _ => Err(failed(&repo, &args, &out)),
+    }
+}
+
+fn read_key(root: &Path, stdout: Vec<u8>) -> Option<String> {
+    let text = String::from_utf8(stdout).ok()?;
     let (origin, value) = text.strip_suffix('\0')?.split_once('\0')?;
     // A value Git takes from a file in a Fabrewk domain (an `include.path` there) is that file's content, read
     // for Fabrewk: never used (P7D2-30).
@@ -334,9 +348,12 @@ pub(crate) fn head_of(repo: &Repo, name: &str) -> Result<Option<String>, Error> 
 /// lock and its index live there, and a linked working tree or a subdirectory would hold another copy (P7B-3).
 pub(crate) fn check_main_worktree(repo: &Repo) -> Result<(), Error> {
     let not = || refuse(Code::NotARepository, Some(&repo.root), "not the main working tree's root");
-    let out = run(command(repo, &os(&["worktree", "list", "--porcelain", "-z"])), b"")?;
+    let args = os(&["worktree", "list", "--porcelain", "-z"]);
+    let out = run(command(repo, &args), b"")?;
+    // What Git printed is kept, and named, whatever the code says (D-083).
     if !out.status.success() {
-        return Err(not());
+        let why = format!("not the main working tree's root: {}", failed(repo, &args, &out).detail());
+        return Err(refuse(Code::NotARepository, Some(&repo.root), why));
     }
     let first = out.stdout.split(|&b| b == 0).next().unwrap_or_default();
     let main = std::str::from_utf8(first).ok().and_then(|l| l.strip_prefix("worktree ")).map(PathBuf::from);
@@ -347,9 +364,13 @@ pub(crate) fn check_main_worktree(repo: &Repo) -> Result<(), Error> {
 /// The record branch (REQ-REG-11): the branch checked out in the main working tree; `HEAD_DETACHED` otherwise.
 pub fn record_branch(repo: &Repo) -> Result<String, Error> {
     let common = line(git(repo, &os(&["rev-parse", "--git-common-dir"]), b"", None)?);
-    let out = run(command(repo, &os(&["--git-dir", &common, "symbolic-ref", "-q", "HEAD"])), b"")?;
-    if !out.status.success() {
-        return Err(refuse(Code::HeadDetached, Some(&repo.root), "HEAD names no branch"));
+    let args = os(&["--git-dir", &common, "symbolic-ref", "-q", "HEAD"]);
+    let out = run(command(repo, &args), b"")?;
+    // Exit status 1 alone says that HEAD is no symbolic ref; any other is a Git that failed (P9G-14).
+    match out.status.code() {
+        Some(0) => {}
+        Some(1) => return Err(refuse(Code::HeadDetached, Some(&repo.root), "HEAD names no branch")),
+        _ => return Err(failed(repo, &args, &out)),
     }
     Ok(line(out.stdout))
 }

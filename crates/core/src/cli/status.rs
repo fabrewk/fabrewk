@@ -275,7 +275,7 @@ fn subject(cx: &Cx, id: &str) -> Result<Out, Failed> {
         next.push(format!("fabrewk authorize {short} --seen {}", b.digest));
     }
     // What an acceptance would bind, with the digest `accept` takes (REQ-GATE-7, D-086 point 2).
-    let accepting = super::accept::acceptance(cx, record, &stream);
+    let accepting = super::accept::acceptance(cx, record, &stream)?;
     if let Some(b) = &accepting {
         text += &format!("\n{}{}\n", b.text, cx.t("accept.digest", &[("digest", &b.digest)]));
         next.push(format!("fabrewk accept {short} --seen {}", b.digest));
