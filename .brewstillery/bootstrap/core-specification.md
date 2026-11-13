@@ -1345,7 +1345,9 @@ REQ-GATE-10, REQ-REG-10, REQ-RUN-6, REQ-REG-13; S-4, S-11; D-083, D-086, D-087).
   path) its standard error and exit status are kept in `local/evidence/git-<seconds>-<process>-<n>/` (`stderr`,
   `status`; `0700`, `0600`), which the words name. A committed or a staged file is read by asking first whether the tip
   or the index holds it, so that a Git that fails is never taken for its absence (P9G-3); a ref that exists and names
-  no commit keeps what its reading printed too (P9G-9). Such a refusal writes that directory and nothing else, a fourth kind of
+  no commit keeps what its reading printed too (P9G-9); only exit status 1 of `rev-parse --verify -q` says that a name
+  resolves to no commit, any other is a failed Git (P9G-11, P9G-12); and where the record branch is, read by a write
+  command, is never taken from a Git that failed (P9G-10). Such a refusal writes that directory and nothing else, a fourth kind of
   refusal that writes (11.2 rule 4). Reading commands keep nothing. With `fault-injection`, `FABREWK_FAULT_GIT` makes a
   Git command whose words hold its text fail as Git fails on an option it does not know.
 - With `fault-injection`, the pauses `before-move` (before the second check), `before-update-ref` and `after-move`.

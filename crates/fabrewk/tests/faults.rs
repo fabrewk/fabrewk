@@ -1122,3 +1122,27 @@ fn p9g_8_p9g_9_the_evidence_recorded_is_the_failures_own() {
         assert_eq!(p["evidence"]["status"], 129);
     }
 }
+
+/// P9G-10, P9G-11: a Git that fails while a write command reads where the record branch is, or the candidate's parent,
+/// is `TOOL_FAILED` with its evidence, never an absence: `reject` does not reject an integration halfway done because
+/// the branch could not be read, and `accept` never says that a candidate has no parent.
+#[test]
+fn p9g_10_p9g_11_a_failed_reading_of_a_commit_is_no_absence() {
+    // `unpublished`: no record commit, so that `reject` reads the branch's head first where it locates the candidate.
+    let fx = Fx::builder("p9g-10", "unpublished", &format!("{WRITES}{SUCCESS}"));
+    let id = verified_task(&fx, json!({}), json!({}));
+    let digest = accepting(&fx, &id);
+    let args = ["accept", &id, "--seen", &digest, "--say", SAY];
+    let ran = fx.run_env(&args, &[("FABREWK_FAULT_GIT", "^1^{commit}")]);
+    assert_eq!(ran.status, 1, "{ran:?}");
+    assert!(ran.stderr.contains("TOOL_FAILED") && ran.stderr.contains("Git's output is kept in"), "{ran:?}");
+    let steps = tmp("p9g-10-steps");
+    let mut child = paused(&fx, &args, "after-move", &steps);
+    child.kill().unwrap();
+    child.wait().unwrap();
+    let ran = fx.run_env(&["reject", &id, "--say", SAY], &[("FABREWK_FAULT_GIT", "rev-parse --verify -q refs/heads/")]);
+    assert_eq!(ran.status, 1, "{ran:?}");
+    assert!(ran.stderr.contains("TOOL_FAILED") && ran.stderr.contains("Git's output is kept in"), "{ran:?}");
+    assert_eq!(last_of(&fx, &id)["kind"], "task-accepted");
+    refused(&fx, &["reject", &id, "--say", SAY], "MERGE_IN_PROGRESS", 1, "es");
+}

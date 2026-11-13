@@ -306,14 +306,19 @@ pub(crate) fn exclude_file(repo: &Repo) -> Result<PathBuf, Error> {
     Ok(PathBuf::from(line(out)))
 }
 
-/// The commit a ref names, `None` for an unborn branch, which has no ref at all; a ref that names no commit, or a Git
-/// that cannot say, is `TOOL_FAILED` (P7D2-12).
+/// The commit a ref, or a revision, names, `None` for an unborn branch, which has no ref at all, or a revision that
+/// names none; a ref that names no commit, or a Git that cannot say, is `TOOL_FAILED` (P7D2-12, P9G-11).
 pub(crate) fn head_of(repo: &Repo, name: &str) -> Result<Option<String>, Error> {
     let target = format!("{name}^{{commit}}");
     let args = os(&["rev-parse", "--verify", "-q", &target]);
     let out = run(command(repo, &args), b"")?;
     if out.status.success() {
         return Ok(Some(line(out.stdout)));
+    }
+    // Only exit status 1 says that the name resolves to no commit; any other is a Git that failed, never an absence,
+    // and keeps what it printed (P9G-11, P9G-12).
+    if out.status.code() != Some(1) {
+        return Err(failed(repo, &args, &out));
     }
     // A ref that exists and names no commit keeps what Git printed, as every failed Git in a write command does (P9G-9).
     let why = |e: Error| refuse(Code::ToolFailed, Some(&repo.root), format!("{name} names no commit: {}", e.detail()));

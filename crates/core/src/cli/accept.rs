@@ -21,12 +21,12 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 /// A task's last candidate and where the record branch is: its commit, and whether the branch's product is the
-/// candidate's (REQ-GATE-8); `None` with no candidate. A branch Git cannot name is not at it.
+/// candidate's (REQ-GATE-8); `None` with no candidate. A Git that cannot say is its failure, never a place (P9G-10).
 pub(super) fn located(cx: &Cx, events: &[Event]) -> Result<Option<(String, bool)>, Error> {
     let Some(c) = events.iter().rfind(|e| e.kind == "candidate-recorded") else { return Ok(None) };
     let commit = c.value["payload"]["commit"].as_str().unwrap_or_default().to_owned();
     let product = super::propose::product(cx);
-    let head = git::record_branch(&product).ok().and_then(|b| git::head_of(&product, &b).ok().flatten());
+    let head = git::head_of(&product, &git::record_branch(&product)?)?;
     let at = match head {
         Some(h) => product_tree(&product, &h)? == product_tree(&product, &commit)?,
         None => false,
@@ -314,7 +314,7 @@ fn plan(cx: &Cx, id: &str, options: &Options, record: &Replay) -> Result<Plan<St
     let m = table::step("task", state, "task-accepted")?;
     let events = &record.streams[&stream];
     let merge = plan_merge(cx, record, &policy, &stream)?;
-    if state != Some("verified") && !merge.place().is_ok_and(|p| p.1) {
+    if state != Some("verified") && !merge.at()?.2 {
         let why = format!("task-accepted from {}: the record branch is not at its candidate", state.unwrap_or("none"));
         return Err(refuse(Code::MoveNotAllowed, None, why).into());
     }
