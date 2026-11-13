@@ -126,6 +126,11 @@ impl Appender<'_> {
         Ok(())
     }
 
+    /// The branch of the repository at `root` moved to `commit` by this command (see [`Session::moved`]).
+    pub fn moved(&mut self, root: &std::path::Path, commit: &str) {
+        self.session.moved(root, commit);
+    }
+
     /// The place the next event of `stream` takes.
     pub fn next(&self, stream: &str) -> Result<u64, Error> {
         Ok(self.session.head(stream)?.map_or(1, |h| h.seq + 1))
@@ -179,6 +184,8 @@ fn head_in(record: &Replay, stream: &str) -> Option<Head> {
 /// written. On a machine with no machine key yet, the signer first signs a probe, so that the key is made only when the
 /// person's key signs. The lock is held until the last cache is written.
 pub(super) fn run<T>(cx: &Cx, plan: impl Fn(&Replay) -> Result<Plan<T>, Failed>) -> Result<(T, Written), Failed> {
+    // What a failed Git prints is kept as this command's evidence (D-083, D-086 point 3).
+    crate::record::git::keep_in(&cx.domain);
     // A task found running, before the lock or under it, is recovered first (REQ-RUN-5); then the command plans again
     // on the record the recovery left (P9E-13). Each turn either recovers a task, refuses, or ends.
     let mut owned: Option<Replay> = None;

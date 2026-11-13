@@ -15,6 +15,7 @@ pub mod fermento;
 pub mod gate;
 pub mod identity;
 pub mod machine;
+pub mod merge;
 pub mod record;
 pub mod scan;
 pub mod settings;

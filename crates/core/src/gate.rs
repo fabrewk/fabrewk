@@ -127,6 +127,22 @@ pub fn holds(
         && verified["checks"] == json!(current)
 }
 
+/// The last verification among a task's `events` while it holds now (REQ-GATE-3, REQ-GATE-5): see [`holds`], with the
+/// policy in force, `policy`, the one its review was recorded under (D-086 point 4), so that a policy adopted since
+/// stales it though no check is required. Gives its payload.
+pub fn verification<'e>(
+    events: &'e [Event],
+    tree: &str,
+    requirements: &str,
+    current: &BTreeMap<String, String>,
+    policy: &str,
+) -> Option<&'e Value> {
+    let verified = &events.iter().rfind(|e| e.kind == "task-verified")?.value["payload"];
+    let review = events.get(usize::try_from(verified["review"].as_u64()?).ok()?.checked_sub(1)?)?;
+    let bound = review.kind == "review-recorded" && review.value["policy"] == policy;
+    (bound && holds(verified, &review.value["payload"], tree, requirements, current)).then_some(verified)
+}
+
 /// The confirmed blocking findings among a review's.
 pub fn blocking(findings: &Value) -> u64 {
     let all = findings.as_array().into_iter().flatten();

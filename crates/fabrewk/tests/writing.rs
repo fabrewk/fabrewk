@@ -615,7 +615,9 @@ fn a_git_that_cannot_name_the_author_is_refused_before_anything_is_written() {
     let fx = published("no-ident");
     fx.git(&["config", "user.name", ""]);
     fx.edit_policy_as(&policy_with(&fx, "\n[limits]\nminutes = 60\n"));
-    refused(&fx, &["adopt", "--say", SAY], "TOOL_FAILED", 1, "es");
+    // Git's own words are kept as the command's evidence, and nothing else is written (D-083, D-086 point 3).
+    let e = refused_keeping_git(&fx, &["adopt", "--say", SAY], "TOOL_FAILED", 1, "es");
+    assert!(e["detail"].as_str().unwrap().contains("exit status 128; Git's output is kept in"), "{e}");
     assert!(!fx.folder().exists());
 }
 
@@ -978,6 +980,7 @@ fn append_raw(fx: &Fx, stream: &str, kind: &str) {
         say: None,
         // An attempt's end of its shape (part 9e), naming an attempt that never started.
         payload: match kind {
+            "task-integrated" => json!({"from": null, "to": "0".repeat(40)}),
             "attempt-ended" => {
                 json!({"attempt": 1, "outcome": "success", "model": null, "usage": {"seconds": 1, "tokens": null}, "evidence": null})
             }

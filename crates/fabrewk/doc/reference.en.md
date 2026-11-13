@@ -12,7 +12,7 @@ Shows the record's health, the policy in force and the state of each stage and t
 
 Moves it may cause: none.
 
-Documents with --json: `fabrewk.status/3`, `fabrewk.subject/3`
+Documents with --json: `fabrewk.status/3`, `fabrewk.subject/4`
 
 ## `fabrewk config [<key>] [--json]`
 
@@ -252,6 +252,61 @@ Refusals
 - `TOOL_FAILED`: An external tool failed; what it printed is kept as evidence, never shown here.
 - `TOOL_MISSING`: A tool this needs is not on this machine.
 
+## `fabrewk accept <task> --seen <digest> --say <words> [--say-lang <tag>] [--json]`
+
+A maestro accepts a task's candidate as status showed it, and Fabrewk integrates it into the record branch.
+
+- `<task>`: The task, by its identifier (t-…).
+- `--seen <digest>`: The digest that status printed of what you read; if the subject changed since, the move is refused.
+- `--say <words>`: Your own words for this decision, kept verbatim and signed. Words copied from an example, such as “I agree.”, are refused.
+- `--say-lang <tag>`: The language tag of your words; by default, your languages.agentInteraction.
+- `--json`: Gives the output as one JSON document with a schema field.
+- `--help`: Shows this help.
+
+Moves it may cause: `task-accepted` (task accepted), `merge-failed` (integration failed), `task-integrated` (task integrated).
+
+Documents with --json: `fabrewk.accepted/1`
+
+Refusals
+
+- `AGENT_ENVIRONMENT`: This runs inside an agent or an extension, whose markers are in the environment, and only a person makes this move. The check is cooperative: a process can clear its environment.
+- `MOVE_NOT_ALLOWED`: The transition table does not allow this move from the subject's state.
+- `ROLE_FORBIDDEN`: The key signing this move holds no role in the policy that may make it.
+- `WORDS_MISSING`: A person's move needs your own words, given with --say: not empty, and valid UTF-8 text.
+- `WORDS_COPIED`: The words given are the example that help prints, not your own.
+- `TASK_CHANGED`: The task, or its stream's head, changed after it was shown.
+- `EVIDENCE_STALE`: A check's identity no longer matches: the candidate's product tree, the check's definition, the policy, a named tool's version or the platform changed.
+- `ALAMBIQUE_UNAPPROVED`: The alambique is not the text a maestro last approved: it changed by hand, or it was never approved.
+- `PROTECTED_PATH`: The allowed files, or the agent's copy, reach a protected path (.git or .brewstillery).
+- `PROTECTED_PATH_WILDCARD`: A wildcard among the allowed files matches a protected path or name.
+- `LANE_VIOLATION`: The agent's copy changes a file outside the task's allowed files, a path that is not valid text, or leaves an entry that is not a file, a link or a directory.
+- `BASE_MOVED`: The product at the record branch's head is not the one the task's base, or the last of its dependencies' integrations, left.
+- `WORKTREE_DIRTY`: A file the integration would write holds, in the working tree or the index, neither the base's content nor the candidate's: an edit of the person's, which is never overwritten.
+- `RECORD_ABSENT`: There is no record here.
+- `POLICY_ABSENT`: No policy is adopted, so there is no effective configuration and no maintainer.
+- `RECORD_BROKEN`: The record is broken: its files are not one unbroken chain.
+- `RECORD_DIGEST_MISMATCH`: An event file's content is not the one its name records.
+- `RECORD_NONCANONICAL`: An event file is not in canonical form, so its digest cannot be trusted.
+- `RECORD_FORK`: Two events stand at the same place of one stream: two clones wrote there.
+- `RECORD_TRANSITION_INVALID`: An event stands where the transition table does not allow it.
+- `ATTEMPT_ENDED`: The record ends an attempt that is not open.
+- `RECORD_SIGNATURE_INVALID`: A person's event is not signed by the key and role the policy gives its signer.
+- `RECORD_VERSION_UNKNOWN`: An event is not of a schema this version of Fabrewk knows.
+- `RECORD_ID_COLLISION`: Two stages or two tasks were given the same identifier.
+- `RECORD_ROLLBACK`: The record lost events it held before: a rollback.
+- `MARK_INVALID`: This machine's mark of the record (local/cache/heads.json) is damaged or names an event the record does not hold there.
+- `CHECK_UNKNOWN`: A verification could not run, so its result is unknown, and an unknown result is never a pass.
+- `DOMAIN_NOT_IGNORED`: The product's repository does not ignore .brewstillery/, so a commit there would publish it.
+- `NOT_A_REPOSITORY`: This is not the root of the repository's main working tree.
+- `HEAD_DETACHED`: Git's head names no branch, so there is no record branch.
+- `PRIVATE_FOLDER_PERMISSIONS`: The private folder gives access to someone other than its owner, so Fabrewk does not read it.
+- `SETTINGS_INVALID`: A settings file does not read or validate.
+- `LOCK_HELD`: Another Fabrewk command holds the lock of this repository's record, or another task is running: one writer and one run at a time.
+- `RECORD_HEAD_MOVED`: Something wrote in the record without its lock while this command ran; this command wrote nothing.
+- `RECORD_COMMIT_RACE`: The branch moved while Fabrewk committed the record; its events are written but not committed.
+- `TOOL_FAILED`: An external tool failed; what it printed is kept as evidence, never shown here.
+- `TOOL_MISSING`: A tool this needs is not on this machine.
+
 ## `fabrewk reject <task> --say <words> [--say-lang <tag>] [--json]`
 
 A maestro rejects a task, saying why.
@@ -264,7 +319,7 @@ A maestro rejects a task, saying why.
 
 Moves it may cause: `task-rejected` (task rejected).
 
-Documents with --json: `fabrewk.rejected/1`
+Documents with --json: `fabrewk.rejected/2`
 
 Refusals
 
@@ -301,7 +356,7 @@ Refusals
 
 ## `fabrewk run <id> --say <words> [--say-lang <tag>] [--json]`
 
-A maestro starts the confined run of an authorized task, or of a stage's next one; this version has no confinement yet, so it refuses.
+A maestro starts the confined run of an authorized task, or of a stage's next one, or finishes the integration of an accepted task.
 
 - `<id>`: The task or the stage, by its identifier (t-… or s-…).
 - `--say <words>`: Your own words for this decision, kept verbatim and signed. Words copied from an example, such as “I agree.”, are refused.
@@ -309,9 +364,9 @@ A maestro starts the confined run of an authorized task, or of a stage's next on
 - `--json`: Gives the output as one JSON document with a schema field.
 - `--help`: Shows this help.
 
-Moves it may cause: `run-started` (run started), `attempt-started` (attempt started), `attempt-ended` (attempt ended), `candidate-recorded` (candidate recorded), `check-recorded` (check recorded), `review-recorded` (review recorded), `task-verified` (task verified), `task-halted` (task halted).
+Moves it may cause: `run-started` (run started), `attempt-started` (attempt started), `attempt-ended` (attempt ended), `candidate-recorded` (candidate recorded), `check-recorded` (check recorded), `review-recorded` (review recorded), `task-verified` (task verified), `task-halted` (task halted), `merge-failed` (integration failed), `task-integrated` (task integrated).
 
-Documents with --json: `fabrewk.run/1`
+Documents with --json: `fabrewk.run/1`, `fabrewk.accepted/1`
 
 Refusals
 

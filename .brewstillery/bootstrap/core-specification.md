@@ -1272,6 +1272,75 @@ REQ-RUN-8, REQ-RUN-9, REQ-TASK-5; D-085).**
   attempt. `run` and `authorize --run` record `check-recorded`, `review-recorded` and `task-verified`; `run` from
   `verified` may refuse `ROUNDS_EXHAUSTED`, `BUDGET_EXHAUSTED` and `PROVIDER_MISSING`, and any run `CHECK_DUPLICATE`.
 
+**Acceptance and integration, as part 9g fixed them (`confinement-design.md` 3.8 rule 9; REQ-GATE-7, REQ-GATE-8,
+REQ-GATE-10, REQ-REG-10, REQ-RUN-6, REQ-REG-13; S-4, S-11; D-083, D-086, D-087).**
+
+- The command is `crates/core/src/cli/accept.rs`; the library, `crates/core/src/merge.rs` (a commit's product tree, the
+  change set between two commits and its third guard, what the index and the working tree hold at the touched paths,
+  the integration commit, the move, the working tree and the index brought to the candidate).
+- `fabrewk accept <task> --seen <digest> --say <words>` (D-086 point 2). `status <task>` shows, when the table allows an
+  acceptance from the task's state and, but from `verified`, the record branch's product is the candidate's, what an
+  acceptance binds: the task as an authorization shows it, then the candidate and its tree, its files (added, changed,
+  removed), the checks with the identities its last verification of that tree recorded and that verification's review
+  (event, verdict, findings, examinations), or that none is on record; in the person's language, with its digest, which
+  `accept` takes with `--seen` (`TASK_CHANGED` otherwise; a usage error without it). `fabrewk.subject/4` carries it as
+  `accepting` (`text`, `digest`), beside `shown`.
+- `accept`'s guards, in order: the move (`MOVE_NOT_ALLOWED`: from `verified`, or from `authorized` or `halted` with the
+  branch at the candidate; a task with no candidate has none to accept); the person and their words; REQ-GATE-7's
+  `--seen`; `EVIDENCE_STALE`; `ALAMBIQUE_UNAPPROVED`; then the integration's preconditions in `task-integrated`'s order,
+  each refusing before the signature, with nothing written (D-087 point 1): REQ-GATE-8 (Git's locks, `TOOL_FAILED`; the
+  third guard), `BASE_MOVED`, `WORKTREE_DIRTY`, `EVIDENCE_STALE`.
+- Evidence current: the task's last `task-verified` holds (REQ-GATE-5) with every required check's identity recomputed
+  now on the candidate (a check whose identity cannot be recomputed, its tool gone, counts as stale), and its review was
+  recorded under the policy in force (D-086 point 4), which `run`'s revalidation reads alike.
+- The base is the candidate's parent (REQ-RUN-4). The base is unmoved when the product tree at the branch's head is
+  the base's; the branch is at the candidate when it is the candidate's; neither is `BASE_MOVED`.
+- The third guard: the change set recomputed from the base's and the candidate's whole trees (`git diff-tree -r`), a
+  path with a protected component, as `candidate::protected` reads it, `PROTECTED_PATH`; a path that is not valid text,
+  and the lanes, `LANE_VIOLATION` and `PROTECTED_PATH_WILDCARD`, with the protected paths read now (S-4).
+- Clean: at each touched path, the index's stage-0 entry, and the working tree's entry read without stat data or filter
+  (a file hashed as its bytes with its executable bit, a link's target as written; a path below a link or a file, a
+  directory, a special file or an unmerged entry being no entry), equal the base's or, with the branch at the candidate,
+  the candidate's. A submodule's path in the working tree is Git's own checkout and is never written but made as an
+  empty directory where none is; its index entry is.
+- `task-accepted`'s payload is exactly `task`, `head` (bound as an authorization's), `candidate`, `tree` (the task's last
+  `candidate-recorded`'s, which the replay holds it to), `requirements`, `checks` (each name's identity) and `review`
+  (the verification's), and `shown` (the digest of what `status` showed).
+- Under the lock, after `task-accepted` is written: the preconditions again, just before the move; the move: none when
+  the branch is at the candidate, to the candidate itself when the head is the base commit, else to an integration
+  commit (the head's tree with the change set applied through a temporary index, the head its only parent, the
+  candidate's message with `Fabrewk-Candidate: <commit>` after its trailers, the person's Git as author and committer;
+  its product tree must be the candidate's), by `update-ref` with the old value (a branch moved meanwhile,
+  `BASE_MOVED`); the record commit then starts from the commit the integration left. The working tree and the index
+  are brought to the candidate at each path that holds the base's content, read again after the move: removals first
+  (a file or a link, never a directory; then each directory they emptied), then each entry written from its object's
+  bytes into `local/tmp/merge-<task>/` and renamed into place, then the index by `update-index --index-info`, with no
+  filter, conversion or checkout command (S-11). Then, with the branch at the candidate: its product the candidate's,
+  every touched path the candidate's, the evidence current; then `task-integrated`, exactly `from` (the head moved from,
+  `null` when no move was made) and `to` (the head with the branch at the candidate).
+- A failure records `merge-failed`, exactly `code` (`BASE_MOVED`, `WORKTREE_DIRTY`, `EVIDENCE_STALE`, `PROTECTED_PATH`,
+  `PROTECTED_PATH_WILDCARD`, `LANE_VIOLATION` or `TOOL_FAILED`, any other failure being `TOOL_FAILED`), `reason` (the
+  core's words, with no path of the machine), `moved` (whether the branch is at the candidate; nothing is moved back)
+  and `evidence` (`null`, or for a Git failure exactly `status`, its exit status or `null` for a signal, and `stderr`,
+  the digest of its standard error). The task stays `accepted`, exit 4, and waits for a maestro (`task-merge` in the
+  views): `run <task> --say` finishes it under the same checks, its words checked and not recorded (D-087 point 2), or
+  `authorize` returns it to `authorized` keeping its candidate. A command killed after the move leaves `task-accepted`
+  written and the branch moved; the next write command commits the events, and `run` finishes the integration.
+- `accept`'s document, and `run`'s on an accepted task, is `fabrewk.accepted/1` (`id`, `integrated`, the commit or
+  `null`, `failed`, `null` or `code`, `reason` and `moved`, and the events and commit written).
+- `reject`: `MERGE_IN_PROGRESS` while a `task-accepted` follows the task's last `candidate-recorded` and the branch is at
+  that candidate; `task-rejected` gains `candidate` (the last, or `null`) and `atCandidate` (D-068 point 3), and its
+  document is `fabrewk.rejected/2` with both.
+- `BASE_MOVED` at `run` (part 9e) also takes the commit a dependency's `task-integrated` names as `to` for its
+  integration, so that a branch a person brought to a candidate by hand (PD-44) counts.
+- Git's own output (D-083, D-086 point 3): every Git command the core runs has its standard error captured; one that
+  fails is `TOOL_FAILED` with its first words and its exit status, and in a write command (from the start of its write
+  path) its standard error and exit status are kept in `local/evidence/git-<seconds>-<process>-<n>/` (`stderr`,
+  `status`; `0700`, `0600`), which the words name. Such a refusal writes that directory and nothing else, a fourth kind of
+  refusal that writes (11.2 rule 4). Reading commands keep nothing. With `fault-injection`, `FABREWK_FAULT_GIT` makes a
+  Git command whose words hold its text fail as Git fails on an option it does not know.
+- With `fault-injection`, the pauses `before-move` (before the second check), `before-update-ref` and `after-move`.
+
 ### EXT: extensions
 
 - **REQ-EXT-1.** Extension `<name>` is the program `fabrewk-<name>`, run as `fabrewk <name> …`, only when
@@ -1495,7 +1564,7 @@ the project file) and `close` (REQ-TASK-6). Every command takes `--help`; every 
 | `fabrewk propose <file>` | yes | `stage-proposed`, `task-proposed` | `TASK_INVALID`, `STAGE_CLOSED` |
 | `fabrewk authorize <stage\|task> --seen <digest> --say [--widen <key>]… [--run]` | yes | `stage-authorized`, `task-authorized`; with `--run`, also as `run` | section 4 |
 | `fabrewk run <task\|stage> --say` | yes | `run-started` and the run's events | section 4 |
-| `fabrewk accept <task> --say` | yes | `task-accepted`, `task-integrated` | section 4 |
+| `fabrewk accept <task> --seen <digest> --say` | yes | `task-accepted`, `merge-failed`, `task-integrated` | section 4 (D-086 point 2) |
 | `fabrewk reject <task> --say` | yes | `task-rejected` | `MERGE_IN_PROGRESS` |
 | `fabrewk sweep <alias> --answer <file>` | yes | `sweep-recorded`, `proposal-*` | REQ-FER-1, REQ-FER-3 |
 | `fabrewk approve <proposal\|alambique> --say` | yes | `proposal-incorporated`, `direct-edit-approved`, `alambique-baseline` | `PROPOSAL_STALE`, `ALAMBIQUE_CHANGED`, `ALAMBIQUE_UNAPPROVED`, `ALAMBIQUE_MISSING`, `UNIT_AMBIGUOUS` |

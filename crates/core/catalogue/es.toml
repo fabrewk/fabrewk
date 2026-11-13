@@ -74,12 +74,16 @@ arg = "El archivo JSON que describe la etapa y sus tareas; su formato va abajo."
 summary = "Un maestro autoriza una tarea, o una etapa y sus tareas, tal como status las mostró, nombrando cada ampliación que hace."
 arg = "La tarea o la etapa, por su identificador (t-… o s-…)."
 
+[command.accept]
+summary = "Un maestro acepta el candidato de una tarea tal como lo mostró status, y Fabrewk lo integra en la rama del registro."
+arg = "La tarea, por su identificador (t-…)."
+
 [command.reject]
 summary = "Un maestro rechaza una tarea y dice por qué."
 arg = "La tarea, por su identificador (t-…)."
 
 [command.run]
-summary = "Un maestro inicia la ejecución confinada de una tarea autorizada, o de la siguiente de una etapa; esta versión aún no tiene confinamiento, así que se niega."
+summary = "Un maestro inicia la ejecución confinada de una tarea autorizada, o de la siguiente de una etapa, o termina la integración de una tarea aceptada."
 arg = "La tarea o la etapa, por su identificador (t-… o s-…)."
 
 [command.close]
@@ -165,6 +169,25 @@ verified = "La tarea {id} está verificada: sus checks pasaron y su revisión la
 
 [reject]
 done = "Se rechazó la tarea {id}: es definitivo."
+at = "La rama del registro está en su candidato {commit}."
+not-at = "La rama del registro no está en su candidato {commit}."
+
+[accept]
+title = "Lo que ata una aceptación, tal como lo guarda el registro:"
+candidate = "Candidato {commit}; su árbol {tree}"
+files = "Sus archivos:"
+added = "{path}: añadido"
+changed = "{path}: cambiado"
+removed = "{path}: eliminado"
+checks = "Checks y sus identidades: {checks}"
+review = "Revisión: evento {seq}, {verdict}, con {findings} hallazgos y {examined} exámenes"
+unverified = "No hay en el registro una verificación de este candidato."
+digest = "El digest de lo mostrado arriba, que accept acepta con --seen: {digest}"
+done = "Se aceptó la tarea {id}."
+integrated = "Se integró la tarea {id}: la rama del registro está en {commit}."
+failed = "La integración de la tarea {id} falló con {code} y espera a una persona: un maestro corre la tarea otra vez, lo que la termina, la autoriza otra vez o la rechaza."
+moved = "La rama del registro está en el candidato; no se deshizo nada."
+unmoved = "La rama del registro, el índice y el árbol de trabajo están como estaban."
 
 [close]
 done = "Se cerró la etapa {id}: es definitivo."
@@ -725,6 +748,11 @@ next = "Repara lo indicado y corre el comando de nuevo."
 reason = "Una herramienta que esto necesita no está en este equipo."
 next = "Instala la herramienta indicada, o declara dónde está."
 
+[code.WORKTREE_DIRTY]
+reason = "Un archivo que la integración escribiría no tiene, en el árbol de trabajo ni en el índice, ni el contenido de la base ni el del candidato: una edición de la persona, que nunca se sobrescribe."
+next = "Confirma, mueve o deshaz esa edición, y luego corre la tarea otra vez, lo que termina su integración."
+run = "fabrewk status"
+
 [code.WIDENING_UNNAMED]
 reason = "Un cambio amplía la autoridad sin nombrarse."
 next = "Un maestro nombra cada ampliación, por su ruta de clave, al hacer el movimiento."
@@ -902,6 +930,7 @@ task-authorize = "La tarea {id} se propuso en una etapa autorizada: un maestro l
 task-run = "La tarea {id} está autorizada: un maestro inicia su ejecución. Espera desde {since}."
 task-halted = "La tarea {id} está detenida ({detail}): un maestro la autoriza de nuevo o la rechaza. Espera desde {since}."
 task-verified = "La tarea {id} está verificada: un maestro la acepta o la rechaza. Espera desde {since}."
+task-merge = "La tarea {id} está aceptada y su integración falló ({detail}): un maestro la corre otra vez, lo que la termina, o la autoriza otra vez. Espera desde {since}."
 proposal = "Propuesta {id} del fermento de {detail}: un maestro la aprueba o la descarta. Espera desde {since}."
 sweep = "Falta barrer el fermento de {id}: las tareas de la etapa {detail} terminaron después de su último barrido. Espera desde {since}."
 

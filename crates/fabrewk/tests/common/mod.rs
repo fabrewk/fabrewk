@@ -525,6 +525,17 @@ pub fn whole(text: &str) {
 /// is in both outputs with the catalogue's reason and next step in `lang`, and that a command to run parses (11.2
 /// rule 4). Gives the document's entry for the code.
 pub fn refused(fx: &Fx, args: &[&str], code: &str, exit: i32, lang: &str) -> Value {
+    refused_as(fx, args, code, exit, lang, false)
+}
+
+/// [`refused`] for a write command whose Git failed (D-083, D-086 point 3): each of the two runs keeps, and writes
+/// only, Git's standard error and exit status in a `local/evidence/git-…/` directory of its own (`0700`, its files
+/// `0600`), which the refusal's detail names.
+pub fn refused_keeping_git(fx: &Fx, args: &[&str], code: &str, exit: i32, lang: &str) -> Value {
+    refused_as(fx, args, code, exit, lang, true)
+}
+
+fn refused_as(fx: &Fx, args: &[&str], code: &str, exit: i32, lang: &str, git: bool) -> Value {
     // A write command's refusal is one its declaration lists, so its help and the reference name it (REQ-CLI-1).
     let command = fabrewk_core::cli::COMMANDS.iter().find(|c| Some(&c.name) == args.first());
     if let Some(c) = command.filter(|c| fabrewk_core::cli::writes(c)) {
@@ -534,7 +545,26 @@ pub fn refused(fx: &Fx, args: &[&str], code: &str, exit: i32, lang: &str) -> Val
     let before = fx.snapshot();
     let human = fx.run(args);
     let json = fx.run(&[args, &["--json"]].concat());
-    assert_eq!(fx.snapshot(), before, "{args:?} wrote");
+    let (mut before, mut after) = (before, fx.snapshot());
+    if git {
+        let store = fx.domain.join("local/evidence");
+        let dirs: Vec<PathBuf> =
+            after.keys().filter(|p| p.parent() == Some(&*store) && !before.contains_key(*p)).cloned().collect();
+        assert_eq!(dirs.len(), 2, "{args:?}: one kept by each run: {dirs:?}");
+        for d in &dirs {
+            assert!(d.file_name().unwrap().to_str().unwrap().starts_with("git-"), "{d:?}");
+            assert!(human.all().contains(d.to_str().unwrap()) || json.stdout.contains(d.to_str().unwrap()), "{d:?}");
+            assert_eq!(after[d].0 & 0o777, 0o700, "{d:?}");
+            for f in ["stderr", "status"] {
+                assert_eq!(after[&d.join(f)].0 & 0o777, 0o600, "{d:?} {f}");
+            }
+            assert!(!after[&d.join("stderr")].1.is_empty(), "{d:?}");
+        }
+        after.retain(|p, _| !dirs.iter().any(|d| p.starts_with(d)));
+        before.remove(&store);
+        after.remove(&store);
+    }
+    assert_eq!(after, before, "{args:?} wrote");
     assert_eq!((human.status, json.status), (exit, exit), "{args:?}: {human:?}");
     whole(&human.all());
     assert!(
@@ -550,6 +580,8 @@ pub fn refused(fx: &Fx, args: &[&str], code: &str, exit: i32, lang: &str) -> Val
     for (field, label) in [("path", "ui.where"), ("detail", "ui.detail")] {
         let label = format!("  {}: ", fabrewk_core::cli::say(lang, label, &[]));
         match entry[field].as_str().filter(|v| !v.is_empty()) {
+            // Each run keeps Git's output in a directory of its own, which its detail names last.
+            Some(v) if git => assert!(human.all().contains(&format!("{label}{}", v.rsplit_once(' ').unwrap().0))),
             Some(v) => assert!(human.all().contains(&format!("{label}{v}\n")), "{field}: {human:?}"),
             None => assert!(!human.all().contains(&label), "{field}: {human:?}"),
         }
@@ -562,4 +594,40 @@ pub fn refused(fx: &Fx, args: &[&str], code: &str, exit: i32, lang: &str) -> Val
         ));
     }
     entry.clone()
+}
+
+/// A stage with one task proposed on the fixture's head, `stage` and `task` merged into their defaults (allowed files
+/// `src/**`, the builder's and the reviewer's profiles of [`BUILDER`]), authorized and run until verified (part 9g);
+/// gives the task's identifier.
+pub fn verified_task(fx: &Fx, stage: Value, task: Value) -> String {
+    let head = fx.git(&["rev-parse", "HEAD"]);
+    let mut s = json!({"lang": "en", "goal": "Build it.", "budget": {"dispatches": 6, "minutes": 120}, "checks": {}, "settings": {}});
+    let mut t = json!({
+        "lang": "en", "goal": "Make it.", "requirements": [{"text": "It builds.", "criterion": "it builds"}],
+        "base": head, "dependencies": [], "allowed": ["src/**"], "profiles": {"build": "build", "review": "review"},
+        "checks": [], "limits": {"rounds": 3, "dispatches": 6, "minutes": 120}, "delegationLanguage": "en",
+        "settings": {},
+    });
+    for (into, from) in [(&mut s, &stage), (&mut t, &task)] {
+        for (k, v) in from.as_object().unwrap() {
+            into[k] = v.clone();
+        }
+    }
+    let file = fx.root.join("plan.json");
+    std::fs::write(&file, serde_json::to_vec(&json!({"stage": s, "tasks": [t]})).unwrap()).unwrap();
+    let ran = fx.run(&["propose", "plan.json", "--json"]);
+    std::fs::remove_file(&file).unwrap();
+    assert_eq!(ran.status, 0, "{ran:?}");
+    let id = ran.doc()["tasks"][0]["id"].as_str().unwrap().to_owned();
+    let digest = fx.run(&["status", &id, "--json"]).doc()["shown"]["digest"].as_str().unwrap().to_owned();
+    let ran = fx.run(&["authorize", &id, "--seen", &digest, "--say", "Que corra.", "--run"]);
+    assert_eq!(ran.status, 0, "{ran:?}");
+    assert_eq!(fx.events(&format!("task-{id}")).last().unwrap()["kind"], "task-verified");
+    id
+}
+
+/// The digest of what an acceptance of `id` binds, as `status` shows it (REQ-GATE-7, D-086 point 2).
+pub fn accepting(fx: &Fx, id: &str) -> String {
+    let doc = fx.run(&["status", id, "--json"]).doc();
+    doc["accepting"]["digest"].as_str().unwrap_or_else(|| panic!("nothing to accept: {doc}")).to_owned()
 }

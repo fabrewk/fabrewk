@@ -14,6 +14,7 @@ use crate::code::{Code, Error, refuse};
 use crate::confine::{self, Backend, End, Limits, Programs, Scratch};
 use crate::detect::{self, Detection, Space};
 use crate::gate;
+use crate::merge::product_tree;
 use crate::record::git::{self, os};
 use crate::record::{Draft, Event, Prepared, Replay, Repo, fault, sha256_hex};
 use crate::settings::{self, Effective, Policy, Source, Val};
@@ -102,17 +103,11 @@ fn room(limits: &Value, (n, seconds, tokens): (u64, u64, Option<u64>), whose: &s
     }
 }
 
-/// The product tree of `commit` (REQ-GATE-8): its root's entries but `.brewstillery`.
-fn product_tree(repo: &Repo, commit: &str) -> Result<Vec<u8>, Error> {
-    let listed = git::git(repo, &os(&["ls-tree", "-z", "--full-tree", commit]), b"", None)?;
-    let entries = listed.split(|b| *b == 0).filter(|e| !e.ends_with(b"\t.brewstillery"));
-    Ok(entries.flat_map(|e| e.iter().copied().chain([0])).collect())
-}
-
 /// The base of a run (REQ-TASK-3): a task's own, or for one with dependencies the record branch's head, whose product
 /// tree must be the one the last of its dependencies' integrations left, its candidate's (`BASE_MOVED` otherwise). The
 /// last is read from the branch's history, never from the clock (P9E-9): the first commit, going back from the head
-/// along first parents, that is a dependency's candidate or names it in a `Fabrewk-Candidate` trailer (REQ-GATE-8).
+/// along first parents, that is a dependency's candidate, names it in a `Fabrewk-Candidate` trailer (REQ-GATE-8), or is
+/// where its integration left the branch.
 fn base(cx: &Cx, record: &Replay, stream: &str) -> Result<String, Error> {
     let p = &record.streams[stream][0].value["payload"];
     if let Some(base) = p["base"].as_str() {
@@ -123,13 +118,16 @@ fn base(cx: &Cx, record: &Replay, stream: &str) -> Result<String, Error> {
     let moved = |why: &str| refuse(Code::BaseMoved, None, why.to_owned());
     let head = head.ok_or_else(|| moved("the record branch has no commit"))?;
     let deps = p["dependencies"].as_array().into_iter().flatten().filter_map(Value::as_str);
+    // Each dependency's candidate, and the commit its integration left the branch at, which a branch brought to the
+    // candidate by hand makes no candidate of (PD-44).
     let candidates: Vec<&str> = deps
         .filter_map(|d| {
             let events = record.streams.get(&format!("task-{d}"))?;
             let at = events.iter().rposition(|e| e.kind == "task-integrated")?;
             let candidate = events[..at].iter().rev().find(|e| e.kind == "candidate-recorded")?;
-            candidate.value["payload"]["commit"].as_str()
+            Some([candidate.value["payload"]["commit"].as_str()?, events[at].value["payload"]["to"].as_str()?])
         })
+        .flatten()
         .collect();
     let format = "--format=%H %(trailers:key=Fabrewk-Candidate,valueonly,separator=%x20)";
     let log = git::git(&repo, &os(&["log", "-z", "--first-parent", format, &head]), b"", None)?;
@@ -161,7 +159,7 @@ fn int(eff: &Effective, key: &str) -> Option<u64> {
     }
 }
 
-fn home() -> PathBuf {
+pub(super) fn home() -> PathBuf {
     std::env::var_os("HOME").map(PathBuf::from).unwrap_or_default()
 }
 
@@ -344,6 +342,38 @@ pub(super) fn start(
     Ok((draft, Box::new(move |a, prepared| go(d, a, prepared))))
 }
 
+/// The settings in force for `stream`'s task: the policy's, the machine's, its stage's and its own layers, read with
+/// the widenings the authorization in force named (P9E-12), or those of `fresh`, an authorization this command writes;
+/// with the keys named.
+pub(super) fn effective(
+    cx: &Cx,
+    record: &Replay,
+    policy: &Policy,
+    stream: &str,
+    fresh: Option<&[String]>,
+) -> Result<(Effective, Vec<String>), Failed> {
+    let p = &record.streams[stream][0].value["payload"];
+    let stage_id = p["stage"].as_str().unwrap_or_default();
+    let stage = &record.streams[&format!("stage-{stage_id}")];
+    let layers = vec![
+        (Source::Stage(stage_id.to_owned()), super::propose::layer(&stage[0].value["payload"])),
+        (Source::Task(stream["task-".len()..].to_owned()), super::propose::layer(p)),
+    ];
+    let named: Vec<String> = match (fresh, in_force(record, stream)) {
+        (Some(widen), _) => layers.iter().flat_map(|(_, l)| l.keys().cloned()).chain(widen.iter().cloned()).collect(),
+        (None, found) => {
+            let at = found.map(|(by, _)| {
+                record.streams[by["stream"].as_str().unwrap_or_default()][by["seq"].as_u64().unwrap_or(1) as usize - 1]
+                    .value["payload"]["widened"]
+                    .clone()
+            });
+            at.and_then(|w| serde_json::from_value(w).ok()).unwrap_or_default()
+        }
+    };
+    let machine = crate::machine::machine_file(&cx.folder()?)?;
+    Ok((settings::effective(policy, None, machine.as_ref(), &layers, &named)?, named))
+}
+
 /// REQ-RUN-2 for `stream`'s run: the layers read with the widenings the authorization in force named (P9E-12); both
 /// agents (with `review.differentProvider` at `require`, a reviewer of the builder's provider, or an absent reviewer's
 /// tool, halts `PROVIDER_MISSING` unless the authorization named it, D-076); the required checks (REQ-GATE-1); the rounds
@@ -362,25 +392,7 @@ fn prepare(
     let p = &events[0].value["payload"];
     let stage_id = p["stage"].as_str().unwrap_or_default();
     let stage = &record.streams[&format!("stage-{stage_id}")];
-    let layers = vec![
-        (Source::Stage(stage_id.to_owned()), super::propose::layer(&stage[0].value["payload"])),
-        (Source::Task(stream["task-".len()..].to_owned()), super::propose::layer(p)),
-    ];
-    // The widenings the authorization in force named, read against the policy in force now (P9E-12); an
-    // authorization this command writes checked its own.
-    let named: Vec<String> = match (fresh, in_force(record, stream)) {
-        (Some(widen), _) => layers.iter().flat_map(|(_, l)| l.keys().cloned()).chain(widen.iter().cloned()).collect(),
-        (None, found) => {
-            let at = found.map(|(by, _)| {
-                record.streams[by["stream"].as_str().unwrap_or_default()][by["seq"].as_u64().unwrap_or(1) as usize - 1]
-                    .value["payload"]["widened"]
-                    .clone()
-            });
-            at.and_then(|w| serde_json::from_value(w).ok()).unwrap_or_default()
-        }
-    };
-    let machine = crate::machine::machine_file(&cx.folder()?)?;
-    let eff = settings::effective(policy, None, machine.as_ref(), &layers, &named)?;
+    let (eff, named) = effective(cx, record, policy, stream, fresh)?;
     let detection = detect::detect(&cx.domain, &eff, &cx.modules, std::env::var_os("PATH").as_deref());
     let found = (policy, &eff, &detection);
     let build = agent(cx, found, record, p, Role::Build)?;
@@ -493,25 +505,27 @@ fn exhausted(rounds: u64, limit: u64) -> Error {
 }
 
 /// Whether a verified task's evidence is current (REQ-GATE-3, REQ-GATE-5): each required check's identity recomputed
-/// now on its candidate, and its review, are what its `task-verified` binds.
+/// now on its candidate, and its review under the policy in force (D-086 point 4), are what its `task-verified` binds.
 fn current(d: &Dispatch, events: &[Event]) -> bool {
     let Some((_, tree, product)) = &d.candidate else { return false };
     let platform = gate::platform(d.backend.map_or("none", |b| b.name));
     let now: BTreeMap<String, String> =
         d.checks.iter().map(|c| (c.name.clone(), gate::identity(product, c, &d.policy, &platform))).collect();
-    let verified = events.iter().rfind(|e| e.kind == "task-verified").map(|e| &e.value["payload"]);
-    let review = |v: &Value| events.get(usize::try_from(v["review"].as_u64()?).ok()?.checked_sub(1)?);
-    verified
-        .and_then(|v| Some((v, &review(v)?.value["payload"])))
-        .is_some_and(|(v, r)| gate::holds(v, r, tree, &d.requirements, &now))
+    gate::verification(events, tree, &d.requirements, &now, &d.policy).is_some()
 }
 
 /// Words of a failure an event may hold: the core's own, never an operating system's text (REQ-REG-13).
-fn words(e: &Error) -> String {
+pub(super) fn words(e: &Error) -> String {
     match e {
         Error::Refused { detail, .. } => detail.clone(),
         Error::Io { path, .. } => format!("{} cannot be read or written", path.display()),
     }
+}
+
+/// `reason` with every path relative to the repository's root or, under the person's home, written from `~/` (P9E-2).
+pub(super) fn unplaced(reason: String, domain: &Path, home: &Path) -> String {
+    let root = domain.parent().unwrap_or(domain);
+    reason.replace(&format!("{}/", root.display()), "").replace(&format!("{}/", home.display()), "~/")
 }
 
 /// Halts the task with `e`'s code, a halting one, or `TOOL_FAILED`; the reason names `evidence` when there is one, and
@@ -524,8 +538,7 @@ fn halt(a: &mut Appender, out: &mut Value, d: &Dispatch, e: &Error, evidence: Op
     if let Some(dir) = evidence.filter(|d| !reason.contains(&*d.display().to_string())) {
         reason += &format!("; its output is kept in {}", dir.display());
     }
-    let root = d.domain.parent().unwrap_or(&d.domain);
-    let reason = reason.replace(&format!("{}/", root.display()), "").replace(&format!("{}/", d.home.display()), "~/");
+    let reason = unplaced(reason, &d.domain, &d.home);
     a.fabrewk(&d.stream, "task-halted", json!({"code": code, "reason": reason}))?;
     out["halt"] = json!({"code": code, "reason": reason});
     Ok(())

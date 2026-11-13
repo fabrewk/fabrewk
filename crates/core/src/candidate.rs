@@ -114,7 +114,7 @@ fn failed(path: Option<&Path>, why: impl Into<String>) -> Error {
 
 /// Refuses `TOOL_FAILED` unless `id` names an object as Git writes it, 40 or 64 hexadecimal digits, so that no other
 /// text reaches Git's command line.
-fn object(id: &str) -> Result<(), Error> {
+pub(crate) fn object(id: &str) -> Result<(), Error> {
     let hex =
         (id.len() == 40 || id.len() == 64) && id.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b));
     if hex { Ok(()) } else { Err(failed(None, format!("{id:?} names no commit"))) }
@@ -126,7 +126,7 @@ fn io(path: &Path) -> impl FnOnce(std::io::Error) -> Error + '_ {
 }
 
 /// A path as the person reads it in a refusal: as text, with what is not text replaced and every character quoted.
-fn shown(path: &[u8]) -> String {
+pub(crate) fn shown(path: &[u8]) -> String {
     format!("{:?}", String::from_utf8_lossy(path))
 }
 
@@ -160,7 +160,7 @@ fn tree(repo: &Repo, commit: &str) -> Result<BTreeMap<Vec<u8>, Entry>, Error> {
 }
 
 /// The bytes of each blob of `entries`, in order, read as stored.
-fn contents(repo: &Repo, entries: &[&Entry]) -> Result<Vec<Vec<u8>>, Error> {
+pub(crate) fn contents(repo: &Repo, entries: &[&Entry]) -> Result<Vec<Vec<u8>>, Error> {
     let input: String = entries.iter().map(|e| format!("{}\n", e.oid)).collect();
     let out = git::git(repo, &os(&["cat-file", "--batch"]), input.as_bytes(), None)?;
     let (mut rest, mut blobs) = (&out[..], Vec::new());
@@ -181,7 +181,7 @@ fn contents(repo: &Repo, entries: &[&Entry]) -> Result<Vec<Vec<u8>>, Error> {
 
 /// Makes the directories above `rel` under `root`, refusing to pass anything that is not a directory, a link above
 /// all, which the copy never follows.
-fn parents(root: &Path, rel: &[u8]) -> Result<(), Error> {
+pub(crate) fn parents(root: &Path, rel: &[u8]) -> Result<(), Error> {
     let mut dir = root.to_path_buf();
     let components: Vec<&[u8]> = rel.split(|&b| b == b'/').collect();
     for c in &components[..components.len() - 1] {
@@ -415,24 +415,7 @@ pub fn changes(repo: &Repo, base: &str, work: &Path, scratch: &Path, lanes: &Lan
         })?;
         out.push(Change { path: text, before, after: now });
     }
-    let patterns: Vec<(Vec<&str>, bool)> = lanes
-        .allowed
-        .iter()
-        .map(|a| task::pattern(a).map(|s| (s, !a.contains(['*', '?']))))
-        .collect::<Result<_, _>>()?;
-    let matched =
-        |path: &str, literal: bool| patterns.iter().any(|(s, l)| (*l || !literal) && task::matches(s, path, &mut 0));
-    if let Some(c) = out.iter().find(|c| !matched(&c.path, false)) {
-        let why = format!("the copy changes {}, which the allowed files do not match", shown(c.path.as_bytes()));
-        return Err(refuse(Code::LaneViolation, None, why));
-    }
-    if let Some(c) = out.iter().find(|c| guarded(&c.path, lanes) && !matched(&c.path, true)) {
-        let why = format!(
-            "the copy changes {}, protected: list it literally among the allowed files",
-            shown(c.path.as_bytes())
-        );
-        return Err(refuse(Code::ProtectedPathWildcard, None, why));
-    }
+    held_to(&out, lanes)?;
     let check = scratch.join("check-index");
     let dropped = stage(repo, base, &check, &out);
     let _ = fs::remove_file(&check);
@@ -456,6 +439,30 @@ pub fn changes(repo: &Repo, base: &str, work: &Path, scratch: &Path, lanes: &Lan
         }
     }
     Ok(out)
+}
+
+/// The lanes of a change set (REQ-TASK-7, REQ-GATE-9): every change matches an allowed file (`LANE_VIOLATION`), and
+/// one that reaches a protected name or path matches one written without a wildcard (`PROTECTED_PATH_WILDCARD`).
+pub(crate) fn held_to(out: &[Change], lanes: &Lanes) -> Result<(), Error> {
+    let patterns: Vec<(Vec<&str>, bool)> = lanes
+        .allowed
+        .iter()
+        .map(|a| task::pattern(a).map(|s| (s, !a.contains(['*', '?']))))
+        .collect::<Result<_, _>>()?;
+    let matched =
+        |path: &str, literal: bool| patterns.iter().any(|(s, l)| (*l || !literal) && task::matches(s, path, &mut 0));
+    if let Some(c) = out.iter().find(|c| !matched(&c.path, false)) {
+        let why = format!("the copy changes {}, which the allowed files do not match", shown(c.path.as_bytes()));
+        return Err(refuse(Code::LaneViolation, None, why));
+    }
+    if let Some(c) = out.iter().find(|c| guarded(&c.path, lanes) && !matched(&c.path, true)) {
+        let why = format!(
+            "the copy changes {}, protected: list it literally among the allowed files",
+            shown(c.path.as_bytes())
+        );
+        return Err(refuse(Code::ProtectedPathWildcard, None, why));
+    }
+    Ok(())
 }
 
 /// The entries of the files and links `kept` found in `work`, by path: each hashed as its bytes, a link's target

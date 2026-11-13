@@ -86,6 +86,11 @@ about = "The command that authorizes a task or a stage"
 summary = "A maestro authorizes a task, or a stage and its tasks, as status showed it, naming every widening it makes."
 arg = "The task or the stage, by its identifier (t-… or s-…)."
 
+[command.accept]
+about = "The command that accepts a task and integrates it"
+summary = "A maestro accepts a task's candidate as status showed it, and Fabrewk integrates it into the record branch."
+arg = "The task, by its identifier (t-…)."
+
 [command.reject]
 about = "The command that rejects a task"
 summary = "A maestro rejects a task, saying why."
@@ -93,7 +98,7 @@ arg = "The task, by its identifier (t-…)."
 
 [command.run]
 about = "The command that starts a task's run"
-summary = "A maestro starts the confined run of an authorized task, or of a stage's next one; this version has no confinement yet, so it refuses."
+summary = "A maestro starts the confined run of an authorized task, or of a stage's next one, or finishes the integration of an accepted task."
 arg = "The task or the stage, by its identifier (t-… or s-…)."
 
 [command.close]
@@ -190,6 +195,26 @@ verified = "The task {id} is verified: its checks passed and its review accepted
 [reject]
 about = "What reject reports"
 done = "Rejected the task {id}: it is final."
+at = "The record branch is at its candidate {commit}."
+not-at = "The record branch is not at its candidate {commit}."
+
+[accept]
+about = "What status shows that an acceptance binds, and what accept reports (REQ-GATE-7, REQ-GATE-8)"
+title = "What an acceptance binds, as the record holds it:"
+candidate = "Candidate {commit}; its tree {tree}"
+files = "Its files:"
+added = "{path}: added"
+changed = "{path}: changed"
+removed = "{path}: removed"
+checks = "Checks and their identities: {checks}"
+review = "Review: event {seq}, {verdict}, with {findings} findings and {examined} examinations"
+unverified = "No verification of this candidate is on record."
+digest = "The digest of what is shown above, which accept takes with --seen: {digest}"
+done = "Accepted the task {id}."
+integrated = "Integrated the task {id}: the record branch is at {commit}."
+failed = "The integration of the task {id} failed with {code} and waits for a person: a maestro runs the task again, which finishes it, authorizes it again or rejects it."
+moved = "The record branch is at the candidate; nothing was moved back."
+unmoved = "The record branch, the index and the working tree are as they were."
 
 [close]
 about = "What close reports"
@@ -837,6 +862,12 @@ about = "An external tool is not on this machine"
 reason = "A tool this needs is not on this machine."
 next = "Install the tool named, or declare where it is."
 
+[code.WORKTREE_DIRTY]
+about = "A path the integration touches that holds an edit of the person's (REQ-GATE-8)"
+reason = "A file the integration would write holds, in the working tree or the index, neither the base's content nor the candidate's: an edit of the person's, which is never overwritten."
+next = "Commit, move or undo that edit, then run the task again, which finishes its integration."
+run = "fabrewk status"
+
 [code.WIDENING_UNNAMED]
 about = "A change that widens authority, not named with --widen"
 reason = "A change widens authority without being named."
@@ -1045,6 +1076,7 @@ task-authorize = "Task {id} was proposed into an authorized stage: a maestro aut
 task-run = "Task {id} is authorized: a maestro starts its run. Waiting since {since}."
 task-halted = "Task {id} is halted ({detail}): a maestro authorizes it again or rejects it. Waiting since {since}."
 task-verified = "Task {id} is verified: a maestro accepts it or rejects it. Waiting since {since}."
+task-merge = "Task {id} is accepted and its integration failed ({detail}): a maestro runs it again, which finishes it, or authorizes it again. Waiting since {since}."
 proposal = "Proposal {id} of the fermento of {detail}: a maestro approves it or discards it. Waiting since {since}."
 sweep = "The fermento of {id} is to be swept: the tasks of stage {detail} ended after its last sweep. Waiting since {since}."
 

@@ -17,7 +17,7 @@ use serde_json::{Value, json};
 use std::collections::BTreeMap;
 
 type States = BTreeMap<String, &'static str>;
-type Stream<'a> = (&'a String, &'a Vec<Event>);
+pub(super) type Stream<'a> = (&'a String, &'a Vec<Event>);
 
 /// The stream an identifier names: a task's `t-…`, a stage's `s-…`, or the stream's own name.
 pub(super) fn stream_of(id: &str) -> String {
@@ -30,7 +30,12 @@ pub(super) fn stream_of(id: &str) -> String {
 
 /// The subject and the stream `id` names in `record`, a task's or, where `stages` allows, a stage's; a usage error
 /// otherwise, as `status <id>` gives for an identifier the record does not hold.
-fn resolve(record: &Replay, id: &str, stages: bool, command: &str) -> Result<(&'static str, String), Failed> {
+pub(super) fn resolve(
+    record: &Replay,
+    id: &str,
+    stages: bool,
+    command: &str,
+) -> Result<(&'static str, String), Failed> {
     let stream = stream_of(id);
     let usage = |key, command| Failed::Usage(Usage { key, word: id.to_owned(), command });
     let subject = match stream_kind(&stream) {
@@ -96,7 +101,7 @@ fn limits(lang: &str, v: &Value) -> String {
 }
 
 /// The lines of a task or a stage, at `at`: its identifier and fields' digest, its stream's head, then each field.
-fn lines(ui: &str, (name, events): Stream, at: &str) -> String {
+pub(super) fn lines(ui: &str, (name, events): Stream, at: &str) -> String {
     let p = &events[0].value["payload"];
     let (lang, deeper) = (p["lang"].as_str().unwrap_or_default(), format!("{at}    "));
     let t = |k: &str, params: &[(&str, &str)]| say(ui, &format!("bind.{k}"), params);
@@ -335,12 +340,12 @@ pub(super) fn authorize(cx: &Cx, id: &str, options: &Options) -> Result<Out, Fai
     Ok(Out::new(doc, text))
 }
 
-/// `fabrewk reject <task> --say <words>`: the move, the person, their words, then `MERGE_IN_PROGRESS`, which until
-/// phase 9 can tell where the record branch is refuses whenever an acceptance follows the task's last candidate
-/// (D-068). The event binds the task and its stream's head, as an authorization does.
+/// `fabrewk reject <task> --say <words>`: the move, the person, their words, then `MERGE_IN_PROGRESS`: an acceptance of
+/// the task's last candidate on record with the record branch at that candidate (REQ-GATE-8). The event binds the task
+/// and its stream's head, as an authorization does, and says where the branch is (D-068 point 3).
 pub(super) fn reject(cx: &Cx, id: &str, options: &Options) -> Result<Out, Failed> {
     write::not_an_agent(cx)?;
-    let plan = |record: &Replay| -> Result<Plan<String>, Failed> {
+    let plan = |record: &Replay| -> Result<Plan<(String, Option<String>, bool)>, Failed> {
         let policy = write::state(cx, record)?.policy;
         let (_, stream) = resolve(record, id, false, "reject")?;
         let m = table::step("task", table::current(record)?.get(&stream).copied(), "task-rejected")?;
@@ -348,13 +353,17 @@ pub(super) fn reject(cx: &Cx, id: &str, options: &Options) -> Result<Out, Failed
         let say = Some(write::words(cx, &policy, &alias, options)?);
         let events = &record.streams[&stream];
         let at = |kind: &str| events.iter().rposition(|e| e.kind == kind);
+        let located = super::accept::located(cx, events)?;
+        let (candidate, there) = located.map_or((None, false), |(c, at)| (Some(c), at));
         table::evaluate(m, |g| match g.name {
-            "MERGE_IN_PROGRESS" if at("task-accepted") > at("candidate-recorded") => {
-                Err(refuse(Code::MergeInProgress, None, "an acceptance of the task's last candidate is on record"))
-            }
+            "MERGE_IN_PROGRESS" if there && at("task-accepted") > at("candidate-recorded") => Err(refuse(
+                Code::MergeInProgress,
+                None,
+                "an acceptance of the task's last candidate is on record, and the record branch is at it",
+            )),
             _ => Ok(()),
         })?;
-        let payload = json!({"task": &stream[5..], "head": head(events)});
+        let payload = json!({"task": &stream[5..], "head": head(events), "candidate": candidate, "atCandidate": there});
         let draft = Draft {
             kind: "task-rejected".into(),
             actor,
@@ -364,7 +373,7 @@ pub(super) fn reject(cx: &Cx, id: &str, options: &Options) -> Result<Out, Failed
             payload,
         };
         Ok(Plan {
-            out: stream[5..].to_owned(),
+            out: (stream[5..].to_owned(), candidate, there),
             events: vec![(stream, draft)],
             signer: Some(signer),
             sealed: false,
@@ -373,9 +382,12 @@ pub(super) fn reject(cx: &Cx, id: &str, options: &Options) -> Result<Out, Failed
             then: None,
         })
     };
-    let (task, written) = write::run(cx, plan)?;
+    let ((task, candidate, there), written) = write::run(cx, plan)?;
     let mut text = cx.t("reject.done", &[("id", &task)]) + "\n";
-    let mut doc = json!({"schema": "fabrewk.rejected/1", "id": task});
+    if let Some(c) = &candidate {
+        text += &format!("  {}\n", cx.t(if there { "reject.at" } else { "reject.not-at" }, &[("commit", c)]));
+    }
+    let mut doc = json!({"schema": "fabrewk.rejected/2", "id": task, "candidate": candidate, "atCandidate": there});
     text += &written_lines(cx, &written, &mut doc);
     text += &cx.next(&[&format!("fabrewk status {task}")]);
     Ok(Out::new(doc, text))
@@ -389,6 +401,10 @@ pub(super) fn run(cx: &Cx, id: &str, options: &Options) -> Result<Out, Failed> {
         let policy = write::state(cx, record)?.policy;
         let (subject, stream) = resolve(record, id, true, "run")?;
         let states = table::current(record)?;
+        // An accepted task's run finishes its integration (REQ-GATE-8, D-087 point 2).
+        if subject == "task" && states.get(&stream).copied() == Some("accepted") {
+            return super::accept::finish(cx, record, &policy, &stream, options);
+        }
         let task = match subject {
             "task" => table::step("task", states.get(&stream).copied(), "run-started").map(|_| stream)?,
             _ => first_to_run(record, &states, &stream["stage-".len()..])?,
@@ -400,5 +416,8 @@ pub(super) fn run(cx: &Cx, id: &str, options: &Options) -> Result<Out, Failed> {
         Ok(Plan { events, signer: Some(signer), sealed: false, view: None, alambique: None, then: Some(then), out: () })
     };
     let ((), written) = write::run(cx, plan)?;
+    if written.ran["integration"] == true {
+        return Ok(super::accept::report(cx, false, &written));
+    }
     Ok(super::run::report(cx, &written.ran, &written))
 }

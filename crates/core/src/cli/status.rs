@@ -274,6 +274,12 @@ fn subject(cx: &Cx, id: &str) -> Result<Out, Failed> {
         text += &format!("\n{}{}\n", b.text, cx.t("bind.digest", &[("digest", &b.digest)]));
         next.push(format!("fabrewk authorize {short} --seen {}", b.digest));
     }
+    // What an acceptance would bind, with the digest `accept` takes (REQ-GATE-7, D-086 point 2).
+    let accepting = super::accept::acceptance(cx, record, &stream);
+    if let Some(b) = &accepting {
+        text += &format!("\n{}{}\n", b.text, cx.t("accept.digest", &[("digest", &b.digest)]));
+        next.push(format!("fabrewk accept {short} --seen {}", b.digest));
+    }
     for (kind, command) in [("run-started", "run"), ("task-rejected", "reject")] {
         if allowed.contains(&kind) {
             next.push(format!("fabrewk {command} {short}"));
@@ -281,9 +287,11 @@ fn subject(cx: &Cx, id: &str) -> Result<Out, Failed> {
     }
     text += &cx.next(&next.iter().map(String::as_str).collect::<Vec<_>>());
     let shown = bound.map(|b| json!({"text": b.text, "digest": b.digest}));
+    let accepting = accepting.map(|b| json!({"text": b.text, "digest": b.digest}));
     let doc = json!({
-        "schema": "fabrewk.subject/3", "id": short, "subject": subject, "state": state, "goal": text_of(first, "goal"),
+        "schema": "fabrewk.subject/4", "id": short, "subject": subject, "state": state, "goal": text_of(first, "goal"),
         "lang": text_of(first, "lang"), "stage": stage, "events": list, "allowed": allowed, "shown": shown,
+        "accepting": accepting,
         "next": next, "halt": halt.map(|(code, reason)| json!({"code": code, "reason": reason})),
     });
     Ok(Out::new(doc, text))

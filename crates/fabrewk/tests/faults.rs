@@ -833,3 +833,204 @@ fn p9e_13_a_writer_recovers_what_it_finds_running_under_the_lock() {
         assert_eq!(ran.status, 0, "{command}: {ran:?}");
     }
 }
+
+// ---- The integration's failures (part 9g; REQ-GATE-8, REQ-RUN-6, PD-11 to PD-14; D-083, D-087) ---------------------
+
+/// The fake builder's script that writes `src/new.txt` in its copy, then succeeds.
+const WRITES: &str = "mkdir -p src && printf 'new\\n' > src/new.txt\n";
+
+/// A verified task in `published` and the arguments that accept it.
+fn to_accept(name: &str) -> (Fx, String, Vec<String>) {
+    let fx = Fx::builder(name, "published", &format!("{WRITES}{SUCCESS}"));
+    let id = verified_task(&fx, json!({}), json!({}));
+    let args = ["accept", &id, "--seen", &accepting(&fx, &id), "--say", SAY].map(str::to_owned).to_vec();
+    (fx, id, args)
+}
+
+fn last_of(fx: &Fx, id: &str) -> Value {
+    fx.events(&format!("task-{id}")).last().unwrap().clone()
+}
+
+/// Files with their modes and bytes, by path.
+type Snapshot = Vec<(PathBuf, (u32, Vec<u8>))>;
+
+/// What the person's repository holds outside the record: the product tree at the branch's head, the index's entries
+/// outside the domain and every file of the working tree outside it.
+fn product(fx: &Fx) -> (String, String, Snapshot) {
+    let head = fx.git(&["rev-parse", "HEAD"]);
+    let tree = fx
+        .git(&["ls-tree", "-r", &head])
+        .lines()
+        .filter(|l| !l.contains("\t.brewstillery/"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let index =
+        fx.git(&["ls-files", "-s"]).lines().filter(|l| !l.contains("\t.brewstillery/")).collect::<Vec<_>>().join("\n");
+    let work = fx
+        .snapshot()
+        .into_iter()
+        .filter(|(p, _)| p.starts_with(&fx.root) && !p.starts_with(&fx.domain) && !p.starts_with(fx.root.join(".git")))
+        .collect();
+    (tree, index, work)
+}
+
+/// PD-11, REQ-RUN-6, D-083: a Git error in one task's integration (its move, made to fail as Git fails) is recorded in
+/// that task as `merge-failed`, `TOOL_FAILED`, with Git's exit status and the digest of its output, kept as evidence;
+/// nothing moved, the task stays accepted, reading commands work, another task builds meanwhile, and `run` then
+/// finishes the integration.
+#[test]
+fn pd_11_a_git_error_in_one_tasks_integration_is_recorded_in_that_task() {
+    let (fx, id, args) = to_accept("pd-11");
+    let before = product(&fx);
+    let argv: Vec<&str> = args.iter().map(String::as_str).collect();
+    let ran = fx.run_env(&argv, &[("FABREWK_FAULT_GIT", "fabrewk: integrate")]);
+    assert_eq!(ran.status, 4, "{ran:?}");
+    whole(&ran.all());
+    assert!(ran.stdout.contains(&cli::say("es", "accept.failed", &[("id", &id), ("code", "TOOL_FAILED")])), "{ran:?}");
+    let failed = last_of(&fx, &id);
+    let p = &failed["payload"];
+    assert_eq!(
+        (failed["kind"].as_str(), p["code"].as_str(), &p["moved"]),
+        (Some("merge-failed"), Some("TOOL_FAILED"), &json!(false))
+    );
+    assert_eq!(p["evidence"]["status"], 129, "{failed}");
+    // The evidence the reason names, relative to the repository, holds Git's own output, whose digest the event holds.
+    let reason = p["reason"].as_str().unwrap();
+    let kept = reason.split("kept in ").nth(1).unwrap();
+    assert!(kept.starts_with(".brewstillery/local/evidence/git-"), "{reason}");
+    let stderr = fs::read(fx.root.join(kept).join("stderr")).unwrap();
+    assert_eq!(p["evidence"]["stderr"], sha256_hex(&stderr));
+    assert!(String::from_utf8_lossy(&stderr).contains("fabrewk-fault"), "Git's own words");
+    assert_eq!(product(&fx), before, "nothing moved");
+    assert_eq!(fx.git(&["show", "-s", "--format=%s", "HEAD"]), "fabrewk: record");
+    assert_eq!(fx.run(&["status", &id, "--json"]).doc()["state"], "accepted");
+    assert_eq!(fx.run(&["check"]).status, 0);
+    // The failure waits for a maestro, who runs it again; another task builds meanwhile.
+    let waits = fx.run(&["status", "--json"]).doc()["waiting"].clone();
+    assert!(waits.as_array().unwrap().iter().any(|w| w["what"] == "task-merge" && w["id"] == id.as_str()), "{waits}");
+    let other = verified_task(&fx, json!({}), json!({"goal": "Another."}));
+    let ran = fx.run(&["run", &id, "--say", SAY, "--json"]);
+    assert_eq!(ran.status, 0, "{ran:?}");
+    assert_eq!(ran.doc()["schema"], "fabrewk.accepted/1");
+    assert_eq!(last_of(&fx, &id)["kind"], "task-integrated");
+    assert_eq!(fs::read(fx.root.join("src/new.txt")).unwrap(), b"new\n");
+    let _ = other;
+}
+
+/// PD-12, PD-13, D-087: a precondition made false just before the move (a product that moved, a person's edit at a
+/// touched path, a branch moved under the compare-and-swap) records `task-accepted` and `merge-failed`, nothing moved but the record commit; once the cause is gone,
+/// `run` finishes it.
+#[test]
+fn pd_12_a_precondition_false_just_before_the_move() {
+    // `race` moves the branch between Fabrewk's read and its `update-ref`, whose compare-and-swap fails (PD-13).
+    for what in ["base", "edit", "race"] {
+        let (fx, id, args) = to_accept(&format!("pd-12-before-{what}"));
+        let steps = tmp(&format!("pd-12-before-{what}-steps"));
+        let argv: Vec<&str> = args.iter().map(String::as_str).collect();
+        let step = if what == "race" { "before-update-ref" } else { "before-move" };
+        let child = paused(&fx, &argv, step, &steps);
+        let code = match what {
+            "base" | "race" => {
+                // Only the person's file: the command's events are written and not committed yet.
+                fs::write(fx.root.join("README.md"), "moved\n").unwrap();
+                fx.git(&["commit", "-q", "-m", "a person's change", "README.md"]);
+                "BASE_MOVED"
+            }
+            _ => {
+                fs::create_dir_all(fx.root.join("src")).unwrap();
+                fs::write(fx.root.join("src/new.txt"), "mine\n").unwrap();
+                "WORKTREE_DIRTY"
+            }
+        };
+        let before = product(&fx);
+        let ran = resume(child, step, &steps);
+        assert_eq!(ran.status, 4, "{what}: {ran:?}");
+        let events = fx.events(&format!("task-{id}"));
+        let n = events.len();
+        assert_eq!(
+            (events[n - 2]["kind"].as_str(), events[n - 1]["kind"].as_str()),
+            (Some("task-accepted"), Some("merge-failed"))
+        );
+        assert_eq!(
+            (&events[n - 1]["payload"]["code"], &events[n - 1]["payload"]["moved"]),
+            (&json!(code), &json!(false))
+        );
+        assert_eq!(product(&fx), before, "{what}: nothing moved");
+        // With the cause gone, `run` finishes it.
+        match what {
+            // The person's commit, under the record commit the failure made.
+            "base" | "race" => fx.git(&["revert", "--no-edit", "HEAD~1"]),
+            _ => {
+                fs::remove_file(fx.root.join("src/new.txt")).unwrap();
+                String::new()
+            }
+        };
+        let ran = fx.run(&["run", &id, "--say", SAY]);
+        assert_eq!(ran.status, 0, "{what}: {ran:?}");
+        assert_eq!(last_of(&fx, &id)["kind"], "task-integrated");
+    }
+}
+
+/// PD-12 and PD-14: with the branch at the candidate, a person's edit at a touched path is never written: `merge-failed`
+/// saying that the branch is at the candidate, the edit byte-identical, `reject` refused (`MERGE_IN_PROGRESS`); and the
+/// binary killed between the move and the working tree's update: in both, `run` finishes the integration.
+#[test]
+fn pd_12_pd_14_with_the_branch_at_the_candidate() {
+    for what in ["edit", "kill"] {
+        let (fx, id, args) = to_accept(&format!("pd-12-after-{what}"));
+        let steps = tmp(&format!("pd-12-after-{what}-steps"));
+        let argv: Vec<&str> = args.iter().map(String::as_str).collect();
+        let mut child = paused(&fx, &argv, "after-move", &steps);
+        let integration = fx.git(&["rev-parse", "HEAD"]);
+        assert_eq!(fx.git(&["show", "-s", "--format=%s", "HEAD"]), format!("fabrewk: candidate for {id}"));
+        if what == "kill" {
+            child.kill().unwrap();
+            child.wait().unwrap();
+            assert!(!fx.root.join("src/new.txt").exists());
+        } else {
+            fs::create_dir_all(fx.root.join("src")).unwrap();
+            fs::write(fx.root.join("src/new.txt"), "mine\n").unwrap();
+            let ran = resume(child, "after-move", &steps);
+            assert_eq!(ran.status, 4, "{ran:?}");
+            assert!(ran.stdout.contains(&cli::say("es", "accept.moved", &[])), "{ran:?}");
+            let failed = last_of(&fx, &id);
+            assert_eq!(
+                (&failed["payload"]["code"], &failed["payload"]["moved"]),
+                (&json!("WORKTREE_DIRTY"), &json!(true))
+            );
+            assert_eq!(fs::read(fx.root.join("src/new.txt")).unwrap(), b"mine\n", "the person's edit survives");
+            assert_eq!(fx.git(&["rev-parse", "HEAD~1"]), integration);
+            refused(&fx, &["reject", &id, "--say", SAY], "MERGE_IN_PROGRESS", 1, "es");
+            fs::remove_file(fx.root.join("src/new.txt")).unwrap();
+        }
+        let ran = fx.run(&["run", &id, "--say", SAY]);
+        assert_eq!(ran.status, 0, "{what}: {ran:?}");
+        // No move was needed: the branch is where the integration left it, with the record's commits on top.
+        let done = last_of(&fx, &id);
+        let to = done["payload"]["to"].as_str().unwrap();
+        assert_eq!(done["payload"]["from"], Value::Null, "{what}");
+        fx.git(&["merge-base", "--is-ancestor", &integration, to]);
+        fx.git(&["diff", "--quiet", &integration, to, "--", ".", ":!.brewstillery"]);
+        assert_eq!(fs::read(fx.root.join("src/new.txt")).unwrap(), b"new\n");
+        assert_eq!(fx.git(&["status", "--porcelain"]), "", "{what}");
+        assert_eq!(fx.run(&["check"]).status, 0, "{what}");
+    }
+}
+
+/// REQ-GATE-3, REQ-GATE-10 through the flow: the platform a check's identity holds, changed between the verification
+/// and the acceptance (`FABREWK_FAULT_PLATFORM`), makes the evidence stale: `accept` refuses `EVIDENCE_STALE` before
+/// the signature, nothing written (D-087 point 1).
+#[test]
+fn refusal_evidence_stale_through_the_flow() {
+    let fx = Fx::builder("stale-platform", "published", &format!("{WRITES}{SUCCESS}"));
+    let check = json!({"checks": {"truth": {"command": ["true"], "network": false, "minutes": 1, "tools": []}}});
+    let id = verified_task(&fx, check, json!({}));
+    let args = ["accept", &id, "--seen", &accepting(&fx, &id), "--say", SAY];
+    let before = fx.snapshot();
+    let ran = fx.run_env(&args, &[("FABREWK_FAULT_PLATFORM", "another-platform")]);
+    says(&ran, "EVIDENCE_STALE", false);
+    assert_eq!(fx.snapshot(), before);
+    let ran = fx.run(&args);
+    assert_eq!(ran.status, 0, "{ran:?}");
+    assert_eq!(last_of(&fx, &id)["kind"], "task-integrated");
+}

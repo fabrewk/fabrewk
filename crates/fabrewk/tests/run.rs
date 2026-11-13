@@ -467,21 +467,12 @@ fn refusal_base_moved_and_a_dependent_tasks_base_fixed_at_its_run() {
     verifies(&fx, &ids[1]);
 }
 
-/// Integrates `id`'s candidate by hand, as part 9g will: accepted, then its file brought into the record branch in a
-/// commit that names the candidate in a `Fabrewk-Candidate` trailer (REQ-GATE-8), then `task-integrated`.
+/// Accepts `id`'s verified candidate with the digest `status` shows, which integrates it (part 9g, REQ-GATE-8).
 fn integrate(fx: &Fx, id: &str) {
-    let s = stream(id);
-    let head = fx.events(&s).len();
-    let digest = sha256_hex(&fs::read(event_file(fx, &s, head)).unwrap());
-    by_hand(fx, &s, "task-accepted", json!({"task": id, "head": {"seq": head, "digest": digest}}), true);
-    let candidate = fx.git(&["rev-parse", &format!("fabrewk/{id}")]);
-    let files = fx.git(&["diff", "--name-only", &format!("{candidate}^"), &candidate]);
-    for f in files.lines() {
-        fx.git(&["checkout", &candidate, "--", f]);
-    }
-    fx.git(&["add", "-A"]);
-    fx.git(&["commit", "-q", "-m", &format!("integrated by hand\n\nFabrewk-Candidate: {candidate}")]);
-    by_hand(fx, &s, "task-integrated", json!({}), false);
+    let digest = fx.run(&["status", id, "--json"]).doc()["accepting"]["digest"].as_str().unwrap().to_owned();
+    let ran = fx.run(&["accept", id, "--seen", &digest, "--say", SAY]);
+    assert_eq!(ran.status, 0, "{ran:?}");
+    assert_eq!(fx.events(&stream(id)).last().unwrap()["kind"], "task-integrated");
 }
 
 /// The last of a task's dependencies' integrations is read from the record branch's history, never from the clock
@@ -519,27 +510,6 @@ fn refusal_base_moved_reads_the_last_integration_from_the_history() {
     fx.git(&["rm", "-q", "src/b.txt"]);
     fx.git(&["commit", "-q", "-m", &format!("the first again\n\nFabrewk-Candidate: {first}")]);
     verifies(&fx, &ids[2]);
-}
-
-/// Appends to `stream` an event of `kind`, a maestro's (signed) or Fabrewk's, as a later part's command will; commits it.
-fn by_hand(fx: &Fx, stream: &str, kind: &str, payload: Value, person: bool) {
-    let mut s = Session::begin(&fx.domain, None, &PolicyVerifier).unwrap();
-    let head = s.head(stream).unwrap();
-    let policy = fx.events("project").last().unwrap()["policy"].as_str().unwrap().to_owned();
-    let (actor, say) = match person {
-        true => (
-            json!({"kind": "person", "alias": "xel", "role": "maestro"}),
-            Some(fabrewk_core::record::Say { text: "Lo decido.".into(), lang: "es".into() }),
-        ),
-        false => (json!({"kind": "fabrewk"}), None),
-    };
-    let key = fx.signer();
-    let signer: Option<&dyn fabrewk_core::record::Sign> = if person { Some(&key) } else { None };
-    let draft = Draft { kind: kind.into(), actor, policy, instance: "SHA256:fixture".into(), say, payload };
-    s.append(stream, head.as_ref(), &draft, signer).unwrap();
-    s.finish(&PolicyVerifier, &[]).unwrap();
-    fx.regen();
-    fx.commit(kind);
 }
 
 // ---- The attempt: its copy, its dispatch, its end (REQ-RUN-3, REQ-RUN-6, REQ-REG-13, D-079) --------------------------
@@ -1268,4 +1238,216 @@ fn a_run_killed_during_a_check_is_recovered_and_its_copy_removed() {
     ok(&fx.run(&["reject", &ids[1], "--say", SAY]));
     assert_eq!(fx.events(&stream(&ids[0])).last().unwrap()["payload"]["code"], "OUTCOME_UNKNOWN");
     assert_eq!(dirs(&fx, "tmp", "check-"), [earlier]);
+}
+
+// ---- Acceptance and integration (part 9g; REQ-GATE-7, REQ-GATE-8, REQ-GATE-10; D-086, D-087) ------------------------
+
+/// The task's acceptance and its integration, its last two events.
+fn accepted_and_integrated(fx: &Fx, id: &str) -> (Value, Value) {
+    let events = fx.events(&stream(id));
+    let n = events.len();
+    assert_eq!(kinds(&events[n - 2..]), ["task-accepted", "task-integrated"], "{events:?}");
+    (events[n - 2].clone(), events[n - 1].clone())
+}
+
+#[test]
+fn req_gate_7_8_pd_37_accept_shows_what_it_binds_and_integrates_a_verified_task() {
+    let fx = Fx::builder("accept", "published", &format!("{WRITES}{SUCCESS}"));
+    let id = verified_task(&fx, json!({}), json!({}));
+    let candidate = fx.git(&["rev-parse", &format!("fabrewk/{id}")]);
+    let tree = fx.git(&["rev-parse", &format!("{candidate}^{{tree}}")]);
+    // What it binds, before it is signed, in the person's language (PD-37): the task, the candidate, its files, its
+    // checks and its review.
+    let human = fx.run(&["status", &id]);
+    ok(&human);
+    whole(&human.all());
+    let digest = accepting(&fx, &id);
+    for words in [
+        cli::say("es", "accept.title", &[]),
+        cli::say("es", "accept.candidate", &[("commit", &candidate), ("tree", &tree)]),
+        cli::say("es", "accept.added", &[("path", "src/new.txt")]),
+        cli::say("es", "accept.digest", &[("digest", &digest)]),
+        format!("fabrewk accept {id} --seen {digest}"),
+    ] {
+        assert!(human.stdout.contains(&words), "{words}: {human:?}");
+    }
+    // `--seen` is required; another digest is `TASK_CHANGED`, with nothing written.
+    assert_eq!(fx.run(&["accept", &id, "--say", SAY]).status, 2);
+    refused(&fx, &["accept", &id, "--seen", &"0".repeat(64), "--say", SAY], "TASK_CHANGED", 1, "es");
+    let head = fx.git(&["rev-parse", "HEAD"]);
+    let ran = fx.run(&["accept", &id, "--seen", &digest, "--say", SAY]);
+    ok(&ran);
+    whole(&ran.all());
+    let integration = fx.git(&["rev-parse", "HEAD~1"]);
+    assert!(ran.stdout.contains(&cli::say("es", "accept.integrated", &[("id", &id), ("commit", &integration)])));
+    // The signed event binds what was shown (REQ-GATE-7).
+    let (accepted, integrated) = accepted_and_integrated(&fx, &id);
+    let events = fx.events(&stream(&id));
+    let verified = &events.iter().rfind(|e| e["kind"] == "task-verified").unwrap()["payload"];
+    let p = &accepted["payload"];
+    assert_eq!((&p["candidate"], &p["tree"], &p["shown"]), (&json!(candidate), &json!(tree), &json!(digest)));
+    assert_eq!(
+        (&p["checks"], &p["review"], &p["requirements"]),
+        (&verified["checks"], &verified["review"], &verified["requirements"])
+    );
+    assert_eq!(accepted["say"]["text"], SAY);
+    // In `published`, the head is not the base: an integration commit on the head, its only parent, the candidate's
+    // product and the head's domain, the candidate's message and trailers and `Fabrewk-Candidate`; then the record
+    // commit of the command (REQ-GATE-8, REQ-REG-10).
+    assert_eq!(integrated["payload"], json!({"from": head, "to": integration}));
+    assert_eq!(fx.git(&["rev-parse", &format!("{integration}^@")]), head);
+    let message = fx.git(&["show", "-s", "--format=%B", &integration]);
+    assert!(message.contains("Co-authored-by: claude") && message.contains(&format!("Fabrewk-Candidate: {candidate}")));
+    assert_eq!(
+        fx.git(&["rev-parse", &format!("{integration}:src")]),
+        fx.git(&["rev-parse", &format!("{candidate}:src")])
+    );
+    assert_eq!(
+        fx.git(&["rev-parse", &format!("{integration}:.brewstillery")]),
+        fx.git(&["rev-parse", &format!("{head}:.brewstillery")])
+    );
+    assert_eq!(fx.git(&["show", "-s", "--format=%s", "HEAD"]), "fabrewk: record");
+    // The working tree and the index hold the candidate's file, from its object's bytes, and nothing else changed.
+    assert_eq!(fs::read(fx.root.join("src/new.txt")).unwrap(), b"new\n");
+    assert_eq!(fx.git(&["status", "--porcelain"]), "");
+    ok(&fx.run(&["check"]));
+    // Integrated is final: no acceptance, no rejection.
+    refused(&fx, &["accept", &id, "--seen", &digest, "--say", SAY], "MOVE_NOT_ALLOWED", 1, "es");
+    refused(&fx, &["reject", &id, "--say", SAY], "MOVE_NOT_ALLOWED", 1, "es");
+}
+
+/// Makes the domain its own repository, as `own-repository` needs, with its files committed there.
+fn own(fx: &Fx) {
+    let domain = fx.domain.to_str().unwrap().to_owned();
+    let inner = |args: &[&str]| fx.git(&[&["-C", domain.as_str()][..], args].concat());
+    inner(&["init", "-q", "-b", "main"]);
+    for (k, v) in [("user.name", "Fixture"), ("user.email", "fixture@example.invalid"), ("commit.gpgsign", "false")] {
+        inner(&["config", k, v]);
+    }
+    inner(&["add", "-A"]);
+    inner(&["commit", "-q", "-m", "record"]);
+}
+
+#[test]
+fn req_gate_8_with_the_head_at_the_base_the_branch_moves_to_the_candidate_itself() {
+    for mode in ["own-repository", "unpublished"] {
+        let fx = Fx::builder(&format!("ff-{mode}"), mode, &format!("{WRITES}{SUCCESS}"));
+        if mode == "own-repository" {
+            own(&fx);
+        }
+        let base = fx.git(&["rev-parse", "HEAD"]);
+        let id = verified_task(&fx, json!({}), json!({}));
+        let candidate = fx.git(&["rev-parse", &format!("fabrewk/{id}")]);
+        ok(&fx.run(&["accept", &id, "--seen", &accepting(&fx, &id), "--say", SAY]));
+        assert_eq!(fx.git(&["rev-parse", "HEAD"]), candidate, "{mode}");
+        assert_eq!(accepted_and_integrated(&fx, &id).1["payload"], json!({"from": base, "to": candidate}), "{mode}");
+        assert_eq!(fs::read(fx.root.join("src/new.txt")).unwrap(), b"new\n");
+        assert_eq!(fx.git(&["status", "--porcelain"]), "", "{mode}");
+        // `check` takes the domain's own `.git` for an unknown alias, which this part leaves as it found it.
+        if mode == "unpublished" {
+            ok(&fx.run(&["check"]));
+        }
+    }
+}
+
+#[test]
+fn refusal_move_not_allowed_for_accept() {
+    let fx = Fx::builder("accept-moves", "published", &format!("{WRITES}{SUCCESS}"));
+    // A task with no candidate, and an authorized one whose branch is not at its candidate: nothing to accept.
+    let proposed = plan(&fx, json!({}), vec![json!({})]).1.remove(0);
+    let e = refused(&fx, &["accept", &proposed, "--seen", &"0".repeat(64), "--say", SAY], "MOVE_NOT_ALLOWED", 1, "es");
+    assert!(e["detail"].as_str().unwrap().contains("task-accepted from proposed"), "{e}");
+    let id = verified_task(&fx, json!({}), json!({}));
+    ok(&authorize(&fx, &id, &[]));
+    assert!(fx.run(&["status", &id, "--json"]).doc()["accepting"].is_null());
+    let e = refused(&fx, &["accept", &id, "--seen", &"0".repeat(64), "--say", SAY], "MOVE_NOT_ALLOWED", 1, "es");
+    assert!(e["detail"].as_str().unwrap().contains("not at its candidate"), "{e}");
+}
+
+/// D-087 point 1: a precondition already false before the signature refuses `accept`, nothing written: a product that
+/// moved (record commits alone do not move it), a touched path with a person's edit in the working tree or in the
+/// index, and evidence a policy adopted since makes stale, though the task requires no check (D-086 point 4).
+#[test]
+fn refusal_base_moved_worktree_dirty_and_evidence_stale_at_accept() {
+    let fx = Fx::builder("accept-pre", "published", &format!("{WRITES}{SUCCESS}"));
+    let id = verified_task(&fx, json!({}), json!({}));
+    let digest = accepting(&fx, &id);
+    let accept = ["accept", &id, "--seen", &digest, "--say", SAY];
+    fs::write(fx.root.join("README.md"), "moved\n").unwrap();
+    fx.commit("a person's change");
+    refused(&fx, &accept, "BASE_MOVED", 1, "es");
+    fx.git(&["revert", "--no-edit", "HEAD"]);
+    // A file the candidate adds, already there with other bytes; then the same bytes staged.
+    fs::create_dir_all(fx.root.join("src")).unwrap();
+    fs::write(fx.root.join("src/new.txt"), "mine\n").unwrap();
+    let e = refused(&fx, &accept, "WORKTREE_DIRTY", 1, "es");
+    assert!(e["detail"].as_str().unwrap().contains("src/new.txt"), "{e}");
+    fx.git(&["add", "src/new.txt"]);
+    fs::remove_file(fx.root.join("src/new.txt")).unwrap();
+    refused(&fx, &accept, "WORKTREE_DIRTY", 1, "es");
+    fx.git(&["rm", "-q", "--cached", "src/new.txt"]);
+    // A policy adopted after the verification.
+    let text = fs::read_to_string(fx.domain.join("settings.toml")).unwrap() + "\n[limits]\nminutes = 60\n";
+    fx.edit_policy(&text);
+    ok(&fx.run(&["adopt", "--say", SAY]));
+    let digest = accepting(&fx, &id);
+    refused(&fx, &["accept", &id, "--seen", &digest, "--say", SAY], "EVIDENCE_STALE", 1, "es");
+    // `run` revalidates it, and then it integrates.
+    verifies(&fx, &id);
+    integrate(&fx, &id);
+}
+
+/// PD-44: a task in `authorized`, `halted` and `verified` whose record branch a person brought to its candidate (a
+/// cherry-pick in `published`, so that the record's commits stay): `accept` integrates it with no move, and `reject`
+/// stops it, saying where the branch is; with no acceptance on record `reject` is allowed (PD-14).
+#[test]
+fn pd_44_pd_14_a_branch_brought_to_the_candidate_by_hand_is_accepted_or_rejected() {
+    for (state, accept) in [("verified", true), ("authorized", true), ("halted", true), ("verified", false)] {
+        let fx = Fx::builder(&format!("pd-44-{state}-{accept}"), "published", &format!("{WRITES}{SUCCESS}"));
+        // A stage's budget spent by the verification halts the next run before any dispatch.
+        let id = verified_task(&fx, json!({"budget": {"dispatches": 2, "minutes": 120}}), json!({}));
+        if state != "verified" {
+            ok(&authorize(&fx, &id, &[]));
+        }
+        if state == "halted" {
+            halts(&fx, &id, "BUDGET_EXHAUSTED");
+        }
+        let candidate = fx.git(&["rev-parse", &format!("fabrewk/{id}")]);
+        fx.git(&["cherry-pick", &candidate]);
+        let head = fx.git(&["rev-parse", "HEAD"]);
+        if accept {
+            ok(&fx.run(&["accept", &id, "--seen", &accepting(&fx, &id), "--say", SAY]));
+            assert_eq!(accepted_and_integrated(&fx, &id).1["payload"], json!({"from": null, "to": head}), "{state}");
+            assert_eq!(fx.git(&["rev-parse", "HEAD~1"]), head);
+        } else {
+            let ran = fx.run(&["reject", &id, "--say", SAY]);
+            ok(&ran);
+            assert!(ran.stdout.contains(&cli::say("es", "reject.at", &[("commit", &candidate)])), "{ran:?}");
+            let e = fx.events(&stream(&id)).last().unwrap().clone();
+            assert_eq!((&e["payload"]["candidate"], &e["payload"]["atCandidate"]), (&json!(candidate), &json!(true)));
+        }
+        ok(&fx.run(&["check"]));
+    }
+}
+
+/// T-28 through `accept` (S-11): a candidate that changes the repository's own hooks directory, listed literally, is
+/// integrated and its hook runs for none of Fabrewk's ref updates; a configured filter the base's `.gitattributes` names
+/// leaves the working tree's bytes those of the objects.
+#[test]
+fn t_28_no_hook_or_filter_a_candidate_brings_runs_at_integration() {
+    let hook = "mkdir -p hooks && printf '#!/bin/sh\\ntouch \"$PWD/../ran\"\\n' > hooks/reference-transaction && chmod +x hooks/reference-transaction\n";
+    let fx = Fx::builder("t-28", "published", &format!("{WRITES}{hook}{SUCCESS}"));
+    fs::write(fx.root.join(".gitattributes"), "*.txt filter=upper\n").unwrap();
+    fx.commit("attributes");
+    fx.git(&["config", "core.hooksPath", "hooks"]);
+    fx.git(&["config", "filter.upper.smudge", "tr a-z A-Z"]);
+    fx.git(&["config", "filter.upper.clean", "tr A-Z a-z"]);
+    let allowed = json!({"allowed": ["src/**", "hooks/reference-transaction"]});
+    let id = verified_task(&fx, json!({}), allowed);
+    integrate(&fx, &id);
+    assert!(fx.root.join("hooks/reference-transaction").is_file());
+    assert_eq!(fs::read(fx.root.join("src/new.txt")).unwrap(), b"new\n");
+    // The hook is the repository's now, and Fabrewk's later ref updates still run none of it.
+    ok(&fx.run(&["reject", &plan(&fx, json!({}), vec![json!({})]).1[0], "--say", SAY]));
+    assert!(!fx.root.parent().unwrap().join("ran").exists() && !fx.root.join("../ran").exists());
 }

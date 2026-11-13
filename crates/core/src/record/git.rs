@@ -2,7 +2,8 @@
 //! objects, grafts and the commit graph are off for every call. Every call names a hooks directory under which no file
 //! can exist and turns the file-system monitor off, so no hook a repository or a candidate holds runs as Fabrewk's
 //! (S-11). The record commit is built through a temporary index, so the person's staged and unstaged changes stay as
-//! they were, and the branch moves by compare-and-swap.
+//! they were, and the branch moves by compare-and-swap. A Git command that fails is named with its exit status; in a
+//! write command its standard error and exit status are kept as evidence, which the words name (D-083, D-086).
 
 use super::replay::list_stream;
 use super::{Code, Error, fault, io_at, refuse};
@@ -57,12 +58,73 @@ pub(crate) fn command(repo: &Repo, args: &[&OsStr]) -> Command {
     }
     c.env("GIT_NO_REPLACE_OBJECTS", "1").env("GIT_GRAFT_FILE", "/dev/null");
     c.args(["--no-replace-objects", "-c", "core.commitGraph=false", "-c", "core.hooksPath=/dev/null"]);
-    c.args(["-c", "core.fsmonitor=false"]).args(args);
+    c.args(["-c", "core.fsmonitor=false"]);
+    // With `fault-injection`, a command whose words hold `FABREWK_FAULT_GIT`'s text fails as Git fails, for tests.
+    if fault::git(args) {
+        c.arg("--fabrewk-fault");
+    }
+    c.args(args);
     c
 }
 
+/// Where a write command keeps what a failed Git printed (D-083, D-086): its domain, set by the write path; reading
+/// commands set none and keep nothing (REQ-REG-12). And the last kept: its standard error's digest and the exit status.
+static KEEP: std::sync::Mutex<Option<PathBuf>> = std::sync::Mutex::new(None);
+static KEPT: std::sync::Mutex<Option<Kept>> = std::sync::Mutex::new(None);
+
+/// What a failed Git left as evidence (REQ-REG-13, REQ-RUN-6).
+#[derive(Debug, Clone)]
+pub struct Kept {
+    pub stderr: String,
+    pub status: Option<i32>,
+}
+
+/// Keeps what a failed Git prints in `domain`'s evidence from now on, in this process.
+pub fn keep_in(domain: &Path) {
+    *KEEP.lock().unwrap_or_else(|e| e.into_inner()) = Some(domain.to_path_buf());
+}
+
+/// The evidence the last failed Git left, taken.
+pub fn take_kept() -> Option<Kept> {
+    KEPT.lock().unwrap_or_else(|e| e.into_inner()).take()
+}
+
+/// `TOOL_FAILED` for a Git command that failed: its first words and its exit status, and in a write command where its
+/// standard error and status are kept, `local/evidence/git-<time>-<process>-<n>/` (`0700`, files `0600`).
+pub(crate) fn failed(repo: &Repo, args: &[&OsStr], out: &Output) -> Error {
+    static N: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+    let what: Vec<_> = args.iter().take(2).map(|a| a.to_string_lossy()).collect();
+    let status = out.status.code();
+    let mut why = match status {
+        Some(n) => format!("git {} failed with exit status {n}", what.join(" ")),
+        None => format!("git {} was ended by a signal", what.join(" ")),
+    };
+    let domain = KEEP.lock().unwrap_or_else(|e| e.into_inner()).clone();
+    if let Some(domain) = domain {
+        let n = N.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        let secs = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
+        let name = format!("git-{secs}-{}-{n}", std::process::id());
+        let status_text = status.map_or_else(|| "signal\n".to_owned(), |n| format!("{n}\n"));
+        let kept = crate::confine::evidence(&domain, &name).and_then(|dir| {
+            for (file, bytes) in [("stderr", &out.stderr[..]), ("status", status_text.as_bytes())] {
+                let path = dir.join(file);
+                let mut options = std::fs::File::options();
+                std::os::unix::fs::OpenOptionsExt::mode(options.write(true).create_new(true), 0o600);
+                options.open(&path).and_then(|mut f| f.write_all(bytes)).map_err(io_at(&path))?;
+            }
+            Ok(dir)
+        });
+        if let Ok(dir) = kept {
+            why += &format!("; Git's output is kept in {}", dir.display());
+            let stderr = super::sha256_hex(&out.stderr);
+            *KEPT.lock().unwrap_or_else(|e| e.into_inner()) = Some(Kept { stderr, status });
+        }
+    }
+    refuse(Code::ToolFailed, Some(&repo.root), why)
+}
+
 pub(crate) fn run(mut c: Command, input: &[u8]) -> Result<Output, Error> {
-    let mut child = c.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn().map_err(|e| {
+    let mut child = c.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().map_err(|e| {
         let code = if e.kind() == std::io::ErrorKind::NotFound { Code::ToolMissing } else { Code::ToolFailed };
         refuse(code, None, "git")
     })?;
@@ -74,7 +136,8 @@ pub(crate) fn run(mut c: Command, input: &[u8]) -> Result<Output, Error> {
     .map_err(|_| refuse(Code::ToolFailed, None, "git"))
 }
 
-/// Runs git and gives its output, refusing `TOOL_FAILED` on a failure; git's own text never leaves this function.
+/// Runs git and gives its output, refusing `TOOL_FAILED` on a failure (see [`failed`]); Git's own text never reaches
+/// the words.
 pub(crate) fn git(repo: &Repo, args: &[&OsStr], input: &[u8], index: Option<&Path>) -> Result<Vec<u8>, Error> {
     let mut c = command(repo, args);
     if let Some(index) = index {
@@ -82,8 +145,7 @@ pub(crate) fn git(repo: &Repo, args: &[&OsStr], input: &[u8], index: Option<&Pat
     }
     let out = run(c, input)?;
     if !out.status.success() {
-        let what: Vec<_> = args.iter().take(2).map(|a| a.to_string_lossy()).collect();
-        return Err(refuse(Code::ToolFailed, Some(&repo.root), format!("git {} failed", what.join(" "))));
+        return Err(failed(repo, args, &out));
     }
     Ok(out.stdout)
 }
@@ -118,12 +180,12 @@ pub(crate) fn staged(repo: &Repo, path: &Path) -> Result<Option<Vec<u8>>, Error>
 /// Whether the repository ignores `path`, relative to its root, by `git check-ignore` (REQ-DOM-7): a tracked path is
 /// not ignored.
 pub(crate) fn ignores(repo: &Repo, path: &Path) -> Result<bool, Error> {
-    let out =
-        run(command(repo, &[OsStr::new("check-ignore"), OsStr::new("-q"), OsStr::new("--"), path.as_os_str()]), b"")?;
+    let args = [OsStr::new("check-ignore"), OsStr::new("-q"), OsStr::new("--"), path.as_os_str()];
+    let out = run(command(repo, &args), b"")?;
     match out.status.code() {
         Some(0) => Ok(true),
         Some(1) => Ok(false),
-        _ => Err(refuse(Code::ToolFailed, Some(&repo.root), "git check-ignore failed")),
+        _ => Err(failed(repo, &args, &out)),
     }
 }
 
@@ -153,7 +215,7 @@ pub(crate) fn hooks_dir(repo: &Repo) -> Result<Vec<String>, Error> {
     let out = run(command(repo, &args), b"")?;
     // Fabrewk's own value is always on the command line, so the key is never unset and any failure is Git's.
     if !out.status.success() {
-        return Err(refuse(Code::ToolFailed, Some(&repo.root), "git config could not read core.hooksPath"));
+        return Err(failed(repo, &args, &out));
     }
     let fields: Vec<&[u8]> = out.stdout.split(|&b| b == 0).collect();
     let value = fields.chunks(2).filter(|p| p.len() == 2 && p[0] != b"command line:").map(|p| p[1]).next_back();
@@ -378,8 +440,9 @@ pub(crate) fn check_git_locks(repo: &Repo, branch: &str) -> Result<(), Error> {
 /// could not be made is refused before anything is written (P7D3A-14).
 pub(crate) fn check_ident(repo: &Repo) -> Result<(), Error> {
     for var in ["GIT_AUTHOR_IDENT", "GIT_COMMITTER_IDENT"] {
-        git(repo, &os(&["var", var]), b"", None).map_err(|_| {
-            refuse(Code::ToolFailed, Some(&repo.root), format!("Git names no {var} (user.name, user.email)"))
+        git(repo, &os(&["var", var]), b"", None).map_err(|e| {
+            let why = format!("Git names no {var} (user.name, user.email): {}", e.detail());
+            refuse(Code::ToolFailed, Some(&repo.root), why)
         })?;
     }
     Ok(())
@@ -484,7 +547,8 @@ fn attempt(
         let commit = line(git(repo, &os(&args), message.as_bytes(), None)?);
         fault::point();
         let old = base.clone().unwrap_or_default();
-        let moved = run(command(repo, &os(&["update-ref", "-m", "fabrewk: record", branch, &commit, &old])), b"")?;
+        let update = os(&["update-ref", "-m", "fabrewk: record", branch, &commit, &old]);
+        let moved = run(command(repo, &update), b"")?;
         if moved.status.success() {
             fault::point();
             fault::pause("record-moved");
@@ -497,7 +561,7 @@ fn attempt(
         }
         let now = head_of(repo, branch)?;
         if now == base {
-            return Err(refuse(Code::ToolFailed, Some(&repo.root), "git update-ref failed"));
+            return Err(failed(repo, &update, &moved));
         }
         let race =
             || refuse(Code::RecordCommitRace, Some(&repo.root), "the branch moved and changed a file of the commit");
@@ -508,14 +572,15 @@ fn attempt(
         // (P7D3A-19), and is walked as the session's first one was: a head whose history drops or changes an event is
         // a rollback, never a base (P7D3A-16).
         if let Some(b) = &base {
-            let kept = run(command(repo, &os(&["merge-base", "--is-ancestor", b, n])), b"")?;
+            let args = os(&["merge-base", "--is-ancestor", b, n]);
+            let kept = run(command(repo, &args), b"")?;
             match kept.status.code() {
                 Some(0) => {}
                 Some(1) => {
                     let why = "the branch moved to a commit that does not descend from the record's last one";
                     return Err(refuse(Code::RecordRollback, Some(&repo.root), why));
                 }
-                _ => return Err(refuse(Code::ToolFailed, Some(&repo.root), "git merge-base failed")),
+                _ => return Err(failed(repo, &args, &kept)),
             }
         }
         let mut changed = match &base {

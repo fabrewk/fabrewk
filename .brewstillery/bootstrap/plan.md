@@ -103,7 +103,7 @@ Codex (GPT-6.1 Sol), effort high, reviews each part. The cut between 7b, 7c and 
 
 **Phase 9 (D-075).** Opened in session 29 with the threat model, the confinement's design and this cut, in
 `confinement-design.md` (its section 6 holds each part's inputs by requirement); Codex reviewed the design before any
-code and accepted it at its fourth pass, confirmed blocking 6, 1, 1, 0 (R-038; the amendments, D-075 and D-076). Split where its inputs separate. Every part runs on Opus 5.5, effort high (D-078; D-075 had part 9a on Fable 5.2); every part delivers code, so Codex (GPT-6.1 Sol), effort high, reviews each. The core's ceiling is 11,000
+code and accepted it at its fourth pass, confirmed blocking 6, 1, 1, 0 (R-038; the amendments, D-075 and D-076). Split where its inputs separate. Every part runs on Opus 5.5, effort high (D-078; D-075 had part 9a on Fable 5.2); every part delivers code, so Codex (GPT-6.1 Sol), effort high, reviews each. The core's ceiling is 11,000 (12,000 before part 9g, D-086),
 counted lines, measured again at each part. The permission and the budget to run the real tools are asked when part
 9c starts.
 

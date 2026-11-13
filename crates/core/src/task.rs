@@ -89,7 +89,39 @@ const STAGE_AUTHORIZED: T = T::Obj(&[
     ("shown", T::Hex(64)),
     ("widened", T::List(&T::Text)),
 ]);
-const TASK_REJECTED: T = T::Obj(&[("task", T::Id('t')), ("head", HEAD)]);
+/// Where the record branch is when a task is rejected (D-068 point 3): the task's last candidate, if any, and whether
+/// the branch's product is that candidate's.
+const TASK_REJECTED: T =
+    T::Obj(&[("task", T::Id('t')), ("head", HEAD), ("candidate", T::Nullable(&T::Commit)), ("atCandidate", T::Bool)]);
+/// What an acceptance binds (REQ-GATE-7): the task and its head, the candidate and its tree, the requirements' digest,
+/// each required check's identity, the review's place, and the digest of what `status` showed (D-086 point 2).
+const TASK_ACCEPTED: T = T::Obj(&[
+    ("task", T::Id('t')),
+    ("head", HEAD),
+    ("candidate", T::Commit),
+    ("tree", T::Commit),
+    ("requirements", T::Hex(64)),
+    ("checks", T::Map(&T::Hex(64))),
+    ("review", T::Count),
+    ("shown", T::Hex(64)),
+]);
+/// The codes an integration fails with (REQ-GATE-8, 11.2 rule 4).
+pub const MERGE_FAILURES: [&str; 7] = [
+    "BASE_MOVED",
+    "WORKTREE_DIRTY",
+    "EVIDENCE_STALE",
+    "PROTECTED_PATH",
+    "PROTECTED_PATH_WILDCARD",
+    "LANE_VIOLATION",
+    "TOOL_FAILED",
+];
+const MERGE_FAILED: T = T::Obj(&[
+    ("code", T::One(&MERGE_FAILURES)),
+    ("reason", T::Text),
+    ("moved", T::Bool),
+    ("evidence", T::Nullable(&T::Obj(&[("status", T::Nullable(&T::Nat)), ("stderr", T::Hex(64))]))),
+]);
+const TASK_INTEGRATED: T = T::Obj(&[("from", T::Nullable(&T::Commit)), ("to", T::Commit)]);
 const RUN_STARTED: T = T::Obj(&[
     ("task", T::Id('t')),
     ("head", HEAD),
@@ -259,6 +291,9 @@ pub fn check(kind: &str, p: &Value) -> Result<(), Error> {
         "stage-authorized" => (&STAGE_AUTHORIZED, Level::Stage),
         "task-authorized" => (&TASK_AUTHORIZED, Level::Task),
         "task-rejected" => (&TASK_REJECTED, Level::Task),
+        "task-accepted" => (&TASK_ACCEPTED, Level::Task),
+        "merge-failed" => (&MERGE_FAILED, Level::Task),
+        "task-integrated" => (&TASK_INTEGRATED, Level::Task),
         "stage-closed" => (&STAGE_CLOSED, Level::Stage),
         "run-started" => (&RUN_STARTED, Level::Task),
         "attempt-started" => (&ATTEMPT_STARTED, Level::Task),

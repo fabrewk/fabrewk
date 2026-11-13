@@ -1,0 +1,152 @@
+//! Integration as a library (part 9g; REQ-GATE-8, S-4, S-11): the third guard on the change set recomputed from the
+//! base's and the candidate's trees (PD-16 at integration), and what the index and the working tree hold at the
+//! touched paths, then brought to the candidate from the objects' bytes.
+
+mod common;
+
+use common::*;
+use fabrewk_core::Code;
+use fabrewk_core::candidate::{Lanes, Mode};
+use fabrewk_core::merge::{self, Held};
+use fabrewk_core::record::Repo;
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
+
+fn run(root: &Path, args: &[&str], input: &str) -> String {
+    let mut c = Command::new("git");
+    c.current_dir(root).args(args).stdin(Stdio::piped()).stdout(Stdio::piped());
+    let mut child = c.spawn().unwrap();
+    use std::io::Write;
+    child.stdin.take().unwrap().write_all(input.as_bytes()).unwrap();
+    let out = child.wait_with_output().unwrap();
+    assert!(out.status.success(), "git {args:?}");
+    String::from_utf8(out.stdout).unwrap().trim_end().to_owned()
+}
+
+/// A repository whose base commit holds `README.md` and `old/old.txt`, its working tree and index at it.
+fn base(name: &str) -> (PathBuf, String) {
+    let root = tmp(name).join("repo");
+    fs::create_dir_all(root.join("old")).unwrap();
+    git(&root, &["init", "-q", "-b", "main"]);
+    for (k, v) in [("user.name", "Fixture"), ("user.email", "fixture@example.invalid"), ("commit.gpgsign", "false")] {
+        git(&root, &["config", k, v]);
+    }
+    fs::write(root.join("README.md"), "fixture\n").unwrap();
+    fs::write(root.join("old/old.txt"), "old\n").unwrap();
+    git(&root, &["add", "-A"]);
+    git(&root, &["-c", "core.hooksPath=/dev/null", "commit", "-q", "-m", "base"]);
+    let head = git(&root, &["rev-parse", "HEAD"]);
+    (root, head)
+}
+
+fn blob(root: &Path, bytes: &str) -> String {
+    run(root, &["hash-object", "-w", "--stdin"], bytes)
+}
+
+/// A tree of `entries` (mode, name, object), made with `mktree`, which checks no name.
+fn tree(root: &Path, entries: &[(&str, &str, String)]) -> String {
+    let kind = |m: &str| if m == "040000" { "tree" } else { "blob" };
+    let text: String = entries.iter().map(|(m, n, o)| format!("{m} {} {o}\t{n}\n", kind(m))).collect();
+    run(root, &["mktree"], &text)
+}
+
+/// A commit on `base` whose root holds the base's entries and `more`.
+fn candidate(root: &Path, base: &str, more: &[(&str, &str, String)]) -> String {
+    let listed = git(root, &["ls-tree", base]);
+    let mut entries: Vec<(&str, &str, String)> = listed
+        .lines()
+        .map(|l| {
+            let (meta, name) = l.split_once('\t').unwrap();
+            let m: Vec<&str> = meta.split(' ').collect();
+            (if m[0] == "040000" { "040000" } else { "100644" }, name, m[2].to_owned())
+        })
+        .collect();
+    entries.retain(|(_, n, _)| more.iter().all(|(_, m, _)| m != n));
+    entries.extend(more.iter().cloned());
+    let t = tree(root, &entries);
+    run(root, &["commit-tree", &t, "-p", base, "-m", "candidate"], "")
+}
+
+fn changes(
+    root: &Path,
+    base: &str,
+    cand: &str,
+    allowed: &[&str],
+) -> Result<Vec<fabrewk_core::candidate::Change>, Code> {
+    let names = vec!["CLAUDE.md".to_owned()];
+    let lanes = Lanes { allowed, names: &names, paths: &[] };
+    merge::changes(&Repo { root: root.to_path_buf(), prefix: PathBuf::new() }, base, cand, &lanes)
+        .map_err(|e| e.code().unwrap())
+}
+
+#[test]
+fn pd_16_the_integrations_third_guard_refuses_a_protected_path_in_any_form() {
+    let (root, base) = base("merge-guard");
+    let file = blob(&root, "x\n");
+    let inner = |name: &str| tree(&root, &[("100644", name, file.clone())]);
+    let nested = tree(&root, &[("040000", ".git", inner("config"))]);
+    for (what, more) in [
+        ("domain", vec![("040000", ".brewstillery", inner("x"))]),
+        ("folded", vec![("040000", ".BrewStillery", inner("x"))]),
+        ("nested git", vec![("040000", "a", nested.clone())]),
+        ("git file", vec![("100644", ".GIT", file.clone())]),
+        ("a link named as the domain", vec![("120000", ".brewstillery", blob(&root, "elsewhere"))]),
+        ("a way out", vec![("040000", "..", inner("x"))]),
+    ] {
+        let c = candidate(&root, &base, &more);
+        assert_eq!(changes(&root, &base, &c, &["**"]).unwrap_err(), Code::ProtectedPath, "{what}");
+    }
+    // The lanes, again: a protected name reached by a wildcard, and a path outside the allowed files.
+    let c = candidate(&root, &base, &[("100644", "CLAUDE.md", file.clone())]);
+    assert_eq!(changes(&root, &base, &c, &["*"]).unwrap_err(), Code::ProtectedPathWildcard);
+    assert_eq!(changes(&root, &base, &c, &["CLAUDE.md"]).unwrap().len(), 1);
+    assert_eq!(changes(&root, &base, &c, &["src/**"]).unwrap_err(), Code::LaneViolation);
+}
+
+#[test]
+fn req_gate_8_the_touched_paths_are_clean_then_brought_to_the_candidate() {
+    let (root, base) = base("merge-bring");
+    let repo = Repo { root: root.clone(), prefix: PathBuf::new() };
+    let src = tree(&root, &[("100644", "a.txt", blob(&root, "a\n"))]);
+    // The candidate adds src/a.txt, changes README.md, and removes old/old.txt with its directory.
+    let c = candidate(&root, &base, &[("040000", "src", src), ("100644", "README.md", blob(&root, "new\n"))]);
+    let c = {
+        let t = run(&root, &["rev-parse", &format!("{c}^{{tree}}")], "");
+        let listed = git(&root, &["ls-tree", &t]);
+        let kept: String = listed.lines().filter(|l| !l.ends_with("\told")).map(|l| format!("{l}\n")).collect();
+        let t = run(&root, &["mktree"], &kept);
+        run(&root, &["commit-tree", &t, "-p", &base, "-m", "candidate"], "")
+    };
+    let changes = changes(&root, &base, &c, &["**"]).unwrap();
+    assert_eq!(changes.len(), 3, "{changes:?}");
+    let scratch = root.join(".brewstillery/local/tmp/merge");
+    let held = merge::held(&repo, &changes, &scratch).unwrap();
+    merge::clean(&changes, &held, true, false).unwrap();
+    assert_eq!(merge::clean(&changes, &held, false, true).unwrap_err().code(), Some(Code::WorktreeDirty));
+    // A person's edit at a touched path, in the working tree, is neither the base's nor the candidate's.
+    fs::write(root.join("README.md"), "mine\n").unwrap();
+    let edited = merge::held(&repo, &changes, &scratch).unwrap();
+    assert_eq!(merge::clean(&changes, &edited, true, true).unwrap_err().code(), Some(Code::WorktreeDirty));
+    fs::write(root.join("README.md"), "fixture\n").unwrap();
+    // A link where a file is held is not that file.
+    fs::remove_file(root.join("README.md")).unwrap();
+    std::os::unix::fs::symlink("fixture", root.join("README.md")).unwrap();
+    let linked = merge::held(&repo, &changes, &scratch).unwrap();
+    assert!(
+        matches!(&linked[changes.iter().position(|c| c.path == "README.md").unwrap()].1, Held::Entry(e) if e.mode == Mode::Link)
+    );
+    assert!(merge::clean(&changes, &linked, true, true).is_err());
+    fs::remove_file(root.join("README.md")).unwrap();
+    fs::write(root.join("README.md"), "fixture\n").unwrap();
+    merge::bring(&repo, &changes, &held, &scratch).unwrap();
+    let now = merge::held(&repo, &changes, &scratch).unwrap();
+    merge::clean(&changes, &now, false, true).unwrap();
+    assert_eq!(fs::read(root.join("src/a.txt")).unwrap(), b"a\n");
+    assert_eq!(fs::read(root.join("README.md")).unwrap(), b"new\n");
+    assert!(!root.join("old").exists(), "the directory the removal emptied is gone");
+    // Brought again, a path that holds the candidate's content already is left as it is.
+    merge::bring(&repo, &changes, &now, &scratch).unwrap();
+    let tree = run(&root, &["rev-parse", &format!("{c}^{{tree}}")], "");
+    assert_eq!(run(&root, &["write-tree"], ""), tree, "the index holds the candidate's tree");
+}

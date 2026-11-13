@@ -4,6 +4,7 @@
 //! person is the maintainer whose key Git's `user.signingkey` names (D-055). The reading commands take no lock and
 //! write nothing.
 
+mod accept;
 mod adopt;
 mod approve;
 mod check;
@@ -296,6 +297,7 @@ pub fn main(args: Vec<OsString>, adapters: &'static [&'static Adapter], backend:
                     "adopt" => adopt::run(&cx, &options),
                     "propose" => propose::run(&cx, arg.as_deref().unwrap_or_default()),
                     "authorize" => tasks::authorize(&cx, arg.as_deref().unwrap_or_default(), &options),
+                    "accept" => accept::accept(&cx, arg.as_deref().unwrap_or_default(), &options),
                     "reject" => tasks::reject(&cx, arg.as_deref().unwrap_or_default(), &options),
                     "run" => tasks::run(&cx, arg.as_deref().unwrap_or_default(), &options),
                     "sweep" => sweep::sweep(&cx, arg.as_deref().unwrap_or_default(), &options),

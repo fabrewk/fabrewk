@@ -83,3 +83,16 @@ pub(crate) fn minute() -> u64 {
     }
     60
 }
+
+/// Whether the Git command of `args` must fail, as Git fails on an option it does not know: with the feature, when its
+/// words joined by spaces hold the text `FABREWK_FAULT_GIT` names (part 9g). Always false without the feature.
+#[inline]
+pub(crate) fn git(args: &[&std::ffi::OsStr]) -> bool {
+    #[cfg(feature = "fault-injection")]
+    if let Ok(text) = std::env::var("FABREWK_FAULT_GIT") {
+        let words: Vec<_> = args.iter().map(|a| a.to_string_lossy()).collect();
+        return !text.is_empty() && words.join(" ").contains(&text);
+    }
+    let _ = args;
+    false
+}

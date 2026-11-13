@@ -293,6 +293,16 @@ impl Session {
         Ok(commit)
     }
 
+    /// The branch of the repository at `root` moved to `commit` by this command's own integration (REQ-GATE-8): when it
+    /// is the record branch, the record commit starts from it.
+    pub fn moved(&mut self, root: &Path, commit: &str) {
+        if let Some((repo, _, start)) = &mut self.git
+            && repo.root.canonicalize().ok() == root.canonicalize().ok()
+        {
+            *start = Some(commit.to_owned());
+        }
+    }
+
     /// Replays the record as it now stands, as the record commit does before it: a failure commits nothing (PD-46).
     pub fn replayable(&self, verifier: &dyn Verify) -> Result<(), Error> {
         let replay = replay::replay(&self.domain, verifier).map_err(|mut errors| errors.remove(0))?;

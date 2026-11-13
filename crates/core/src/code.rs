@@ -87,6 +87,7 @@ pub enum Code {
     WideningUnnamed,
     WordsCopied,
     WordsMissing,
+    WorktreeDirty,
 }
 
 /// The code as the catalogue and `--json` name it: the variant's name in upper snake case (`RecordFork` is
@@ -292,6 +293,7 @@ mod tests {
             WideningUnnamed,
             WordsCopied,
             WordsMissing,
+            WorktreeDirty,
         ] {
             assert!(list.contains(&format!("`{code}`")), "{code:?}");
             assert!(code.to_string().bytes().all(|b| b.is_ascii_uppercase() || b == b'_'), "{code}");

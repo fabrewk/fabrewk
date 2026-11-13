@@ -241,7 +241,7 @@ fn refusal_record_transition_invalid_from_the_table() {
     let verified = t.next(&fabrewk("task-verified", task_verified()));
     t.replay().unwrap();
     // A hand-made `task-integrated` from `verified` (11.4).
-    let integrated = t.next(&fabrewk("task-integrated", json!({})));
+    let integrated = t.next(&fabrewk("task-integrated", json!({"from": null, "to": "4".repeat(40)})));
     assert_eq!(t.replay().unwrap_err(), [Code::RecordTransitionInvalid]);
     fs::remove_file(integrated).unwrap();
     // From `verified` a run starts again (a revalidation); from `proposed`, with no authorization, it does not.
@@ -453,16 +453,40 @@ fn pd_06_an_approval_bound_to_another_task_or_head_is_refused() {
     assert_eq!(t.replay().unwrap_err(), [Code::RecordTransitionInvalid]);
     fs::remove_file(sig(&path)).unwrap();
     fs::remove_file(path).unwrap();
-    // The same for `task-accepted`: bound to the twin, refused; bound to its own head, it moves the halted task.
-    let mut accepted = bound(&t.f, &twin);
-    accepted.as_object_mut().unwrap().retain(|k, _| k == "task" || k == "head");
-    let path = t.next(&person("task-accepted", "Acepto.", accepted));
+    // The same for `task-accepted`: bound to the twin, refused; bound to its own head but to no candidate the task
+    // recorded, refused (part 9g); bound to both, it moves the halted task.
+    let acceptance = |of: &str, c: &Value| {
+        let mut a = bound(&t.f, of);
+        a.as_object_mut().unwrap().retain(|k, _| k == "task" || k == "head");
+        for (k, v) in [("candidate", &c["commit"]), ("tree", &c["tree"])] {
+            a[k] = v.clone();
+        }
+        a["requirements"] = json!("3".repeat(64));
+        a["checks"] = json!({});
+        a["review"] = json!(1);
+        a["shown"] = json!("0".repeat(64));
+        a
+    };
+    let c = candidate();
+    for a in [acceptance(&twin, &c), acceptance(&t.stream, &c)] {
+        let path = t.next(&person("task-accepted", "Acepto.", a));
+        assert_eq!(t.replay().unwrap_err(), [Code::RecordTransitionInvalid]);
+        fs::remove_file(sig(&path)).unwrap();
+        fs::remove_file(path).unwrap();
+    }
+    t.next(&person("task-authorized", "Autorizo.", bound(&t.f, &t.stream)));
+    t.next(&person("run-started", "Corre.", started(&t.f, &t.stream)));
+    t.next(&fabrewk("attempt-started", attempt()));
+    t.next(&fabrewk("attempt-ended", ended(&t.f, &t.stream, seconds(1))));
+    t.next(&fabrewk("candidate-recorded", c.clone()));
+    t.next(&fabrewk("task-halted", halted("NO_PROGRESS")));
+    let mut other = acceptance(&t.stream, &c);
+    other["tree"] = json!("9".repeat(40));
+    let path = t.next(&person("task-accepted", "Acepto.", other));
     assert_eq!(t.replay().unwrap_err(), [Code::RecordTransitionInvalid]);
     fs::remove_file(sig(&path)).unwrap();
     fs::remove_file(path).unwrap();
-    let mut accepted = bound(&t.f, &t.stream);
-    accepted.as_object_mut().unwrap().retain(|k, _| k == "task" || k == "head");
-    t.next(&person("task-accepted", "Acepto.", accepted));
+    t.next(&person("task-accepted", "Acepto.", acceptance(&t.stream, &c)));
     t.replay().unwrap();
 }
 

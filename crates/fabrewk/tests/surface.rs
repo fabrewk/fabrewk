@@ -71,7 +71,7 @@ fn req_cli_1_every_command_appears_in_help_completions_and_reference() {
         assert!(posix.contains(&format!("        {}) ", c.name)), "posix: {}", c.name);
     }
     // Only the commands that exist (D-053 point 3): nothing of a later phase.
-    let later = "accept";
+    let later = "apply";
     assert!(COMMANDS.iter().all(|c| c.name != later), "{later}");
     assert!(!fish.contains(&format!("-a {later} ")) && !posix.contains(&format!(" {later})")), "{later}");
 }
@@ -103,6 +103,7 @@ fn req_cli_1_the_completions_run_in_their_shells() {
         "adopt",
         "propose",
         "authorize",
+        "accept",
         "reject",
         "run",
         "sweep",
@@ -297,6 +298,11 @@ fn rendered(lang: &str) -> Vec<(String, String)> {
         "point",
         "target",
         "names",
+        "tree",
+        "verdict",
+        "findings",
+        "examined",
+        "checks",
         "m",
         "points",
         "recorded",

@@ -149,6 +149,11 @@ pub fn waits(record: &Replay) -> Vec<Wait> {
                         let what = if s == "halted" { "task-halted" } else { "task-verified" };
                         wait(Who::Maestro, what, id, last, code.to_owned(), &[status, cmd("reject", id)])
                     }
+                    // An accepted task waits only when its integration failed (REQ-GATE-8).
+                    "accepted" if events.last().is_some_and(|e| e.kind == "merge-failed") => {
+                        let code = text(events.last().expect("a failed integration"), "code").to_owned();
+                        wait(Who::Maestro, "task-merge", id, last, code, &[status, cmd("run", id)])
+                    }
                     _ => {}
                 }
             }

@@ -65,7 +65,7 @@ fn one(fx: &Fx, more: Value) -> String {
 /// What `status <id>` shows that an authorization binds: its text and its digest.
 fn shown(fx: &Fx, id: &str) -> (String, String) {
     let doc = fx.run(&["status", id, "--json"]).doc();
-    assert_eq!(doc["schema"], "fabrewk.subject/3");
+    assert_eq!(doc["schema"], "fabrewk.subject/4");
     (doc["shown"]["text"].as_str().unwrap().to_owned(), doc["shown"]["digest"].as_str().unwrap().to_owned())
 }
 
@@ -145,10 +145,17 @@ fn halt(code: &str) -> Value {
 fn accept_by_hand(fx: &Fx, id: &str) {
     let stream = format!("task-{id}");
     start_by_hand(fx, id);
-    let verified = json!({"candidate": "0".repeat(40), "tree": "0".repeat(40), "requirements": "0".repeat(64), "checks": {}, "review": 1});
+    let (commit, tree) = ("0".repeat(40), "1".repeat(40));
+    by_hand(fx, &stream, "candidate-recorded", json!({"commit": commit, "tree": tree, "changes": []}), false);
+    let verified =
+        json!({"candidate": commit, "tree": tree, "requirements": "0".repeat(64), "checks": {}, "review": 1});
     by_hand(fx, &stream, "task-verified", verified, false);
     let head = head_of(fx, &stream);
-    by_hand(fx, &stream, "task-accepted", json!({"task": id, "head": head}), true);
+    let accepted = json!({
+        "task": id, "head": head, "candidate": commit, "tree": tree, "requirements": "0".repeat(64), "checks": {},
+        "review": 1, "shown": "2".repeat(64),
+    });
+    by_hand(fx, &stream, "task-accepted", accepted, true);
 }
 
 // ---- REQ-GATE-7 and PD-37: what an authorization binds -------------------------------------------------------------
@@ -493,7 +500,7 @@ fn refusal_move_not_allowed() {
     // `authorize` on an integrated task: its `status` binds nothing, so any digest is refused for the move.
     ok(&authorize(&fx, a, &[]));
     accept_by_hand(&fx, a);
-    by_hand(&fx, &format!("task-{a}"), "task-integrated", json!({}), false);
+    by_hand(&fx, &format!("task-{a}"), "task-integrated", json!({"from": null, "to": "0".repeat(40)}), false);
     assert_eq!(state(&fx, a), "integrated");
     let e = refused(&fx, &["authorize", a, "--seen", "x", "--say", SAY], "MOVE_NOT_ALLOWED", 1, "es");
     assert!(e["detail"].as_str().unwrap().contains("task-authorized from integrated"), "{e}");
@@ -663,9 +670,11 @@ fn reject_binds_the_task_and_its_head_and_is_final() {
     let head = head_of(&fx, &stream);
     let ran = fx.run(&["reject", &id, "--say", "No: el alcance es otro.", "--json"]);
     assert_eq!(ran.status, 0, "{ran:?}");
-    assert_eq!(ran.doc()["schema"], "fabrewk.rejected/1");
+    assert_eq!(ran.doc()["schema"], "fabrewk.rejected/2");
     let e = last(&fx, &stream);
-    assert_eq!((e["kind"].clone(), e["payload"].clone()), (json!("task-rejected"), json!({"task": id, "head": head})));
+    // With no candidate, the record branch is at none (D-068 point 3).
+    let payload = json!({"task": id, "head": head, "candidate": null, "atCandidate": false});
+    assert_eq!((e["kind"].clone(), e["payload"].clone()), (json!("task-rejected"), payload));
     assert_eq!(e["say"], json!({"text": "No: el alcance es otro.", "lang": "es-MX"}));
     assert_eq!(state(&fx, &id), "rejected");
     // Halted, it may still be rejected.
@@ -673,29 +682,6 @@ fn reject_binds_the_task_and_its_head_and_is_final() {
     ok(&authorize(&fx, &id, &[]));
     by_hand(&fx, &format!("task-{id}"), "task-halted", halt("TOOL_FAILED"), false);
     ok(&fx.run(&["reject", &id, "--say", SAY]));
-}
-
-#[test]
-fn refusal_merge_in_progress_closes_by_default_until_phase_9() {
-    let fx = Fx::new("merge", "published");
-    let id = one(&fx, json!({}));
-    ok(&authorize(&fx, &id, &[]));
-    accept_by_hand(&fx, &id);
-    assert_eq!(state(&fx, &id), "accepted");
-    refused(&fx, &["reject", &id, "--say", SAY], "MERGE_IN_PROGRESS", 1, "es");
-    // A failed merge leaves the acceptance on record, and so does a revalidation that keeps the candidate.
-    let stream = format!("task-{id}");
-    by_hand(&fx, &stream, "merge-failed", json!({}), false);
-    refused(&fx, &["reject", &id, "--say", SAY], "MERGE_IN_PROGRESS", 1, "es");
-    ok(&authorize(&fx, &id, &[]));
-    refused(&fx, &["reject", &id, "--say", SAY], "MERGE_IN_PROGRESS", 1, "es");
-    // A candidate recorded after the acceptance is not the one accepted.
-    start_by_hand(&fx, &id);
-    let candidate = json!({"commit": "1".repeat(40), "tree": "2".repeat(40), "changes": []});
-    by_hand(&fx, &stream, "candidate-recorded", candidate, false);
-    by_hand(&fx, &stream, "task-halted", halt("CONFINEMENT_UNAVAILABLE"), false);
-    ok(&fx.run(&["reject", &id, "--say", SAY]));
-    assert_eq!(state(&fx, &id), "rejected");
 }
 
 // ---- The person's words for every move (PD-30 to PD-32) and the agent's environment ---------------------------------
@@ -852,8 +838,10 @@ fn pd_06_a_rejection_bound_to_another_task_or_head_does_not_replay() {
         let (_, ids) = propose(&fx, stage(json!({})), vec![task(json!({})), task(json!({"goal": "Two."}))]);
         let stream = format!("task-{}", ids[0]);
         let payload = match other_task {
-            true => json!({"task": ids[1], "head": head_of(&fx, &stream)}),
-            false => json!({"task": ids[0], "head": head_of(&fx, &format!("task-{}", ids[1]))}),
+            true => json!({"task": ids[1], "head": head_of(&fx, &stream), "candidate": null, "atCandidate": false}),
+            false => json!({
+                "task": ids[0], "head": head_of(&fx, &format!("task-{}", ids[1])), "candidate": null, "atCandidate": false,
+            }),
         };
         // Written as a process that ignores the record's rules would: the library's own replay refuses it at `finish`.
         let mut s = Session::begin(&fx.domain, None, &PolicyVerifier).unwrap();

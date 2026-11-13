@@ -4221,3 +4221,61 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   adapter's audit is tested at its own level, parts 9c and 9d); the flows and the crash suite over them (part 9i).
   `verify-part`'s memory cap (3 GB) is the maestro's to lower: on this machine with the editor open about 2 GB is
   free; the last reruns used 2 GB and `--jobserver-tasks 2` (1.8 GB killed the baseline's build).
+
+## D-086 — Part 9g: the core's ceiling at 12,000, `accept` with `--seen`, Git's output kept by write commands, a verification bound to its policy
+
+- Status: decided
+- Decided: 2026-11-13
+- Origin: maintainer XEL in session 36's chat, answering the integrator's four questions before any code: "12,000
+  (Recomendado)"; "Con --seen (Recomendado)"; "Solo escritura (Recomendado)"; "Política distinta (Recomendado)".
+- Decision:
+  1. The core's ceiling is 12,000 counted lines (`tools/budget`), measured again at each part. With part 9f the core
+     counted 10,319, leaving 681 for parts 9g to 9i against about 900 projected, before D-083 added Git's output to
+     part 9g.
+  2. `accept` takes `--seen <digest>`, as `authorize` does (D-062 point 3): `fabrewk accept <task> --seen <digest>
+     --say <words>`. `status <task>` shows what an acceptance binds, with its digest; a digest that is not the one shown
+     now is `TASK_CHANGED`, and `accept` without `--seen` is a usage error (exit 2), as for `authorize` (D-068 point 2).
+     The event carries that digest as `shown`.
+  3. D-083 applies to write commands: a Git command that fails in a write command has its standard error and its exit
+     status kept in `local/evidence/` (`0700`, `0600`), and the refusal or the event names that file. Reading commands
+     (`status`, `config`, `check`) write nothing (REQ-REG-12): their words say Git's exit status, and nothing is kept.
+  4. A verification also binds the policy it was recorded under: the evidence is stale when the policy in force is not
+     the one in force when its review was recorded, as every check's identity already makes it, now also for a task
+     with no required check (PD-12's "reviewer profile unchanged in the adopted policy"). This holds at `accept`, at
+     integration, and for `run`'s revalidation (REQ-RUN-9).
+- Reason: the size projection (R-044); the same rule for both signed bindings of REQ-GATE-7; REQ-REG-12; PD-12. The
+  alternatives offered: a ceiling of 11,500 or kept at 11,000; `accept` printing and signing in one command; reading
+  commands writing evidence, or showing Git's text; staleness only when the review profile's effective settings
+  changed, or left to the checks' identities.
+- Consequences: `tools/budget/src/budget.rs` and its tests; `plan.md`; `core-specification.md` (section 5's synopsis
+  of `accept`, the paragraph of part 9g); R-045.
+- Sources: chat of session 36; R-044 (measure); D-062, D-068, D-083; `core-specification.md` REQ-GATE-3, REQ-GATE-7,
+  REQ-GATE-8, REQ-REG-12, PD-12.
+- Supersedes: none.
+
+## D-087 — Part 9g: a precondition false before the signature refuses; `run` on an accepted task takes words it does not record
+
+- Status: decided
+- Decided: 2026-11-13
+- Origin: maintainer XEL in session 36's chat, answering the integrator's two questions before any code: "Rechazar sin
+  escribir (Recomendado)"; "Se exigen, no se graban (Recomendado)".
+- Decision:
+  1. The specification disagrees on the first of REQ-GATE-8's three points: section 4 makes `EVIDENCE_STALE` a guard of
+     `task-accepted` (a refusal, nothing written), while PD-12 and 11.2 rule 4 have a false precondition at each point
+     write `task-accepted` and `merge-failed`. Before the signature, every precondition of the integration (evidence
+     current, the base unmoved or the branch already at the candidate, the working tree clean at the touched paths, the
+     third guard on protected paths, Git's locks) refuses `accept` with its code and nothing written: nobody signs what
+     cannot integrate now. After the signature, just before the move and with the branch at the candidate, a false
+     precondition writes `task-accepted` (when the command is `accept`) and `merge-failed`, the task staying
+     `accepted`. PD-12's first point is read so.
+  2. `run <task> --say` on an `accepted` task finishes its integration under the same checks (REQ-GATE-8). Its words are
+     required and checked as for every run (the person by their key, `WORDS_MISSING`, `WORDS_COPIED`), but the command
+     writes only Fabrewk's events (`merge-failed` or `task-integrated`), since the table records no person's move from
+     `accepted` but a rejection or an authorization; the acceptance already signed carries the person's words.
+- Reason: the two texts cannot both hold; a signature over a state that cannot integrate records a decision nobody can
+  act on. The alternatives offered: signing and recording `merge-failed` at every point, as PD-12 reads literally; the
+  table's guards refusing and `task-integrated`'s recording; a new signed event that carries the words; `run` without
+  `--say` for an accepted task.
+- Consequences: `core-specification.md` (the paragraph of part 9g; PD-12's first point); R-045.
+- Sources: chat of session 36; `core-specification.md` section 4, REQ-GATE-8, 11.2 rule 4, PD-12.
+- Supersedes: none.

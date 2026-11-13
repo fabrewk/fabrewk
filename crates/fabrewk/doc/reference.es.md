@@ -12,7 +12,7 @@ Muestra la salud del registro, la política vigente y el estado de cada etapa y 
 
 Movimientos que puede causar: ninguno.
 
-Documentos con --json: `fabrewk.status/3`, `fabrewk.subject/3`
+Documentos con --json: `fabrewk.status/3`, `fabrewk.subject/4`
 
 ## `fabrewk config [<key>] [--json]`
 
@@ -252,6 +252,61 @@ Rechazos
 - `TOOL_FAILED`: Una herramienta externa falló; lo que imprimió se guarda como evidencia y nunca se muestra aquí.
 - `TOOL_MISSING`: Una herramienta que esto necesita no está en este equipo.
 
+## `fabrewk accept <task> --seen <digest> --say <words> [--say-lang <tag>] [--json]`
+
+Un maestro acepta el candidato de una tarea tal como lo mostró status, y Fabrewk lo integra en la rama del registro.
+
+- `<task>`: La tarea, por su identificador (t-…).
+- `--seen <digest>`: El digest que status imprimió de lo que leíste; si el sujeto cambió desde entonces, el movimiento se niega.
+- `--say <words>`: Tus propias palabras para esta decisión, guardadas tal cual y firmadas. Se rechazan las copiadas de un ejemplo, como «Estoy de acuerdo.».
+- `--say-lang <tag>`: La etiqueta de idioma de tus palabras; por omisión, tu languages.agentInteraction.
+- `--json`: Da la salida como un solo documento JSON con un campo schema.
+- `--help`: Muestra esta ayuda.
+
+Movimientos que puede causar: `task-accepted` (tarea aceptada), `merge-failed` (integración fallida), `task-integrated` (tarea integrada).
+
+Documentos con --json: `fabrewk.accepted/1`
+
+Rechazos
+
+- `AGENT_ENVIRONMENT`: Esto corre dentro de un agente o una extensión, cuyos marcadores están en el entorno, y solo una persona hace este movimiento. El control es cooperativo: un proceso puede limpiar su entorno.
+- `MOVE_NOT_ALLOWED`: La tabla de transiciones no permite este movimiento desde el estado del sujeto.
+- `ROLE_FORBIDDEN`: La llave que firma este movimiento no tiene en la política ningún rol que pueda hacerlo.
+- `WORDS_MISSING`: Un movimiento de persona necesita tus propias palabras, dadas con --say: no vacías y en texto UTF-8 válido.
+- `WORDS_COPIED`: Las palabras dadas son el ejemplo que imprime la ayuda, no las tuyas.
+- `TASK_CHANGED`: La tarea, o el head de su flujo, cambió después de mostrarse.
+- `EVIDENCE_STALE`: La identidad de un check ya no coincide: cambió el árbol de producto del candidato, la definición del check, la política, la versión de una herramienta nombrada o la plataforma.
+- `ALAMBIQUE_UNAPPROVED`: El alambique no es el texto que un maestro aprobó por última vez: cambió a mano, o nunca se aprobó.
+- `PROTECTED_PATH`: Los archivos permitidos, o la copia del agente, alcanzan una ruta protegida (.git o .brewstillery).
+- `PROTECTED_PATH_WILDCARD`: Un comodín entre los archivos permitidos coincide con una ruta o un nombre protegidos.
+- `LANE_VIOLATION`: La copia del agente cambia un archivo fuera de los archivos permitidos de la tarea, una ruta que no es texto válido, o deja una entrada que no es un archivo, un enlace ni un directorio.
+- `BASE_MOVED`: El producto en la punta de la rama del registro no es el que dejaron la base de la tarea o la última integración de sus dependencias.
+- `WORKTREE_DIRTY`: Un archivo que la integración escribiría no tiene, en el árbol de trabajo ni en el índice, ni el contenido de la base ni el del candidato: una edición de la persona, que nunca se sobrescribe.
+- `RECORD_ABSENT`: Aquí no hay registro.
+- `POLICY_ABSENT`: No hay una política adoptada, así que no hay configuración efectiva ni mantenedores.
+- `RECORD_BROKEN`: El registro está roto: sus archivos no forman una sola cadena sin cortes.
+- `RECORD_DIGEST_MISMATCH`: El contenido de un archivo de evento no es el que su nombre registra.
+- `RECORD_NONCANONICAL`: Un archivo de evento no está en forma canónica, así que no se puede confiar en su resumen.
+- `RECORD_FORK`: Dos eventos ocupan el mismo lugar de un flujo: dos clones escribieron ahí.
+- `RECORD_TRANSITION_INVALID`: Un evento está donde la tabla de transiciones no lo permite.
+- `ATTEMPT_ENDED`: El registro termina un intento que no está abierto.
+- `RECORD_SIGNATURE_INVALID`: El evento de una persona no está firmado con la llave y el rol que la política da a quien firma.
+- `RECORD_VERSION_UNKNOWN`: Un evento no es de un esquema que esta versión de Fabrewk conozca.
+- `RECORD_ID_COLLISION`: Dos etapas o dos tareas recibieron el mismo identificador.
+- `RECORD_ROLLBACK`: El registro perdió eventos que tenía antes: un retroceso.
+- `MARK_INVALID`: La marca del registro de este equipo (local/cache/heads.json) está dañada o nombra un evento que el registro no tiene en ese lugar.
+- `CHECK_UNKNOWN`: Una verificación no pudo correr, así que su resultado es desconocido, y un resultado desconocido nunca es un pase.
+- `DOMAIN_NOT_IGNORED`: El repositorio del producto no ignora .brewstillery/, así que un commit ahí lo publicaría.
+- `NOT_A_REPOSITORY`: Esta no es la raíz del árbol de trabajo principal del repositorio.
+- `HEAD_DETACHED`: El head de Git no nombra ninguna rama, así que no hay rama del registro.
+- `PRIVATE_FOLDER_PERMISSIONS`: La carpeta privada da acceso a alguien más que su dueño, así que Fabrewk no la lee.
+- `SETTINGS_INVALID`: Un archivo de ajustes no se lee o no valida.
+- `LOCK_HELD`: Otro comando de Fabrewk tiene el candado del registro de este repositorio, u otra tarea está en ejecución: un escritor y una ejecución a la vez.
+- `RECORD_HEAD_MOVED`: Algo escribió en el registro sin su candado mientras corría este comando; este comando no escribió nada.
+- `RECORD_COMMIT_RACE`: La rama se movió mientras Fabrewk confirmaba el registro; sus eventos están escritos pero no confirmados.
+- `TOOL_FAILED`: Una herramienta externa falló; lo que imprimió se guarda como evidencia y nunca se muestra aquí.
+- `TOOL_MISSING`: Una herramienta que esto necesita no está en este equipo.
+
 ## `fabrewk reject <task> --say <words> [--say-lang <tag>] [--json]`
 
 Un maestro rechaza una tarea y dice por qué.
@@ -264,7 +319,7 @@ Un maestro rechaza una tarea y dice por qué.
 
 Movimientos que puede causar: `task-rejected` (tarea rechazada).
 
-Documentos con --json: `fabrewk.rejected/1`
+Documentos con --json: `fabrewk.rejected/2`
 
 Rechazos
 
@@ -301,7 +356,7 @@ Rechazos
 
 ## `fabrewk run <id> --say <words> [--say-lang <tag>] [--json]`
 
-Un maestro inicia la ejecución confinada de una tarea autorizada, o de la siguiente de una etapa; esta versión aún no tiene confinamiento, así que se niega.
+Un maestro inicia la ejecución confinada de una tarea autorizada, o de la siguiente de una etapa, o termina la integración de una tarea aceptada.
 
 - `<id>`: La tarea o la etapa, por su identificador (t-… o s-…).
 - `--say <words>`: Tus propias palabras para esta decisión, guardadas tal cual y firmadas. Se rechazan las copiadas de un ejemplo, como «Estoy de acuerdo.».
@@ -309,9 +364,9 @@ Un maestro inicia la ejecución confinada de una tarea autorizada, o de la sigui
 - `--json`: Da la salida como un solo documento JSON con un campo schema.
 - `--help`: Muestra esta ayuda.
 
-Movimientos que puede causar: `run-started` (ejecución iniciada), `attempt-started` (intento iniciado), `attempt-ended` (intento terminado), `candidate-recorded` (candidato registrado), `check-recorded` (comprobación registrada), `review-recorded` (revisión registrada), `task-verified` (tarea verificada), `task-halted` (tarea detenida).
+Movimientos que puede causar: `run-started` (ejecución iniciada), `attempt-started` (intento iniciado), `attempt-ended` (intento terminado), `candidate-recorded` (candidato registrado), `check-recorded` (comprobación registrada), `review-recorded` (revisión registrada), `task-verified` (tarea verificada), `task-halted` (tarea detenida), `merge-failed` (integración fallida), `task-integrated` (tarea integrada).
 
-Documentos con --json: `fabrewk.run/1`
+Documentos con --json: `fabrewk.run/1`, `fabrewk.accepted/1`
 
 Rechazos
 
