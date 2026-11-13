@@ -323,12 +323,6 @@ pub(super) fn start(
                 }
             }
             "BASE_MOVED" => base = self::base(cx, record, stream)?,
-            "LOCK_HELD" => {
-                if let Some((n, _)) = states.iter().find(|(_, s)| **s == "running") {
-                    let why = format!("{} is running; tasks run one at a time", &n[5..]);
-                    return Err(refuse(Code::LockHeld, None, why).into());
-                }
-            }
             "REQ-RUN-2" => d = Some(prepare(cx, record, policy, stream, fresh, state(stream))?),
             "ALAMBIQUE_UNAPPROVED" if d.as_ref().is_some_and(|d: &Dispatch| d.halt.is_none()) => {
                 crate::alambique::check(record, &cx.domain)?

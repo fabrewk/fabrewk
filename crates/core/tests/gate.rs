@@ -46,6 +46,19 @@ fn refusal_evidence_stale_each_input_of_an_identity_changes_it() {
     assert_eq!(gate::platform("bubblewrap"), format!("{os}-{arch}-bubblewrap"));
 }
 
+/// A tool a check names, as its cell finds it (S-6, REQ-GATE-3): on the cell's own `PATH`, resolved, with the first
+/// line its `--version` prints; not found elsewhere, nor by a path of its own.
+#[test]
+fn a_check_s_tool_is_found_as_its_cell_finds_it() {
+    let (at, _) = fabrewk_core::detect::in_cell("/usr/bin:/bin", "sh").expect("sh is under /usr/bin");
+    assert!(at.is_absolute() && at == at.canonicalize().unwrap(), "{at:?}");
+    let (_, version) = fabrewk_core::detect::in_cell("/usr/bin:/bin", "python3").expect("python3 is under /usr/bin");
+    assert!(version.is_some_and(|v| v.starts_with("Python 3")));
+    for (path, tool) in [("/usr/bin:/bin", "no-such-tool"), ("/usr/bin", "/usr/bin/sh"), ("relative", "sh")] {
+        assert_eq!(fabrewk_core::detect::in_cell(path, tool), None, "{path} {tool}");
+    }
+}
+
 /// REQ-GATE-5: a verification holds only with every check's identity current, none more or less, and a review accept
 /// bound to the same tree and requirements' digest.
 #[test]
