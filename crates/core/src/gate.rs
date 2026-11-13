@@ -172,11 +172,11 @@ pub fn output(evidence: &Path, check: &str, outcome: &str) -> Value {
 
 /// What the last round among a task's `events` leaves for the next (REQ-RUN-8, PD-33): the confirmed findings of a
 /// review that rejected having examined, and each check that did not pass; the last round's events follow its
-/// candidate, or a revalidation's run, whichever is later.
+/// candidate, or a revalidation's run, whichever is later (that event itself carries nothing).
 pub fn previous(events: &[Event], domain: &Path) -> (Vec<Value>, Vec<Value>) {
     let start = events.iter().rposition(|e| ["candidate-recorded", "run-started"].contains(&e.kind.as_str()));
     let (mut findings, mut failed) = (Vec::new(), Vec::new());
-    for e in &events[start.map_or(0, |i| i + 1)..] {
+    for e in &events[start.unwrap_or(0)..] {
         let p = &e.value["payload"];
         match e.kind.as_str() {
             "check-recorded" if p["outcome"] != "passed" => {
