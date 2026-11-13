@@ -194,3 +194,41 @@ fn p9g_1_an_edit_after_the_reading_is_not_overwritten() {
     assert_eq!(merge::bring(&repo, &changes, &held, &scratch).unwrap_err().code(), Some(Code::WorktreeDirty));
     assert!(git(&root, &["ls-files", "-s", "README.md"]).contains(&staged));
 }
+
+/// P9G-5: an index entry that a touched path would displace (one below it, or a file above it) is the person's: the
+/// path is not clean, before the writes and when the index is read again just before its update.
+#[test]
+fn p9g_5_an_index_entry_a_touched_path_displaces_is_kept() {
+    let (root, base) = base("merge-displaced");
+    let repo = Repo { root: root.clone(), prefix: PathBuf::new() };
+    let src = tree(&root, &[("100644", "a.txt", blob(&root, "a\n"))]);
+    let c = candidate(&root, &base, &[("040000", "src", src)]);
+    let changes = changes(&root, &base, &c, &["**"]).unwrap();
+    let scratch = root.join(".brewstillery/local/tmp/merge");
+    let mine = blob(&root, "staged mine\n");
+    for entry in ["src/a.txt/other", "src"] {
+        run(&root, &["update-index", "--add", "--cacheinfo", &format!("100644,{mine},{entry}")], "");
+        let held = merge::held(&repo, &changes, &scratch).unwrap();
+        assert_eq!(
+            merge::clean(&changes, &held, true, false).unwrap_err().code(),
+            Some(Code::WorktreeDirty),
+            "{entry}"
+        );
+        run(&root, &["update-index", "--force-remove", entry], "");
+        // Staged after the reading, it is found when the index is read again.
+        let held = merge::held(&repo, &changes, &scratch).unwrap();
+        merge::clean(&changes, &held, true, false).unwrap();
+        run(&root, &["update-index", "--add", "--cacheinfo", &format!("100644,{mine},{entry}")], "");
+        assert_eq!(
+            merge::bring(&repo, &changes, &held, &scratch).unwrap_err().code(),
+            Some(Code::WorktreeDirty),
+            "{entry}"
+        );
+        assert!(git(&root, &["ls-files", "-s"]).contains(&mine), "{entry}");
+        run(&root, &["update-index", "--force-remove", entry], "");
+        for d in ["src/a.txt", "src"] {
+            let _ = fs::remove_file(root.join(d));
+            let _ = fs::remove_dir(root.join(d));
+        }
+    }
+}

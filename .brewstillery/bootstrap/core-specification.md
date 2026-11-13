@@ -1300,7 +1300,8 @@ REQ-GATE-10, REQ-REG-10, REQ-RUN-6, REQ-REG-13; S-4, S-11; D-083, D-086, D-087).
   and the lanes, `LANE_VIOLATION` and `PROTECTED_PATH_WILDCARD`, with the protected paths read now (S-4).
 - Clean: at each touched path, the index's stage-0 entry, and the working tree's entry read without stat data or filter
   (a file hashed as its bytes with its executable bit, a link's target as written; a path below a link or a file, a
-  directory, a special file or an unmerged entry being no entry), equal the base's or, with the branch at the candidate,
+  directory, a special file or an unmerged entry being no entry, and an index entry the path would displace, one below
+  it or a file above it that is no touched path, making it none either, P9G-5), equal the base's or, with the branch at the candidate,
   the candidate's. A submodule's path in the working tree is Git's own checkout and is never written but made as an
   empty directory where none is; its index entry is.
 - `task-accepted`'s payload is exactly `task`, `head` (bound as an authorization's), `candidate`, `tree` (the task's last
@@ -1326,7 +1327,7 @@ REQ-GATE-10, REQ-REG-10, REQ-RUN-6, REQ-REG-13; S-4, S-11; D-083, D-086, D-087).
   core's words, with no path of the machine), `moved` (whether the branch is at the candidate; nothing is moved back)
   and `evidence` (`null`, or when a Git command failed, whatever the code, a compare-and-swap Git refused included
   (P9G-4), exactly `status`, its exit status or `null` for a signal, and `stderr`, the digest of its standard error).
-  A failure found again by a run that finishes the integration says whether the branch is at the candidate (P9G-2). The task stays `accepted`, exit 4, and waits for a maestro (`task-merge` in the
+  `moved` is read when the failure is recorded, whoever moved the branch (P9G-2, P9G-6). The task stays `accepted`, exit 4, and waits for a maestro (`task-merge` in the
   views): `run <task> --say` finishes it under the same checks, its words checked and not recorded (D-087 point 2), or
   `authorize` returns it to `authorized` keeping its candidate. A command killed after the move leaves `task-accepted`
   written and the branch moved; the next write command commits the events, and `run` finishes the integration.

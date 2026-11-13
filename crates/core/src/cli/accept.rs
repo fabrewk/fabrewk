@@ -208,7 +208,9 @@ impl Merge {
 
     /// Records `merge-failed` for `e` (REQ-GATE-8): its code, one of an integration's, else `TOOL_FAILED`; the core's
     /// words, with no path of this machine; whether the branch is at the candidate; and what a failed Git left.
-    fn failed(&self, a: &mut Appender, out: &mut Value, e: &Error, moved: bool) -> Result<(), Error> {
+    fn failed(&self, a: &mut Appender, out: &mut Value, e: &Error) -> Result<(), Error> {
+        // Whether the branch is at the candidate now, whoever moved it (P9G-2, P9G-6).
+        let moved = self.place().is_ok_and(|p| p.1);
         let code = e.code().map(|c| c.to_string()).filter(|c| crate::task::MERGE_FAILURES.contains(&c.as_str()));
         let code = code.unwrap_or_else(|| Code::ToolFailed.to_string());
         let reason = super::run::unplaced(super::run::words(e), &self.domain, &self.home);
@@ -229,10 +231,9 @@ impl Merge {
 fn integrate(m: &Merge, a: &mut Appender, out: &mut Value) -> Result<(), Error> {
     let _ = git::take_kept();
     fault::pause("before-move");
-    // A run that finishes an integration may find the branch at the candidate already, which a failure says (P9G-2).
     let (changes, head, at) = match m.preconditions() {
         Ok(found) => found,
-        Err(e) => return m.failed(a, out, &e, m.place().is_ok_and(|p| p.1)),
+        Err(e) => return m.failed(a, out, &e),
     };
     let mut from = None;
     if !at {
@@ -249,7 +250,7 @@ fn integrate(m: &Merge, a: &mut Appender, out: &mut Value) -> Result<(), Error> 
         })();
         match moved {
             Ok(new) => a.moved(&m.product.root, &new),
-            Err(e) => return m.failed(a, out, &e, false),
+            Err(e) => return m.failed(a, out, &e),
         }
         from = Some(head);
     }
@@ -273,7 +274,7 @@ fn integrate(m: &Merge, a: &mut Appender, out: &mut Value) -> Result<(), Error> 
             out["integrated"] = json!(to);
             Ok(())
         }
-        Err(e) => m.failed(a, out, &e, true),
+        Err(e) => m.failed(a, out, &e),
     }
 }
 

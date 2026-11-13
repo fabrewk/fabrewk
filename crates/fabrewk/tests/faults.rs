@@ -923,13 +923,17 @@ fn pd_11_a_git_error_in_one_tasks_integration_is_recorded_in_that_task() {
 #[test]
 fn pd_12_a_precondition_false_just_before_the_move() {
     // `race` moves the branch between Fabrewk's read and its `update-ref`, whose compare-and-swap fails (PD-13).
-    for what in ["base", "edit", "race"] {
+    for what in ["base", "edit", "race", "race-to-candidate"] {
         let (fx, id, args) = to_accept(&format!("pd-12-before-{what}"));
         let steps = tmp(&format!("pd-12-before-{what}-steps"));
         let argv: Vec<&str> = args.iter().map(String::as_str).collect();
-        let step = if what == "race" { "before-update-ref" } else { "before-move" };
+        let step = if what.starts_with("race") { "before-update-ref" } else { "before-move" };
         let child = paused(&fx, &argv, step, &steps);
         let code = match what {
+            "race-to-candidate" => {
+                fx.git(&["cherry-pick", &fx.git(&["rev-parse", &format!("fabrewk/{id}")])]);
+                "BASE_MOVED"
+            }
             "base" | "race" => {
                 // Only the person's file: the command's events are written and not committed yet.
                 fs::write(fx.root.join("README.md"), "moved\n").unwrap();
@@ -953,11 +957,12 @@ fn pd_12_a_precondition_false_just_before_the_move() {
         );
         assert_eq!(
             (&events[n - 1]["payload"]["code"], &events[n - 1]["payload"]["moved"]),
-            (&json!(code), &json!(false))
+            (&json!(code), &json!(what == "race-to-candidate"))
         );
         assert_eq!(product(&fx), before, "{what}: nothing moved");
         // The compare-and-swap Git refused keeps Git's output as evidence, as every failed Git does (P9G-4).
-        if what == "race" {
+        // A branch someone else brought to the candidate meanwhile is at it, which the failure says (P9G-6).
+        if what.starts_with("race") {
             let p = &events[n - 1]["payload"];
             assert!(p["evidence"]["stderr"].is_string(), "{p}");
             let kept = p["reason"].as_str().unwrap().split("kept in ").nth(1).unwrap().to_owned();
@@ -967,6 +972,7 @@ fn pd_12_a_precondition_false_just_before_the_move() {
         match what {
             // The person's commit, under the record commit the failure made.
             "base" | "race" => fx.git(&["revert", "--no-edit", "HEAD~1"]),
+            "race-to-candidate" => String::new(),
             _ => {
                 fs::remove_file(fx.root.join("src/new.txt")).unwrap();
                 String::new()
@@ -1074,4 +1080,19 @@ fn p9g_3_a_failed_git_read_is_no_absence() {
         assert!(e["detail"].as_str().unwrap().contains("Git's output is kept in"), "{fault}: {e}");
     }
     assert_eq!(fx.run(&["adopt", "--say", SAY]).status, 0);
+}
+
+/// P9G-6: a branch moved away from the candidate after Fabrewk's move is no longer at it, which the failure says.
+#[test]
+fn p9g_6_a_branch_moved_away_after_the_move_is_not_at_the_candidate() {
+    let (fx, id, args) = to_accept("p9g-6");
+    let steps = tmp("p9g-6-steps");
+    let argv: Vec<&str> = args.iter().map(String::as_str).collect();
+    let child = paused(&fx, &argv, "after-move", &steps);
+    fs::write(fx.root.join("README.md"), "moved\n").unwrap();
+    fx.git(&["commit", "-q", "-m", "a person's change", "README.md"]);
+    let ran = resume(child, "after-move", &steps);
+    assert_eq!(ran.status, 4, "{ran:?}");
+    let failed = last_of(&fx, &id);
+    assert_eq!((&failed["payload"]["code"], &failed["payload"]["moved"]), (&json!("BASE_MOVED"), &json!(false)));
 }

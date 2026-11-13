@@ -153,7 +153,21 @@ pub fn held(repo: &Repo, changes: &[Change], scratch: &Path) -> Result<Vec<(Held
             work[i] = Held::Entry(Entry { mode, oid: oid.to_owned() });
         }
     }
-    let index = changes.iter().map(|c| index.get(c.path.as_bytes()).cloned().unwrap_or(Held::Absent));
+    // An entry the path would displace in the index, one below it or a file above it that is no touched path, is the
+    // person's: the path holds no entry of the base's or the candidate's (P9G-5).
+    let displaced = |p: &str| {
+        let below = format!("{p}/");
+        let under = index.range(below.as_bytes()..).next().is_some_and(|(k, _)| k.starts_with(below.as_bytes()));
+        let parts: Vec<&str> = p.split('/').collect();
+        let over = (1..parts.len()).map(|n| parts[..n].join("/")).any(|a| index.contains_key(a.as_bytes()));
+        let touched_under = touched.iter().any(|t| t.starts_with(&below));
+        (under && !touched_under)
+            || (over && !(1..parts.len()).any(|n| touched.contains(parts[..n].join("/").as_str())))
+    };
+    let index = changes.iter().map(|c| match displaced(&c.path) {
+        true => Held::Other,
+        false => index.get(c.path.as_bytes()).cloned().unwrap_or(Held::Absent),
+    });
     Ok(index.zip(work).collect())
 }
 
