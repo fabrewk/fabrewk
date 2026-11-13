@@ -244,15 +244,7 @@ fn authorize_run_and_run_of_a_stage_run_at_once() {
     assert_eq!(events[2]["payload"]["authorization"]["seq"], 2);
     assert_eq!(events[2]["say"], events[1]["say"]);
     // Halted, `authorize --run` again: the run relies on the authorization it writes, not the earlier one.
-    let ran = fx.run(&[
-        "authorize",
-        &id,
-        "--seen",
-        &fx.run(&["status", &id, "--json"]).doc()["shown"]["digest"].as_str().unwrap().to_owned(),
-        "--say",
-        SAY,
-        "--run",
-    ]);
+    let ran = authorize(&fx, &id, &["--run"]);
     assert_eq!(ran.status, 4, "{ran:?}");
     let events = fx.events(&stream(&id));
     let at = events.iter().rposition(|e| e["kind"] == "task-authorized").unwrap();
