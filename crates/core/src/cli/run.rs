@@ -41,7 +41,9 @@ pub(super) fn open_attempt(events: &[Event]) -> Option<u64> {
 fn in_force(record: &Replay, stream: &str) -> Option<(Value, usize)> {
     let events = &record.streams[stream];
     let name = |e: &Event| json!({"stream": e.stream, "seq": e.seq, "digest": e.digest});
-    let own = events.iter().rposition(|e| e.kind == "task-authorized").map(|i| (name(&events[i]), i + 1));
+    // Its limits count from the events after it, the first of which is at its own place.
+    let own = events.iter().rfind(|e| e.kind == "task-authorized");
+    let own = own.map(|e| (name(e), usize::try_from(e.seq).unwrap_or(usize::MAX)));
     let stage = format!("stage-{}", events[0].value["payload"]["stage"].as_str().unwrap_or_default());
     let binds = |e: &Event| {
         let tasks = e.value["payload"]["tasks"].as_array()?;

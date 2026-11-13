@@ -247,7 +247,7 @@ fn task(record: &Replay, (name, events): (&String, &Vec<Event>), covers: &Covers
             if attempt.is_none_or(|a| Some(a) != open) {
                 let code = match attempt {
                     Some(a) if started.contains(&a) && started.last() > Some(&a) => Code::AttemptReplaced,
-                    Some(a) if started.contains(&a) => Code::AttemptEnded,
+                    // An attempt started and not replaced, while one is open, is the open one: none is open here.
                     _ if open.is_none() => Code::AttemptEnded,
                     _ => Code::RecordTransitionInvalid,
                 };
