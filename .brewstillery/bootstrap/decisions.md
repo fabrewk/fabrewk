@@ -4144,3 +4144,80 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Consequences: `core-specification.md` ("as part 9f fixed it"); R-044.
 - Sources: chat of session 35; `confinement-design.md` 3.4 and 3.7; `core-specification.md` REQ-RUN-3, REQ-GATE-2,
   REQ-GATE-6; D-082.
+
+## R-044 — Session 35, part 9f: checks, review and verification
+
+- Status: recorded
+- Date: 2026-11-13
+- Who: integrator Claude Code, `claude-opus-5-5`, effort high (D-078). Reviewer: Codex `codex-cli 0.166.0`,
+  `gpt-6.1-sol`, effort high, launched as the `codex-review` skill says.
+- Start: HEAD `91b00b3`, tree clean. The session spanned two days and a restart of the machine after a system
+  out-of-memory (below); nothing in the repository was lost.
+- Read: `STATUS.md`, `AGENTS.md`, `plan.md`, `confinement-design.md` 3.4, 3.7 and 3.8, `core-specification.md`
+  (TASK-5, RUN-2, RUN-3, RUN-5, RUN-8, RUN-9, GATE-1 to GATE-6, GATE-10, section 4, 11.3 and 11.4's cases of the part,
+  12's criteria, the 9a to 9e paragraphs), this file (D-082 to D-084, R-041 to R-043); the skills `verify-part`,
+  `codex-review` and `differential-review`; the code of `cli/` (`run.rs`, `tasks.rs`, `write.rs`, `decl.rs`,
+  `status.rs`), `adapter.rs`, `confine.rs`, `candidate.rs`, `detect.rs`, `table.rs`, `task.rs`, `code.rs`,
+  `record/fault.rs`, both adapters' audits, and their tests. No credential of the person's was read.
+- Decided by the maestro in this session: D-085.
+- Written: `crates/core/src/gate.rs` (new: the required checks, a check's identity, cell and outcome, whether a
+  verification holds, the rounds and their measure, what a round leaves for the next); `cli/run.rs` (the rounds: the
+  limit, the builder on the last candidate, the checks, the reviewer, `NO_PROGRESS`, `task-verified`, revalidation, the
+  provider's rule; the run's guard `LOCK_HELD` that read a task left `running`, unreachable under the lock, removed);
+  `cli/write.rs` (`next`; a recovery removing the stopped run's checks' directories); `cli/tasks.rs` (`authorize --run`
+  naming `review.differentProvider`); `cli/decl.rs`, `cli/status.rs` (`status.limited`); `task.rs` (the three payloads,
+  `definition`); `code.rs` and both catalogues (`EVIDENCE_STALE`, `NO_PROGRESS`, `PROVIDER_MISSING`,
+  `REVIEW_UNEXAMINED`, `ROUNDS_EXHAUSTED`, the run's words); `detect.rs` (`in_cell`); `adapter.rs` (`CELL_ENV`);
+  `record/fault.rs` (`FABREWK_FAULT_PLATFORM`, which no test uses yet: part 9g's `EVIDENCE_STALE` through the flow
+  may); the tests of the core and the binary, with `crates/core/tests/gate.rs` (new) and a fake reviewer in the
+  binary's fixture; the reference documentation regenerated; the paragraph "Checks, review and verification, as part
+  9f fixed them" in `core-specification.md`; `plan.md`; `STATUS.md`; D-085 and this entry.
+- Interpretations the maestro may want to read (each in the new paragraph):
+  1. A failed check counts one confirmed blocking finding in the round's measure and ends the round with no
+     reviewer; `NO_PROGRESS` is evaluated at a round's end with findings, before the round limit of the next.
+  2. The rounds and their counts are those since the authorization in force, as D-082 counts the other limits; a
+     revalidation's first round dispatches no builder and counts.
+  3. A review whose audit counted no examination is `REVIEW_UNEXAMINED` whatever its verdict, and is recorded; a
+     stream the audit voided records no review.
+  4. Only an authorization naming `--widen review.differentProvider` lets a run go on with the reviewer's provider
+     the builder's; a layer that sets the key does not (P9F-1).
+  5. A stage's check that the policy adopted after it defines otherwise is `CHECK_DUPLICATE` at the run (P9F-2).
+  6. Since the table halts no `verified` task, what would halt it before the lock refuses instead, nothing written;
+     under the lock its `run-started` is written before the confinement guard.
+  7. A check's tool must resolve on the cell's own `PATH` (`/usr/bin:/bin`); its version is the first line its
+     `--version` prints, `null` when none, and both enter the identity.
+  8. The previous round read from the record is the events after the last candidate or `run-started`; a failed
+     check carries the last 4,000 characters of each channel, read as UTF-8 with replacements.
+- Codex, two passes, confirmed blocking findings by pass: 2, 0.
+  1. Pass 1 (`e88105d`): P9F-1 (`authorize --run` took a layer's `review.differentProvider` as the authorization's
+     naming), P9F-2 (a stage's check later defined otherwise by the policy run with the stage's definition). Both
+     corrected (`a5028cd`), each new test failing without its correction.
+  2. Pass 2 (`a5028cd`): both closed, nothing new: **accept**.
+  Found and corrected by the integrator's own review before the first pass: a halt from `verified` the table refuses
+  (now `run-started` first), and a recovery that removed an earlier run's checks' directories (now only those after
+  the stopped run's `run-started`). Codex's sandbox cannot run `bwrap`, `pasta` or bind sockets; those tests ran on
+  this machine.
+- Mutation, with `--features fabrewk-core/fault-injection`, `--test-workspace true`, `ulimit -v 1600000`, in its own
+  user scope, over the part's diff (`a5028cd`, `-j 2`, `--timeout 180`): 248 mutants in 2 hours, 60 caught, 159
+  unviable, 27 timed out, 2 missed. Under two jobs a passing suite took 174 s, so a timeout there did not show a
+  loop: the 27 and the 2 were run again alone (`-j 1`, `--timeout 400`): 18 caught, 2 missed (a check's tool never
+  found, the unreachable guard), and 9 whose linker the scope's memory killed (`ld` signal 9), counted as none. The
+  machine then ran out of memory and was restarted: the scope's 3 GB cap was above what the desktop left free (2 GB).
+  The 2 missed were tested or removed (`31e0f5f`), with `platform` made empty, missed in the first run, tested
+  (`2a40fdf`). The 9 and `in_cell` run again (2 GB, `--jobserver-tasks 2`, no debug information, which tests the
+  same code): 9 caught, 1 missed (`previous` reading from the round's own event, which carries nothing: the code
+  simplified so the mutant no longer exists, `5428a62`); the run over that change: 4 mutants, 4 caught. None declared
+  equivalent.
+- Clean clone of `5428a62`: 584 tests (10 ignored: the real tools' and a kept stream's), `crash` 3 and `faults` 23
+  green, the musl build, `budget check` (the core 10,319 of 11,000, the backend 278 of 400, Claude Code's adapter 269
+  of 600, Codex's 319 of 600, 5 direct runtime crates, 31 in the release build, the binary 2,822,504 bytes), clippy
+  with and without `fault-injection`, fmt and `cargo deny` clean; `--version --json` lists no feature. Each step ran in
+  a user scope capped at 2.3 GB with two build jobs.
+- Measured: the core +568 (projected 550); the backend and both adapters unchanged. Left for parts 9g to 9i: 681
+  lines against about 900 projected (`confinement-design.md` section 7): the ceiling is the maestro's to measure again
+  before part 9g (`AGENTS.md` "Code").
+- Not done: `accept` and integration, `EVIDENCE_STALE` refused at both and REQ-GATE-10's recomputation before the
+  move (part 9g); Git's own output kept as evidence (part 9g, D-083); a Codex fake through the whole flow (each
+  adapter's audit is tested at its own level, parts 9c and 9d); the flows and the crash suite over them (part 9i).
+  `verify-part`'s memory cap (3 GB) is the maestro's to lower: on this machine with the editor open about 2 GB is
+  free; the last reruns used 2 GB and `--jobserver-tasks 2` (1.8 GB killed the baseline's build).
