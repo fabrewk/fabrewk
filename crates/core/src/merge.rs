@@ -98,15 +98,20 @@ pub fn held(repo: &Repo, changes: &[Change], scratch: &Path) -> Result<Vec<(Held
         index.entry(r.get(tab + 1..).unwrap_or_default()).and_modify(|h| *h = Held::Other).or_insert(held);
     }
     fs::create_dir_all(scratch).map_err(io_at(scratch))?;
+    // A file and a directory may trade places: a path below a touched one that is not a directory holds nothing, and
+    // a directory at a touched path above others holds no entry of its own; each of those paths is read on its own.
+    let touched: std::collections::BTreeSet<&str> = changes.iter().map(|c| c.path.as_str()).collect();
+    let above = |p: &str| touched.iter().any(|t| t.strip_prefix(p).is_some_and(|r| r.starts_with('/')));
     let (mut work, mut hash, mut modes) = (Vec::new(), Vec::new(), Vec::new());
     for (i, c) in changes.iter().enumerate() {
         let parts: Vec<&str> = c.path.split('/').collect();
         let mut at = repo.root.clone();
         let mut held = None;
-        for p in &parts[..parts.len() - 1] {
+        for (n, p) in parts[..parts.len() - 1].iter().enumerate() {
             at.push(p);
             match fs::symlink_metadata(&at) {
                 Ok(m) if m.is_dir() => {}
+                Ok(_) if touched.contains(parts[..=n].join("/").as_str()) => held = Some(Held::Absent),
                 Ok(_) => held = Some(Held::Other),
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => held = Some(Held::Absent),
                 Err(e) => return Err(io_at(&at)(e)),
@@ -134,6 +139,7 @@ pub fn held(repo: &Repo, changes: &[Change], scratch: &Path) -> Result<Vec<(Held
                     modes.push((i, Mode::Link));
                     Held::Other
                 }
+                Ok(m) if m.is_dir() && above(&c.path) => Held::Absent,
                 Ok(_) => Held::Other,
             },
         };
@@ -171,14 +177,10 @@ pub fn clean(changes: &[Change], held: &[(Held, Held)], base: bool, candidate: b
 /// its only parent `head`, its message the candidate's with a `Fabrewk-Candidate` trailer; its product tree must be
 /// the candidate's.
 pub fn commit(repo: &Repo, head: &str, candidate: &str, changes: &[Change], index: &Path) -> Result<String, Error> {
-    let zero = "0".repeat(head.len());
-    let info: String = changes
-        .iter()
-        .map(|c| match &c.after {
-            None => format!("0 {zero}\t{}\0", c.path),
-            Some(e) => format!("{} {}\t{}\0", e.mode.git(), e.oid, c.path),
-        })
-        .collect();
+    let info = index_info(
+        &changes.iter().collect::<Vec<_>>(),
+        changes.first().and_then(|c| c.before.as_ref().or(c.after.as_ref())),
+    );
     let _ = fs::remove_file(index);
     let made = (|| {
         git::git(repo, &os(&["read-tree", head]), b"", Some(index))?;
@@ -200,6 +202,17 @@ pub fn commit(repo: &Repo, head: &str, candidate: &str, changes: &[Change], inde
         ));
     }
     Ok(commit)
+}
+
+/// What `update-index --index-info` reads to make `changes`: removals first, so that a file and a directory may trade
+/// places, each removal named by the zero object of the repository's length, which `sample` shows.
+fn index_info(changes: &[&Change], sample: Option<&Entry>) -> String {
+    let zero = "0".repeat(sample.map_or(40, |e| e.oid.len()));
+    let (gone, new): (Vec<&&Change>, Vec<&&Change>) = changes.iter().partition(|c| c.after.is_none());
+    let gone = gone.into_iter().map(|c| format!("0 {zero}\t{}\0", c.path));
+    let new =
+        new.into_iter().filter_map(|c| c.after.as_ref().map(|e| format!("{} {}\t{}\0", e.mode.git(), e.oid, c.path)));
+    gone.chain(new).collect()
 }
 
 /// Moves `branch` from `old` to `new` by one compare-and-swap (REQ-GATE-8); a branch another Git moved meanwhile is
@@ -269,15 +282,8 @@ pub fn bring(repo: &Repo, changes: &[Change], held: &[(Held, Held)], scratch: &P
         crate::record::fault::point();
         fs::rename(&tmp, &at).map_err(io_at(&at))?;
     }
-    let zero = |e: &Option<Entry>| e.as_ref().map_or(40, |e| e.oid.len());
-    let info: String = todo
-        .iter()
-        .filter(|(c, (i, _))| !i.is(&c.after))
-        .map(|(c, _)| match &c.after {
-            None => format!("0 {}\t{}\0", "0".repeat(zero(&c.before)), c.path),
-            Some(e) => format!("{} {}\t{}\0", e.mode.git(), e.oid, c.path),
-        })
-        .collect();
+    let pending: Vec<&Change> = todo.iter().filter(|(c, (i, _))| !i.is(&c.after)).map(|t| t.0).collect();
+    let info = index_info(&pending, changes.first().and_then(|c| c.before.as_ref().or(c.after.as_ref())));
     if !info.is_empty() {
         crate::record::fault::point();
         git::git(repo, &os(&["update-index", "-z", "--index-info"]), info.as_bytes(), None)?;

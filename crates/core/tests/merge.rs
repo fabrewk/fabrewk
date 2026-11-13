@@ -150,3 +150,25 @@ fn req_gate_8_the_touched_paths_are_clean_then_brought_to_the_candidate() {
     let tree = run(&root, &["rev-parse", &format!("{c}^{{tree}}")], "");
     assert_eq!(run(&root, &["write-tree"], ""), tree, "the index holds the candidate's tree");
 }
+
+/// A file that becomes a directory, and a directory that becomes a file: each side's paths are clean at the base,
+/// brought to the candidate, and clean at the candidate; the index follows.
+#[test]
+fn req_gate_8_a_file_and_a_directory_trade_places() {
+    let (root, base) = base("merge-trade");
+    let repo = Repo { root: root.clone(), prefix: PathBuf::new() };
+    // `README.md` (a file) becomes a directory holding `inner`; `old` (a directory) becomes a file.
+    let readme = tree(&root, &[("100644", "inner", blob(&root, "in\n"))]);
+    let c = candidate(&root, &base, &[("040000", "README.md", readme), ("100644", "old", blob(&root, "now a file\n"))]);
+    let changes = changes(&root, &base, &c, &["**"]).unwrap();
+    assert_eq!(changes.len(), 4, "{changes:?}");
+    let scratch = root.join(".brewstillery/local/tmp/merge");
+    let held = merge::held(&repo, &changes, &scratch).unwrap();
+    merge::clean(&changes, &held, true, false).unwrap();
+    merge::bring(&repo, &changes, &held, &scratch).unwrap();
+    merge::clean(&changes, &merge::held(&repo, &changes, &scratch).unwrap(), false, true).unwrap();
+    assert_eq!(fs::read(root.join("README.md/inner")).unwrap(), b"in\n");
+    assert_eq!(fs::read(root.join("old")).unwrap(), b"now a file\n");
+    let tree = run(&root, &["rev-parse", &format!("{c}^{{tree}}")], "");
+    assert_eq!(run(&root, &["write-tree"], ""), tree);
+}
