@@ -86,13 +86,23 @@ pub(crate) fn minute() -> u64 {
 
 /// Whether the Git command of `args` must fail, as Git fails on an option it does not know: with the feature, when its
 /// words joined by spaces hold the text `FABREWK_FAULT_GIT` names (part 9g). Always false without the feature.
+/// Once such a command has failed, `FABREWK_FAULT_GIT_THEN` names a second text whose commands fail from then on.
 #[inline]
 pub(crate) fn git(args: &[&std::ffi::OsStr]) -> bool {
     #[cfg(feature = "fault-injection")]
-    if let Ok(text) = std::env::var("FABREWK_FAULT_GIT") {
+    {
+        static FIRED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
         let words: Vec<_> = args.iter().map(|a| a.to_string_lossy()).collect();
-        return !text.is_empty() && words.join(" ").contains(&text);
+        let holds = |var: &str| std::env::var(var).is_ok_and(|t| !t.is_empty() && words.join(" ").contains(&t));
+        if holds("FABREWK_FAULT_GIT") {
+            FIRED.store(true, std::sync::atomic::Ordering::SeqCst);
+            return true;
+        }
+        FIRED.load(std::sync::atomic::Ordering::SeqCst) && holds("FABREWK_FAULT_GIT_THEN")
     }
-    let _ = args;
-    false
+    #[cfg(not(feature = "fault-injection"))]
+    {
+        let _ = args;
+        false
+    }
 }

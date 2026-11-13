@@ -158,14 +158,20 @@ impl Merge {
     /// when it is neither the candidate's nor the base's.
     fn place(&self) -> Result<(String, bool), Error> {
         let moved = |why: &str| refuse(Code::BaseMoved, None, why.to_owned());
-        let head =
-            git::head_of(&self.product, &self.branch)?.ok_or_else(|| moved("the record branch has no commit"))?;
-        let now = product_tree(&self.product, &head)?;
-        let at = now == product_tree(&self.product, &self.candidate)?;
+        let (head, now, at) = self.at()?;
+        let head = head.ok_or_else(|| moved("the record branch has no commit"))?;
         if !at && now != product_tree(&self.product, &self.base)? {
             return Err(moved("the product at the record branch's head is neither the task's base nor its candidate"));
         }
         Ok((head, at))
+    }
+
+    /// The record branch's head, if any, its product tree, and whether that is the candidate's.
+    fn at(&self) -> Result<(Option<String>, Vec<u8>, bool), Error> {
+        let Some(head) = git::head_of(&self.product, &self.branch)? else { return Ok((None, Vec::new(), false)) };
+        let now = product_tree(&self.product, &head)?;
+        let at = now == product_tree(&self.product, &self.candidate)?;
+        Ok((Some(head), now, at))
     }
 
     fn scratch(&self) -> PathBuf {
@@ -209,12 +215,20 @@ impl Merge {
     /// Records `merge-failed` for `e` (REQ-GATE-8): its code, one of an integration's, else `TOOL_FAILED`; the core's
     /// words, with no path of this machine; whether the branch is at the candidate; and what a failed Git left.
     fn failed(&self, a: &mut Appender, out: &mut Value, e: &Error) -> Result<(), Error> {
-        // Whether the branch is at the candidate now, whoever moved it (P9G-2, P9G-6).
-        let moved = self.place().is_ok_and(|p| p.1);
+        // What the failure's own Git left, taken before anything else runs Git (P9G-8).
+        let kept = git::take_kept();
         let code = e.code().map(|c| c.to_string()).filter(|c| crate::task::MERGE_FAILURES.contains(&c.as_str()));
         let code = code.unwrap_or_else(|| Code::ToolFailed.to_string());
-        let reason = super::run::unplaced(super::run::words(e), &self.domain, &self.home);
-        let kept = git::take_kept();
+        let mut words = super::run::words(e);
+        // Whether the branch is at the candidate now, whoever moved it (P9G-2, P9G-6); unknown when it cannot be read.
+        let moved = match self.at() {
+            Ok((_, _, at)) => json!(at),
+            Err(place) => {
+                words += &format!("; where the record branch is could not be read: {}", super::run::words(&place));
+                Value::Null
+            }
+        };
+        let reason = super::run::unplaced(words, &self.domain, &self.home);
         let evidence = kept.map(|k| json!({"status": k.status, "stderr": k.stderr}));
         let payload = json!({"code": code, "reason": reason, "moved": moved, "evidence": evidence});
         a.fabrewk(&self.stream, "merge-failed", payload)?;
@@ -385,7 +399,12 @@ pub(super) fn report(cx: &Cx, accepted: bool, written: &write::Written) -> Out {
         let s = |k: &str| f[k].as_str().unwrap_or_default().to_owned();
         text += &(cx.t("accept.failed", &[("id", id), ("code", &s("code"))]) + "\n");
         text += &format!("  {}: {}\n", cx.t("ui.detail", &[]), verbatim(&s("reason"), "    "));
-        text += &format!("  {}\n", cx.t(if f["moved"] == true { "accept.moved" } else { "accept.unmoved" }, &[]));
+        let place = match &f["moved"] {
+            Value::Bool(true) => "accept.moved",
+            Value::Bool(false) => "accept.unmoved",
+            _ => "accept.unknown",
+        };
+        text += &format!("  {}\n", cx.t(place, &[]));
         exit = super::WAITING;
     }
     let mut doc =

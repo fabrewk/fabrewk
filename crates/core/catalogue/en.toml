@@ -215,6 +215,7 @@ integrated = "Integrated the task {id}: the record branch is at {commit}."
 failed = "The integration of the task {id} failed with {code} and waits for a person: a maestro runs the task again, which finishes it, authorizes it again or rejects it."
 moved = "The record branch is at the candidate; nothing was moved back."
 unmoved = "The record branch, the index and the working tree are as they were."
+unknown = "Where the record branch is could not be read: see the detail."
 
 [close]
 about = "What close reports"

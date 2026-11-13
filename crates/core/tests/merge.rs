@@ -232,3 +232,25 @@ fn p9g_5_an_index_entry_a_touched_path_displaces_is_kept() {
         }
     }
 }
+
+/// P9G-7: an index entry below a touched path that is itself no touched path is the person's, though another entry
+/// below that path is touched.
+#[test]
+fn p9g_7_a_touched_entry_below_hides_no_other() {
+    let (root, base) = base("merge-mixed");
+    let repo = Repo { root: root.clone(), prefix: PathBuf::new() };
+    // The base holds `old/old.txt`; the candidate removes it and adds the file `old`.
+    let t = run(&root, &["rev-parse", &format!("{base}^{{tree}}")], "");
+    let kept: String =
+        git(&root, &["ls-tree", &t]).lines().filter(|l| !l.ends_with("\told")).map(|l| format!("{l}\n")).collect();
+    let mut kept = kept;
+    kept += &format!("100644 blob {}\told\n", blob(&root, "a file\n"));
+    let t = run(&root, &["mktree"], &kept);
+    let c = run(&root, &["commit-tree", &t, "-p", &base, "-m", "candidate"], "");
+    let changes = changes(&root, &base, &c, &["**"]).unwrap();
+    let scratch = root.join(".brewstillery/local/tmp/merge");
+    let mine = blob(&root, "staged mine\n");
+    run(&root, &["update-index", "--add", "--cacheinfo", &format!("100644,{mine},old/other")], "");
+    let held = merge::held(&repo, &changes, &scratch).unwrap();
+    assert_eq!(merge::clean(&changes, &held, true, false).unwrap_err().code(), Some(Code::WorktreeDirty));
+}

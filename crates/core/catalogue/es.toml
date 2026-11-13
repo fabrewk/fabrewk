@@ -188,6 +188,7 @@ integrated = "Se integró la tarea {id}: la rama del registro está en {commit}.
 failed = "La integración de la tarea {id} falló con {code} y espera a una persona: un maestro corre la tarea otra vez, lo que la termina, la autoriza otra vez o la rechaza."
 moved = "La rama del registro está en el candidato; no se deshizo nada."
 unmoved = "La rama del registro, el índice y el árbol de trabajo están como estaban."
+unknown = "No se pudo leer dónde está la rama del registro: consulta el detalle."
 
 [close]
 done = "Se cerró la etapa {id}: es definitivo."

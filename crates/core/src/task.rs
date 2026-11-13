@@ -118,7 +118,7 @@ pub const MERGE_FAILURES: [&str; 7] = [
 const MERGE_FAILED: T = T::Obj(&[
     ("code", T::One(&MERGE_FAILURES)),
     ("reason", T::Text),
-    ("moved", T::Bool),
+    ("moved", T::Nullable(&T::Bool)),
     ("evidence", T::Nullable(&T::Obj(&[("status", T::Nullable(&T::Nat)), ("stderr", T::Hex(64))]))),
 ]);
 const TASK_INTEGRATED: T = T::Obj(&[("from", T::Nullable(&T::Commit)), ("to", T::Commit)]);

@@ -1096,3 +1096,27 @@ fn p9g_6_a_branch_moved_away_after_the_move_is_not_at_the_candidate() {
     let failed = last_of(&fx, &id);
     assert_eq!((&failed["payload"]["code"], &failed["payload"]["moved"]), (&json!("BASE_MOVED"), &json!(false)));
 }
+
+/// P9G-8: a failure after the move whose recording cannot read where the branch is (a second Git failing) keeps the
+/// first failure's evidence, the one its reason names, and says the branch's place is unknown (`moved` null), naming the
+/// second's evidence too.
+#[test]
+fn p9g_8_the_evidence_recorded_is_the_failures_own() {
+    // `unpublished`: the head is the base, so that the first index update is the person's, after the move.
+    let fx = Fx::builder("p9g-8", "unpublished", &format!("{WRITES}{SUCCESS}"));
+    let id = verified_task(&fx, json!({}), json!({}));
+    let args = ["accept", &id, "--seen", &accepting(&fx, &id), "--say", SAY];
+    let env =
+        [("FABREWK_FAULT_GIT", "update-index -z --index-info"), ("FABREWK_FAULT_GIT_THEN", "ls-tree -z --full-tree")];
+    let ran = fx.run_env(&args, &env);
+    assert_eq!(ran.status, 4, "{ran:?}");
+    let failed = last_of(&fx, &id);
+    let p = &failed["payload"];
+    assert_eq!((&p["code"], &p["moved"]), (&json!("TOOL_FAILED"), &Value::Null), "{failed}");
+    let reason = p["reason"].as_str().unwrap();
+    let dirs: Vec<&str> = reason.split("kept in ").skip(1).map(|r| r.split([';', ' ']).next().unwrap()).collect();
+    assert_eq!(dirs.len(), 2, "{reason}");
+    assert!(reason.contains("git update-index"), "{reason}");
+    assert_eq!(p["evidence"]["stderr"], sha256_hex(&fs::read(fx.root.join(dirs[0]).join("stderr")).unwrap()));
+    assert_eq!(p["evidence"]["status"], 129);
+}
