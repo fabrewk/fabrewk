@@ -12,6 +12,7 @@ pub mod confine;
 pub mod detect;
 pub mod domain;
 pub mod fermento;
+pub mod gate;
 pub mod identity;
 pub mod machine;
 pub mod record;

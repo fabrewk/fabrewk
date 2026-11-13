@@ -64,6 +64,16 @@ pub(crate) fn pause(name: &str) {
     let _ = name;
 }
 
+/// The platform a check's identity holds (REQ-GATE-3): `real`, or with the feature what `FABREWK_FAULT_PLATFORM`
+/// names, so that a test can change it (part 9f).
+pub(crate) fn platform(real: String) -> String {
+    #[cfg(feature = "fault-injection")]
+    if let Ok(p) = std::env::var("FABREWK_FAULT_PLATFORM") {
+        return p;
+    }
+    real
+}
+
 /// The seconds of a minute of a limit: sixty, or with the feature those `FABREWK_FAULT_MINUTE` names, so that a test
 /// can spend a task's minutes in seconds (part 9e).
 pub(crate) fn minute() -> u64 {

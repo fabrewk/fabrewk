@@ -143,6 +143,13 @@ fn search(path: Option<&OsStr>, executable: &str) -> Option<PathBuf> {
     std::env::split_paths(path?).filter(|d| d.is_absolute()).map(|d| d.join(executable)).find(|p| is_executable(p))
 }
 
+/// A tool a check names, as its cell finds it on `path`, the cell's own: where it resolves and the first line its
+/// `--version` prints (REQ-GATE-3); `None` when the cell would not find it.
+pub fn in_cell(path: &str, executable: &str) -> Option<(PathBuf, Option<String>)> {
+    let found = search(Some(OsStr::new(path)), executable)?;
+    Some((found.canonicalize().ok()?, version(&found, &["--version"])))
+}
+
 /// The first line of what `args` print, when they succeed; the program reads nothing.
 fn version(path: &Path, args: &[&str]) -> Option<String> {
     if args.is_empty() {

@@ -1196,6 +1196,80 @@ to REQ-RUN-7, REQ-RUN-10, REQ-TASK-3, REQ-TASK-5, REQ-CLI-3; S-5, S-6; D-079, D-
 - `run`'s document is `fabrewk.run/1` (`id`, `attempt`, `candidate`, `halt`, and the events and commit written);
   `authorize`'s is `fabrewk.authorized/2`, with `run`, `null` or the run's document. Exit status 4 is the run's halt.
 
+**Checks, review and verification, as part 9f fixed them (`confinement-design.md` 3.4 and 3.8; REQ-GATE-1 to REQ-GATE-6,
+REQ-RUN-8, REQ-RUN-9, REQ-TASK-5; D-085).**
+
+- The library is `crates/core/src/gate.rs` (the required checks, a check's identity, its cell and outcome, whether a
+  verification holds, the rounds and their progress measure, what a round leaves for the next); the rounds are
+  `crates/core/src/cli/run.rs`'s. Part 9f replaces D-082's halt on a candidate: a run goes on to the checks and the
+  review, round after round, until a round verifies the task or a halt stops it, all under the lock the run holds.
+- REQ-RUN-3, as D-085 amended it: a building round on a task that has a candidate (after a review's reject, a failed
+  check, or an authorization that followed either) exports the task's last candidate into its copy, so that the builder
+  corrects rather than rebuilds; the change set is still computed against the base and the new candidate's parent is
+  still the base.
+- A round: the round limit first (the task's `limits.rounds`, counted since the authorization in force as D-082 counts
+  the other limits; `ROUNDS_EXHAUSTED`); then the builder's attempt, but in a revalidation's first round; each
+  required check on a fresh export of the candidate; and, once every one passed, the reviewer's attempt on another fresh
+  export. A check that does not pass ends the round with no reviewer, one confirmed blocking finding each; a reject ends
+  it with its own; an examined accept verifies the task (`task-verified`, exit 0). At a round's end with findings,
+  `NO_PROGRESS` is evaluated first, over the counts of the rounds since the authorization in force: the last not below
+  the one before it, nor that one below the one before it; then the next round starts with no person's move (PD-33),
+  carrying the previous round's confirmed findings and the checks that did not pass. Both roles' packets carry it.
+- The required checks (REQ-GATE-1): the task's own `checks`, its build profile's `profiles.<name>.checks` and every check
+  its stage approved, by name, each defined by the stage or by the policy (`CHECK_DUPLICATE` keeps them one); a name
+  neither defines is `SETTINGS_INVALID`. A tool a check names must be found on the cell's own `PATH` (`/usr/bin:/bin`),
+  else `TOOL_MISSING` (S-6); its version is the first line its `--version` prints, `null` when none.
+- A check's cell (3.4): its copy writable at `/work`, its home and `/tmp`, no network, no credential, no namespace of its
+  own, the cell's four variables, its command run without a shell, limited by its own `minutes`, which spend nothing of
+  the task's or the stage's limits (D-085 point 3). A check with `network = true` halts the task
+  `CONFINEMENT_UNAVAILABLE` before any dispatch (D-085 point 1). Its outcome: `passed` for exit status 0 only; `failed`
+  for another status (a signal inside the cell reaches Fabrewk as the status 128 and the signal's, P-7); `timed-out` at
+  its limit; `interrupted` when its cell was signalled or its output passed 32 MiB; `unknown` when the backend cannot
+  show its cell ended, which halts `OUTCOME_UNKNOWN` with its directories kept unread. A check whose cell could not be
+  started halts `TOOL_FAILED` with no event of its own. Its directories and evidence are `check-<task>-<seq>`, `<seq>` the
+  place its `check-recorded` takes; its copy is deleted unread.
+- A check result's identity (REQ-GATE-3) is the SHA-256 of the canonical JSON of exactly `product` (the SHA-256 of the
+  candidate's product tree as `git ls-tree --full-tree` lists its root, `.brewstillery` left out), `definition`
+  (`command`, `network`, `minutes`, `tools`), `policy` (the digest in force), `tools` (each named tool's `path`, as it
+  resolves, and `version`) and `platform` (the operating system, the processor and the backend's name, as
+  `linux-aarch64-bubblewrap`; with `fault-injection`, `FABREWK_FAULT_PLATFORM`). A verification holds while its
+  candidate's tree and the requirements' digest are the task's, its review is an accept bound to both, and its checks
+  are exactly those required now, each with the identity recomputed now; otherwise its evidence is stale. `accept` and
+  integration refuse stale evidence (`EVIDENCE_STALE`, REQ-GATE-10) in part 9g; `run` revalidates it.
+- The review (REQ-GATE-4): a new attempt of the review profile's agent, its result validated (`REVIEW_INVALID`); a
+  stream that gives no result, the audit having voided it, is `REVIEW_UNEXAMINED` with no review recorded; a review
+  that fits is recorded, and one whose audit counted no examination is `REVIEW_UNEXAMINED` whatever its verdict
+  (PD-25: "invalid output whatever its verdict"). `review.differentProvider`: with the reviewer's provider, as its
+  adapter declares it, the builder's, `require` halts `PROVIDER_MISSING` before any dispatch, and so does an absent
+  reviewer's tool, which otherwise refuses `TOOL_MISSING`; an authorization naming `--widen review.differentProvider`
+  records it in `widened` though no layer widens it, and the run goes on with the limitation; `prefer` records the
+  limitation; `off` none. `status <id>` says when the last review has it.
+- Revalidation (REQ-RUN-9): `run` on a `verified` task whose evidence is stale, or on an `authorized` task authorized
+  from `verified`, `accepted` or after `merge-failed` (the event before the authorization in force), keeps the task's
+  last candidate and dispatches no builder in its first round, which counts against the rounds. A verified task whose
+  evidence is current is `MOVE_NOT_ALLOWED`, evaluated with REQ-RUN-2, whose readings its identities need. Since the
+  table halts no `verified` task, what would halt it before the lock refuses instead (`ROUNDS_EXHAUSTED`,
+  `BUDGET_EXHAUSTED`, `PROVIDER_MISSING`), nothing written, as REQ-RUN-9's criterion asks of the first; under the
+  lock its `run-started` is written before the confinement guard, so that `CONFINEMENT_UNAVAILABLE` or `DISK_LOW`
+  halts it from `running`.
+- The payloads. `check-recorded`: exactly `check` (any text), `round` (a count), `identity` (64 hexadecimal digits),
+  `outcome` (`passed`, `failed`, `timed-out`, `interrupted`, `unknown`) and `evidence` (`null` or exactly the `stdout`
+  and `stderr` digests). `review-recorded`: exactly `attempt` (its attempt's place), `round`, `verdict` (`accept`,
+  `reject`), `findings` (each exactly `severity`, `status`, `path`, any text or `null`, and `summary`, any text),
+  `examined` (the audit's count), `tree` (the candidate's tree), `requirements` (the SHA-256 of the requirements'
+  canonical JSON), `provider` (the reviewer's, as declared) and `limited` (a boolean). `task-verified`: exactly
+  `candidate`, `tree`, `requirements`, `checks` (each required check's name and identity) and `review` (the place of its
+  `review-recorded`).
+- What a round carries to the next (REQ-RUN-8): `previous.findings`, the confirmed findings, blocking or minor, of a
+  reject that examined; `previous.failedChecks`, each exactly `check`, `outcome`, `stdout` and `stderr`, the last 4,000
+  characters of each channel the check's evidence kept, read as UTF-8 with replacements. Read from the record for a
+  run's first round: the events after the last candidate or `run-started`, whichever is later.
+- REQ-RUN-5 for checks: a recovery also removes the directories of the checks the stopped run made (their places after
+  its `run-started`); an earlier run's, left unread, stay.
+- The run's document stays `fabrewk.run/1`: `halt` is `null` once the task is verified, and `attempt` names the last
+  attempt. `run` and `authorize --run` record `check-recorded`, `review-recorded` and `task-verified`; `run` from
+  `verified` may refuse `ROUNDS_EXHAUSTED`, `BUDGET_EXHAUSTED` and `PROVIDER_MISSING`.
+
 ### EXT: extensions
 
 - **REQ-EXT-1.** Extension `<name>` is the program `fabrewk-<name>`, run as `fabrewk <name> …`, only when

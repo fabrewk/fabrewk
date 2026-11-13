@@ -126,6 +126,11 @@ impl Appender<'_> {
         Ok(())
     }
 
+    /// The place the next event of `stream` takes.
+    pub fn next(&self, stream: &str) -> Result<u64, Error> {
+        Ok(self.session.head(stream)?.map_or(1, |h| h.seq + 1))
+    }
+
     /// Appends one of Fabrewk's own events of `kind` to `stream`, after the head it has now.
     pub fn fabrewk(&mut self, stream: &str, kind: &str, payload: serde_json::Value) -> Result<Head, Error> {
         crate::record::fault::point();
@@ -227,6 +232,16 @@ fn recovery(cx: &Cx, record: &Replay) -> Result<Plan<()>, Failed> {
         if let Some(last) = events_of.iter().rfind(|e| e.kind == "attempt-started") {
             gone.push(cx.domain.join("local/tmp").join(super::run::attempt_name(&stream, last.seq)));
         }
+        // The directories of a check the stopped run made, after its start; an earlier run's left unread stay so
+        // (part 9f).
+        let check = crate::gate::check_name(&stream, 0);
+        let prefix = &check[..check.len() - 1];
+        let since = events_of.iter().rfind(|e| e.kind == "run-started").map_or(0, |e| e.seq);
+        let ours = |n: &std::ffi::OsStr| {
+            n.to_str().and_then(|n| n.strip_prefix(prefix)?.parse::<u64>().ok()).is_some_and(|seq| seq > since)
+        };
+        let tmp = std::fs::read_dir(cx.domain.join("local/tmp")).into_iter().flatten().flatten();
+        gone.extend(tmp.map(|e| e.path()).filter(|p| p.file_name().is_some_and(ours)));
         let reason = "the process that ran it no longer runs; its attempt is counted as spent, and a retry spends a \
                       dispatch";
         events.push((stream, draft("task-halted", serde_json::json!({"code": "OUTCOME_UNKNOWN", "reason": reason}))));

@@ -112,7 +112,39 @@ const ATTEMPT_ENDED: T = T::Obj(&[
     ("outcome", T::One(&["success", "failure", "unknown"])),
     ("model", T::Nullable(&T::Copied)),
     ("usage", T::Obj(&[("seconds", T::Nullable(&T::Nat)), ("tokens", T::Nullable(&TOKENS))])),
-    ("evidence", T::Nullable(&T::Obj(&[("stdout", T::Hex(64)), ("stderr", T::Hex(64))]))),
+    ("evidence", EVIDENCE),
+]);
+const EVIDENCE: T = T::Nullable(&T::Obj(&[("stdout", T::Hex(64)), ("stderr", T::Hex(64))]));
+const CHECK_RECORDED: T = T::Obj(&[
+    ("check", T::Copied),
+    ("round", T::Count),
+    ("identity", T::Hex(64)),
+    ("outcome", T::One(&["passed", "failed", "timed-out", "interrupted", "unknown"])),
+    ("evidence", EVIDENCE),
+]);
+const FINDING: T = T::Obj(&[
+    ("severity", T::One(&["blocking", "minor"])),
+    ("status", T::One(&["confirmed", "suspected"])),
+    ("path", T::Nullable(&T::Copied)),
+    ("summary", T::Copied),
+]);
+const REVIEW_RECORDED: T = T::Obj(&[
+    ("attempt", T::Count),
+    ("round", T::Count),
+    ("verdict", T::One(&["accept", "reject"])),
+    ("findings", T::List(&FINDING)),
+    ("examined", T::Nat),
+    ("tree", T::Commit),
+    ("requirements", T::Hex(64)),
+    ("provider", T::Copied),
+    ("limited", T::Bool),
+]);
+const TASK_VERIFIED: T = T::Obj(&[
+    ("candidate", T::Commit),
+    ("tree", T::Commit),
+    ("requirements", T::Hex(64)),
+    ("checks", T::Map(&T::Hex(64))),
+    ("review", T::Count),
 ]);
 const ENTRY: T = T::Obj(&[("mode", T::One(&["100644", "100755", "120000", "160000"])), ("oid", T::Commit)]);
 const CANDIDATE: T = T::Obj(&[
@@ -232,6 +264,9 @@ pub fn check(kind: &str, p: &Value) -> Result<(), Error> {
         "attempt-started" => (&ATTEMPT_STARTED, Level::Task),
         "attempt-ended" => (&ATTEMPT_ENDED, Level::Task),
         "candidate-recorded" => (&CANDIDATE, Level::Task),
+        "check-recorded" => (&CHECK_RECORDED, Level::Task),
+        "review-recorded" => (&REVIEW_RECORDED, Level::Task),
+        "task-verified" => (&TASK_VERIFIED, Level::Task),
         "task-halted" => (&TASK_HALTED, Level::Task),
         _ => return Ok(()),
     };
@@ -367,12 +402,18 @@ pub fn wildcards(allowed: &[&str], protected: &[String]) -> Result<(), Error> {
     Ok(())
 }
 
+/// A check's definition as the policy gives it (`command`, `network`, `minutes`, `tools`, its defaults filled); `None`
+/// when the policy defines no check of that name.
+pub fn definition(eff: &Effective, name: &str) -> Option<Value> {
+    let leaf = |l: &str| eff.values.get(&format!("checks.{name}.{l}")).map_or(Value::Null, |v| json_of(&v.0));
+    let ours = json!({"command": leaf("command"), "network": leaf("network"), "minutes": leaf("minutes"), "tools": leaf("tools")});
+    (!ours["command"].is_null()).then_some(ours)
+}
+
 /// REQ-GATE-1 (PD-24): `CHECK_DUPLICATE` when a stage defines a check that the policy defines differently.
 pub fn duplicates(stage_checks: &Value, eff: &Effective) -> Result<(), Error> {
     for (name, def) in stage_checks.as_object().into_iter().flatten() {
-        let leaf = |l: &str| eff.values.get(&format!("checks.{name}.{l}")).map_or(Value::Null, |v| json_of(&v.0));
-        let ours = json!({"command": leaf("command"), "network": leaf("network"), "minutes": leaf("minutes"), "tools": leaf("tools")});
-        if !ours["command"].is_null() && ours != *def {
+        if definition(eff, name).is_some_and(|ours| ours != *def) {
             return Err(refuse(Code::CheckDuplicate, None, format!("checks.{name}: the stage defines it differently")));
         }
     }

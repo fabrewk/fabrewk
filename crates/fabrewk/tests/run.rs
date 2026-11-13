@@ -98,6 +98,19 @@ fn halts(fx: &Fx, id: &str, code: &str) -> Vec<Value> {
     events
 }
 
+/// `run <id>`, which verifies the task (exit 0, REQ-GATE-5); gives the events it added to the task's stream.
+fn verifies(fx: &Fx, id: &str) -> Vec<Value> {
+    let before = fx.events(&stream(id)).len();
+    let ran = fx.run(&["run", id, "--say", SAY]);
+    assert_eq!(ran.status, 0, "{ran:?}");
+    whole(&ran.all());
+    assert!(ran.stdout.contains(&cli::say("es", "run.verified", &[("id", id)])), "{ran:?}");
+    let events = fx.events(&stream(id))[before..].to_vec();
+    assert_eq!(events.last().unwrap()["kind"], "task-verified", "{events:?}");
+    ok(&fx.run(&["check"]));
+    events
+}
+
 fn ok(ran: &Ran) {
     assert_eq!(ran.status, 0, "{ran:?}");
 }
@@ -123,14 +136,26 @@ fn until(what: &str, f: impl Fn() -> bool) {
 // ---- The run to its candidate (REQ-RUN-1, REQ-RUN-4, S-5, D-082) ---------------------------------------------------
 
 #[test]
-fn a_fake_builder_reaches_a_recorded_candidate() {
+fn a_fake_builder_and_reviewer_verify_a_task() {
     let fx = Fx::builder("candidate", "published", &format!("{WRITES}{SUCCESS}"));
     let id = authorized(&fx, json!({}));
     let base = fx.events(&stream(&id))[0]["payload"]["base"].as_str().unwrap().to_owned();
     let before = fx.events(&stream(&id)).len();
     let head = fx.git(&["rev-parse", "HEAD"]);
-    let new = halts(&fx, &id, "CONFINEMENT_UNAVAILABLE");
-    assert_eq!(kinds(&new), ["run-started", "attempt-started", "attempt-ended", "candidate-recorded", "task-halted"]);
+    let new = verifies(&fx, &id);
+    assert_eq!(
+        kinds(&new),
+        [
+            "run-started",
+            "attempt-started",
+            "attempt-ended",
+            "candidate-recorded",
+            "attempt-started",
+            "attempt-ended",
+            "review-recorded",
+            "task-verified"
+        ]
+    );
     // The run binds the stream's head, the authorization it relies on and its base, with the person's words.
     let authorization = fx.events(&stream(&id))[before - 1].clone();
     let digest = |seq: usize| sha256_hex(&fs::read(event_file(&fx, &stream(&id), seq)).unwrap());
@@ -181,30 +206,40 @@ fn a_fake_builder_reaches_a_recorded_candidate() {
         ["Co-authored-by: claude (anthropic, claude-sonnet-5-5) <noreply@fabrewk.invalid>"]
     );
     assert!(!message.contains("Signed-off-by"), "{message}");
-    // Until part 9f the task halts on its candidate (D-082), and says where it is.
-    let reason = new[4]["payload"]["reason"].as_str().unwrap();
-    assert!(reason.contains(&format!("fabrewk/{id}")) && reason.contains("9f") && !reason.contains("kept"), "{reason}");
+    // With no required check, the reviewer is dispatched on the same candidate as a new attempt (REQ-GATE-4), its
+    // review recorded with the audit's count and bound to the candidate's tree and the requirements (REQ-GATE-5).
+    assert_eq!(new[4]["payload"]["role"], "review");
+    let tree = candidate["tree"].clone();
+    let requirements = sha256_hex(b"[{\"criterion\":\"it builds\",\"text\":\"It builds.\"}]\n");
+    assert_eq!(
+        new[6]["payload"],
+        json!({"attempt": attempt + 3, "round": 1, "verdict": "accept", "findings": [], "examined": 1, "tree": tree, "requirements": requirements, "provider": "anthropic", "limited": true})
+    );
+    assert_eq!(
+        new[7]["payload"],
+        json!({"candidate": commit, "tree": tree, "requirements": requirements, "checks": {}, "review": attempt + 5})
+    );
     // The attempt's directories are gone; the person's branch and working tree did not move.
     assert!(dirs(&fx, "tmp", "attempt-").is_empty());
     assert_eq!(fx.git(&["rev-parse", "HEAD~1"]), head);
     assert_eq!(fx.git(&["status", "--porcelain"]), "");
-    // One record commit holds the run's five events (REQ-REG-10).
+    // One record commit holds the run's eight events (REQ-REG-10).
     let trailers = fx.git(&["log", "-1", "--format=%B"]).lines().filter(|l| l.starts_with("Fabrewk-Event: ")).count();
-    assert_eq!(trailers, 5);
+    assert_eq!(trailers, 8);
     // The backend's programs and the tool's preflight are kept as verified by use (3.9).
     let detected: Value =
         serde_json::from_slice(&fs::read(fx.domain.join("local/cache/detected.json")).unwrap()).unwrap();
     for (space, name) in [("tools", "claude"), ("programs", "bwrap"), ("programs", "pasta")] {
         assert!(detected[space][name]["verified"].is_string(), "{space} {name}: {detected}");
     }
-    // `status` says why the task waits; the view shows its usage.
+    // `status` shows the task verified, and the review's limitation: its provider is the builder's (REQ-GATE-4,
+    // `prefer`); the view shows both attempts' usage.
     let doc = fx.run(&["status", &id, "--json"]).doc();
-    assert_eq!(
-        (doc["state"].as_str(), doc["halt"]["code"].as_str()),
-        (Some("halted"), Some("CONFINEMENT_UNAVAILABLE"))
-    );
+    assert_eq!((doc["state"].as_str(), &doc["halt"]), (Some("verified"), &Value::Null));
+    let human = fx.run(&["status", &id]);
+    assert!(human.stdout.contains(&cli::say("es", "status.limited", &[])), "{human:?}");
     let status = fs::read_to_string(fx.domain.join("STATUS.md")).unwrap();
-    assert!(status.contains("; tokens read 12, written 5, read from the cache 7."), "{status}");
+    assert!(status.contains("; tokens read 13, written 6, read from the cache 7."), "{status}");
 }
 
 /// The file of the event at `seq` of `stream`.
@@ -220,7 +255,7 @@ fn event_file(fx: &Fx, stream: &str, seq: usize) -> PathBuf {
 fn pd_45_the_candidate_carries_the_sign_off_the_project_requires() {
     let fx = Fx::builder_with("sign-off", "published", &format!("{WRITES}{SUCCESS}"), "\n[git]\nsignOff = true\n");
     let id = authorized(&fx, json!({}));
-    halts(&fx, &id, "CONFINEMENT_UNAVAILABLE");
+    verifies(&fx, &id);
     let message = fx.git(&["log", "-1", "--format=%B", &format!("fabrewk/{id}")]);
     assert!(message.contains("\nSigned-off-by: Fixture <fixture@example.invalid>"), "{message}");
 }
@@ -232,20 +267,21 @@ fn authorize_run_and_run_of_a_stage_run_at_once() {
     let id = plan(&fx, json!({}), vec![json!({})]).1.remove(0);
     let digest = fx.run(&["status", &id, "--json"]).doc()["shown"]["digest"].as_str().unwrap().to_owned();
     let ran = fx.run(&["authorize", &id, "--seen", &digest, "--say", SAY, "--run", "--json"]);
-    assert_eq!(ran.status, 4, "{ran:?}");
+    assert_eq!(ran.status, 0, "{ran:?}");
     let doc = ran.doc();
     assert_eq!(
         (doc["schema"].as_str(), doc["run"]["schema"].as_str()),
         (Some("fabrewk.authorized/2"), Some("fabrewk.run/1"))
     );
-    assert_eq!(doc["run"]["halt"]["code"], "CONFINEMENT_UNAVAILABLE");
+    assert_eq!(doc["run"]["halt"], Value::Null);
     let events = fx.events(&stream(&id));
     assert_eq!(kinds(&events[1..3]), ["task-authorized", "run-started"]);
     assert_eq!(events[2]["payload"]["authorization"]["seq"], 2);
     assert_eq!(events[2]["say"], events[1]["say"]);
-    // Halted, `authorize --run` again: the run relies on the authorization it writes, not the earlier one.
+    // Verified, `authorize --run` again: the run relies on the authorization it writes, not the earlier one, and
+    // revalidates the candidate the task keeps (REQ-RUN-9).
     let ran = authorize(&fx, &id, &["--run"]);
-    assert_eq!(ran.status, 4, "{ran:?}");
+    assert_eq!(ran.status, 0, "{ran:?}");
     let events = fx.events(&stream(&id));
     let at = events.iter().rposition(|e| e["kind"] == "task-authorized").unwrap();
     assert_eq!(events[at + 1]["payload"]["authorization"]["seq"], at + 1);
@@ -254,7 +290,7 @@ fn authorize_run_and_run_of_a_stage_run_at_once() {
     let (stage, ids) = plan(&fx, json!({}), vec![json!({}), json!({"goal": "Two."})]);
     ok(&authorize(&fx, &stage, &[]));
     let ran = fx.run(&["run", &stage, "--say", SAY, "--json"]);
-    assert_eq!(ran.status, 4, "{ran:?}");
+    assert_eq!(ran.status, 0, "{ran:?}");
     let first = &ran.doc()["id"];
     assert!(ids.contains(&first.as_str().unwrap().to_owned()), "{first}");
     // Run by a stage's authorization, it relies on that one.
@@ -269,17 +305,17 @@ fn a_run_relies_on_the_authorization_in_force() {
     let fx = Fx::builder("in-force", "published", &format!("{WRITES}{SUCCESS}"));
     let (stage, ids) = plan(&fx, json!({}), vec![json!({})]);
     ok(&authorize(&fx, &ids[0], &[]));
-    halts(&fx, &ids[0], "CONFINEMENT_UNAVAILABLE");
-    // Halted, the task is bound again by its stage's authorization; its run names that one.
+    verifies(&fx, &ids[0]);
+    // Verified, the task is bound again by its stage's authorization; its run names that one.
     ok(&authorize(&fx, &stage, &[]));
-    let new = halts(&fx, &ids[0], "CONFINEMENT_UNAVAILABLE");
+    let new = verifies(&fx, &ids[0]);
     assert_eq!(new[0]["payload"]["authorization"]["stream"], format!("stage-{stage}"));
     // A task authorized alone, then its stage authorized with `--run`, which binds no task: the run relies on the
     // task's own.
     let (stage, ids) = plan(&fx, json!({}), vec![json!({})]);
     ok(&authorize(&fx, &ids[0], &[]));
     let ran = authorize(&fx, &stage, &["--run"]);
-    assert_eq!(ran.status, 4, "{ran:?}");
+    assert_eq!(ran.status, 0, "{ran:?}");
     let events = fx.events(&stream(&ids[0]));
     let started = events.iter().find(|e| e["kind"] == "run-started").unwrap();
     assert_eq!(started["payload"]["authorization"]["stream"], stream(&ids[0]));
@@ -303,7 +339,7 @@ fn refusal_tool_missing() {
         assert!(dirs(&fx, "evidence", "attempt-").is_empty());
     }
     let id = authorized(&fx, json!({"settings": {"profiles.build.requiredTools": ["sh"]}}));
-    halts(&fx, &id, "CONFINEMENT_UNAVAILABLE");
+    verifies(&fx, &id);
     // The tool itself, absent from `PATH`.
     let id = authorized(&fx, json!({}));
     let path = path_with(&fx.root.parent().unwrap().join("without"), &["git", "ssh-keygen", "df", "bwrap", "pasta"]);
@@ -316,14 +352,15 @@ fn refusal_tool_missing() {
 #[test]
 fn refusal_budget_exhausted() {
     let fx = Fx::builder("budget", "published", &format!("{WRITES}{SUCCESS}"));
-    // The stage's dispatches, then its tokens (12 read and 5 written by the first run), then tokens it cannot know.
+    // The stage's dispatches (the first task's builder and reviewer), then its tokens (12 read and 5 written by the
+    // first task's builder, 1 and 1 by its reviewer), then tokens it cannot know.
     for (budget, why) in [
-        (json!({"dispatches": 1, "minutes": 120}), "1 of 1 dispatches spent"),
-        (json!({"dispatches": 6, "minutes": 120, "tokens": 17}), "17 of 17 tokens spent"),
+        (json!({"dispatches": 2, "minutes": 120}), "2 of 2 dispatches spent"),
+        (json!({"dispatches": 6, "minutes": 120, "tokens": 19}), "19 of 19 tokens spent"),
     ] {
         let (stage, ids) = plan(&fx, json!({"budget": budget}), vec![json!({}), json!({"goal": "Two."})]);
         ok(&authorize(&fx, &stage, &[]));
-        halts(&fx, &ids[0], "CONFINEMENT_UNAVAILABLE");
+        verifies(&fx, &ids[0]);
         let attempts = dirs(&fx, "evidence", "attempt-").len();
         let new = halts(&fx, &ids[1], "BUDGET_EXHAUSTED");
         // Nothing is dispatched: no run started, no attempt.
@@ -341,7 +378,9 @@ fn refusal_budget_exhausted() {
         vec![json!({}), json!({"goal": "Two."})],
     );
     ok(&authorize(&fx, &stage, &[]));
-    let new = halts(&fx, &ids[0], "CONFINEMENT_UNAVAILABLE");
+    // Within the run, the reviewer is not dispatched once the builder's tokens are unknown (REQ-RUN-2).
+    let new = halts(&fx, &ids[0], "BUDGET_EXHAUSTED");
+    assert_eq!(kinds(&new), ["run-started", "attempt-started", "attempt-ended", "candidate-recorded", "task-halted"]);
     assert_eq!(new[2]["payload"]["usage"]["tokens"], Value::Null);
     let new = halts(&fx, &ids[1], "BUDGET_EXHAUSTED");
     assert!(new[0]["payload"]["reason"].as_str().unwrap().contains("unknown"), "{new:?}");
@@ -375,11 +414,11 @@ fn refusal_confinement_unavailable() {
     fx.fake(&format!("{WRITES}{SUCCESS}"));
     let id = authorized(&fx, json!({}));
     let preflights = dirs(&fx, "evidence", "preflight-").len();
-    halts(&fx, &id, "CONFINEMENT_UNAVAILABLE");
+    verifies(&fx, &id);
     let now = dirs(&fx, "evidence", "preflight-").len();
     assert!(now > preflights, "{preflights} {now}");
     let id = authorized(&fx, json!({}));
-    let new = halts(&fx, &id, "CONFINEMENT_UNAVAILABLE");
+    let new = verifies(&fx, &id);
     assert_eq!(new[3]["kind"], "candidate-recorded");
     assert_eq!(dirs(&fx, "evidence", "preflight-").len(), now);
 }
@@ -410,12 +449,12 @@ fn refusal_base_moved_and_a_dependent_tasks_base_fixed_at_its_run() {
         vec![json!({"name": "first"}), json!({"goal": "Second.", "base": null, "dependencies": ["first"]})],
     );
     ok(&authorize(&fx, &stage, &[]));
-    halts(&fx, &ids[0], "CONFINEMENT_UNAVAILABLE");
+    verifies(&fx, &ids[0]);
     // The first is accepted and integrated by hand (part 9g builds it): the record branch takes its candidate's file,
     // in a commit that names it (REQ-GATE-8).
     integrate(&fx, &ids[0]);
     // The second's base is the record branch's head, whose product is what the integration left.
-    let new = halts(&fx, &ids[1], "CONFINEMENT_UNAVAILABLE");
+    let new = verifies(&fx, &ids[1]);
     assert_eq!(new[0]["payload"]["base"], fx.git(&["rev-parse", "HEAD~1"]));
     // Another change of the product after the integration: refused, with nothing written.
     ok(&authorize(&fx, &ids[1], &[]));
@@ -425,7 +464,7 @@ fn refusal_base_moved_and_a_dependent_tasks_base_fixed_at_its_run() {
     // The domain's own commits do not move it.
     fs::write(fx.root.join("README.md"), "fixture\n").unwrap();
     fx.commit("back");
-    halts(&fx, &ids[1], "CONFINEMENT_UNAVAILABLE");
+    verifies(&fx, &ids[1]);
 }
 
 /// Integrates `id`'s candidate by hand, as part 9g will: accepted, then its file brought into the record branch in a
@@ -451,9 +490,10 @@ fn integrate(fx: &Fx, id: &str) {
 fn refusal_base_moved_reads_the_last_integration_from_the_history() {
     let fx = Fx::builder("base-chain", "published", SUCCESS);
     fx.fake(&format!("mkdir -p src && printf 'a\\n' > src/a.txt\n{SUCCESS}"));
+    // Each task's builder and reviewer, and the revalidations, spend the stage's dispatches.
     let (stage, ids) = plan(
         &fx,
-        json!({}),
+        json!({"budget": {"dispatches": 12, "minutes": 120}}),
         vec![
             json!({"name": "a"}),
             json!({"name": "b", "goal": "B.", "base": null, "dependencies": ["a"]}),
@@ -461,24 +501,24 @@ fn refusal_base_moved_reads_the_last_integration_from_the_history() {
         ],
     );
     ok(&authorize(&fx, &stage, &[]));
-    halts(&fx, &ids[0], "CONFINEMENT_UNAVAILABLE");
+    verifies(&fx, &ids[0]);
     integrate(&fx, &ids[0]);
     fx.fake(&format!("mkdir -p src && printf 'b\\n' > src/b.txt\n{SUCCESS}"));
-    halts(&fx, &ids[1], "CONFINEMENT_UNAVAILABLE");
+    verifies(&fx, &ids[1]);
     integrate(&fx, &ids[1]);
     // What the later integration left removed: the product is the earlier one's, which is not the last.
     fx.git(&["rm", "-q", "src/b.txt"]);
     fx.commit("b removed");
     refused(&fx, &["run", &ids[2], "--say", SAY], "BASE_MOVED", 1, "es");
     fx.git(&["revert", "--no-edit", "HEAD"]);
-    halts(&fx, &ids[2], "CONFINEMENT_UNAVAILABLE");
+    verifies(&fx, &ids[2]);
     // The history, not the clock, says which came last: a commit naming the first's candidate after the second's
     // integration, its product the first's, makes the first the last, though its event is older.
     ok(&authorize(&fx, &ids[2], &[]));
     let first = fx.git(&["rev-parse", &format!("fabrewk/{}", ids[0])]);
     fx.git(&["rm", "-q", "src/b.txt"]);
     fx.git(&["commit", "-q", "-m", &format!("the first again\n\nFabrewk-Candidate: {first}")]);
-    halts(&fx, &ids[2], "CONFINEMENT_UNAVAILABLE");
+    verifies(&fx, &ids[2]);
 }
 
 /// Appends to `stream` an event of `kind`, a maestro's (signed) or Fabrewk's, as a later part's command will; commits it.
@@ -523,7 +563,7 @@ fn pd_21_a_failed_export_is_recorded_before_any_dispatch_and_a_link_is_exported_
     std::os::unix::fs::symlink("/etc/passwd", fx.root.join("passwd")).unwrap();
     fx.commit("a link");
     let id = authorized(&fx, json!({}));
-    let new = halts(&fx, &id, "CONFINEMENT_UNAVAILABLE");
+    let new = verifies(&fx, &id);
     assert_eq!(new[3]["payload"]["changes"].as_array().unwrap().len(), 1, "{:?}", new[3]);
 }
 
@@ -623,7 +663,7 @@ fn a_branch_git_cannot_read_halts_naming_its_own_evidence() {
 fn a_candidate_whose_path_is_white_space_is_recorded_and_replays() {
     let fx = Fx::builder("space", "published", &format!("printf 'x' > ' '\n{SUCCESS}"));
     let id = authorized(&fx, json!({"allowed": ["?"]}));
-    let new = halts(&fx, &id, "CONFINEMENT_UNAVAILABLE");
+    let new = verifies(&fx, &id);
     assert_eq!(new[3]["payload"]["changes"][0]["path"], " ");
 }
 
@@ -636,7 +676,7 @@ fn an_empty_model_a_stream_names_is_recorded_and_replays() {
         &format!("{WRITES}{}", SUCCESS.replace(r#""model":"claude-sonnet-5-5""#, r#""model":"""#)),
     );
     let id = authorized(&fx, json!({}));
-    let new = halts(&fx, &id, "CONFINEMENT_UNAVAILABLE");
+    let new = verifies(&fx, &id);
     assert_eq!(new[2]["payload"]["model"], "");
 }
 
@@ -709,8 +749,7 @@ echo MARKER-FOUR >&2
 #[test]
 fn pd_39_tokens_are_recorded_as_reported() {
     let fx = Fx::builder("pd-39", "published", SUCCESS);
-    let id = authorized(&fx, json!({}));
-    // No cached tokens reported, then zero.
+    // No cached tokens reported, then zero; each a task of its own.
     let usage =
         r#""usage":{"input_tokens":10,"cache_creation_input_tokens":2,"output_tokens":5,"cache_read_input_tokens":7}"#;
     for (reported, cached) in [
@@ -721,11 +760,12 @@ fn pd_39_tokens_are_recorded_as_reported() {
         ),
     ] {
         fx.fake(&SUCCESS.replace(usage, reported));
-        let new = halts(&fx, &id, "CONFINEMENT_UNAVAILABLE");
+        let id = authorized(&fx, json!({}));
+        let new = verifies(&fx, &id);
         assert_eq!(new[2]["payload"]["usage"]["tokens"]["cached"], cached);
-        ok(&authorize(&fx, &id, &[]));
     }
-    // The view sums them: one part not reported, so the cache's sum is unknown; the others are figures.
+    // The view sums each task's, its builder's and its reviewer's: one part not reported, so the cache's sum is
+    // unknown; the others are figures.
     let status = fs::read_to_string(fx.domain.join("STATUS.md")).unwrap();
     let unknown = cli::say("en", "view.unknown", &[]);
     assert!(status.contains(&format!("tokens read 2, written 2, read from the cache {unknown}.")), "{status}");
@@ -789,7 +829,7 @@ fn pd_08_pd_10_a_killed_run_is_ended_unknown_by_the_next_write_command() {
     // Nothing runs again without a person: authorized again, the retry is a new attempt.
     fx.fake(&format!("{WRITES}{SUCCESS}"));
     ok(&authorize(&fx, &ids[0], &[]));
-    let new = halts(&fx, &ids[0], "CONFINEMENT_UNAVAILABLE");
+    let new = verifies(&fx, &ids[0]);
     assert_eq!(new[3]["kind"], "candidate-recorded");
     // A late result for the attempt the retry replaced is refused (ATTEMPT_REPLACED), at the replay.
     let mut s = Session::begin(&fx.domain, None, &PolicyVerifier).unwrap();
@@ -825,4 +865,384 @@ fn req_run_7_an_attempt_ended_unknown_counts_its_whole_time_against_the_minutes(
     let new = halts(&fx, &ids[1], "BUDGET_EXHAUSTED");
     assert!(new[0]["payload"]["reason"].as_str().unwrap().contains("60 seconds"), "{new:?}");
     assert_eq!(fx.events(&stream(&ids[0])).last().unwrap()["payload"]["code"], "OUTCOME_UNKNOWN");
+}
+
+// ---- Checks, review and verification (part 9f; REQ-GATE-1 to REQ-GATE-6, REQ-RUN-8, REQ-RUN-9, REQ-TASK-5; D-085) ----
+
+/// A fake builder that keeps the packet it received in its candidate (REQ-RUN-8's criterion) and adds a line to a file,
+/// so that a later round shows the copy it started from (D-085).
+const KEEPS: &str =
+    "mkdir -p src && for last; do :; done && printf '%s' \"$last\" > src/packet.json && printf 'x\\n' >> src/log.txt\n";
+
+/// A review rejecting with `n` confirmed blocking findings, each summary `word` and its number.
+fn reject(n: usize, word: &str) -> String {
+    let findings: Vec<Value> = (1..=n)
+        .map(|i| json!({"severity": "blocking", "status": "confirmed", "path": "src/log.txt", "summary": format!("{word} {i}")}))
+        .collect();
+    review(&json!({"verdict": "reject", "findings": findings}).to_string())
+}
+
+/// The roles of the attempts among `events`, in order.
+fn roles(events: &[Value]) -> Vec<&str> {
+    events.iter().filter(|e| e["kind"] == "attempt-started").map(|e| e["payload"]["role"].as_str().unwrap()).collect()
+}
+
+/// The packet a builder kept in the candidate `commit`.
+fn packet(fx: &Fx, commit: &str) -> Value {
+    serde_json::from_str(&fx.git(&["show", &format!("{commit}:src/packet.json")])).unwrap()
+}
+
+#[test]
+fn pd_07_pd_33_a_reject_starts_the_next_round_until_the_rounds_are_spent() {
+    let fx = Fx::builder("rounds", "published", &format!("{KEEPS}{SUCCESS}"));
+    fx.reviewer(Some(&reject(1, "Missing")));
+    let id = authorized(&fx, json!({"limits": {"rounds": 2, "dispatches": 6, "minutes": 120}}));
+    let new = halts(&fx, &id, "ROUNDS_EXHAUSTED");
+    // Two rounds, each its builder and its reviewer, with no person's move between them (PD-33); no third review is
+    // dispatched (PD-07).
+    assert_eq!(roles(&new), ["build", "review", "build", "review"]);
+    let candidates: Vec<&Value> = new.iter().filter(|e| e["kind"] == "candidate-recorded").collect();
+    let reviews: Vec<&Value> = new.iter().filter(|e| e["kind"] == "review-recorded").collect();
+    assert_eq!((reviews[0]["payload"]["round"].as_u64(), reviews[1]["payload"]["round"].as_u64()), (Some(1), Some(2)));
+    // The second round's copy was the first candidate (D-085), whose parent is still the base; its packet carries
+    // the first round's confirmed findings, and nothing else of the task (REQ-RUN-8).
+    let second = candidates[1]["payload"]["commit"].as_str().unwrap();
+    assert_eq!(fx.git(&["show", &format!("{second}:src/log.txt")]), "x\nx");
+    assert_eq!(fx.git(&["rev-parse", &format!("{second}^")]), new[0]["payload"]["base"].as_str().unwrap());
+    let first = packet(&fx, candidates[0]["payload"]["commit"].as_str().unwrap());
+    let keys = |p: &Value| p.as_object().unwrap().keys().cloned().collect::<Vec<_>>();
+    assert_eq!(keys(&first), ["allowed", "goal", "languages", "requirements", "role", "rules", "schema"]);
+    let packet = packet(&fx, second);
+    assert_eq!(keys(&packet), ["allowed", "goal", "languages", "previous", "requirements", "role", "rules", "schema"]);
+    assert_eq!(packet["previous"]["findings"], reviews[0]["payload"]["findings"]);
+    assert_eq!(packet["previous"]["failedChecks"], json!([]));
+    // Only an authorization grants more rounds.
+    refused(&fx, &["run", &id, "--say", SAY], "MOVE_NOT_ALLOWED", 1, "es");
+    ok(&authorize(&fx, &id, &[]));
+    fx.reviewer(None);
+    let new = verifies(&fx, &id);
+    assert_eq!(roles(&new), ["build", "review"]);
+}
+
+#[test]
+fn refusal_no_progress_and_counts_that_fall_do_not_halt() {
+    let fx = Fx::builder("progress", "published", &format!("{KEEPS}{SUCCESS}"));
+    // Findings 2, 2, 2 over three rounds: NO_PROGRESS at the third round's end, before the round limit.
+    fx.reviewer(Some(&reject(2, "Same")));
+    let limits = json!({"rounds": 3, "dispatches": 9, "minutes": 120});
+    let id = authorized(&fx, json!({"limits": limits}));
+    let new = halts(&fx, &id, "NO_PROGRESS");
+    assert_eq!(roles(&new), ["build", "review", "build", "review", "build", "review"]);
+    assert!(new.last().unwrap()["payload"]["reason"].as_str().unwrap().contains("2, 2, 2"), "{new:?}");
+    // Findings 2, 3, 1: no halt for progress; the rounds are spent instead. The reviewer knows its round by the
+    // findings its packet carries.
+    let script = format!(
+        "case \"$*\" in *'\"summary\": \"Three'*) {}exit 0;; *'\"previous\"'*) {}exit 0;; esac\n{}",
+        reject(1, "One"),
+        reject(3, "Three"),
+        reject(2, "Two")
+    );
+    fx.reviewer(Some(&script));
+    let id = authorized(&fx, json!({"limits": limits}));
+    let new = halts(&fx, &id, "ROUNDS_EXHAUSTED");
+    let counts: Vec<usize> = new
+        .iter()
+        .filter(|e| e["kind"] == "review-recorded")
+        .map(|e| e["payload"]["findings"].as_array().unwrap().len())
+        .collect();
+    assert_eq!(counts, [2, 3, 1]);
+}
+
+/// The policy's check `test` and a stage's `staged`, which the task's profile does not name (REQ-GATE-1, PD-23).
+const CHECKED: &str =
+    "\n[checks.test]\ncommand = [\"sh\", \"-c\", \"test -f src/new.txt && echo test-ran\"]\nminutes = 1\n";
+
+fn staged(command: &str) -> Value {
+    json!({"checks": {"staged": {"command": ["sh", "-c", command], "network": false, "minutes": 1, "tools": []}}})
+}
+
+#[test]
+fn req_gate_1_2_the_required_checks_run_confined_on_a_fresh_export() {
+    let fx = Fx::builder_with("checks", "published", &format!("{WRITES}{SUCCESS}"), CHECKED);
+    // The stage's check probes its cell: the candidate's export, no repository in it, no route out (REQ-GATE-2), and
+    // its own writable copy.
+    let probe = "test -f src/new.txt && test ! -e .git && test -z \"$(tail -n +2 /proc/net/route)\" && touch here";
+    let (_, ids) = plan(&fx, staged(probe), vec![json!({"checks": ["test"]})]);
+    ok(&authorize(&fx, &ids[0], &[]));
+    let new = verifies(&fx, &ids[0]);
+    let checks: Vec<&Value> = new.iter().filter(|e| e["kind"] == "check-recorded").map(|e| &e["payload"]).collect();
+    assert_eq!(checks.iter().map(|c| c["check"].as_str().unwrap()).collect::<Vec<_>>(), ["staged", "test"]);
+    assert!(checks.iter().all(|c| c["outcome"] == "passed" && c["round"] == 1), "{checks:?}");
+    // Their evidence is kept and named by their events' places; their copies are gone, unread.
+    for (c, e) in checks.iter().zip(new.iter().filter(|e| e["kind"] == "check-recorded")) {
+        let dir = fx.domain.join(format!("local/evidence/check-{}-{}", ids[0], e["seq"]));
+        assert_eq!(c["evidence"]["stdout"], sha256_hex(&fs::read(dir.join("stdout")).unwrap()));
+    }
+    assert!(dirs(&fx, "tmp", "check-").is_empty());
+    // The reviewer comes after them, and the verification binds each identity (REQ-GATE-3, REQ-GATE-5).
+    assert_eq!(
+        kinds(&new)[4..],
+        ["check-recorded", "check-recorded", "attempt-started", "attempt-ended", "review-recorded", "task-verified"]
+    );
+    let verified = &new.last().unwrap()["payload"]["checks"];
+    assert_eq!((&verified["staged"], &verified["test"]), (&checks[0]["identity"], &checks[1]["identity"]));
+    // A check with network cannot be confined by this backend (D-085): the run halts before any dispatch.
+    let mut networked = staged("true");
+    networked["checks"]["staged"]["network"] = json!(true);
+    let (_, ids) = plan(&fx, networked, vec![json!({})]);
+    ok(&authorize(&fx, &ids[0], &[]));
+    let new = halts(&fx, &ids[0], "CONFINEMENT_UNAVAILABLE");
+    assert_eq!(kinds(&new), ["task-halted"]);
+    assert!(new[0]["payload"]["reason"].as_str().unwrap().contains("network"), "{new:?}");
+    // A required check that neither the policy nor the stage defines, and a tool a check names that no cell shows.
+    let id = authorized(&fx, json!({"checks": ["nowhere"]}));
+    refused(&fx, &["run", &id, "--say", SAY], "SETTINGS_INVALID", 1, "es");
+    let mut tooled = staged("true");
+    tooled["checks"]["staged"]["tools"] = json!(["no-such-tool"]);
+    let (_, ids) = plan(&fx, tooled, vec![json!({})]);
+    ok(&authorize(&fx, &ids[0], &[]));
+    let e = refused(&fx, &["run", &ids[0], "--say", SAY], "TOOL_MISSING", 1, "es");
+    assert!(e["detail"].as_str().unwrap().contains("no-such-tool"), "{e}");
+}
+
+#[test]
+fn req_gate_6_a_check_that_does_not_pass_ends_the_round_without_a_reviewer() {
+    // The builder makes `src/second` once its packet carries a failed check.
+    let builder = format!("{WRITES}{KEEPS}case \"$*\" in *failedChecks*) touch src/second;; esac\n{SUCCESS}");
+    let fx = Fx::builder("failed-check", "published", &builder);
+    let (_, ids) = plan(&fx, staged("echo MARKER-OUT; echo MARKER-ERR >&2; test -f src/second"), vec![json!({})]);
+    ok(&authorize(&fx, &ids[0], &[]));
+    let new = verifies(&fx, &ids[0]);
+    // Round 1: its check failed, no reviewer; round 2: the builder again, the check passed, the reviewer accepted.
+    assert_eq!(roles(&new), ["build", "build", "review"]);
+    let checks: Vec<&Value> = new.iter().filter(|e| e["kind"] == "check-recorded").map(|e| &e["payload"]).collect();
+    assert_eq!(
+        checks.iter().map(|c| (c["round"].as_u64().unwrap(), c["outcome"].as_str().unwrap())).collect::<Vec<_>>(),
+        [(1, "failed"), (2, "passed")]
+    );
+    // The second round's packet carries the failed check's output (REQ-RUN-8); a check's identity changed with its
+    // candidate's tree (REQ-GATE-3).
+    let second = new.iter().filter(|e| e["kind"] == "candidate-recorded").nth(1).unwrap();
+    let packet = packet(&fx, second["payload"]["commit"].as_str().unwrap());
+    let failed = &packet["previous"]["failedChecks"][0];
+    assert_eq!((failed["check"].as_str(), failed["outcome"].as_str()), (Some("staged"), Some("failed")));
+    assert!(
+        failed["stdout"].as_str().unwrap().contains("MARKER-OUT")
+            && failed["stderr"].as_str().unwrap().contains("MARKER-ERR")
+    );
+    assert_eq!(packet["previous"]["findings"], json!([]));
+    assert_ne!(checks[0]["identity"], checks[1]["identity"]);
+    // A check ended by a signal counts as not passed (REQ-GATE-2): its cell's status is 128 and the signal's (P-7). Three
+    // rounds of one finding each are no progress.
+    let (_, ids) = plan(&fx, staged("kill -9 $$"), vec![json!({})]);
+    ok(&authorize(&fx, &ids[0], &[]));
+    let head = fx.git(&["rev-parse", "HEAD"]);
+    let new = halts(&fx, &ids[0], "NO_PROGRESS");
+    // PD-46: no verification, and no commit on the record branch but the record's own.
+    assert!(!kinds(&new).contains(&"task-verified"));
+    let touched = fx.git(&["diff", "--name-only", &head, "HEAD"]);
+    assert!(touched.lines().all(|f| f.starts_with(".brewstillery/")), "{touched}");
+    let outcomes: Vec<&str> = new
+        .iter()
+        .filter(|e| e["kind"] == "check-recorded")
+        .map(|e| e["payload"]["outcome"].as_str().unwrap())
+        .collect();
+    assert_eq!(outcomes, ["failed", "failed", "failed"]);
+    assert_eq!(roles(&new), ["build", "build", "build"]);
+}
+
+/// A second tool, of another provider, absent from this machine: a reviewer's profile that uses it.
+const ABSENT: &str = "\n[tools.codex]\nadapter = \"codex\"\nproviders = [\"openai\"]\n\n[providers.openai]\nallowed = true\n\n[models.luna]\nprovider = \"openai\"\nid = \"gpt-6-luna\"\nefforts = [\"low\"]\n\n[profiles.other]\nkind = \"review\"\ntool = \"codex\"\nmodel = \"luna\"\neffort = \"low\"\nminutes = 1\n";
+
+#[test]
+fn refusal_provider_missing_and_the_limitation_recorded() {
+    let mut fx = Fx::builder_with("provider", "published", &format!("{WRITES}{SUCCESS}"), ABSENT);
+    // A `PATH` that holds the fake Claude Code and the programs the run drives, and no Codex.
+    let bin =
+        path_with(&fx.root.parent().unwrap().join("no-codex"), &["git", "ssh-keygen", "df", "bwrap", "pasta", "socat"]);
+    let dir = fx.root.parent().unwrap().join("tool/versions");
+    fx.path = Some(std::env::join_paths([dir.as_os_str(), bin.as_os_str()]).unwrap());
+    // `require` with the builder's own provider: halted before any dispatch.
+    let require = json!({"settings": {"review.differentProvider": "require"}});
+    let id = authorized(&fx, require.clone());
+    let new = halts(&fx, &id, "PROVIDER_MISSING");
+    assert_eq!(kinds(&new), ["task-halted"]);
+    // Only an authorization naming the key lets it continue, the limitation recorded and shown (REQ-GATE-4).
+    ok(&authorize(&fx, &id, &["--widen", "review.differentProvider"]));
+    let auth = fx.events(&stream(&id)).into_iter().rfind(|e| e["kind"] == "task-authorized").unwrap();
+    assert_eq!(auth["payload"]["widened"], json!(["review.differentProvider"]));
+    let new = verifies(&fx, &id);
+    assert_eq!(new.iter().find(|e| e["kind"] == "review-recorded").unwrap()["payload"]["limited"], true);
+    // `off`, a widening the authorization names, records no limitation.
+    let id = plan(&fx, json!({}), vec![json!({"settings": {"review.differentProvider": "off"}})]).1.remove(0);
+    ok(&authorize(&fx, &id, &["--widen", "review.differentProvider"]));
+    let new = verifies(&fx, &id);
+    assert_eq!(new.iter().find(|e| e["kind"] == "review-recorded").unwrap()["payload"]["limited"], false);
+    // A reviewer's tool that is absent: PROVIDER_MISSING with `require`, TOOL_MISSING otherwise.
+    let other =
+        json!({"profiles": {"build": "build", "review": "other"}, "settings": {"review.differentProvider": "require"}});
+    let id = authorized(&fx, other);
+    let new = halts(&fx, &id, "PROVIDER_MISSING");
+    assert!(new[0]["payload"]["reason"].as_str().unwrap().contains("absent"), "{new:?}");
+    let id = authorized(&fx, json!({"profiles": {"build": "build", "review": "other"}}));
+    refused(&fx, &["run", &id, "--say", SAY], "TOOL_MISSING", 1, "es");
+}
+
+#[test]
+fn pd_25_pd_26_a_review_that_examined_nothing_does_not_verify() {
+    let fx = Fx::builder("unexamined", "published", &format!("{WRITES}{SUCCESS}"));
+    let recorded: Vec<Value> =
+        fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../adapter-claude/tests/streams/review.jsonl"))
+            .unwrap()
+            .lines()
+            .map(|l| serde_json::from_str(l).unwrap())
+            .collect();
+    // The recorded real review: its use of `Bash` at 1, answered at 3; its answer tool at 4 and 5; its result at 6.
+    let with = |f: &dyn Fn(&mut Vec<Value>)| {
+        let mut lines = recorded.clone();
+        f(&mut lines);
+        lines.iter().map(|l| l.to_string() + "\n").collect::<String>()
+    };
+    let at = |i: usize, p: &'static str, v: Value| move |l: &mut Vec<Value>| *l[i].pointer_mut(p).unwrap() = v.clone();
+    let cases: Vec<(&str, String, &str)> = vec![
+        // A well-formed accept after no use at all.
+        ("PD-25", with(&|l| _ = l.drain(1..6)), "zero"),
+        ("PD-26.1", with(&|l| _ = l[3]["message"]["content"][0].as_object_mut().unwrap().remove("is_error")), "void"),
+        (
+            "PD-26.2",
+            with(&|l| *l[1].pointer_mut("/message/content/0/input/command").unwrap() = json!("cat 'a;b' && ls")),
+            "verifies",
+        ),
+        ("PD-26.3", with(&|l| l.insert(4, l[3].clone())), "void"),
+        ("PD-26.4", with(&|l| _ = l.pop()), "void"),
+        ("PD-26.5", with(&|l| l[1]["message"]["content"][0] = json!({"type": "tool_use"})), "void"),
+        ("PD-26.6", with(&at(6, "/subtype", json!("error_max_turns"))), "void"),
+        ("PD-26.7", with(&|l| _ = l.remove(3)), "void"),
+        ("PD-26.8", with(&at(1, "/message/content/0/name", json!(true))), "void"),
+        (
+            "PD-26.9",
+            with(&|l| {
+                let mut failed = l[6].clone();
+                failed["is_error"] = json!(true);
+                l.insert(6, failed)
+            }),
+            "void",
+        ),
+        ("PD-26.10", with(&|l| l.push(json!({"type": "rate_limit_event"}))), "void"),
+        (
+            "PD-26.11",
+            with(&|l| {
+                l[1]["message"]["content"][0]["id"] = json!(1);
+                l[3]["message"]["content"][0]["tool_use_id"] = json!(1)
+            }),
+            "void",
+        ),
+        ("PD-26.12", with(&|l| l.push(l[3].clone())), "void"),
+        ("PD-26.13", with(&|l| l.insert(2, l[1].clone())), "void"),
+        ("PD-26.14", with(&at(1, "/message/content/0/input/command", json!(""))), "void"),
+        ("PD-26.15", with(&at(3, "/message/content/0/is_error", json!("false"))), "void"),
+        (
+            "PD-26.16",
+            with(&|l| {
+                let c = l[3]["message"]["content"][0]["content"].as_str().unwrap().to_owned();
+                l[3]["message"]["content"][0]["content"] = json!(c + "\u{2028}")
+            }),
+            "verifies",
+        ),
+        ("PD-26.17", with(&|l| l.insert(2, json!({"type": "mystery"}))), "void"),
+        (
+            "PD-26.18",
+            with(&|l| {
+                l.remove(3);
+                l.remove(1);
+            }),
+            "zero",
+        ),
+        ("PD-26.19", with(&|l| l.insert(2, json!(null))).replace("null\n", "\n"), "void"),
+        ("PD-26.20", with(&at(6, "/is_error", json!(0))), "void"),
+    ];
+    let dir = fx.root.parent().unwrap().join("tool/versions");
+    for (case, stream, expect) in cases {
+        fs::write(dir.join("anomaly.jsonl"), &stream).unwrap();
+        fx.reviewer(Some("cat \"$(dirname \"$0\")/anomaly.jsonl\"\n"));
+        let id = authorized(&fx, json!({}));
+        if expect == "verifies" {
+            verifies(&fx, &id);
+            continue;
+        }
+        let new = halts(&fx, &id, "REVIEW_UNEXAMINED");
+        assert!(!kinds(&new).contains(&"task-verified"), "{case}");
+        // A stream the audit voids gives no review to record; a well-formed review that examined nothing is recorded,
+        // with its count.
+        let recorded = new.iter().find(|e| e["kind"] == "review-recorded");
+        assert_eq!(recorded.map(|e| e["payload"]["examined"].clone()), (expect == "zero").then(|| json!(0)), "{case}");
+    }
+    // A reject with no confirmed blocking finding is not a review (REQ-RUN-8).
+    fx.reviewer(Some(&review(r#"{"verdict":"reject","findings":[]}"#)));
+    let id = authorized(&fx, json!({}));
+    let new = halts(&fx, &id, "REVIEW_INVALID");
+    assert!(!kinds(&new).contains(&"review-recorded"));
+}
+
+#[test]
+fn req_run_9_a_verified_task_whose_evidence_went_stale_is_revalidated() {
+    let fx = Fx::builder_with("revalidate", "published", &format!("{WRITES}{SUCCESS}"), CHECKED);
+    let id = authorized(&fx, json!({"checks": ["test"], "limits": {"rounds": 2, "dispatches": 6, "minutes": 120}}));
+    verifies(&fx, &id);
+    // Its evidence current, the task is accepted or rejected, not run.
+    let e = refused(&fx, &["run", &id, "--say", SAY], "MOVE_NOT_ALLOWED", 1, "es");
+    assert!(e["detail"].as_str().unwrap().contains("current"), "{e}");
+    // The policy adopted again: every identity is stale (REQ-GATE-3); `run` revalidates the same candidate, its checks
+    // and its review, and dispatches no builder (REQ-RUN-9); the revalidation is the task's second round.
+    let stale = |fx: &Fx, n: usize| {
+        let text = fs::read_to_string(fx.domain.join("settings.toml")).unwrap();
+        fx.edit_policy(&format!("{text}\n# changed {n}\n"));
+        ok(&fx.run(&["adopt", "--say", "La ajusto."]));
+    };
+    stale(&fx, 1);
+    let candidate = fx.git(&["rev-parse", &format!("fabrewk/{id}")]);
+    let new = verifies(&fx, &id);
+    assert_eq!(roles(&new), ["review"]);
+    assert_eq!(kinds(&new)[..2], ["run-started", "check-recorded"]);
+    assert_eq!(new[1]["payload"]["round"], 2);
+    assert_eq!(new.last().unwrap()["payload"]["candidate"], candidate);
+    // Stale again, its rounds spent: refused, with nothing written, since a verified task cannot halt; an
+    // authorization grants a round, and the run revalidates the candidate it keeps.
+    stale(&fx, 2);
+    refused(&fx, &["run", &id, "--say", SAY], "ROUNDS_EXHAUSTED", 1, "es");
+    ok(&authorize(&fx, &id, &[]));
+    let new = verifies(&fx, &id);
+    assert_eq!(roles(&new), ["review"]);
+    assert_eq!(fx.git(&["rev-parse", &format!("fabrewk/{id}")]), candidate);
+    // Stale again with no backend: the run starts, then halts, since no halt leaves `verified` (section 4); the
+    // record replays.
+    stale(&fx, 3);
+    let bin = path_with(&fx.root.parent().unwrap().join("nobackend"), &["git", "ssh-keygen", "df", "socat"]);
+    let dir = fx.root.parent().unwrap().join("tool/versions");
+    let path = std::env::join_paths([dir.as_os_str(), bin.as_os_str()]).unwrap();
+    let before = fx.events(&stream(&id)).len();
+    let ran = fx.run_with(&["run", &id, "--say", SAY], Some(&path));
+    assert_eq!(ran.status, 4, "{ran:?}");
+    let new = fx.events(&stream(&id))[before..].to_vec();
+    assert_eq!(kinds(&new), ["run-started", "task-halted"]);
+    assert_eq!(new[1]["payload"]["code"], "CONFINEMENT_UNAVAILABLE");
+    ok(&fx.run(&["check"]));
+}
+
+#[test]
+fn a_run_killed_during_a_check_is_recovered_and_its_copy_removed() {
+    let fx = Fx::builder("killed-check", "published", &format!("{WRITES}{SUCCESS}"));
+    let (stage, ids) =
+        plan(&fx, staged("until [ -e /work/go ]; do sleep 0.1; done"), vec![json!({}), json!({"goal": "Two."})]);
+    ok(&authorize(&fx, &stage, &[]));
+    // The directories of a check an earlier run left unread, which no recovery of a later run removes.
+    let earlier = fx.domain.join(format!("local/tmp/check-{}-1", ids[0]));
+    fs::create_dir_all(earlier.join("work")).unwrap();
+    let mut child = fx.spawn(&["run", &ids[0], "--say", SAY]);
+    until("the check", || dirs(&fx, "tmp", &format!("check-{}", ids[0])).iter().any(|d| d.join("work/src").is_dir()));
+    child.kill().unwrap();
+    child.wait().unwrap();
+    ok(&fx.run(&["reject", &ids[1], "--say", SAY]));
+    assert_eq!(fx.events(&stream(&ids[0])).last().unwrap()["payload"]["code"], "OUTCOME_UNKNOWN");
+    assert_eq!(dirs(&fx, "tmp", "check-"), [earlier]);
 }

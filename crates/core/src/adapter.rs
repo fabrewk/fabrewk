@@ -186,7 +186,7 @@ pub fn resolve(adapter: &Adapter, found: &Path, outside: &[&Path]) -> Result<(Pa
 pub const SCHEMA: &str = "/home/agent/schema.json";
 
 /// The variables every agent's cell holds (3.3).
-const CELL_ENV: [(&str, &str); 4] =
+pub const CELL_ENV: [(&str, &str); 4] =
     [("PATH", "/usr/bin:/bin"), ("HOME", "/home/agent"), ("TMPDIR", "/tmp"), ("LANG", "C.UTF-8")];
 
 /// The cell of a role (3.4): the copy writable at `/work`, the release read-only at its own path, nested namespaces

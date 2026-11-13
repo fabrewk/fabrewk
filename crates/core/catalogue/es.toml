@@ -161,6 +161,7 @@ done = "Se corrió la tarea {id}."
 attempt = "Intento {n} (el lugar de su inicio en los eventos de la tarea)."
 candidate = "Candidato {commit} en {branch}."
 halted = "La tarea {id} está detenida con {code} y espera a una persona: un maestro la autoriza otra vez o la rechaza."
+verified = "La tarea {id} está verificada: sus checks pasaron y su revisión la aceptó. Un maestro la acepta o la rechaza."
 
 [reject]
 done = "Se rechazó la tarea {id}: es definitivo."
@@ -272,6 +273,7 @@ stage = "Etapa {id}, {state}: {goal}"
 task = "Tarea {id}, {state}: {goal}"
 in-stage = "En la etapa {stage}."
 halted = "Detenida con {code}: {why}"
+limited = "Su revisión la hizo el mismo proveedor del constructor: review.differentProvider no se cumplió y la revisión queda registrada con esa limitación."
 events = "Eventos, en orden:"
 event = "{what} ({kind}), por {by}, el {at}"
 allowed = "Movimientos que la tabla de transiciones permite desde aquí: {moves}."
@@ -511,6 +513,11 @@ next = "Libera espacio en ese disco, o baja limits.freeDiskMegabytes en los ajus
 reason = "El repositorio del producto no ignora .brewstillery/, así que un commit ahí lo publicaría."
 next = "Agrega la línea /.brewstillery/ al .git/info/exclude del producto."
 
+[code.EVIDENCE_STALE]
+reason = "La identidad de un check ya no coincide: cambió el árbol de producto del candidato, la definición del check, la política, la versión de una herramienta nombrada o la plataforma."
+next = "Un maestro corre la tarea otra vez, lo que revalida su candidato, o la rechaza."
+run = "fabrewk status"
+
 [code.DOMAIN_UNKNOWN_ENTRY]
 reason = "Una entrada en .brewstillery/ que no es parte del dominio de Fabrewk; se dejó como está."
 next = "Sácala de .brewstillery/ si no es de Fabrewk."
@@ -558,6 +565,11 @@ run = "fabrewk status"
 reason = "Esta no es la raíz del árbol de trabajo principal del repositorio."
 next = "Córrelo en la raíz del árbol de trabajo principal del repositorio."
 
+[code.NO_PROGRESS]
+reason = "Dos rondas seguidas no bajaron el número de hallazgos bloqueantes confirmados."
+next = "La tarea espera a una persona, que elige una alternativa: reducir el alcance, cambiar el diseño o reemplazar un componente; después autoriza una tarea otra vez o rechaza esta."
+run = "fabrewk status"
+
 [code.OUTCOME_UNKNOWN]
 reason = "El proceso que corría el intento de la tarea ya no corre, así que su resultado es desconocido; el intento cuenta como gastado, y reintentar gasta un despacho."
 next = "La tarea espera a una persona: un maestro la autoriza otra vez o la rechaza."
@@ -580,6 +592,11 @@ run = "fabrewk adopt"
 [code.PRIVATE_FOLDER_PERMISSIONS]
 reason = "La carpeta privada da acceso a alguien más que su dueño, así que Fabrewk no la lee."
 next = "Deja la carpeta solo para su dueño (modo 0700)."
+
+[code.PROVIDER_MISSING]
+reason = "review.differentProvider es require, y el proveedor del perfil de revisión es el del constructor, o su herramienta no está."
+next = "La tarea espera a una persona: un maestro la autoriza otra vez nombrando --widen review.differentProvider, lo que registra la limitación, o la rechaza."
+run = "fabrewk status"
 
 [code.PROTECTED_PATH]
 reason = "Los archivos permitidos, o la copia del agente, alcanzan una ruta protegida (.git o .brewstillery)."
@@ -642,9 +659,19 @@ next = "El siguiente comando que escribe los confirma."
 reason = "Un evento no es de un esquema que esta versión de Fabrewk conozca."
 next = "Usa una versión de Fabrewk que lo conozca, o examina el archivo indicado."
 
+[code.REVIEW_UNEXAMINED]
+reason = "El flujo del revisor no muestra que examinara el candidato, o no se puede leer; su veredicto no cuenta."
+next = "La tarea espera a una persona: un maestro la autoriza otra vez o la rechaza. Mira la evidencia de la revisión:"
+run = "fabrewk status"
+
 [code.REVIEW_INVALID]
 reason = "El resultado del revisor no se ajusta al esquema de la revisión: su veredicto no es accept ni reject, un hallazgo no tiene severidad, estado o resumen, o un reject no tiene ningún hallazgo bloqueante confirmado."
 next = "La tarea espera a una persona; mira lo que devolvió el revisor:"
+run = "fabrewk status"
+
+[code.ROUNDS_EXHAUSTED]
+reason = "Las rondas de revisión de la tarea desde su autorización están gastadas; no se empieza ninguna ronda más."
+next = "La tarea espera a una persona: un maestro la autoriza otra vez, lo que concede de nuevo sus rondas, o la rechaza."
 run = "fabrewk status"
 
 [code.ROLE_FORBIDDEN]

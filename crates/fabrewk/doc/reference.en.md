@@ -207,7 +207,7 @@ A maestro authorizes a task, or a stage and its tasks, as status showed it, nami
 - `--json`: Gives the output as one JSON document with a schema field.
 - `--help`: Shows this help.
 
-Moves it may cause: `task-authorized` (task authorized), `stage-authorized` (stage authorized), `run-started` (run started), `attempt-started` (attempt started), `attempt-ended` (attempt ended), `candidate-recorded` (candidate recorded), `task-halted` (task halted).
+Moves it may cause: `task-authorized` (task authorized), `stage-authorized` (stage authorized), `run-started` (run started), `attempt-started` (attempt started), `attempt-ended` (attempt ended), `candidate-recorded` (candidate recorded), `check-recorded` (check recorded), `review-recorded` (review recorded), `task-verified` (task verified), `task-halted` (task halted).
 
 Documents with --json: `fabrewk.authorized/2`
 
@@ -309,7 +309,7 @@ A maestro starts the confined run of an authorized task, or of a stage's next on
 - `--json`: Gives the output as one JSON document with a schema field.
 - `--help`: Shows this help.
 
-Moves it may cause: `run-started` (run started), `attempt-started` (attempt started), `attempt-ended` (attempt ended), `candidate-recorded` (candidate recorded), `task-halted` (task halted).
+Moves it may cause: `run-started` (run started), `attempt-started` (attempt started), `attempt-ended` (attempt ended), `candidate-recorded` (candidate recorded), `check-recorded` (check recorded), `review-recorded` (review recorded), `task-verified` (task verified), `task-halted` (task halted).
 
 Documents with --json: `fabrewk.run/1`
 
@@ -325,6 +325,9 @@ Refusals
 - `LOCK_HELD`: Another Fabrewk command holds the lock of this repository's record, or another task is running: one writer and one run at a time.
 - `WIDENING_UNNAMED`: A change widens authority without being named.
 - `ALAMBIQUE_UNAPPROVED`: The alambique is not the text a maestro last approved: it changed by hand, or it was never approved.
+- `ROUNDS_EXHAUSTED`: The task's review rounds since its authorization are spent; no round more is started.
+- `BUDGET_EXHAUSTED`: The task's or its stage's dispatches, minutes or tokens are spent, or what was spent cannot be known; nothing more is dispatched.
+- `PROVIDER_MISSING`: review.differentProvider is require, and the review profile's provider is the builder's, or its tool is absent.
 - `RECORD_ABSENT`: There is no record here.
 - `POLICY_ABSENT`: No policy is adopted, so there is no effective configuration and no maintainer.
 - `RECORD_BROKEN`: The record is broken: its files are not one unbroken chain.

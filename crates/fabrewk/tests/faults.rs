@@ -826,10 +826,10 @@ fn p9e_13_a_writer_recovers_what_it_finds_running_under_the_lock() {
         appended(&fx, &stream, "attempt-started", attempt, false);
         let ran = resume(child, "before-lock", &dir);
         // Recovered by that writer: its attempt ended unknown, the task halted; then its own move made (a rejection, a
-        // run to its candidate).
+        // run that verifies the task).
         let kinds: Vec<Value> = fx.events(&stream).iter().map(|e| e["kind"].clone()).collect();
         assert_eq!(kinds[kinds.len() - 2..], [json!("attempt-ended"), json!("task-halted")], "{command}: {ran:?}");
         assert_eq!(fx.events(&stream).last().unwrap()["payload"]["code"], "OUTCOME_UNKNOWN");
-        assert_eq!(ran.status, if command == "run" { 4 } else { 0 }, "{command}: {ran:?}");
+        assert_eq!(ran.status, 0, "{command}: {ran:?}");
     }
 }

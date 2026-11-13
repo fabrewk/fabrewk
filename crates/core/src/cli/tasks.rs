@@ -268,12 +268,15 @@ fn authorize_plan(cx: &Cx, id: &str, options: &Options, record: &Replay) -> Resu
             let (_, actor, _) = who.as_ref().expect("ROLE_FORBIDDEN is a guard of every authorization");
             let who = (actor.clone(), say.clone().expect("WORDS_MISSING is a guard of every authorization"));
             // A stage's authorization may bind other tasks than the one it runs, which relies on its own (P9E-3).
-            let fresh = b.tasks.iter().any(|(n, _)| **n == next);
+            let fresh = b.tasks.iter().any(|(n, _)| **n == next).then_some(options.widen.as_slice());
             Some((next.clone(), super::run::start(cx, record, (&policy, &after), &next, fresh, who)?))
         }
     };
     let (_, actor, signer) = who.expect("ROLE_FORBIDDEN is a guard of every authorization");
     let mut widened: Vec<String> = effs.iter().flat_map(|e| e.widened.clone()).collect();
+    // A reviewer of the builder's provider where the policy requires another is a widening no layer makes: named, it
+    // is recorded, and lets the task continue with the limitation recorded (REQ-GATE-4).
+    widened.extend(options.widen.iter().filter(|w| *w == "review.differentProvider").cloned());
     widened.sort();
     widened.dedup();
     let bind = |(n, e): &Stream| {
@@ -392,7 +395,7 @@ pub(super) fn run(cx: &Cx, id: &str, options: &Options) -> Result<Out, Failed> {
         };
         let (alias, actor, signer) = write::person(cx, &policy, "run-started")?;
         let say = write::words(cx, &policy, &alias, options)?;
-        let (draft, then) = super::run::start(cx, record, (&policy, &states), &task, false, (actor, say))?;
+        let (draft, then) = super::run::start(cx, record, (&policy, &states), &task, None, (actor, say))?;
         let events = vec![(task, draft)];
         Ok(Plan { events, signer: Some(signer), sealed: false, view: None, alambique: None, then: Some(then), out: () })
     };

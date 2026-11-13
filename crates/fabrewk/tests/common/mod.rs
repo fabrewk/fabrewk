@@ -343,9 +343,30 @@ impl Fx {
         fx
     }
 
-    /// Replaces the fake builder's script (see [`Fx::builder`]): its version, then `script`.
+    /// Replaces the fake builder's script (see [`Fx::builder`]): its version; dispatched as a reviewer, the script
+    /// [`Fx::reviewer`] wrote, else [`review`] accepting; then `script`. The recorded real review (11.2 rule 3) is beside
+    /// it, as `review.jsonl`.
     pub fn fake(&self, script: &str) {
-        self.fake_raw(&format!("case \"$1\" in --version) echo '2.1.316 (Claude Code)'; exit 0;; esac\n{script}"));
+        let dir = self.root.parent().unwrap().join("tool/versions");
+        let recorded = concat!(env!("CARGO_MANIFEST_DIR"), "/../adapter-claude/tests/streams/review.jsonl");
+        std::fs::copy(recorded, dir.join("review.jsonl")).unwrap();
+        let accept = review(r#"{"verdict":"accept","findings":[]}"#);
+        let review = format!(
+            "case \"$*\" in *'\"role\": \"review\"'*) d=$(dirname \"$0\"); [ -f \"$d/reviewer\" ] && exec sh \"$d/reviewer\" \"$@\"\n{accept}exit 0;; esac"
+        );
+        self.fake_raw(&format!(
+            "case \"$1\" in --version) echo '2.1.316 (Claude Code)'; exit 0;; esac\n{review}\n{script}"
+        ));
+    }
+
+    /// The fake reviewer's script (see [`Fx::fake`]), run with the dispatch's arguments; `None` gives back the accepting
+    /// one.
+    pub fn reviewer(&self, script: Option<&str>) {
+        let file = self.root.parent().unwrap().join("tool/versions/reviewer");
+        match script {
+            Some(s) => std::fs::write(&file, s).unwrap(),
+            None => _ = std::fs::remove_file(&file),
+        }
     }
 
     /// Replaces the fake builder with a shell script of `script` alone.
@@ -448,6 +469,18 @@ pub const BUILDER: &str = "\n[tools.claude]\nadapter = \"claude-code\"\nprovider
 pub const SUCCESS: &str = r#"echo '{"type":"system","subtype":"init","model":"claude-sonnet-5-5"}'
 echo '{"type":"result","subtype":"success","is_error":false,"structured_output":{"summary":"Done."},"usage":{"input_tokens":10,"cache_creation_input_tokens":2,"output_tokens":5,"cache_read_input_tokens":7}}'
 "#;
+
+/// A fake reviewer's stream, as a script: it reads one file of its copy, which the audit counts as an examination, then
+/// gives `result` (a review's JSON), with one token read and one written.
+pub fn review(result: &str) -> String {
+    format!(
+        r#"echo '{{"type":"system","subtype":"init","model":"claude-sonnet-5-5"}}'
+echo '{{"type":"assistant","message":{{"content":[{{"type":"tool_use","id":"u1","name":"Read","input":{{"file_path":"/work/README.md"}}}}]}}}}'
+echo '{{"type":"user","message":{{"content":[{{"type":"tool_result","tool_use_id":"u1","content":"read","is_error":false}}]}}}}'
+echo '{{"type":"result","subtype":"success","is_error":false,"structured_output":{result},"usage":{{"input_tokens":1,"cache_creation_input_tokens":0,"output_tokens":1,"cache_read_input_tokens":0}}}}'
+"#
+    )
+}
 
 /// Removes, once per test process, the fixtures of test processes that have ended (their names carry the process's
 /// identifier), opening every directory first; so that runs that repeat, as mutation testing does, do not fill the

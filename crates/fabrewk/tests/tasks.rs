@@ -145,7 +145,8 @@ fn halt(code: &str) -> Value {
 fn accept_by_hand(fx: &Fx, id: &str) {
     let stream = format!("task-{id}");
     start_by_hand(fx, id);
-    by_hand(fx, &stream, "task-verified", json!({}), false);
+    let verified = json!({"candidate": "0".repeat(40), "tree": "0".repeat(40), "requirements": "0".repeat(64), "checks": {}, "review": 1});
+    by_hand(fx, &stream, "task-verified", verified, false);
     let head = head_of(fx, &stream);
     by_hand(fx, &stream, "task-accepted", json!({"task": id, "head": head}), true);
 }

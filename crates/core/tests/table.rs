@@ -215,6 +215,19 @@ impl Task {
     }
 }
 
+/// The payloads part 9f fixed: a check that passed, a review that accepted, a verification.
+fn check_recorded() -> Value {
+    json!({"check": "test", "round": 1, "identity": "1".repeat(64), "outcome": "passed", "evidence": null})
+}
+
+fn review_recorded() -> Value {
+    json!({"attempt": 1, "round": 1, "verdict": "accept", "findings": [], "examined": 1, "tree": "2".repeat(40), "requirements": "3".repeat(64), "provider": "anthropic", "limited": false})
+}
+
+fn task_verified() -> Value {
+    json!({"candidate": "4".repeat(40), "tree": "2".repeat(40), "requirements": "3".repeat(64), "checks": {"test": "1".repeat(64)}, "review": 1})
+}
+
 #[test]
 fn refusal_record_transition_invalid_from_the_table() {
     let t = Task::new("table-moves");
@@ -223,10 +236,9 @@ fn refusal_record_transition_invalid_from_the_table() {
     t.next(&fabrewk("attempt-started", attempt()));
     t.next(&fabrewk("attempt-ended", ended(&t.f, &t.stream, seconds(1))));
     t.next(&fabrewk("candidate-recorded", candidate()));
-    for kind in ["check-recorded", "review-recorded"] {
-        t.next(&fabrewk(kind, json!({})));
-    }
-    let verified = t.next(&fabrewk("task-verified", json!({})));
+    t.next(&fabrewk("check-recorded", check_recorded()));
+    t.next(&fabrewk("review-recorded", review_recorded()));
+    let verified = t.next(&fabrewk("task-verified", task_verified()));
     t.replay().unwrap();
     // A hand-made `task-integrated` from `verified` (11.4).
     let integrated = t.next(&fabrewk("task-integrated", json!({})));
@@ -371,6 +383,38 @@ fn the_runs_payloads_and_bindings_on_replay() {
     assert_eq!(t.replay().unwrap_err(), [Code::RecordTransitionInvalid]);
     fs::remove_file(path).unwrap();
     t.next(&fabrewk("candidate-recorded", candidate()));
+    // Part 9f's kinds hold their fields, of their types and sets: a check's outcome, a review's verdict and findings,
+    // a verification's identities. What a reviewer wrote, a finding's summary and path, is any text.
+    let with = |v: Value, k: &str, x: Value| {
+        let mut v = v;
+        v[k] = x;
+        v
+    };
+    let finding = json!({"severity": "blocking", "status": "confirmed", "path": " ", "summary": ""});
+    for (kind, payload, code) in [
+        ("check-recorded", with(check_recorded(), "outcome", json!("skipped")), Code::RecordTransitionInvalid),
+        ("check-recorded", with(check_recorded(), "round", json!(0)), Code::RecordTransitionInvalid),
+        ("check-recorded", with(check_recorded(), "extra", json!(1)), Code::RecordVersionUnknown),
+        ("review-recorded", with(review_recorded(), "verdict", json!("maybe")), Code::RecordTransitionInvalid),
+        ("review-recorded", with(review_recorded(), "examined", json!(-1)), Code::RecordTransitionInvalid),
+        (
+            "review-recorded",
+            with(review_recorded(), "findings", json!([{"severity": "blocking"}])),
+            Code::RecordVersionUnknown,
+        ),
+        ("review-recorded", with(review_recorded(), "limited", json!("no")), Code::RecordVersionUnknown),
+        ("task-verified", with(task_verified(), "checks", json!({"test": "short"})), Code::RecordTransitionInvalid),
+        ("task-verified", with(task_verified(), "review", json!(null)), Code::RecordVersionUnknown),
+    ] {
+        let path = t.next(&fabrewk(kind, payload.clone()));
+        assert_eq!(t.replay().unwrap_err(), [code], "{kind} {payload}");
+        fs::remove_file(path).unwrap();
+    }
+    t.next(&fabrewk(
+        "check-recorded",
+        with(check_recorded(), "evidence", json!({"stdout": "5".repeat(64), "stderr": "6".repeat(64)})),
+    ));
+    t.next(&fabrewk("review-recorded", with(review_recorded(), "findings", json!([finding]))));
     // A halt's code is one of REQ-TASK-5's.
     let path = t.next(&fabrewk("task-halted", halted("LOCK_HELD")));
     assert_eq!(t.replay().unwrap_err(), [Code::RecordTransitionInvalid]);
@@ -1127,7 +1171,7 @@ fn pd_40_a_task_waits_for_the_maestro_since_its_halt_and_not_while_it_runs() {
     let t = running("view-verified");
     t.next(&fabrewk("attempt-started", attempt()));
     t.next(&fabrewk("attempt-ended", ended(&t.f, &t.stream, seconds(1))));
-    t.next(&fabrewk("task-verified", json!({})));
+    t.next(&fabrewk("task-verified", task_verified()));
     let waits: Vec<_> = view::waits(&t.f.replay()).into_iter().filter(|w| w.id == id_of(&t)).collect();
     assert_eq!((waits[0].what, waits[0].detail.as_str()), ("task-verified", ""));
 }

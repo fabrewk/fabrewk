@@ -207,7 +207,7 @@ Un maestro autoriza una tarea, o una etapa y sus tareas, tal como status las mos
 - `--json`: Da la salida como un solo documento JSON con un campo schema.
 - `--help`: Muestra esta ayuda.
 
-Movimientos que puede causar: `task-authorized` (tarea autorizada), `stage-authorized` (etapa autorizada), `run-started` (ejecución iniciada), `attempt-started` (intento iniciado), `attempt-ended` (intento terminado), `candidate-recorded` (candidato registrado), `task-halted` (tarea detenida).
+Movimientos que puede causar: `task-authorized` (tarea autorizada), `stage-authorized` (etapa autorizada), `run-started` (ejecución iniciada), `attempt-started` (intento iniciado), `attempt-ended` (intento terminado), `candidate-recorded` (candidato registrado), `check-recorded` (comprobación registrada), `review-recorded` (revisión registrada), `task-verified` (tarea verificada), `task-halted` (tarea detenida).
 
 Documentos con --json: `fabrewk.authorized/2`
 
@@ -309,7 +309,7 @@ Un maestro inicia la ejecución confinada de una tarea autorizada, o de la sigui
 - `--json`: Da la salida como un solo documento JSON con un campo schema.
 - `--help`: Muestra esta ayuda.
 
-Movimientos que puede causar: `run-started` (ejecución iniciada), `attempt-started` (intento iniciado), `attempt-ended` (intento terminado), `candidate-recorded` (candidato registrado), `task-halted` (tarea detenida).
+Movimientos que puede causar: `run-started` (ejecución iniciada), `attempt-started` (intento iniciado), `attempt-ended` (intento terminado), `candidate-recorded` (candidato registrado), `check-recorded` (comprobación registrada), `review-recorded` (revisión registrada), `task-verified` (tarea verificada), `task-halted` (tarea detenida).
 
 Documentos con --json: `fabrewk.run/1`
 
@@ -325,6 +325,9 @@ Rechazos
 - `LOCK_HELD`: Otro comando de Fabrewk tiene el candado del registro de este repositorio, u otra tarea está en ejecución: un escritor y una ejecución a la vez.
 - `WIDENING_UNNAMED`: Un cambio amplía la autoridad sin nombrarse.
 - `ALAMBIQUE_UNAPPROVED`: El alambique no es el texto que un maestro aprobó por última vez: cambió a mano, o nunca se aprobó.
+- `ROUNDS_EXHAUSTED`: Las rondas de revisión de la tarea desde su autorización están gastadas; no se empieza ninguna ronda más.
+- `BUDGET_EXHAUSTED`: Los despachos, minutos o tokens de la tarea o de su etapa están gastados, o no se puede saber lo gastado; no se despacha nada más.
+- `PROVIDER_MISSING`: review.differentProvider es require, y el proveedor del perfil de revisión es el del constructor, o su herramienta no está.
 - `RECORD_ABSENT`: Aquí no hay registro.
 - `POLICY_ABSENT`: No hay una política adoptada, así que no hay configuración efectiva ni mantenedores.
 - `RECORD_BROKEN`: El registro está roto: sus archivos no forman una sola cadena sin cortes.

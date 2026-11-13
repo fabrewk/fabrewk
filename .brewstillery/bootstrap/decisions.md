@@ -4121,3 +4121,26 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Not done: the checks, the reviewer's dispatch, rounds and verification (part 9f), which replace D-082's halt;
   integration and Git's own output kept as evidence (part 9g, D-083); the flows and the crash suite over F-1, the
   view's temporary file included (part 9i).
+
+## D-085 — Part 9f: a check with network refused, a later round built on the last candidate, checks outside the budget
+
+- Status: decided
+- Decided: 2026-11-12
+- Origin: maintainer XEL in session 35's chat, answering the integrator's three questions before any code: "Rehusar
+  (Recomendado)", "Candidato anterior (Recomendado)" and "No cuentan (Recomendado)".
+- Decision:
+  1. A required check with `checks.<name>.network = true` cannot be confined by the bubblewrap backend, which cannot
+     keep a cell with a network from nesting (part 9a): the run halts the task `CONFINEMENT_UNAVAILABLE` at its
+     confinement guard, before the builder is dispatched, its reason saying so. A check with network is left for after
+     the pilot.
+  2. A building round after the first (after a review's reject or a failed check) exports the task's last candidate
+     into its copy, so that the builder corrects rather than rebuilds; the change set is still computed against the
+     base and the new candidate's parent is still the base. REQ-RUN-3 is amended so.
+  3. A check is not a dispatch: its time counts against none of the task's or the stage's limits (D-082); each check
+     is limited by its own `checks.<name>.minutes`.
+- Reason: the specification left the first open since part 9a, and the second and third are not settled by REQ-RUN-3
+  and D-082. The alternatives offered: a check with network in a cell that may nest, declared under T-08; every round
+  from the base; a check's time spent from the task's and the stage's minutes.
+- Consequences: `core-specification.md` ("as part 9f fixed it"); R-044.
+- Sources: chat of session 35; `confinement-design.md` 3.4 and 3.7; `core-specification.md` REQ-RUN-3, REQ-GATE-2,
+  REQ-GATE-6; D-082.

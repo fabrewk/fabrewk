@@ -185,6 +185,7 @@ done = "Ran the task {id}."
 attempt = "Attempt {n} (the place of its start in the task's events)."
 candidate = "Candidate {commit} on {branch}."
 halted = "The task {id} is halted with {code} and waits for a person: a maestro authorizes it again or rejects it."
+verified = "The task {id} is verified: its checks passed and its review accepted it. A maestro accepts it or rejects it."
 
 [reject]
 about = "What reject reports"
@@ -306,6 +307,7 @@ stage = "Stage {id}, {state}: {goal}"
 task = "Task {id}, {state}: {goal}"
 in-stage = "In the stage {stage}."
 halted = "Halted with {code}: {why}"
+limited = "Its review was made by the builder's own provider: review.differentProvider was not met, and the review is recorded with that limitation."
 events = "Events, in order:"
 event = "{what} ({kind}), by {by}, at {at}"
 allowed = "Moves the transition table allows from here: {moves}."
@@ -574,6 +576,12 @@ about = "A domain that the product's repository would publish, in a mode that mu
 reason = "The product's repository does not ignore .brewstillery/, so a commit there would publish it."
 next = "Add the line /.brewstillery/ to the product's .git/info/exclude."
 
+[code.EVIDENCE_STALE]
+about = "Evidence whose identity no longer matches what it was recorded for (REQ-GATE-3)"
+reason = "A check's identity no longer matches: the candidate's product tree, the check's definition, the policy, a named tool's version or the platform changed."
+next = "A maestro runs the task again, which revalidates its candidate, or rejects it."
+run = "fabrewk status"
+
 [code.DOMAIN_UNKNOWN_ENTRY]
 about = "An entry at the domain's top that is not part of it (a warning)"
 reason = "An entry in .brewstillery/ that is not part of Fabrewk's domain; it was left as it is."
@@ -632,6 +640,12 @@ about = "A command run outside the root of a repository's main working tree"
 reason = "This is not the root of the repository's main working tree."
 next = "Run it at the root of the repository's main working tree."
 
+[code.NO_PROGRESS]
+about = "Two rounds in a row that did not lower the confirmed blocking findings (REQ-TASK-5, D-003)"
+reason = "Two rounds in a row did not lower the number of confirmed blocking findings."
+next = "The task waits for a person, who chooses an alternative: reduce the scope, change the design or replace a component, then authorizes a task again or rejects this one."
+run = "fabrewk status"
+
 [code.OUTCOME_UNKNOWN]
 about = "An attempt whose outcome is unknown: its process no longer runs (REQ-RUN-5)"
 reason = "The process that ran the task's attempt no longer runs, so its outcome is unknown; the attempt is counted as spent, and a retry spends a dispatch."
@@ -659,6 +673,12 @@ run = "fabrewk adopt"
 about = "A private folder whose permissions give access to others"
 reason = "The private folder gives access to someone other than its owner, so Fabrewk does not read it."
 next = "Give the folder to its owner only (mode 0700)."
+
+[code.PROVIDER_MISSING]
+about = "A review that must be made by another provider than the builder's, and cannot be (REQ-GATE-4)"
+reason = "review.differentProvider is require, and the review profile's provider is the builder's, or its tool is absent."
+next = "The task waits for a person: a maestro authorizes it again naming --widen review.differentProvider, which records the limitation, or rejects it."
+run = "fabrewk status"
 
 [code.PROTECTED_PATH]
 about = "A task's allowed files that reach a protected path"
@@ -736,10 +756,22 @@ about = "An event of a schema this Fabrewk does not know"
 reason = "An event is not of a schema this version of Fabrewk knows."
 next = "Use a version of Fabrewk that knows it, or examine the file named."
 
+[code.REVIEW_UNEXAMINED]
+about = "A review whose stream does not show that the reviewer examined the candidate (REQ-GATE-4, PD-25, PD-26)"
+reason = "The reviewer's stream does not show that it examined the candidate, or cannot be read; its verdict does not count."
+next = "The task waits for a person: a maestro authorizes it again or rejects it. See the review's evidence:"
+run = "fabrewk status"
+
 [code.REVIEW_INVALID]
 about = "A review whose result does not fit its role's schema (REQ-RUN-8)"
 reason = "The reviewer's result does not fit the review's schema: its verdict is not accept or reject, a finding lacks a severity, a status or a summary, or a reject holds no confirmed blocking finding."
 next = "The task waits for a person; see what the reviewer returned:"
+run = "fabrewk status"
+
+[code.ROUNDS_EXHAUSTED]
+about = "A task whose review rounds are spent (REQ-RUN-2, REQ-TASK-5, PD-07)"
+reason = "The task's review rounds since its authorization are spent; no round more is started."
+next = "The task waits for a person: a maestro authorizes it again, which grants its rounds anew, or rejects it."
 run = "fabrewk status"
 
 [code.ROLE_FORBIDDEN]

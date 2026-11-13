@@ -243,6 +243,11 @@ fn subject(cx: &Cx, id: &str) -> Result<Out, Failed> {
         text += &format!("{}\n", cx.t("status.halted", &[("code", code), ("why", &why)]));
         text += &format!("  {}\n", super::tasks::verbatim(reason, "  "));
     }
+    // The last review, recorded with the limitation of a reviewer of the builder's own provider, says so (REQ-GATE-4).
+    let review = events.iter().rfind(|e| e.kind == "review-recorded");
+    if review.is_some_and(|e| e.value["payload"]["limited"] == true) {
+        text += &format!("{}\n", cx.t("status.limited", &[]));
+    }
     text += &format!("{}\n", cx.t("status.events", &[]));
     let mut list = Vec::new();
     for e in events {
