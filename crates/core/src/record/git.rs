@@ -310,17 +310,19 @@ pub(crate) fn exclude_file(repo: &Repo) -> Result<PathBuf, Error> {
 /// that cannot say, is `TOOL_FAILED` (P7D2-12).
 pub(crate) fn head_of(repo: &Repo, name: &str) -> Result<Option<String>, Error> {
     let target = format!("{name}^{{commit}}");
-    let out = run(command(repo, &os(&["rev-parse", "--verify", "-q", &target])), b"")?;
+    let args = os(&["rev-parse", "--verify", "-q", &target]);
+    let out = run(command(repo, &args), b"")?;
     if out.status.success() {
         return Ok(Some(line(out.stdout)));
     }
-    let failed = || refuse(Code::ToolFailed, Some(&repo.root), format!("{name} names no commit"));
+    // A ref that exists and names no commit keeps what Git printed, as every failed Git in a write command does (P9G-9).
+    let why = |e: Error| refuse(Code::ToolFailed, Some(&repo.root), format!("{name} names no commit: {}", e.detail()));
     let refname = match name {
-        "HEAD" => line(git(repo, &os(&["symbolic-ref", "-q", "HEAD"]), b"", None).map_err(|_| failed())?),
+        "HEAD" => line(git(repo, &os(&["symbolic-ref", "-q", "HEAD"]), b"", None).map_err(why)?),
         _ => name.to_owned(),
     };
     let listed = git(repo, &os(&["for-each-ref", "--format=%(refname)", &refname]), b"", None)?;
-    if listed.is_empty() { Ok(None) } else { Err(failed()) }
+    if listed.is_empty() { Ok(None) } else { Err(why(failed(repo, &args, &out))) }
 }
 
 /// Refuses `NOT_A_REPOSITORY` unless `repo.root` is the repository's main working tree, at its top: the record, its
