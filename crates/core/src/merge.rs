@@ -165,12 +165,14 @@ pub fn clean(changes: &[Change], held: &[(Held, Held)], base: bool, candidate: b
     let sub =
         |h: &Held, c: &Change| (submodule(&c.before) || submodule(&c.after)) && matches!(h, Held::Other | Held::Absent);
     match changes.iter().zip(held).find(|(c, (i, w))| !fits(i, c) || !(fits(w, c) || sub(w, c))) {
-        Some((c, _)) => {
-            let why = format!("{} holds an edit the integration would overwrite", candidate::shown(c.path.as_bytes()));
-            Err(refuse(Code::WorktreeDirty, None, why))
-        }
+        Some((c, _)) => Err(dirty(c)),
         None => Ok(()),
     }
+}
+
+fn dirty(c: &Change) -> Error {
+    let why = format!("{} holds an edit the integration would overwrite", candidate::shown(c.path.as_bytes()));
+    refuse(Code::WorktreeDirty, None, why)
 }
 
 /// The integration commit (REQ-GATE-8): `head`'s tree with `changes` applied, through a temporary index at `index`,
@@ -223,10 +225,13 @@ pub fn move_branch(repo: &Repo, branch: &str, old: &str, new: &str) -> Result<()
     if out.status.success() {
         return Ok(());
     }
+    // What Git printed is kept whatever the cause (D-083, P9G-4).
+    let failed = git::failed(repo, &args, &out);
     if git::head_of(repo, branch)?.as_deref() != Some(old) {
-        return Err(refuse(Code::BaseMoved, None, "the record branch moved while the integration ran"));
+        let why = format!("the record branch moved while the integration ran: {}", failed.detail());
+        return Err(refuse(Code::BaseMoved, None, why));
     }
-    Err(git::failed(repo, &args, &out))
+    Err(failed)
 }
 
 /// Brings the working tree and the index to the candidate at each touched path (REQ-GATE-8, S-11) that holds the
@@ -236,13 +241,20 @@ pub fn move_branch(repo: &Repo, branch: &str, old: &str, new: &str) -> Result<()
 /// none holds anything else, which [`clean`] refused.
 pub fn bring(repo: &Repo, changes: &[Change], held: &[(Held, Held)], scratch: &Path) -> Result<(), Error> {
     let todo: Vec<(&Change, &(Held, Held))> = changes.iter().zip(held).collect();
-    let mut gone: Vec<&Change> = todo
+    // Each path is read again just before it is written, so that an edit made since `held` read it is never
+    // overwritten (P9G-1); what remains is the instant between that reading and the write, a cooperative control.
+    let unchanged = |c: &Change, was: &Held| -> Result<(), Error> {
+        let now = self::held(repo, std::slice::from_ref(c), scratch)?;
+        if now[0].1 == *was { Ok(()) } else { Err(dirty(c)) }
+    };
+    let mut gone: Vec<(&Change, &(Held, Held))> = todo
         .iter()
         .filter(|(c, (_, w))| c.after.is_none() && !submodule(&c.before) && !w.is(&c.after))
-        .map(|t| t.0)
+        .copied()
         .collect();
-    gone.sort_by(|a, b| b.path.cmp(&a.path));
-    for c in gone {
+    gone.sort_by(|a, b| b.0.path.cmp(&a.0.path));
+    for (c, (_, was)) in gone {
+        unchanged(c, was)?;
         let at = repo.root.join(&c.path);
         crate::record::fault::point();
         fs::remove_file(&at).map_err(io_at(&at))?;
@@ -251,16 +263,16 @@ pub fn bring(repo: &Repo, changes: &[Change], held: &[(Held, Held)], scratch: &P
             dir = d.parent();
         }
     }
-    let new: Vec<&Change> = todo
+    let new: Vec<(&Change, &(Held, Held))> = todo
         .iter()
         .filter(|(c, (_, w))| c.after.is_some() && !w.is(&c.after) && (!submodule(&c.after) || *w == Held::Absent))
-        .map(|t| t.0)
+        .copied()
         .collect();
     let files: Vec<&Entry> =
-        new.iter().filter_map(|c| c.after.as_ref()).filter(|e| e.mode != Mode::Submodule).collect();
+        new.iter().filter_map(|(c, _)| c.after.as_ref()).filter(|e| e.mode != Mode::Submodule).collect();
     let mut bytes = candidate::contents(repo, &files)?.into_iter();
     fs::create_dir_all(scratch).map_err(io_at(scratch))?;
-    for c in new {
+    for (c, (_, was)) in new {
         let e = c.after.as_ref().expect("a change that writes");
         candidate::parents(&repo.root, c.path.as_bytes())?;
         let at = repo.root.join(&c.path);
@@ -280,9 +292,16 @@ pub fn bring(repo: &Repo, changes: &[Change], held: &[(Held, Held)], scratch: &P
         };
         written.map_err(io_at(&tmp))?;
         crate::record::fault::point();
+        unchanged(c, was)?;
         fs::rename(&tmp, &at).map_err(io_at(&at))?;
     }
-    let pending: Vec<&Change> = todo.iter().filter(|(c, (i, _))| !i.is(&c.after)).map(|t| t.0).collect();
+    let pending: Vec<(&Change, &(Held, Held))> = todo.iter().filter(|(c, (i, _))| !i.is(&c.after)).copied().collect();
+    let owned: Vec<Change> = pending.iter().map(|(c, _)| (*c).clone()).collect();
+    let now = self::held(repo, &owned, scratch)?;
+    if let Some(((c, _), _)) = pending.iter().zip(now).find(|((_, (was, _)), (now, _))| now != was) {
+        return Err(dirty(c));
+    }
+    let pending: Vec<&Change> = pending.into_iter().map(|t| t.0).collect();
     let info = index_info(&pending, changes.first().and_then(|c| c.before.as_ref().or(c.after.as_ref())));
     if !info.is_empty() {
         crate::record::fault::point();

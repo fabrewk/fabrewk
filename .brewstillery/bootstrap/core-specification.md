@@ -1314,15 +1314,19 @@ REQ-GATE-10, REQ-REG-10, REQ-RUN-6, REQ-REG-13; S-4, S-11; D-083, D-086, D-087).
   `BASE_MOVED`); the record commit then starts from the commit the integration left. The working tree and the index
   are brought to the candidate at each path that holds the base's content, read again after the move: removals first
   (a file or a link, never a directory; then each directory they emptied), then each entry written from its object's
-  bytes into `local/tmp/merge-<task>/` and renamed into place, then the index by `update-index --index-info`, with no
-  filter, conversion or checkout command (S-11). Then, with the branch at the candidate: its product the candidate's,
+  bytes into `local/tmp/merge-<task>/` and renamed into place, then the index by `update-index --index-info` (removals
+  first), with no filter, conversion or checkout command (S-11). Each path, and the index, is read again just before
+  it is written, and one that changed since is `WORKTREE_DIRTY` (P9G-1); the instant between that reading and the write
+  is left, a cooperative control as P8C-8. A file and a directory may trade places: a path below a touched one that is
+  not a directory holds nothing, and a directory at a touched path above others holds no entry of its own. Then, with the branch at the candidate: its product the candidate's,
   every touched path the candidate's, the evidence current; then `task-integrated`, exactly `from` (the head moved from,
   `null` when no move was made) and `to` (the head with the branch at the candidate).
 - A failure records `merge-failed`, exactly `code` (`BASE_MOVED`, `WORKTREE_DIRTY`, `EVIDENCE_STALE`, `PROTECTED_PATH`,
   `PROTECTED_PATH_WILDCARD`, `LANE_VIOLATION` or `TOOL_FAILED`, any other failure being `TOOL_FAILED`), `reason` (the
   core's words, with no path of the machine), `moved` (whether the branch is at the candidate; nothing is moved back)
-  and `evidence` (`null`, or for a Git failure exactly `status`, its exit status or `null` for a signal, and `stderr`,
-  the digest of its standard error). The task stays `accepted`, exit 4, and waits for a maestro (`task-merge` in the
+  and `evidence` (`null`, or when a Git command failed, whatever the code, a compare-and-swap Git refused included
+  (P9G-4), exactly `status`, its exit status or `null` for a signal, and `stderr`, the digest of its standard error).
+  A failure found again by a run that finishes the integration says whether the branch is at the candidate (P9G-2). The task stays `accepted`, exit 4, and waits for a maestro (`task-merge` in the
   views): `run <task> --say` finishes it under the same checks, its words checked and not recorded (D-087 point 2), or
   `authorize` returns it to `authorized` keeping its candidate. A command killed after the move leaves `task-accepted`
   written and the branch moved; the next write command commits the events, and `run` finishes the integration.
@@ -1336,7 +1340,8 @@ REQ-GATE-10, REQ-REG-10, REQ-RUN-6, REQ-REG-13; S-4, S-11; D-083, D-086, D-087).
 - Git's own output (D-083, D-086 point 3): every Git command the core runs has its standard error captured; one that
   fails is `TOOL_FAILED` with its first words and its exit status, and in a write command (from the start of its write
   path) its standard error and exit status are kept in `local/evidence/git-<seconds>-<process>-<n>/` (`stderr`,
-  `status`; `0700`, `0600`), which the words name. Such a refusal writes that directory and nothing else, a fourth kind of
+  `status`; `0700`, `0600`), which the words name. A committed or a staged file is read by asking first whether the tip
+  or the index holds it, so that a Git that fails is never taken for its absence (P9G-3). Such a refusal writes that directory and nothing else, a fourth kind of
   refusal that writes (11.2 rule 4). Reading commands keep nothing. With `fault-injection`, `FABREWK_FAULT_GIT` makes a
   Git command whose words hold its text fail as Git fails on an option it does not know.
 - With `fault-injection`, the pauses `before-move` (before the second check), `before-update-ref` and `after-move`.

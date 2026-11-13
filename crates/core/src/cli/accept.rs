@@ -212,7 +212,7 @@ impl Merge {
         let code = e.code().map(|c| c.to_string()).filter(|c| crate::task::MERGE_FAILURES.contains(&c.as_str()));
         let code = code.unwrap_or_else(|| Code::ToolFailed.to_string());
         let reason = super::run::unplaced(super::run::words(e), &self.domain, &self.home);
-        let kept = git::take_kept().filter(|_| code == "TOOL_FAILED");
+        let kept = git::take_kept();
         let evidence = kept.map(|k| json!({"status": k.status, "stderr": k.stderr}));
         let payload = json!({"code": code, "reason": reason, "moved": moved, "evidence": evidence});
         a.fabrewk(&self.stream, "merge-failed", payload)?;
@@ -229,9 +229,10 @@ impl Merge {
 fn integrate(m: &Merge, a: &mut Appender, out: &mut Value) -> Result<(), Error> {
     let _ = git::take_kept();
     fault::pause("before-move");
+    // A run that finishes an integration may find the branch at the candidate already, which a failure says (P9G-2).
     let (changes, head, at) = match m.preconditions() {
         Ok(found) => found,
-        Err(e) => return m.failed(a, out, &e, false),
+        Err(e) => return m.failed(a, out, &e, m.place().is_ok_and(|p| p.1)),
     };
     let mut from = None;
     if !at {

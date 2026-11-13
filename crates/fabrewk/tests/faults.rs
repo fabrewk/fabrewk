@@ -956,6 +956,13 @@ fn pd_12_a_precondition_false_just_before_the_move() {
             (&json!(code), &json!(false))
         );
         assert_eq!(product(&fx), before, "{what}: nothing moved");
+        // The compare-and-swap Git refused keeps Git's output as evidence, as every failed Git does (P9G-4).
+        if what == "race" {
+            let p = &events[n - 1]["payload"];
+            assert!(p["evidence"]["stderr"].is_string(), "{p}");
+            let kept = p["reason"].as_str().unwrap().split("kept in ").nth(1).unwrap().to_owned();
+            assert!(fx.root.join(kept).join("stderr").is_file());
+        }
         // With the cause gone, `run` finishes it.
         match what {
             // The person's commit, under the record commit the failure made.
@@ -987,6 +994,18 @@ fn pd_12_pd_14_with_the_branch_at_the_candidate() {
             child.kill().unwrap();
             child.wait().unwrap();
             assert!(!fx.root.join("src/new.txt").exists());
+            // Run again with a person's edit there: the branch is at the candidate, and the failure says so (P9G-2).
+            fs::create_dir_all(fx.root.join("src")).unwrap();
+            fs::write(fx.root.join("src/new.txt"), "mine\n").unwrap();
+            let ran = fx.run(&["run", &id, "--say", SAY]);
+            assert_eq!(ran.status, 4, "{ran:?}");
+            let failed = last_of(&fx, &id);
+            assert_eq!(
+                (&failed["payload"]["code"], &failed["payload"]["moved"]),
+                (&json!("WORKTREE_DIRTY"), &json!(true))
+            );
+            assert_eq!(fs::read(fx.root.join("src/new.txt")).unwrap(), b"mine\n");
+            fs::remove_file(fx.root.join("src/new.txt")).unwrap();
         } else {
             fs::create_dir_all(fx.root.join("src")).unwrap();
             fs::write(fx.root.join("src/new.txt"), "mine\n").unwrap();
@@ -1033,4 +1052,26 @@ fn refusal_evidence_stale_through_the_flow() {
     let ran = fx.run(&args);
     assert_eq!(ran.status, 0, "{ran:?}");
     assert_eq!(last_of(&fx, &id)["kind"], "task-integrated");
+}
+
+/// P9G-3, D-083: a Git that fails while a write command reads a committed or a staged file is `TOOL_FAILED` with Git's
+/// output kept as evidence, never taken for the file's absence.
+#[test]
+fn p9g_3_a_failed_git_read_is_no_absence() {
+    let fx = Fx::new("p9g-3", "published");
+    // The committed file, read for the adoption, and the staged one, read for an approval of a direct edit.
+    fx.alambique(SMALL, "published");
+    fs::write(fx.domain.join("ALAMBIQUE.md"), format!("{SMALL}\nEdited by hand.\n")).unwrap();
+    fx.commit("a direct edit");
+    fx.edit_policy(&(policy_text(&fx.keys) + "\n[limits]\nminutes = 60\n"));
+    let adopt = vec!["adopt", "--say", SAY, "--json"];
+    let approve = vec!["approve", "alambique", "--say", SAY, "--json"];
+    for (fault, args) in [("cat-file blob", &adopt), ("ls-tree -z", &adopt), ("ls-files -z", &approve)] {
+        let ran = fx.run_env(args, &[("FABREWK_FAULT_GIT", fault)]);
+        assert_eq!(ran.status, 1, "{fault}: {ran:?}");
+        let e = &ran.doc()["refusals"][0];
+        assert_eq!(e["code"], "TOOL_FAILED", "{fault}: {e}");
+        assert!(e["detail"].as_str().unwrap().contains("Git's output is kept in"), "{fault}: {e}");
+    }
+    assert_eq!(fx.run(&["adopt", "--say", SAY]).status, 0);
 }

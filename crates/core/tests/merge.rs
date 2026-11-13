@@ -172,3 +172,25 @@ fn req_gate_8_a_file_and_a_directory_trade_places() {
     let tree = run(&root, &["rev-parse", &format!("{c}^{{tree}}")], "");
     assert_eq!(run(&root, &["write-tree"], ""), tree);
 }
+
+/// P9G-1: an edit made after the paths were read, before they are written, is never overwritten: each path is read
+/// again just before it is written.
+#[test]
+fn p9g_1_an_edit_after_the_reading_is_not_overwritten() {
+    let (root, base) = base("merge-late-edit");
+    let repo = Repo { root: root.clone(), prefix: PathBuf::new() };
+    let c = candidate(&root, &base, &[("100644", "README.md", blob(&root, "new\n"))]);
+    let changes = changes(&root, &base, &c, &["**"]).unwrap();
+    let scratch = root.join(".brewstillery/local/tmp/merge");
+    let held = merge::held(&repo, &changes, &scratch).unwrap();
+    fs::write(root.join("README.md"), "mine\n").unwrap();
+    assert_eq!(merge::bring(&repo, &changes, &held, &scratch).unwrap_err().code(), Some(Code::WorktreeDirty));
+    assert_eq!(fs::read(root.join("README.md")).unwrap(), b"mine\n");
+    // The same for the index: a staged edit after the reading stays staged.
+    fs::write(root.join("README.md"), "fixture\n").unwrap();
+    let held = merge::held(&repo, &changes, &scratch).unwrap();
+    let staged = blob(&root, "staged\n");
+    run(&root, &["update-index", "--cacheinfo", &format!("100644,{staged},README.md")], "");
+    assert_eq!(merge::bring(&repo, &changes, &held, &scratch).unwrap_err().code(), Some(Code::WorktreeDirty));
+    assert!(git(&root, &["ls-files", "-s", "README.md"]).contains(&staged));
+}

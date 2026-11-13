@@ -165,16 +165,21 @@ pub(crate) fn committed(repo: &Repo, path: &Path) -> Result<Option<Vec<u8>>, Err
     let Some(head) = head_of(repo, &branch)? else {
         return Ok(None);
     };
-    let spec = format!("{head}:{}", repo.prefix.join(path).to_string_lossy());
-    let out = run(command(repo, &os(&["cat-file", "blob", &spec])), b"")?;
-    Ok(out.status.success().then_some(out.stdout))
+    let rel = repo.prefix.join(path).to_string_lossy().into_owned();
+    // Whether the tip holds it is read apart, so that a Git that fails is never taken for its absence (P9G-3).
+    if git(repo, &os(&["ls-tree", "-z", &head, "--", &format!(":(literal){rel}")]), b"", None)?.is_empty() {
+        return Ok(None);
+    }
+    git(repo, &os(&["cat-file", "blob", &format!("{head}:{rel}")]), b"", None).map(Some)
 }
 
 /// The bytes of `path`, relative to the domain, as the person's index holds them; `None` if the index lacks it.
 pub(crate) fn staged(repo: &Repo, path: &Path) -> Result<Option<Vec<u8>>, Error> {
-    let spec = format!(":{}", repo.prefix.join(path).to_string_lossy());
-    let out = run(command(repo, &os(&["cat-file", "blob", &spec])), b"")?;
-    Ok(out.status.success().then_some(out.stdout))
+    let rel = repo.prefix.join(path).to_string_lossy().into_owned();
+    if git(repo, &os(&["ls-files", "-z", "--", &format!(":(literal){rel}")]), b"", None)?.is_empty() {
+        return Ok(None);
+    }
+    git(repo, &os(&["cat-file", "blob", &format!(":{rel}")]), b"", None).map(Some)
 }
 
 /// Whether the repository ignores `path`, relative to its root, by `git check-ignore` (REQ-DOM-7): a tracked path is
