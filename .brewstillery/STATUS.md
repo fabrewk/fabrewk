@@ -7,16 +7,16 @@ view generated from that registry. Technical files are in English by default (D-
 
 **Phases 0 to 7 are closed (D-037, D-040, D-070). Phase 7 (the first code) was split into parts 7a, 7b, 7c1, 7c2a,
 7c2b, 7d1, 7d2, 7s, 7d3a and 7d3b (D-041, D-047, D-048, D-050, D-053, D-059, D-062), the last the task commands
-(D-068, D-069, R-034); phase 8, the core's part 2, was split into 8a, 8b and 8c (D-072) and all three are closed, and so is the phase (D-077); phase 9 is open: its design is accepted and it is cut into parts 9a to 9i (D-075, D-076); parts 9a to 9d are closed and 9e is next.** The repository holds the first code at its root: a
+(D-068, D-069, R-034); phase 8, the core's part 2, was split into 8a, 8b and 8c (D-072) and all three are closed, and so is the phase (D-077); phase 9 is open: its design is accepted and it is cut into parts 9a to 9i (D-075, D-076); parts 9a to 9e are closed and 9f is next.** The repository holds the first code at its root: a
 Cargo workspace with one crate per ring (`crates/core`, `crates/fabrewk`, the binary, which runs the core's command
 surface, `crates/confine-bwrap`, the confinement backend for Linux, `crates/adapter-claude`, Claude Code's adapter, and `crates/adapter-codex`, Codex's) and the size counter `tools/budget`, the licence files, `deny.toml` and a root `.gitignore` with `/target`.
 The record is built in `crates/core/src/record/`, the settings in `crates/core/src/settings/`, identity in
 `identity.rs`, the private folder and the machine file in `machine.rs`, detection and profiles in `detect.rs`, the
 domain's layout in `domain.rs`, the transition table in `table.rs`, the payloads and pattern guards in `task.rs`, the
-credential scan in `scan.rs`, the fermento in `fermento.rs`, the alambique and the rules in `alambique.rs`, the cell's contract and its runner in `confine.rs`, the attempt's copy, its change set and the candidate in `candidate.rs`, the tool adapter's contract in `adapter.rs`, and the command surface in `crates/core/src/cli/` with its catalogue in
+credential scan in `scan.rs`, the fermento in `fermento.rs`, the alambique and the rules in `alambique.rs`, the cell's contract and its runner in `confine.rs`, the attempt's copy, its change set and the candidate in `candidate.rs`, the tool adapter's contract in `adapter.rs`, the run in `crates/core/src/cli/run.rs`, and the command surface in `crates/core/src/cli/` with its catalogue in
 `crates/core/catalogue/` (`en`, `es`); `fabrewk status`, `fabrewk config` and `fabrewk check` read, and `fabrewk
-adopt`, `fabrewk propose`, `fabrewk authorize`, `fabrewk reject`, `fabrewk sweep`, `fabrewk discard`, `fabrewk approve`, `fabrewk close` and `fabrewk run` (up to confinement) write, through one
-write path in `crates/core/src/cli/write.rs`. The skills the maestro approved are in `.brewstillery/skills/`, listed in `AGENTS.md`. The core counts 8,985 of 11,000 lines, the backend 276 of 400, Claude Code's adapter 264 of 600 and Codex's 313 of 600, formatted at width 120 (D-049, D-054, D-074, D-075). No `data/` exists in this
+adopt`, `fabrewk propose`, `fabrewk authorize`, `fabrewk reject`, `fabrewk sweep`, `fabrewk discard`, `fabrewk approve`, `fabrewk close` and `fabrewk run` (to a recorded candidate, then a halt until part 9f, D-082) write, through one
+write path in `crates/core/src/cli/write.rs`. The skills the maestro approved are in `.brewstillery/skills/`, listed in `AGENTS.md`. The core counts 9,751 of 11,000 lines, the backend 278 of 400, Claude Code's adapter 269 of 600 and Codex's 319 of 600, formatted at width 120 (D-049, D-054, D-074, D-075). No `data/` exists in this
 repository, whose project file still holds bootstrap keys, so `fabrewk check` here reports them. The domain is
 `.brewstillery/`, hidden (D-032).
 
@@ -388,22 +388,44 @@ repository, is imported into the single registry at production and then stays re
   mutants, the 16 missed tested or removed but one declared equivalent. Clean clone of `e2e3465`: 542 tests, `crash` 3
   and `faults` 20 green, musl build, `budget check`, clippy, fmt, `cargo deny` clean. Measured: the core +109
   (projected 30), Codex's adapter 313 (projected 500). Six interpretations the maestro may want to read are in R-042.
-- **Next: part 9e (plan, "Phase 9").** The run, building side: `run` past confinement, attempts and their recovery,
-  the checks before dispatch (each tool's credential refused when it expires or would be renewed within the attempt's
-  minutes: Claude Code's `expiresAt`, D-079; Codex's `last_refresh` plus about eight days, D-081), the preflight's pass
-  kept as verified by use, the packet's size bound, the halts, the events' payloads, exit status 4. Inputs: REQ-RUN-1,
-  REQ-RUN-2, REQ-RUN-5 to REQ-RUN-7, REQ-TASK-3 (`BASE_MOVED` at `run`), REQ-TASK-5 (building side); S-5, S-6; the 9a
-  to 9d paragraphs of `core-specification.md`; R-039 to R-042. Its acceptance asks a fake builder, not a real tool.
-- **Start prompt:** `Eres el integrador de Fabrewk; fase 9, parte 9e: la corrida del lado constructor (run más allá
-  del confinamiento, intentos y recuperación); empieza por .brewstillery/STATUS.md`. Model and effort: Claude Code on
-  Opus 5.5 (`claude-opus-5-5`), effort high; Codex GPT-6.1 Sol, effort high, reviews. Read the skills `verify-part`
-  and `codex-review` before the checks and the review, and `differential-review` before a pass. The backend's and the
+- **Part 9e closed (session 34, R-043, D-082 to D-084).** The run, building side (`crates/core/src/cli/run.rs`):
+  `run-started`'s guards in the table's order, a halting code halting the task from `authorized` (exit 4); REQ-RUN-2
+  with S-6's required tools under the cell's system directories; the budget per authorization and the stage's as a
+  cap (D-082); the packet bounded; the preflight's pass kept as verified by use; the credential refused when it
+  expires or would be renewed within the attempt (D-079, D-081); then, under the lock the run holds to its end, the
+  attempt's copy, the builder's dispatch, its end, the change set and the candidate on `fabrewk/<task>`, and until
+  part 9f a halt `CONFINEMENT_UNAVAILABLE` on it (D-082). Every write command first recovers a task left `running`,
+  before the lock and under it (REQ-RUN-5): its attempt ended `unknown`, the task halted `OUTCOME_UNKNOWN`, its copy
+  removed. The replay binds a run to the authorization in force and each end to its attempt (`ATTEMPT_REPLACED`);
+  the five payloads are fixed; `BASE_MOVED` reads the last integration from the branch's history; `status <id>` shows
+  a halt (`fabrewk.subject/3`); the view shows S-5's usage. Codex reviewed five times, the fifth narrow at the
+  maestro's choice after two retries without progress (D-084; two launches cut by its provider): confirmed blocking 4,
+  2, 2, 2, 0, P9E-1 to P9E-14 corrected; keeping Git's own output as evidence for every command went to part 9g
+  (D-083). Mutation: 335 mutants, the 4 missed removed or tested, none equivalent. Clean clone of `c495157`: 570
+  tests, `crash` 3 and `faults` 23 green, musl build, `budget check`, clippy, fmt, `cargo deny` clean. Measured: the
+  core +766 (projected 600); 1,249 lines remain for 9f to 9i against about 1,450 projected. Eight interpretations the
+  maestro may want to read are in R-043. A view's temporary file left by a stopped write (part 8c's) waits for part
+  9i's crash suite. No credential of the person's was read.
+- **Next: part 9f (plan, "Phase 9").** Checks, review and verification: the gate (REQ-GATE-1 to REQ-GATE-6,
+  REQ-GATE-10), evidence identities, each check confined on a fresh export of the candidate, the reviewer's dispatch
+  and its audit through the flow (PD-25, PD-26), rounds (`ROUNDS_EXHAUSTED`, `NO_PROGRESS`), `PROVIDER_MISSING`,
+  `REVIEW_UNEXAMINED`, revalidation (REQ-RUN-9), REQ-TASK-5's rest; it replaces D-082's halt on a candidate. Inputs:
+  the plan's row 9f; `confinement-design.md` 3.4 (the check's and the reviewer's cells) and 3.8; the 9a to 9e
+  paragraphs of `core-specification.md`; R-041 to R-043. Its acceptance asks fake tools, not real ones. Note: a cell
+  with a network cannot be kept from nesting with this backend (part 9a), so a check with `network = true` needs a
+  decision when 9f starts.
+- **Start prompt:** `Eres el integrador de Fabrewk; fase 9, parte 9f: checks, revisión y verificación (la compuerta,
+  las identidades de evidencia, el despacho del revisor, las rondas, la revalidación); empieza por
+  .brewstillery/STATUS.md`. Model and effort: Claude Code on Opus 5.5 (`claude-opus-5-5`), effort high; Codex GPT-6.1
+  Sol, effort high, reviews. Read the skills `verify-part` and `codex-review` before the checks and the review, and
+  `differential-review` before a pass. The run's tests (`crates/fabrewk/tests/run.rs`) and the backend's and the
   adapters' launch tests run real cells and need `bwrap`, `pasta`, `socat`, `python3` and the network; Codex's sandbox
-  cannot run them nor bind sockets, which is no finding. `verify-part`'s `ulimit -v 1000000` no longer fits the core's
-  build: 1,600,000 was used (the skill is the maestro's to change). When waiting for Codex, wait on the launching
-  command itself. Codex's prompt asks it not to read `.brewstillery/skills/` and to report each finding as an input,
-  an expected result and an actual one. A mutation run over a whole part takes about two hours on this machine; a
-  rerun limited by `--file` or `--re` needs `--test-workspace true`, or tests in other packages are left out.
+  cannot run them nor bind sockets, which is no finding. `verify-part`'s `ulimit -v 1000000` no longer fits the
+  core's build: 1,600,000 was used (the skill is the maestro's to change). When waiting for Codex, wait on the
+  launching command itself. Codex's prompt asks it not to read `.brewstillery/skills/` and to report each finding as
+  an input, an expected result and an actual one; its provider cut three launches of parts 9b and 9e ("flagged for
+  possible cybersecurity risk"): a narrow, plainly worded prompt got through. A mutation run over a whole part now
+  takes about two hours; a rerun limited by `--in-diff` of the correction is minutes.
 
 Carried without blocking, with destinations, in D-013. A phase that does not pass is corrected and retried; it
 never ends the project (D-003).

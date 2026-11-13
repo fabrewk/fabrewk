@@ -4035,3 +4035,89 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   alternatives offered: a whole fifth pass; closing with P9E-13 and P9E-14 corrected and declared, unconfirmed.
 - Consequences: R-043.
 - Sources: chat of session 34; Codex's passes 1 to 4 of part 9e.
+
+## R-043 — Session 34, part 9e: the run, building side
+
+- Status: recorded
+- Date: 2026-11-12
+- Who: integrator Claude Code, `claude-opus-5-5`, effort high (D-078). Reviewer: Codex `codex-cli 0.166.0`,
+  `gpt-6.1-sol`, effort high, launched as the `codex-review` skill says.
+- Start: HEAD `7a33d28`, tree clean.
+- Read: `STATUS.md`, `AGENTS.md`, `plan.md`, `confinement-design.md` 3 to 7, `core-specification.md` (TASK, RUN with
+  its amendments, REG-5, REG-10, REG-13, CLI-3, sections 3 to 5, 7, 11.2 to 11.5, 12, the 9a to 9d paragraphs), this
+  file (D-079 to D-081, R-039 to R-042); the skills `verify-part`, `codex-review` and `differential-review`; the code
+  of `cli/` (`tasks.rs`, `write.rs`, `mod.rs`, `decl.rs`, `status.rs`), `adapter.rs`, `confine.rs`, `candidate.rs`,
+  `detect.rs`, `table.rs`, `task.rs`, `view.rs`, `record/` (`store.rs`, `fault.rs`, `time.rs`, `git.rs`), both adapters
+  and the backend, and their tests. No credential of the person's was read: a read of only the shape of Codex's
+  `last_refresh` and Claude Code's `expiresAt` was refused by this session's permission classifier and not attempted
+  again, so the format `expiry` reads (RFC 3339 in UTC with `Z`; milliseconds) is from the tools' documentation and
+  parts 9c and 9d, unchecked against the files (interpretation 6).
+- Decided by the maestro in this session: D-082, D-083, D-084.
+- Written: `crates/core/src/cli/run.rs` (new: the run's guards, budget, dispatch, attempt, candidate, halts);
+  `cli/write.rs` (a plan's continuation under the lock, REQ-RUN-5's recovery before every command's plan, under the
+  lock too); `cli/tasks.rs` (`run` and `authorize --run` through it); `cli/status.rs` (a halted task's halt,
+  `fabrewk.subject/3`; `local/tmp/` never walked while a cell's directories are there); `cli/decl.rs` (exit 4, the
+  run's moves and refusals, `fabrewk.run/1`, `fabrewk.authorized/2`); `table.rs` (the run bound to the authorization
+  in force, an attempt's end naming its attempt, `ATTEMPT_REPLACED`); `task.rs` (the five payloads); `view.rs`
+  (S-5's usage); `adapter.rs` and both adapters (`expiry`, D-079, D-081); `confine.rs` and the backend (`system`, S-6);
+  `code.rs` and both catalogues (`ATTEMPT_REPLACED`, `BASE_MOVED`, `BUDGET_EXHAUSTED`, `OUTCOME_UNKNOWN`, the run's
+  words); `record/time.rs` (`seconds_of`); `record/fault.rs` (`FABREWK_FAULT_MINUTE`); the tests of the core, both
+  adapters and the binary, with `crates/fabrewk/tests/run.rs` (new) and a fake builder fixture; the reference
+  documentation regenerated; the paragraph "The run, building side, as part 9e fixed it" in
+  `core-specification.md`; `plan.md`; `STATUS.md`; D-082 to D-084 and this entry.
+- Interpretations the maestro may want to read (each in the new paragraph):
+  1. A guard of `run-started` whose code is a halting one (REQ-TASK-5, `DISK_LOW`) halts the task from `authorized`
+     with no `run-started`, exit 4, rather than refusing, since only an authorization moves a halted task and grants
+     it more (REQ-TASK-5's criterion asks exit 4 of each halting code); the others refuse, nothing written.
+  2. The run holds the lock to its end (REQ-REG-5 says "for its whole run"), so a task found `running` by a writer
+     has no live process: REQ-RUN-5 needs no process identifier. Every other write command meanwhile (`sweep` and
+     `propose` included) is `LOCK_HELD`, for up to the profile's minutes; reading commands are not.
+  3. An attempt is allowed the profile's minutes, less when the task's or the stage's minutes left are fewer; ended
+     at a time so lessened, `BUDGET_EXHAUSTED`, else `TOOL_FAILED`. Tokens counted are `input` plus `output` (D-082).
+  4. `BASE_MOVED` reads the last dependency's integration from the record branch's history (the candidate itself or
+     a `Fabrewk-Candidate` trailer, REQ-GATE-8), which part 9g must write so.
+  5. A failure after a successful builder (the change set's refusals, Git's) halts with no evidence of the builder's;
+     a Git failure keeps the core's words in its own evidence file (D-083 for Git's own text).
+  6. Codex's `last_refresh` is read as RFC 3339 in UTC with `Z` and a fraction of up to nine digits, as its source
+     serializes it; another form, or a time before 1970, cannot be read and refuses the dispatch.
+  7. What the run's payloads copy from a tool, a file system or the catalogue is any text, the empty one included;
+     the co-author's model falls back to the one requested when the stream names none or only white space.
+  8. The packet is bounded at 120,000 bytes, under Linux's 128 KiB per argument; a longer one halts `TOOL_FAILED`.
+- Codex, five passes (the fifth narrow, D-084, launched three times), confirmed blocking findings by pass: 4, 2, 2, 2,
+  0.
+  1. Pass 1 (`46b4102`): P9E-1 (`status` walked an open attempt's copy), P9E-2 (the home's absolute path in a halt's
+     reason), P9E-3 (a run naming an authorization not in force), P9E-6 (a year before 1970 wrapped into a future
+     renewal); P9E-4 and P9E-5, not blocking (a recovered copy left; an attempt number that overflowed).
+  2. Pass 2 (`39fbea5`): all closed; P9E-7 (`status` walked a copy kept unread), P9E-9 (the last integration taken
+     from the clock); P9E-8, not blocking (a recovery stopped after its halt left the copy).
+  3. Pass 3 (`6a17f44`): all closed; P9E-11 (a Git failure at the candidate named the builder's evidence; Git's own
+     text kept nowhere, the core-wide part decided for part 9g, D-083), P9E-12 (a layer a stricter policy made a
+     widening granted); P9E-10, not blocking (the tool's version not in the event, PD-29).
+  4. Pass 4 (`3135b33`): all closed; P9E-13 (recovery decided before the lock only), P9E-14 (a Git failure reading
+     the branch escaped the halt). Two retries without progress: the maestro chose a narrow fifth pass (D-084).
+  5. Pass 5 (`4ac9904`), narrow: two launches were cut by Codex's provider ("flagged for possible cybersecurity
+     risk") and count as none; before their ends they named three cases of the corrected classes, all confirmed and
+     corrected (`0bdf576`, `bd2baa9`: a path of white space and an empty model leaving events the replay refused, a
+     refusal after the builder naming no evidence). The third launch (`bd2baa9`) confirmed everything closed:
+     **accept**.
+  Each new test failed without its correction, checked by hand. Codex's sandbox cannot run `bwrap`, `pasta` or bind
+  sockets; those tests ran on this machine.
+- Found and corrected by the integrator's own review before the first pass: halts' reasons held absolute paths, and
+  the export's evidence file was not `0600`. Found and left: a write stopped while writing a view leaves
+  `.STATUS.md.tmp` in the domain, which `check` reports (`DOMAIN_UNKNOWN_ENTRY`) and no writer removes (part 8c's;
+  destination part 9i's crash suite).
+- Mutation, with `--features fabrewk-core/fault-injection`, `--test-workspace true`, `ulimit -v 1600000`, `--timeout
+  180`, in its own user scope, over the part's diff (`bd2baa9`, both adapters included): 335 mutants in 2 hours, 117
+  caught, 210 unviable, 4 timed out (the suite hung on the mutant: detected), 4 missed. One replay arm reachable only
+  where the next gives the same code, removed; the place after a task's own authorization written as its event's
+  `seq` (two mutants of unreachable states); `authorize --run` of a task authorized before, tested. The run over that change: 12 mutants, 12 caught. None declared equivalent.
+- Clean clone of `c495157`: 570 tests (10 ignored: the real tools' and a kept stream's), `crash` 3 and `faults` 23
+  green, the musl build, `budget check` (the core 9,751 of 11,000, the backend 278 of 400, Claude Code's adapter 269
+  of 600, Codex's 319 of 600, 5 direct runtime crates, 31 in the release build, the binary 2,756,968 bytes), clippy
+  with and without `fault-injection`, fmt and `cargo deny` clean; `--version --json` lists no feature.
+- Measured: the core +766 (projected 600); the adapters +5 and +6, the backend +2. Left for parts 9f to 9i: 1,249
+  lines against about 1,450 projected (`confinement-design.md` section 7): the maestro may want to measure the
+  ceiling again before part 9g.
+- Not done: the checks, the reviewer's dispatch, rounds and verification (part 9f), which replace D-082's halt;
+  integration and Git's own output kept as evidence (part 9g, D-083); the flows and the crash suite over F-1, the
+  view's temporary file included (part 9i).
