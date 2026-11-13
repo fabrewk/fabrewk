@@ -4299,3 +4299,25 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Consequences: R-045.
 - Sources: chat of session 36; Codex's passes 1 to 7 of part 9g; D-083, D-084, D-086.
 - Supersedes: none.
+
+## D-089 — Part 9g: the evidence a failure names travels with it; what a command went on from is in its document
+
+- Status: decided
+- Decided: 2026-11-13
+- Origin: maintainer XEL in session 36's chat, after Codex's narrow eighth pass (confirmed blocking findings by pass 4,
+  2, 2, 1, 3, 2, 1, 4: two retries without progress, which produce alternatives): "Cambiar el diseño (Recomendado)".
+- Decision: the design changes, so that no state outside a failure says which evidence it names. The evidence travels
+  within the failure itself: a failed Git's words name its directory, and a failure that follows another names both,
+  in order; the event takes the first one its words name, reading that directory's `stderr` and `status`. What failed
+  in Git that a write command went on from is held by the command's session, not by the process, survives the
+  recovery of a stopped task that the command makes first, and is in the command's document as `recovered` (each a
+  text, its words naming the evidence) as well as in its words; every write command's document gains the field, under
+  a new schema. P9G-16 to P9G-19 are corrected on that design, and a ninth pass, narrow as D-088's, confirms them and
+  looks for findings only in the scope of the change; an accept closes the review.
+- Reason: every correction of P9G-15 patched one of two process-wide states; each pass found a path that state did not
+  follow. The alternatives offered: declaring P9G-16 to P9G-19 residual, every failed Git's output being kept anyway;
+  correcting them on the current design and closing without a pass.
+- Consequences: `record/git.rs`, `record/store.rs`, `cli/write.rs`, `cli/adopt.rs`, `cli/accept.rs`, `cli/decl.rs`;
+  `core-specification.md` (the paragraph of part 9g); R-045.
+- Sources: chat of session 36; Codex's passes 1 to 8 of part 9g; D-083, D-086, D-088.
+- Supersedes: none.

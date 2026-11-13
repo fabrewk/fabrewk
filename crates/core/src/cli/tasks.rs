@@ -326,7 +326,7 @@ pub(super) fn authorize(cx: &Cx, id: &str, options: &Options) -> Result<Out, Fai
     }
     let tasks: Vec<&String> = a.tasks.iter().map(|(t, _)| t).collect();
     let mut doc = json!({
-        "schema": "fabrewk.authorized/2", "subject": a.subject, "id": a.id, "tasks": tasks, "widened": a.widened,
+        "schema": "fabrewk.authorized/3", "subject": a.subject, "id": a.id, "tasks": tasks, "widened": a.widened,
         "run": null,
     });
     // With `--run`, what the run reports follows, with the events of both moves and the exit it gives.

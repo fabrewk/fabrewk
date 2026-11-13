@@ -171,7 +171,7 @@ pub(super) fn sweep(cx: &Cx, alias: &str, options: &Options) -> Result<Out, Fail
     ];
     let mut text = cx.t("sweep.done", &params) + "\n";
     let mut doc = json!({
-        "schema": "fabrewk.swept/1", "alias": alias, "points": swept.points, "proposals": swept.recorded,
+        "schema": "fabrewk.swept/2", "alias": alias, "points": swept.points, "proposals": swept.recorded,
         "withdrawn": swept.withdrawn,
     });
     text += &written_lines(cx, &written, &mut doc);
@@ -212,7 +212,7 @@ pub(super) fn discard(cx: &Cx, id: &str, options: &Options) -> Result<Out, Faile
     };
     let (id, written) = write::run(cx, plan)?;
     let mut text = cx.t("discard.done", &[("id", &id)]) + "\n";
-    let mut doc = json!({"schema": "fabrewk.discarded/1", "id": id});
+    let mut doc = json!({"schema": "fabrewk.discarded/2", "id": id});
     text += &written_lines(cx, &written, &mut doc);
     text += &cx.next(&["fabrewk status"]);
     Ok(Out::new(doc, text))

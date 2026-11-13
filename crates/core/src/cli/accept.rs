@@ -220,8 +220,8 @@ impl Merge {
     /// Records `merge-failed` for `e` (REQ-GATE-8): its code, one of an integration's, else `TOOL_FAILED`; the core's
     /// words, with no path of this machine; whether the branch is at the candidate; and what a failed Git left.
     fn failed(&self, a: &mut Appender, out: &mut Value, e: &Error) -> Result<(), Error> {
-        // What the failure's own Git left, taken before anything else runs Git (P9G-8).
-        let kept = git::take_kept();
+        // The evidence the failure's own words name first, before anything else runs Git (P9G-8, D-089).
+        let kept = git::kept_in(&self.domain, &e.detail());
         let code = e.code().map(|c| c.to_string()).filter(|c| crate::task::MERGE_FAILURES.contains(&c.as_str()));
         let code = code.unwrap_or_else(|| Code::ToolFailed.to_string());
         let mut words = super::run::words(e);
@@ -234,7 +234,7 @@ impl Merge {
             }
         };
         let reason = super::run::unplaced(words, &self.domain, &self.home);
-        let evidence = kept.map(|k| json!({"status": k.status, "stderr": k.stderr}));
+        let evidence = kept.map(|(stderr, status)| json!({"status": status, "stderr": stderr}));
         let payload = json!({"code": code, "reason": reason, "moved": moved, "evidence": evidence});
         a.fabrewk(&self.stream, "merge-failed", payload)?;
         out["failed"] = json!({"code": code, "reason": reason, "moved": moved});
@@ -248,7 +248,6 @@ impl Merge {
 /// the candidate; then `task-integrated`. A failure records `merge-failed`, saying whether the branch moved, and
 /// nothing is moved back.
 fn integrate(m: &Merge, a: &mut Appender, out: &mut Value) -> Result<(), Error> {
-    let _ = git::take_kept();
     fault::pause("before-move");
     let (changes, head, at) = match m.preconditions() {
         Ok(found) => found,

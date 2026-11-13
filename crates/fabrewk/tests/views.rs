@@ -391,7 +391,7 @@ fn req_task_6_close_records_the_stage_its_head_and_the_sweeps_it_relied_on() {
     let ran = fx.run(&["close", &stage, "--say", SAY, "--json"]);
     ok(&ran);
     let doc = ran.doc();
-    assert_eq!((doc["schema"].as_str(), doc["id"].as_str()), (Some("fabrewk.closed/1"), Some(stage.as_str())));
+    assert_eq!((doc["schema"].as_str(), doc["id"].as_str()), (Some("fabrewk.closed/2"), Some(stage.as_str())));
     let closed = fx.events(&format!("stage-{stage}")).pop().unwrap();
     assert_eq!(closed["kind"], "stage-closed");
     assert_eq!(closed["say"], json!({"text": SAY, "lang": "es-MX"}));

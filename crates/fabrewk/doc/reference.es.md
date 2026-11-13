@@ -73,7 +73,7 @@ Un maestro adopta el archivo del proyecto como la política vigente, nombrando c
 
 Movimientos que puede causar: `policy-adopted` (política adoptada).
 
-Documentos con --json: `fabrewk.adopted/1`
+Documentos con --json: `fabrewk.adopted/2`
 
 Rechazos
 
@@ -121,7 +121,7 @@ Propone una etapa y sus tareas, o tareas para una etapa del registro, desde un a
 
 Movimientos que puede causar: `stage-proposed` (etapa propuesta), `task-proposed` (tarea propuesta).
 
-Documentos con --json: `fabrewk.proposed/1`
+Documentos con --json: `fabrewk.proposed/2`
 
 El formato del archivo
 
@@ -209,7 +209,7 @@ Un maestro autoriza una tarea, o una etapa y sus tareas, tal como status las mos
 
 Movimientos que puede causar: `task-authorized` (tarea autorizada), `stage-authorized` (etapa autorizada), `run-started` (ejecución iniciada), `attempt-started` (intento iniciado), `attempt-ended` (intento terminado), `candidate-recorded` (candidato registrado), `check-recorded` (comprobación registrada), `review-recorded` (revisión registrada), `task-verified` (tarea verificada), `task-halted` (tarea detenida).
 
-Documentos con --json: `fabrewk.authorized/2`
+Documentos con --json: `fabrewk.authorized/3`
 
 Rechazos
 
@@ -366,7 +366,7 @@ Un maestro inicia la ejecución confinada de una tarea autorizada, o de la sigui
 
 Movimientos que puede causar: `run-started` (ejecución iniciada), `attempt-started` (intento iniciado), `attempt-ended` (intento terminado), `candidate-recorded` (candidato registrado), `check-recorded` (comprobación registrada), `review-recorded` (revisión registrada), `task-verified` (tarea verificada), `task-halted` (tarea detenida), `merge-failed` (integración fallida), `task-integrated` (tarea integrada).
 
-Documentos con --json: `fabrewk.run/1`, `fabrewk.accepted/1`
+Documentos con --json: `fabrewk.run/2`, `fabrewk.accepted/1`
 
 Rechazos
 
@@ -419,7 +419,7 @@ Registra la respuesta del integrador al fermento de un mantenedor: lo que recomi
 
 Movimientos que puede causar: `sweep-recorded` (barrido registrado), `proposal-recorded` (propuesta registrada), `proposal-withdrawn` (propuesta retirada).
 
-Documentos con --json: `fabrewk.swept/1`
+Documentos con --json: `fabrewk.swept/2`
 
 El formato del archivo
 
@@ -500,7 +500,7 @@ Un maestro descarta una propuesta pendiente, diciendo por qué.
 
 Movimientos que puede causar: `proposal-discarded` (propuesta descartada).
 
-Documentos con --json: `fabrewk.discarded/1`
+Documentos con --json: `fabrewk.discarded/2`
 
 Rechazos
 
@@ -547,7 +547,7 @@ Un maestro aprueba una propuesta, que aplica su edición y hace commit del alamb
 
 Movimientos que puede causar: `proposal-incorporated` (propuesta incorporada), `direct-edit-approved` (edición directa aprobada), `alambique-baseline` (base del alambique).
 
-Documentos con --json: `fabrewk.approved/1`
+Documentos con --json: `fabrewk.approved/2`
 
 Rechazos
 
@@ -599,7 +599,7 @@ Un maestro cierra una etapa autorizada cuando todas sus tareas terminaron, cada 
 
 Movimientos que puede causar: `stage-closed` (etapa cerrada).
 
-Documentos con --json: `fabrewk.closed/1`
+Documentos con --json: `fabrewk.closed/2`
 
 Rechazos
 

@@ -113,7 +113,7 @@ pub const COMMANDS: &[Command] = &[
             PolicyUncommitted,
             WideningUnnamed,
         ],
-        schemas: &["fabrewk.adopted/1"],
+        schemas: &["fabrewk.adopted/2"],
     },
     Command {
         name: "propose",
@@ -122,7 +122,7 @@ pub const COMMANDS: &[Command] = &[
         flags: READ,
         moves: &["stage-proposed", "task-proposed"],
         refusals: &[StageClosed, TaskInvalid, ProtectedPath, ProtectedPathWildcard, CheckDuplicate],
-        schemas: &["fabrewk.proposed/1"],
+        schemas: &["fabrewk.proposed/2"],
     },
     Command {
         name: "authorize",
@@ -158,7 +158,7 @@ pub const COMMANDS: &[Command] = &[
             LockHeld,
             AlambiqueUnapproved,
         ],
-        schemas: &["fabrewk.authorized/2"],
+        schemas: &["fabrewk.authorized/3"],
     },
     Command {
         name: "accept",
@@ -225,7 +225,7 @@ pub const COMMANDS: &[Command] = &[
             ProviderMissing,
             CheckDuplicate,
         ],
-        schemas: &["fabrewk.run/1", "fabrewk.accepted/1"],
+        schemas: &["fabrewk.run/2", "fabrewk.accepted/1"],
     },
     Command {
         name: "sweep",
@@ -245,7 +245,7 @@ pub const COMMANDS: &[Command] = &[
             InputUncommitted,
             InputChanged,
         ],
-        schemas: &["fabrewk.swept/1"],
+        schemas: &["fabrewk.swept/2"],
     },
     Command {
         name: "discard",
@@ -254,7 +254,7 @@ pub const COMMANDS: &[Command] = &[
         flags: &["say", "say-lang", "json", "help"],
         moves: &["proposal-discarded"],
         refusals: &[AgentEnvironment, ProposalUnknown, MoveNotAllowed, RoleForbidden, WordsMissing, WordsCopied],
-        schemas: &["fabrewk.discarded/1"],
+        schemas: &["fabrewk.discarded/2"],
     },
     Command {
         name: "approve",
@@ -275,7 +275,7 @@ pub const COMMANDS: &[Command] = &[
             AlambiqueMissing,
             UnitAmbiguous,
         ],
-        schemas: &["fabrewk.approved/1"],
+        schemas: &["fabrewk.approved/2"],
     },
     Command {
         name: "close",
@@ -294,7 +294,7 @@ pub const COMMANDS: &[Command] = &[
             AlambiqueUnapproved,
             RecordUncommitted,
         ],
-        schemas: &["fabrewk.closed/1"],
+        schemas: &["fabrewk.closed/2"],
     },
 ];
 

@@ -68,38 +68,28 @@ pub(crate) fn command(repo: &Repo, args: &[&OsStr]) -> Command {
 }
 
 /// Where a write command keeps what a failed Git printed (D-083, D-086): its domain, set by the write path; reading
-/// commands set none and keep nothing (REQ-REG-12). And the last kept: its standard error's digest and the exit status.
+/// commands set none and keep nothing (REQ-REG-12).
 static KEEP: std::sync::Mutex<Option<PathBuf>> = std::sync::Mutex::new(None);
-static KEPT: std::sync::Mutex<Option<Kept>> = std::sync::Mutex::new(None);
-
-/// What a failed Git left as evidence (REQ-REG-13, REQ-RUN-6).
-#[derive(Debug, Clone)]
-pub struct Kept {
-    pub stderr: String,
-    pub status: Option<i32>,
-}
 
 /// Keeps what a failed Git prints in `domain`'s evidence from now on, in this process.
 pub fn keep_in(domain: &Path) {
     *KEEP.lock().unwrap_or_else(|e| e.into_inner()) = Some(domain.to_path_buf());
 }
 
-/// The evidence the last failed Git left, taken.
-pub fn take_kept() -> Option<Kept> {
-    KEPT.lock().unwrap_or_else(|e| e.into_inner()).take()
+/// The first evidence `detail`, a failure's words, names under `domain`: its standard error's digest and Git's exit
+/// status, `None` for a signal (D-089); none when it names none, or what it names cannot be read.
+pub fn kept_in(domain: &Path, detail: &str) -> Option<(String, Option<i32>)> {
+    let after = detail.split_once(KEPT_IN)?.1;
+    let at = after.find("local/evidence/git-")? + "local/evidence/".len();
+    let name: String = after[at..].chars().take_while(|c| c.is_ascii_alphanumeric() || *c == '-').collect();
+    let dir = domain.join("local/evidence").join(name);
+    let stderr = std::fs::read(dir.join("stderr")).ok()?;
+    let status = std::fs::read_to_string(dir.join("status")).ok()?;
+    Some((super::sha256_hex(&stderr), status.trim().parse().ok()))
 }
 
-/// What failed in Git that a write command went on from, which its words say with the evidence (D-088).
-static RECOVERED: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
-
-fn recovered(e: &Error) {
-    RECOVERED.lock().unwrap_or_else(|e| e.into_inner()).push(e.detail());
-}
-
-/// The Git failures this process went on from, taken.
-pub fn take_recovered() -> Vec<String> {
-    std::mem::take(&mut *RECOVERED.lock().unwrap_or_else(|e| e.into_inner()))
-}
+/// The words that name a failed Git's evidence.
+const KEPT_IN: &str = "Git's output is kept in ";
 
 /// `TOOL_FAILED` for a Git command that failed: its first words and its exit status, and in a write command where its
 /// standard error and status are kept, `local/evidence/git-<time>-<process>-<n>/` (`0700`, files `0600`).
@@ -127,11 +117,7 @@ pub(crate) fn failed(repo: &Repo, args: &[&OsStr], out: &Output) -> Error {
             Ok(dir)
         });
         if let Ok(dir) = kept {
-            why += &format!("; Git's output is kept in {}", dir.display());
-            let stderr = super::sha256_hex(&out.stderr);
-            // The first since it was last taken: the failure a later reading of the same failure's place follows
-            // keeps its own evidence in the event (P9G-15).
-            KEPT.lock().unwrap_or_else(|e| e.into_inner()).get_or_insert(Kept { stderr, status });
+            why += &format!("; {KEPT_IN}{}", dir.display());
         }
     }
     refuse(Code::ToolFailed, Some(&repo.root), why)
@@ -545,7 +531,9 @@ pub(crate) fn record_message(digests: &[String]) -> String {
 
 /// Makes the record commit of `files` (absolute paths in the working tree) on the record branch, moving it from
 /// `start` by compare-and-swap; if it moved, rebuilds once on the new head when no file of the commit changed there,
-/// and otherwise refuses `RECORD_COMMIT_RACE`, the files left as written. One `Fabrewk-Event` trailer per digest.
+/// and otherwise refuses `RECORD_COMMIT_RACE`, the files left as written. One `Fabrewk-Event` trailer per digest. What
+/// failed in Git that it went on from is pushed on `notes`, each naming its evidence (D-088, D-089).
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn commit_record(
     repo: &Repo,
     domain: &Path,
@@ -553,6 +541,7 @@ pub(crate) fn commit_record(
     start: Option<&str>,
     files: &[PathBuf],
     message: &str,
+    notes: &mut Vec<String>,
 ) -> Result<String, Error> {
     check_git_locks(repo, branch)?;
     let mut rel = Vec::new();
@@ -570,11 +559,30 @@ pub(crate) fn commit_record(
     let tmp = domain.join("local/tmp");
     std::fs::create_dir_all(&tmp).map_err(io_at(&tmp))?;
     let index = tmp.join("record-index");
-    let result = attempt(repo, branch, start, &rel, &entries, message, &index);
+    let mut earlier = Vec::new();
+    let result = attempt(repo, branch, start, &rel, &entries, message, &index, &mut earlier);
     let _ = std::fs::remove_file(&index);
-    result
+    match result {
+        Ok(commit) => {
+            notes.extend(earlier);
+            Ok(commit)
+        }
+        Err(e) => Err(after(e, &earlier)),
+    }
 }
 
+/// `e` with `earlier`, what failed in Git before it in the same commit, named after its own words (D-089).
+fn after(e: Error, earlier: &[String]) -> Error {
+    match e {
+        Error::Refused { code, path, detail } if !earlier.is_empty() => {
+            Error::Refused { code, path, detail: format!("{detail}; before it, {}", earlier.join("; ")) }
+        }
+        e => e,
+    }
+}
+
+/// The record commit's rounds (see [`commit_record`]); what failed in Git that it went on from is pushed on `earlier`.
+#[allow(clippy::too_many_arguments)]
 fn attempt(
     repo: &Repo,
     branch: &str,
@@ -583,6 +591,7 @@ fn attempt(
     entries: &str,
     message: &str,
     index: &Path,
+    earlier: &mut Vec<String>,
 ) -> Result<String, Error> {
     let mut base = start.map(str::to_owned);
     for round in 0..2 {
@@ -609,55 +618,59 @@ fn attempt(
             fault::pause("record-moved");
             // The commit is made and the branch moved: the person's index is brought to it, and if another Git holds
             // the index now, the next write command does it (`sync_index`), so the commit is never reported as not
-            // made (P7D3A-21).
+            // made (P7D3A-21); the command says what failed (D-088).
             if let Err(e) = git(repo, &os(&["update-index", "-z", "--index-info"]), entries.as_bytes(), None) {
-                recovered(&e);
+                earlier.push(e.detail());
             }
             fault::point();
             return Ok(commit);
         }
-        // What Git printed is kept whatever follows: a branch another Git moved, rebuilt on or a race (P9G-15).
+        // What Git printed is kept whatever follows, and every way out of this round names it (P9G-15, P9G-18).
         let cas = failed(repo, &update, &moved);
-        let now = head_of(repo, branch).map_err(|e| {
-            let why = format!("{}; and the branch could not be read: {}", cas.detail(), e.detail());
-            refuse(Code::ToolFailed, Some(&repo.root), why)
-        })?;
+        let now = head_of(repo, branch).map_err(|e| after(e, &[cas.detail()]))?;
         if now == base {
             return Err(cas);
         }
-        let race = || {
-            let why = format!("the branch moved and changed a file of the commit; {}", cas.detail());
-            refuse(Code::RecordCommitRace, Some(&repo.root), why)
-        };
-        let Some(n) = now.as_deref() else {
-            return Err(race());
-        };
-        // The new head must descend from the one the command started from, which holds every event committed so far
-        // (P7D3A-19), and is walked as the session's first one was: a head whose history drops or changes an event is
-        // a rollback, never a base (P7D3A-16).
-        if let Some(b) = &base {
-            let args = os(&["merge-base", "--is-ancestor", b, n]);
-            let kept = run(command(repo, &args), b"")?;
-            match kept.status.code() {
-                Some(0) => {}
-                Some(1) => {
-                    let why = "the branch moved to a commit that does not descend from the record's last one";
-                    return Err(refuse(Code::RecordRollback, Some(&repo.root), why));
+        let next = (|| -> Result<Option<String>, Error> {
+            let race = || {
+                refuse(Code::RecordCommitRace, Some(&repo.root), "the branch moved and changed a file of the commit")
+            };
+            let Some(n) = now.as_deref() else {
+                return Err(race());
+            };
+            // The new head must descend from the one the command started from, which holds every event committed so
+            // far (P7D3A-19), and is walked as the session's first one was: a head whose history drops or changes an
+            // event is a rollback, never a base (P7D3A-16).
+            if let Some(b) = &base {
+                let args = os(&["merge-base", "--is-ancestor", b, n]);
+                let kept = run(command(repo, &args), b"")?;
+                match kept.status.code() {
+                    Some(0) => {}
+                    Some(1) => {
+                        let why = "the branch moved to a commit that does not descend from the record's last one";
+                        return Err(refuse(Code::RecordRollback, Some(&repo.root), why));
+                    }
+                    _ => return Err(failed(repo, &args, &kept)),
                 }
-                _ => return Err(failed(repo, &args, &kept)),
             }
+            let mut changed = match &base {
+                Some(b) => os(&["diff-tree", "-r", "--name-only", "-z", b, n, "--"]),
+                None => os(&["ls-tree", "-r", "--name-only", "-z", n, "--"]),
+            };
+            changed.extend(rel.iter().map(OsStr::new));
+            if round == 1 || !git(repo, &changed, b"", None)?.is_empty() {
+                return Err(race());
+            }
+            walk_history(repo, branch)?;
+            Ok(now)
+        })();
+        match next {
+            Ok(now) => {
+                earlier.push(cas.detail());
+                base = now;
+            }
+            Err(e) => return Err(after(e, &[cas.detail()])),
         }
-        let mut changed = match &base {
-            Some(b) => os(&["diff-tree", "-r", "--name-only", "-z", b, n, "--"]),
-            None => os(&["ls-tree", "-r", "--name-only", "-z", n, "--"]),
-        };
-        changed.extend(rel.iter().map(OsStr::new));
-        if round == 1 || !git(repo, &changed, b"", None)?.is_empty() {
-            return Err(race());
-        }
-        walk_history(repo, branch)?;
-        recovered(&cas);
-        base = now;
     }
     Err(refuse(Code::RecordCommitRace, Some(&repo.root), "the branch moved twice"))
 }

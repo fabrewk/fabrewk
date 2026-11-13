@@ -189,7 +189,7 @@ pub(super) fn run(cx: &Cx, file: &str) -> Result<Out, Failed> {
         tasks.push(json!({"id": tid, "name": name, "goal": goal}));
     }
     text += &format!("{}\n", cx.t("propose.grants", &[]));
-    let mut doc = json!({"schema": "fabrewk.proposed/1", "stage": {"id": id, "new": new}, "tasks": tasks});
+    let mut doc = json!({"schema": "fabrewk.proposed/2", "stage": {"id": id, "new": new}, "tasks": tasks});
     text += &written_lines(cx, &written, &mut doc);
     let mut next = vec![format!("fabrewk status {id}")];
     next.extend(proposed.tasks.iter().map(|t| format!("fabrewk status {}", t.0)));

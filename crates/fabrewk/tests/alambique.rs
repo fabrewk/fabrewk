@@ -113,7 +113,7 @@ fn req_fer_5_approve_applies_the_edit_and_commits_the_alambique_alone() {
     let doc = ran.doc();
     assert_eq!(
         (doc["schema"].as_str(), doc["case"].as_str(), doc["id"].as_str()),
-        (Some("fabrewk.approved/1"), Some("alambique"), Some(id.as_str()))
+        (Some("fabrewk.approved/2"), Some("alambique"), Some(id.as_str()))
     );
     assert_eq!(doc["digest"], e["result"]);
     let expected = DOC.replace("**1.2. B:** second.", "**1.2. B:** rewritten.");

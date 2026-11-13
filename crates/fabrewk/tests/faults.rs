@@ -1245,3 +1245,62 @@ fn p9g_15_a_failure_keeps_its_own_evidence_when_its_reading_fails_too() {
     assert_eq!(ran.status, 1, "{ran:?}");
     assert_eq!(ran.stderr.matches("Git's output is kept in").count(), 2, "{ran:?}");
 }
+
+/// P9G-16, D-089: what failed in Git that a command went on from is in its document too: the person's index that
+/// cannot follow the record commit.
+#[test]
+fn p9g_16_what_a_command_went_on_from_is_in_its_document() {
+    let fx = ready("p9g-16");
+    let dir = tmp("p9g-16-steps");
+    let child = paused(&fx, &["adopt", "--say", SAY, "--json"], "record-moved", &dir);
+    fs::write(fx.root.join(".git/index.lock"), b"").unwrap();
+    let ran = resume(child, "record-moved", &dir);
+    fs::remove_file(fx.root.join(".git/index.lock")).unwrap();
+    assert_eq!(ran.status, 0, "{ran:?}");
+    let doc = ran.doc();
+    let recovered = doc["recovered"].as_array().unwrap();
+    assert_eq!(recovered.len(), 1, "{doc}");
+    assert!(recovered[0].as_str().unwrap().contains("Git's output is kept in"), "{doc}");
+}
+
+/// P9G-18: the record commit's compare-and-swap that a moved branch refuses is named by every way out of its round: a
+/// branch moved back to an ancestor is `RECORD_ROLLBACK`, naming it.
+#[test]
+fn p9g_18_a_rollback_after_the_compare_and_swap_names_its_evidence() {
+    let fx = ready("p9g-18");
+    let dir = tmp("p9g-18-steps");
+    let child = paused(&fx, &["adopt", "--say", SAY], "before-commit", &dir);
+    fx.git(&["update-ref", "refs/heads/main", "HEAD~1"]);
+    let ran = resume(child, "before-commit", &dir);
+    assert_eq!(ran.status, 1, "{ran:?}");
+    assert!(ran.stderr.contains("RECORD_ROLLBACK") && ran.stderr.contains("Git's output is kept in"), "{ran:?}");
+}
+
+/// P9G-19, D-089: the event's evidence is the first its failure's words name: for a ref that names no commit, read when
+/// the integration is about to move and whose listing fails too, the reading's own.
+#[test]
+fn p9g_19_the_events_evidence_is_the_first_its_words_name() {
+    let (fx, id, args) = to_accept("p9g-19");
+    let good = fx.git(&["rev-parse", "HEAD"]);
+    let blob = fx.git(&["hash-object", "-w", "README.md"]);
+    let steps = tmp("p9g-19-steps");
+    let mut c = Command::new(env!("CARGO_BIN_EXE_fabrewk"));
+    isolate(&mut c, &fx.home, fx.path.as_deref());
+    c.env("FABREWK_FAULT_PAUSE", format!("before-move:{}", steps.display())).env("FABREWK_FAULT_GIT", "for-each-ref");
+    let child = c.current_dir(&fx.root).args(&args).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().unwrap();
+    while !steps.join("before-move.paused").exists() {
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    fs::write(fx.root.join(".git/refs/heads/main"), format!("{blob}\n")).unwrap();
+    let ran = resume(child, "before-move", &steps);
+    fs::write(fx.root.join(".git/refs/heads/main"), format!("{good}\n")).unwrap();
+    // The record commit cannot read the branch either: the events stay written, and the failure is among them.
+    assert_eq!(ran.status, 1, "{ran:?}");
+    let failed = last_of(&fx, &id);
+    assert_eq!(failed["kind"], "merge-failed", "{failed}");
+    let p = &failed["payload"];
+    assert_eq!(p["evidence"]["status"], 1, "{p}");
+    let reason = p["reason"].as_str().unwrap();
+    let first = reason.split("kept in ").nth(1).unwrap().split([';', ' ']).next().unwrap();
+    assert_eq!(p["evidence"]["stderr"], sha256_hex(&fs::read(fx.root.join(first).join("stderr")).unwrap()));
+}

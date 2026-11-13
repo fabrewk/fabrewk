@@ -1355,7 +1355,17 @@ REQ-GATE-10, REQ-REG-10, REQ-RUN-6, REQ-REG-13; S-4, S-11; D-083, D-086, D-087).
   outputs, and the event's `evidence` is the first's (P9G-15); the record commit's compare-and-swap that a moved branch
   refuses keeps Git's output, named by `RECORD_COMMIT_RACE`; and a Git failure a write command goes on from (that
   compare-and-swap, rebuilt on the new head; the person's index that cannot follow the record commit, P7D3A-21) is said
-  in its words, the commit reported made, with its evidence (D-088). The key Git signs with is read once. Such a refusal writes that directory and nothing else, a fourth kind of
+  in its words, the commit reported made, with its evidence (D-088). The key Git signs with is read once.
+- D-089: no state outside a failure says which evidence it names. A failed Git's words name its directory, and a
+  failure that follows another names both, in order, the first one's first; `merge-failed`'s `evidence` is read from
+  the first directory its failure's words name. What failed in Git that a write command went on from is held by its
+  session, survives the recovery of a stopped task that the command makes first, and is named in its words and in its
+  document as `recovered` (texts, each naming its evidence); a refusal after it names it too ("before it, …"). Every
+  write command's document gains `recovered`, under a new schema: `fabrewk.adopted/2`, `fabrewk.proposed/2`,
+  `fabrewk.authorized/3`, `fabrewk.run/2`, `fabrewk.swept/2`, `fabrewk.discarded/2`, `fabrewk.approved/2`,
+  `fabrewk.closed/2`, `fabrewk.rejected/2` and `fabrewk.accepted/1`. The recovery's own case is held by the design and
+  not provoked by a test: the person's index update and the temporary index's have the same words, so
+  `FABREWK_FAULT_GIT` cannot fail the one alone. Such a refusal writes that directory and nothing else, a fourth kind of
   refusal that writes (11.2 rule 4). Reading commands keep nothing. With `fault-injection`, `FABREWK_FAULT_GIT` makes a
   Git command whose words hold its text fail as Git fails on an option it does not know.
 - With `fault-injection`, the pauses `before-move` (before the second check), `before-update-ref` and `after-move`.

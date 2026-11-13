@@ -192,7 +192,7 @@ fn pd_37_status_shows_what_an_authorization_binds_and_authorize_signs_its_digest
     let ran = fx.run(&["authorize", &id, "--seen", &digest, "--say", SAY, "--json"]);
     assert_eq!(ran.status, 0, "{ran:?}");
     let doc = ran.doc();
-    assert_eq!((doc["schema"].as_str(), doc["subject"].as_str()), (Some("fabrewk.authorized/2"), Some("task")));
+    assert_eq!((doc["schema"].as_str(), doc["subject"].as_str()), (Some("fabrewk.authorized/3"), Some("task")));
     assert_eq!((&doc["id"], &doc["tasks"], &doc["widened"]), (&json!(id), &json!([id]), &json!([])));
     let e = last(&fx, &stream);
     assert_eq!(e["kind"], "task-authorized");

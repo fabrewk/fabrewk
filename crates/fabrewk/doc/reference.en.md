@@ -73,7 +73,7 @@ A maestro adopts the project file as the policy in force, naming every widening 
 
 Moves it may cause: `policy-adopted` (policy adopted).
 
-Documents with --json: `fabrewk.adopted/1`
+Documents with --json: `fabrewk.adopted/2`
 
 Refusals
 
@@ -121,7 +121,7 @@ Proposes a stage and its tasks, or tasks for a stage of the record, from a JSON 
 
 Moves it may cause: `stage-proposed` (stage proposed), `task-proposed` (task proposed).
 
-Documents with --json: `fabrewk.proposed/1`
+Documents with --json: `fabrewk.proposed/2`
 
 The file's format
 
@@ -209,7 +209,7 @@ A maestro authorizes a task, or a stage and its tasks, as status showed it, nami
 
 Moves it may cause: `task-authorized` (task authorized), `stage-authorized` (stage authorized), `run-started` (run started), `attempt-started` (attempt started), `attempt-ended` (attempt ended), `candidate-recorded` (candidate recorded), `check-recorded` (check recorded), `review-recorded` (review recorded), `task-verified` (task verified), `task-halted` (task halted).
 
-Documents with --json: `fabrewk.authorized/2`
+Documents with --json: `fabrewk.authorized/3`
 
 Refusals
 
@@ -366,7 +366,7 @@ A maestro starts the confined run of an authorized task, or of a stage's next on
 
 Moves it may cause: `run-started` (run started), `attempt-started` (attempt started), `attempt-ended` (attempt ended), `candidate-recorded` (candidate recorded), `check-recorded` (check recorded), `review-recorded` (review recorded), `task-verified` (task verified), `task-halted` (task halted), `merge-failed` (integration failed), `task-integrated` (task integrated).
 
-Documents with --json: `fabrewk.run/1`, `fabrewk.accepted/1`
+Documents with --json: `fabrewk.run/2`, `fabrewk.accepted/1`
 
 Refusals
 
@@ -419,7 +419,7 @@ Records the integrator's answer to one maintainer's fermento: what it recommends
 
 Moves it may cause: `sweep-recorded` (sweep recorded), `proposal-recorded` (proposal recorded), `proposal-withdrawn` (proposal withdrawn).
 
-Documents with --json: `fabrewk.swept/1`
+Documents with --json: `fabrewk.swept/2`
 
 The file's format
 
@@ -500,7 +500,7 @@ A maestro discards a pending proposal, saying why.
 
 Moves it may cause: `proposal-discarded` (proposal discarded).
 
-Documents with --json: `fabrewk.discarded/1`
+Documents with --json: `fabrewk.discarded/2`
 
 Refusals
 
@@ -547,7 +547,7 @@ A maestro approves a proposal, which applies its edit and commits the alambique 
 
 Moves it may cause: `proposal-incorporated` (proposal incorporated), `direct-edit-approved` (direct edit approved), `alambique-baseline` (alambique's baseline).
 
-Documents with --json: `fabrewk.approved/1`
+Documents with --json: `fabrewk.approved/2`
 
 Refusals
 
@@ -599,7 +599,7 @@ A maestro closes an authorized stage once every task has ended, every fermento w
 
 Moves it may cause: `stage-closed` (stage closed).
 
-Documents with --json: `fabrewk.closed/1`
+Documents with --json: `fabrewk.closed/2`
 
 Refusals
 

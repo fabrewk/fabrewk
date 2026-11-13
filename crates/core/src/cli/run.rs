@@ -978,7 +978,7 @@ pub(super) fn report(cx: &Cx, ran: &Value, written: &super::write::Written) -> O
     if ran["verified"] == true {
         text += &(cx.t("run.verified", &[("id", id)]) + "\n");
     }
-    let mut doc = json!({"schema": "fabrewk.run/1", "id": id, "attempt": ran["attempt"], "candidate": ran["candidate"], "halt": ran["halt"]});
+    let mut doc = json!({"schema": "fabrewk.run/2", "id": id, "attempt": ran["attempt"], "candidate": ran["candidate"], "halt": ran["halt"]});
     let mut exit = super::DONE;
     if let Some(h) = ran["halt"].as_object() {
         let s = |k: &str| h[k].as_str().unwrap_or_default().to_owned();

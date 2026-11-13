@@ -271,7 +271,7 @@ fn authorize_run_and_run_of_a_stage_run_at_once() {
     let doc = ran.doc();
     assert_eq!(
         (doc["schema"].as_str(), doc["run"]["schema"].as_str()),
-        (Some("fabrewk.authorized/2"), Some("fabrewk.run/1"))
+        (Some("fabrewk.authorized/3"), Some("fabrewk.run/2"))
     );
     assert_eq!(doc["run"]["halt"], Value::Null);
     let events = fx.events(&stream(&id));

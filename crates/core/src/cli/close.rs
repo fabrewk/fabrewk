@@ -89,7 +89,7 @@ pub(super) fn close(cx: &Cx, id: &str, options: &Options) -> Result<Out, Failed>
     };
     let (stage, written) = write::run(cx, plan)?;
     let mut text = cx.t("close.done", &[("id", &stage)]) + "\n";
-    let mut doc = json!({"schema": "fabrewk.closed/1", "id": stage});
+    let mut doc = json!({"schema": "fabrewk.closed/2", "id": stage});
     text += &written_lines(cx, &written, &mut doc);
     text += &cx.next(&["fabrewk status"]);
     Ok(Out::new(doc, text))

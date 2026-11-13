@@ -41,6 +41,8 @@ pub struct Session {
     appended: Vec<(String, PathBuf)>,
     git: Option<(Repo, String, Option<String>)>,
     record: Option<Replay>,
+    /// What failed in Git that the session's commits went on from, each naming its evidence (D-088, D-089).
+    notes: Vec<String>,
 }
 
 /// Ending a session releases the lock on its open file description, not only this descriptor: a process another
@@ -113,7 +115,7 @@ impl Session {
             fault::point();
             fs::remove_file(leftover).map_err(io_at(leftover))?;
         }
-        Ok(Session { domain: domain.to_path_buf(), _lock: lock, appended: Vec::new(), git, record })
+        Ok(Session { domain: domain.to_path_buf(), _lock: lock, appended: Vec::new(), git, record, notes: Vec::new() })
     }
 
     /// The record as replayed when the command began, or at its last [`Session::refresh`]; `None` if there was none.
@@ -275,7 +277,8 @@ impl Session {
             // A record commit that fails leaves the events written and not committed, whatever the cause, and the
             // refusal says so (D-065); the next write command commits them first (REQ-REG-10).
             let message = git::record_message(&digests);
-            let commit = git::commit_record(repo, &self.domain, branch, start.as_deref(), &files, &message);
+            let commit =
+                git::commit_record(repo, &self.domain, branch, start.as_deref(), &files, &message, &mut self.notes);
             Some(commit.map_err(|e| match e {
                 Error::Refused { code, path, detail } => Error::Refused {
                     code,
@@ -303,6 +306,11 @@ impl Session {
         }
     }
 
+    /// What failed in Git that this session's commits went on from, taken (D-089).
+    pub fn take_notes(&mut self) -> Vec<String> {
+        std::mem::take(&mut self.notes)
+    }
+
     /// Replays the record as it now stands, as the record commit does before it: a failure commits nothing (PD-46).
     pub fn replayable(&self, verifier: &dyn Verify) -> Result<(), Error> {
         let replay = replay::replay(&self.domain, verifier).map_err(|mut errors| errors.remove(0))?;
@@ -324,7 +332,15 @@ impl Session {
         if held.as_deref() == Some(bytes.as_slice()) && git::staged(repo, rel)?.as_deref() == Some(bytes.as_slice()) {
             return Ok(None);
         }
-        let commit = git::commit_record(repo, &self.domain, branch, start.as_deref(), &[file.to_path_buf()], message)?;
+        let commit = git::commit_record(
+            repo,
+            &self.domain,
+            branch,
+            start.as_deref(),
+            &[file.to_path_buf()],
+            message,
+            &mut self.notes,
+        )?;
         *start = Some(commit.clone());
         // The branch has moved; if the person's index could not follow (another Git held it), it still holds the text
         // before, which the next `git commit` would take for a reversion: say so, with the commit made.
@@ -362,7 +378,8 @@ impl Session {
             digests.push(canon::sha256_hex(&fs::read(f).map_err(io_at(f))?));
         }
         let message = git::record_message(&digests);
-        let commit = git::commit_record(repo, &self.domain, branch, start.as_deref(), &files, &message)?;
+        let commit =
+            git::commit_record(repo, &self.domain, branch, start.as_deref(), &files, &message, &mut self.notes)?;
         *start = Some(commit.clone());
         Ok(Some(commit))
     }

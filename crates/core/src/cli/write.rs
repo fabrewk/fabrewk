@@ -191,7 +191,8 @@ fn head_in(record: &Replay, stream: &str) -> Option<Head> {
 pub(super) fn run<T>(cx: &Cx, plan: impl Fn(&Replay) -> Result<Plan<T>, Failed>) -> Result<(T, Written), Failed> {
     // What a failed Git prints is kept as this command's evidence (D-083, D-086 point 3).
     crate::record::git::keep_in(&cx.domain);
-    let _ = crate::record::git::take_recovered();
+    // What failed in Git that the command went on from, a recovery's first included (D-089).
+    let mut notes = Vec::new();
     // A task found running, before the lock or under it, is recovered first (REQ-RUN-5); then the command plans again
     // on the record the recovery left (P9E-13). Each turn either recovers a task, refuses, or ends.
     let mut owned: Option<Replay> = None;
@@ -201,9 +202,10 @@ pub(super) fn run<T>(cx: &Cx, plan: impl Fn(&Replay) -> Result<Plan<T>, Failed>)
             None => cx.record.as_ref().map_err(|e| Failed::from(e.clone()))?,
         };
         if running(record) {
-            apply(cx, record, &|r: &Replay| recovery(cx, r), true)?;
-        } else if let Some(done) = apply(cx, record, &plan, false)? {
-            return Ok(done);
+            apply(cx, record, &|r: &Replay| recovery(cx, r), true, &mut notes)?;
+        } else if let Some((out, mut written)) = apply(cx, record, &plan, false, &mut notes)? {
+            written.recovered = notes;
+            return Ok((out, written));
         }
         owned = Some(crate::record::replay(&cx.domain, &PolicyVerifier)?);
     }
@@ -281,6 +283,7 @@ fn apply<T>(
     record: &Replay,
     plan: &dyn Fn(&Replay) -> Result<Plan<T>, Failed>,
     recovering: bool,
+    notes: &mut Vec<String>,
 ) -> Result<Option<(T, Written)>, Failed> {
     // A record cut below this machine's mark is a rollback before anything it lacks is missed.
     crate::record::check_mark(&cx.domain, record)?;
@@ -305,6 +308,37 @@ fn apply<T>(
     let machine = machine::machine_file(&folder)?;
     plan(record)?;
     let mut session = Session::begin(&cx.domain, Repo::for_domain(&cx.domain, mode), &PolicyVerifier)?;
+    // What the session's commits went on from leaves with the command's outcome, whichever it is (D-089).
+    let result = held(cx, plan, (recovering, mode), machine, &mut session);
+    let taken = session.take_notes();
+    drop(session);
+    let refused = result.map_err(|f| noted(f, &taken));
+    notes.extend(taken);
+    refused
+}
+
+/// `f` with `notes`, what failed in Git that the command went on from before it refused, named after its own words.
+fn noted(f: Failed, notes: &[String]) -> Failed {
+    match f {
+        Failed::Refused(mut errors) if !notes.is_empty() => {
+            if let Some(Error::Refused { detail, .. }) = errors.first_mut() {
+                *detail += &format!("; before it, {}", notes.join("; "));
+            }
+            Failed::Refused(errors)
+        }
+        f => f,
+    }
+}
+
+/// [`apply`] once its session holds the lock.
+fn held<T>(
+    cx: &Cx,
+    plan: &dyn Fn(&Replay) -> Result<Plan<T>, Failed>,
+    (recovering, mode): (bool, Publication),
+    machine: Option<crate::settings::Settings>,
+    session: &mut Session,
+) -> Result<Option<(T, Written)>, Failed> {
+    let folder = cx.folder()?;
     session.refresh(&PolicyVerifier)?;
     let record = session.record().ok_or_else(|| refuse(Code::RecordAbsent, Some(&cx.domain), "no event"))?;
     if !recovering && running(record) {
@@ -376,7 +410,7 @@ fn apply<T>(
             }
         }
         Some(then) => {
-            let mut a = Appender { session: &mut session, instance: instance.clone(), policy, written, used };
+            let mut a = Appender { session, instance: instance.clone(), policy, written, used };
             let result = then(&mut a, prepared);
             (written, used) = (a.written, a.used);
             ran = result.map_err(late("the next write command ends what it left"))?;
@@ -427,7 +461,5 @@ fn apply<T>(
         detection.used(*space, name);
     }
     detection.keep(&cx.domain)?;
-    drop(session);
-    let recovered = crate::record::git::take_recovered();
-    Ok(Some((planned.out, Written { events: written, commit, ran, recovered })))
+    Ok(Some((planned.out, Written { events: written, commit, ran, recovered: Vec::new() })))
 }

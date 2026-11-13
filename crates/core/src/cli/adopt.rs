@@ -52,7 +52,7 @@ pub(super) fn run(cx: &Cx, options: &Options) -> Result<Out, Failed> {
         text += &format!("  {}: {}\n", c.place(), cx.t(&format!("effect.{effect}"), &[]));
     }
     let mut doc = json!({
-        "schema": "fabrewk.adopted/1", "digest": adoption.digest, "changes": changes, "widened": adoption.widened,
+        "schema": "fabrewk.adopted/2", "digest": adoption.digest, "changes": changes, "widened": adoption.widened,
     });
     text += &written_lines(cx, &written, &mut doc);
     text += &cx.next(&["fabrewk config", "fabrewk status"]);
@@ -76,6 +76,7 @@ pub(super) fn written_lines(cx: &Cx, written: &write::Written, doc: &mut Value) 
         text += &format!("{}\n", cx.t("write.recovered", &[("detail", &super::tasks::verbatim(r, "  "))]));
     }
     doc["events"] = json!(events);
+    doc["recovered"] = json!(written.recovered);
     doc["commit"] = json!(written.commit);
     text
 }

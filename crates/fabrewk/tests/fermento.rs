@@ -96,7 +96,7 @@ fn req_fer_3_a_valid_answer_records_the_events_and_changes_only_the_text_below_t
     let doc = ran.doc();
     assert_eq!(
         (doc["schema"].as_str(), doc["points"].as_u64(), doc["proposals"].as_array().unwrap().len()),
-        (Some("fabrewk.swept/1"), Some(2), 1)
+        (Some("fabrewk.swept/2"), Some(2), 1)
     );
     // The events: the sweep, then the proposal, by the agent the answer names; the heads the sweep saw.
     let events = fx.events("fermento-xel");

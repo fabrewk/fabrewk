@@ -96,7 +96,7 @@ fn req_set_5_adopt_records_the_policy_its_widenings_and_its_seal() {
     // `--json` gives the adoption's document.
     fx.edit_policy(&policy_with(&fx, "\n[limits]\nrounds = 4\nminutes = 30\n"));
     let doc = fx.run(&["adopt", "--say", SAY, "--json"]).doc();
-    assert_eq!(doc["schema"], "fabrewk.adopted/1");
+    assert_eq!(doc["schema"], "fabrewk.adopted/2");
     assert_eq!(doc["changes"][0]["effect"], "narrowing");
     assert_eq!(doc["events"][0]["stream"], "project");
     assert!(doc["commit"].is_string());
@@ -329,7 +329,7 @@ fn propose_a_stage_with_dependent_tasks_and_add_to_it() {
     plan["tasks"].as_array_mut().unwrap().push(second);
     let name = proposal(&fx, "plan.json", &plan);
     let doc = fx.run(&["propose", &name, "--json"]).doc();
-    assert_eq!(doc["schema"], "fabrewk.proposed/1");
+    assert_eq!(doc["schema"], "fabrewk.proposed/2");
     assert_eq!(doc["stage"]["new"], true);
     let (stage, first, second) = (
         doc["stage"]["id"].as_str().unwrap(),

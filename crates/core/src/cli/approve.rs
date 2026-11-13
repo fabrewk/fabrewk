@@ -148,7 +148,7 @@ pub(super) fn approve(cx: &Cx, what: &str, options: &Options) -> Result<Out, Fai
     let (a, written) = write::run(cx, plan)?;
     let mut text = cx.t(&format!("approve.{}", a.case), &[("id", &a.id), ("digest", &a.digest)]) + "\n";
     let id: Value = if a.id.is_empty() { Value::Null } else { json!(a.id) };
-    let mut doc = json!({"schema": "fabrewk.approved/1", "case": a.case, "id": id, "digest": a.digest});
+    let mut doc = json!({"schema": "fabrewk.approved/2", "case": a.case, "id": id, "digest": a.digest});
     text += &written_lines(cx, &written, &mut doc);
     text += &cx.next(&["fabrewk check"]);
     Ok(Out::new(doc, text))
