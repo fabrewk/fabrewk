@@ -158,7 +158,12 @@ pub struct GitKey {
 
 /// The key Git signs with in the repository at `root`; `None` when Git names none, or names one that is not a key.
 pub fn signing(root: &Path) -> Option<GitKey> {
-    let named = record::signing_key(root)?;
+    key_named(root, record::signing_key(root)?)
+}
+
+/// The key `named`, as Git's `user.signingkey` in the repository at `root` names it (see [`signing`]), read once by
+/// the caller (P9G-15).
+pub fn key_named(root: &Path, named: String) -> Option<GitKey> {
     if let Some(literal) = named.strip_prefix("key::") {
         return key_blob(literal.trim()).is_some().then(|| GitKey { public: literal.trim().to_owned(), file: None });
     }

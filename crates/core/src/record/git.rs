@@ -89,6 +89,18 @@ pub fn take_kept() -> Option<Kept> {
     KEPT.lock().unwrap_or_else(|e| e.into_inner()).take()
 }
 
+/// What failed in Git that a write command went on from, which its words say with the evidence (D-088).
+static RECOVERED: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
+
+fn recovered(e: &Error) {
+    RECOVERED.lock().unwrap_or_else(|e| e.into_inner()).push(e.detail());
+}
+
+/// The Git failures this process went on from, taken.
+pub fn take_recovered() -> Vec<String> {
+    std::mem::take(&mut *RECOVERED.lock().unwrap_or_else(|e| e.into_inner()))
+}
+
 /// `TOOL_FAILED` for a Git command that failed: its first words and its exit status, and in a write command where its
 /// standard error and status are kept, `local/evidence/git-<time>-<process>-<n>/` (`0700`, files `0600`).
 pub(crate) fn failed(repo: &Repo, args: &[&OsStr], out: &Output) -> Error {
@@ -117,7 +129,9 @@ pub(crate) fn failed(repo: &Repo, args: &[&OsStr], out: &Output) -> Error {
         if let Ok(dir) = kept {
             why += &format!("; Git's output is kept in {}", dir.display());
             let stderr = super::sha256_hex(&out.stderr);
-            *KEPT.lock().unwrap_or_else(|e| e.into_inner()) = Some(Kept { stderr, status });
+            // The first since it was last taken: the failure a later reading of the same failure's place follows
+            // keeps its own evidence in the event (P9G-15).
+            KEPT.lock().unwrap_or_else(|e| e.into_inner()).get_or_insert(Kept { stderr, status });
         }
     }
     refuse(Code::ToolFailed, Some(&repo.root), why)
@@ -340,7 +354,15 @@ pub(crate) fn head_of(repo: &Repo, name: &str) -> Result<Option<String>, Error> 
         "HEAD" => line(git(repo, &os(&["symbolic-ref", "-q", "HEAD"]), b"", None).map_err(why)?),
         _ => name.to_owned(),
     };
-    let listed = git(repo, &os(&["for-each-ref", "--format=%(refname)", &refname]), b"", None)?;
+    // The reading's own output is kept too when the listing that follows it fails (P9G-15).
+    let listed = git(repo, &os(&["for-each-ref", "--format=%(refname)", &refname]), b"", None).map_err(|e| {
+        let first = failed(repo, &args, &out);
+        refuse(
+            Code::ToolFailed,
+            Some(&repo.root),
+            format!("{name} could not be read: {}; {}", first.detail(), e.detail()),
+        )
+    })?;
     if listed.is_empty() { Ok(None) } else { Err(why(failed(repo, &args, &out))) }
 }
 
@@ -588,16 +610,25 @@ fn attempt(
             // The commit is made and the branch moved: the person's index is brought to it, and if another Git holds
             // the index now, the next write command does it (`sync_index`), so the commit is never reported as not
             // made (P7D3A-21).
-            let _ = git(repo, &os(&["update-index", "-z", "--index-info"]), entries.as_bytes(), None);
+            if let Err(e) = git(repo, &os(&["update-index", "-z", "--index-info"]), entries.as_bytes(), None) {
+                recovered(&e);
+            }
             fault::point();
             return Ok(commit);
         }
-        let now = head_of(repo, branch)?;
+        // What Git printed is kept whatever follows: a branch another Git moved, rebuilt on or a race (P9G-15).
+        let cas = failed(repo, &update, &moved);
+        let now = head_of(repo, branch).map_err(|e| {
+            let why = format!("{}; and the branch could not be read: {}", cas.detail(), e.detail());
+            refuse(Code::ToolFailed, Some(&repo.root), why)
+        })?;
         if now == base {
-            return Err(failed(repo, &update, &moved));
+            return Err(cas);
         }
-        let race =
-            || refuse(Code::RecordCommitRace, Some(&repo.root), "the branch moved and changed a file of the commit");
+        let race = || {
+            let why = format!("the branch moved and changed a file of the commit; {}", cas.detail());
+            refuse(Code::RecordCommitRace, Some(&repo.root), why)
+        };
         let Some(n) = now.as_deref() else {
             return Err(race());
         };
@@ -625,6 +656,7 @@ fn attempt(
             return Err(race());
         }
         walk_history(repo, branch)?;
+        recovered(&cas);
         base = now;
     }
     Err(refuse(Code::RecordCommitRace, Some(&repo.root), "the branch moved twice"))

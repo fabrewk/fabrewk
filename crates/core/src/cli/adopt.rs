@@ -72,6 +72,9 @@ pub(super) fn written_lines(cx: &Cx, written: &write::Written, doc: &mut Value) 
         None => cx.t("write.uncommitted", &[]),
     };
     text.push('\n');
+    for r in &written.recovered {
+        text += &format!("{}\n", cx.t("write.recovered", &[("detail", &super::tasks::verbatim(r, "  "))]));
+    }
     doc["events"] = json!(events);
     doc["commit"] = json!(written.commit);
     text

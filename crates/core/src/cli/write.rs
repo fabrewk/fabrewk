@@ -50,9 +50,10 @@ pub(super) fn not_an_agent(cx: &Cx) -> Result<(), Error> {
 /// `ROLE_FORBIDDEN` when Git names no key, the key is no maintainer's, or the role may not make the move (REQ-ID-3).
 pub(super) fn person(cx: &Cx, policy: &Policy, kind: &str) -> Result<(String, serde_json::Value, GitSigner), Error> {
     let forbidden = |why: &str| refuse(Code::RoleForbidden, None, why.to_owned());
-    // A Git that cannot say which key it signs with is its failure, never a key unset (D-083).
-    crate::record::signing_key_read(&cx.root)?;
-    let key = identity::signing(&cx.root)
+    // A Git that cannot say which key it signs with is its failure, never a key unset (D-083); read once (P9G-15).
+    let named = crate::record::signing_key_read(&cx.root)?;
+    let key = named
+        .and_then(|n| identity::key_named(&cx.root, n))
         .ok_or_else(|| forbidden("Git names no signing key (user.signingkey) that reads as a public key"))?;
     let alias = identity::holder(&policy.settings, &key.public).ok_or_else(|| {
         forbidden("the key Git signs with (user.signingkey) is no maintainer's in the policy in force")
@@ -173,6 +174,8 @@ pub(super) struct Written {
     pub commit: Option<String>,
     /// What the continuation gave, if any.
     pub ran: serde_json::Value,
+    /// What failed in Git that the command went on from, each naming its evidence (D-088).
+    pub recovered: Vec<String>,
 }
 
 fn head_in(record: &Replay, stream: &str) -> Option<Head> {
@@ -188,6 +191,7 @@ fn head_in(record: &Replay, stream: &str) -> Option<Head> {
 pub(super) fn run<T>(cx: &Cx, plan: impl Fn(&Replay) -> Result<Plan<T>, Failed>) -> Result<(T, Written), Failed> {
     // What a failed Git prints is kept as this command's evidence (D-083, D-086 point 3).
     crate::record::git::keep_in(&cx.domain);
+    let _ = crate::record::git::take_recovered();
     // A task found running, before the lock or under it, is recovered first (REQ-RUN-5); then the command plans again
     // on the record the recovery left (P9E-13). Each turn either recovers a task, refuses, or ends.
     let mut owned: Option<Replay> = None;
@@ -424,5 +428,6 @@ fn apply<T>(
     }
     detection.keep(&cx.domain)?;
     drop(session);
-    Ok(Some((planned.out, Written { events: written, commit, ran })))
+    let recovered = crate::record::git::take_recovered();
+    Ok(Some((planned.out, Written { events: written, commit, ran, recovered })))
 }

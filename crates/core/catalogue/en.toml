@@ -226,6 +226,7 @@ about = "What every write command reports of what it wrote"
 event = "Recorded the event {seq} of the stream {stream}."
 commit = "Committed the record: {commit}."
 uncommitted = "The record is not committed: the publication mode commits nothing."
+recovered = "Git failed and the command went on: {detail}"
 
 [reference]
 about = "Words of the generated reference documentation"

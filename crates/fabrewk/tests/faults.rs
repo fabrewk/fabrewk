@@ -131,15 +131,18 @@ fn refusal_record_commit_race() {
         fx.git(&["commit", "-q", "-m", "someone", "--", new.to_str().unwrap()]);
         let theirs = fx.git(&["rev-parse", "HEAD"]);
         // Git's object store gains the commit Fabrewk could not place, unreachable; nothing else may change.
-        let objects = fx.root.join(".git/objects");
+        // What Git printed for the compare-and-swap it refused is kept, in the evidence the refusal names (P9G-15).
+        let (objects, store) = (fx.root.join(".git/objects"), fx.domain.join("local/evidence"));
         let snapshot = || {
             let mut s = fx.snapshot();
-            s.retain(|p, _| !p.starts_with(&objects));
+            s.retain(|p, _| !p.starts_with(&objects) && !p.starts_with(&store));
             s
         };
         let before = snapshot();
         let ran = resume(child, "before-commit", &dir);
         says(&ran, "RECORD_COMMIT_RACE", json);
+        assert!(ran.all().contains("Git's output is kept in"), "{ran:?}");
+        assert_eq!(fs::read_dir(&store).unwrap().count(), 1);
         // Nothing changed after the race: the branch is theirs, the event and the person's edits stay as they were.
         assert_eq!(snapshot(), before);
         assert_eq!((fx.git(&["rev-parse", "HEAD"]), fx.git(&["rev-parse", "HEAD~1"])), (theirs, head));
@@ -642,6 +645,9 @@ fn a_record_commit_made_is_reported_made_when_the_index_is_held_after_it() {
     fs::write(fx.root.join(".git/index.lock"), b"").unwrap();
     let ran = resume(child, "record-moved", &dir);
     assert_eq!(ran.status, 0, "{ran:?}");
+    // The commit is made, and the words name what Git printed for the index it could not update (D-088).
+    let detail = cli::say("es", "write.recovered", &[("detail", "git update-index -z failed with exit status 128")]);
+    assert!(ran.stdout.contains(&format!("{detail}; Git's output is kept in")), "{ran:?}");
     assert_eq!(fx.git(&["rev-parse", "HEAD~1"]), head);
     fs::remove_file(fx.root.join(".git/index.lock")).unwrap();
     assert_eq!(fx.run(&["check"]).status, 0, "{:?}", fx.run(&["check"]));
@@ -1212,4 +1218,30 @@ fn verified_task_halting(fx: &Fx, fault: &str) -> String {
     let ran = fx.run_env(&["run", &id, "--say", SAY], &[("FABREWK_FAULT_GIT", fault)]);
     assert_eq!(ran.status, 4, "{fault}: {ran:?}");
     id
+}
+
+/// P9G-15: a failure whose auxiliary reading fails too keeps both outputs, the first in the event: the integration's
+/// move, then the branch's head; a ref that names no commit, then its listing.
+#[test]
+fn p9g_15_a_failure_keeps_its_own_evidence_when_its_reading_fails_too() {
+    let (fx, id, args) = to_accept("p9g-15");
+    let argv: Vec<&str> = args.iter().map(String::as_str).collect();
+    let env =
+        [("FABREWK_FAULT_GIT", "fabrewk: integrate"), ("FABREWK_FAULT_GIT_THEN", "rev-parse --verify -q refs/heads/")];
+    let ran = fx.run_env(&argv, &env);
+    assert_eq!(ran.status, 4, "{ran:?}");
+    let p = last_of(&fx, &id)["payload"].clone();
+    let reason = p["reason"].as_str().unwrap();
+    assert!(reason.starts_with("git update-ref -m failed with exit status 129"), "{reason}");
+    // The move's, its head's reading, and the reading of `moved`, which fails as well: each kept and named.
+    assert_eq!(reason.matches("kept in").count(), 3, "{reason}");
+    assert_eq!(p["evidence"]["status"], 129, "{p}");
+    // A branch whose ref names a blob, and a listing that fails: both outputs are kept and named.
+    let blob = fx.git(&["hash-object", "-w", "README.md"]);
+    let good = fx.git(&["rev-parse", "HEAD"]);
+    fs::write(fx.root.join(".git/refs/heads/main"), format!("{blob}\n")).unwrap();
+    let ran = fx.run_env(&["adopt", "--say", SAY], &[("FABREWK_FAULT_GIT", "for-each-ref")]);
+    fs::write(fx.root.join(".git/refs/heads/main"), format!("{good}\n")).unwrap();
+    assert_eq!(ran.status, 1, "{ran:?}");
+    assert_eq!(ran.stderr.matches("Git's output is kept in").count(), 2, "{ran:?}");
 }

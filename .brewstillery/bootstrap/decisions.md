@@ -4279,3 +4279,23 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Consequences: `core-specification.md` (the paragraph of part 9g; PD-12's first point); R-045.
 - Sources: chat of session 36; `core-specification.md` section 4, REQ-GATE-8, 11.2 rule 4, PD-12.
 - Supersedes: none.
+
+## D-088 — Part 9g: P9G-15 corrected, and a narrow eighth pass of Codex
+
+- Status: decided
+- Decided: 2026-11-13
+- Origin: maintainer XEL in session 36's chat, after Codex's seventh pass (confirmed blocking findings by pass 4, 2, 2,
+  1, 3, 2, 1, every one after the first of one class: a Git that fails in a write command read as a state, or losing
+  its evidence): "Corregir y pasada estrecha (Recomendado)".
+- Decision: the integrator corrects P9G-15's five sites with their tests (the signing key read twice; the record
+  commit's compare-and-swap that a moved branch refuses, rebuilt or `RECORD_COMMIT_RACE`; the person's index that does
+  not follow the record commit, P7D3A-21, where the command still reports the commit made and its words also name
+  Git's evidence; the integration's failure replaced by an auxiliary reading that fails too; a ref that names no
+  commit when its auxiliary listing fails too). An eighth pass confirms P9G-15 closed and looks for findings only in
+  the scope of those corrections, as D-084 did for part 9e; an accept closes the review.
+- Reason: every pass closed the earlier findings and found narrower windows of the same class, provoked by chains of
+  injected failures. The alternatives offered: correcting and closing with P9G-15 unconfirmed; correcting two sites
+  and declaring the other three residual.
+- Consequences: R-045.
+- Sources: chat of session 36; Codex's passes 1 to 7 of part 9g; D-083, D-084, D-086.
+- Supersedes: none.

@@ -197,6 +197,7 @@ done = "Se cerró la etapa {id}: es definitivo."
 event = "Se registró el evento {seq} del flujo {stream}."
 commit = "Se confirmó el registro: {commit}."
 uncommitted = "El registro no se confirma: el modo de publicación no confirma nada."
+recovered = "Git falló y el comando siguió: {detail}"
 
 [reference]
 title = "fabrewk: referencia de comandos"

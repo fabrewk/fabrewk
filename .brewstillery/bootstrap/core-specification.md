@@ -1351,7 +1351,11 @@ REQ-GATE-10, REQ-REG-10, REQ-RUN-6, REQ-REG-13; S-4, S-11; D-083, D-086, D-087).
   Git (P9G-13, P9G-14): the branch checked out (exit status 1 of `symbolic-ref -q` alone is `HEAD_DETACHED`), the key
   Git signs with (exit status 1 of `git config --get` alone is an unset key), the main working tree (`NOT_A_REPOSITORY`
   naming Git's evidence), the base's ignore rules, the candidate's branch, and what an acceptance binds; `status` says
-  such a failure with Git's exit status, keeping nothing. Such a refusal writes that directory and nothing else, a fourth kind of
+  such a failure with Git's exit status, keeping nothing. A failure whose own reading of the state fails too keeps both
+  outputs, and the event's `evidence` is the first's (P9G-15); the record commit's compare-and-swap that a moved branch
+  refuses keeps Git's output, named by `RECORD_COMMIT_RACE`; and a Git failure a write command goes on from (that
+  compare-and-swap, rebuilt on the new head; the person's index that cannot follow the record commit, P7D3A-21) is said
+  in its words, the commit reported made, with its evidence (D-088). The key Git signs with is read once. Such a refusal writes that directory and nothing else, a fourth kind of
   refusal that writes (11.2 rule 4). Reading commands keep nothing. With `fault-injection`, `FABREWK_FAULT_GIT` makes a
   Git command whose words hold its text fail as Git fails on an option it does not know.
 - With `fault-injection`, the pauses `before-move` (before the second check), `before-update-ref` and `after-move`.

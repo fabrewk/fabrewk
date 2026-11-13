@@ -240,7 +240,11 @@ pub fn move_branch(repo: &Repo, branch: &str, old: &str, new: &str) -> Result<()
     }
     // What Git printed is kept whatever the cause (D-083, P9G-4).
     let failed = git::failed(repo, &args, &out);
-    if git::head_of(repo, branch)?.as_deref() != Some(old) {
+    let now = git::head_of(repo, branch).map_err(|e| {
+        let why = format!("{}; and where the record branch is could not be read: {}", failed.detail(), e.detail());
+        refuse(Code::ToolFailed, None, why)
+    })?;
+    if now.as_deref() != Some(old) {
         let why = format!("the record branch moved while the integration ran: {}", failed.detail());
         return Err(refuse(Code::BaseMoved, None, why));
     }
