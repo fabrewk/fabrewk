@@ -219,6 +219,26 @@ fn a_record_that_does_not_replay_is_shown_by_status_and_refused_by_config_and_ch
     refused(&fx, &["config"], "RECORD_DIGEST_MISMATCH", 1, "en");
 }
 
+/// P9G-23: the domain's own `.git` is part of it only in an `own-repository` the record holds in force (D-091); a record
+/// that does not replay holds no mode, so `.git` is still a finding.
+#[test]
+fn p9g_23_with_a_record_that_does_not_replay_the_domain_s_own_git_is_a_finding() {
+    let fx = Fx::new("own-git-broken", "own-repository");
+    fs::create_dir(fx.domain.join(".git")).unwrap();
+    let dir = fx.domain.join("data/events/project");
+    let last = fs::read_dir(&dir)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.extension().is_some_and(|e| e == "json"))
+        .max()
+        .unwrap();
+    let mut bytes = fs::read(&last).unwrap();
+    bytes[10] ^= 1;
+    fs::write(&last, bytes).unwrap();
+    let doc = fx.run(&["check", "--json"]).doc();
+    assert!(finding_of(&doc, "C8").contains(&"ALIAS_INVALID".to_owned()), "{doc}");
+}
+
 #[test]
 fn req_set_7_config_shows_every_value_with_its_source_and_one_key() {
     let fx = published("config");
