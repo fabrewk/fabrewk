@@ -201,9 +201,13 @@ pub(super) fn run<T>(cx: &Cx, plan: impl Fn(&Replay) -> Result<Plan<T>, Failed>)
             Some(r) => r,
             None => cx.record.as_ref().map_err(|e| Failed::from(e.clone()))?,
         };
+        // What a recovery went on from is named by a refusal that follows it too (P9G-20).
+        let before = notes.clone();
         if running(record) {
-            apply(cx, record, &|r: &Replay| recovery(cx, r), true, &mut notes)?;
-        } else if let Some((out, mut written)) = apply(cx, record, &plan, false, &mut notes)? {
+            apply(cx, record, &|r: &Replay| recovery(cx, r), true, &mut notes).map_err(|f| noted(f, &before))?;
+        } else if let Some((out, mut written)) =
+            apply(cx, record, &plan, false, &mut notes).map_err(|f| noted(f, &before))?
+        {
             written.recovered = notes;
             return Ok((out, written));
         }

@@ -1304,3 +1304,37 @@ fn p9g_19_the_events_evidence_is_the_first_its_words_name() {
     let first = reason.split("kept in ").nth(1).unwrap().split([';', ' ']).next().unwrap();
     assert_eq!(p["evidence"]["stderr"], sha256_hex(&fs::read(fx.root.join(first).join("stderr")).unwrap()));
 }
+
+/// P9G-20: what a recovery went on from (its record commit rebuilt on a branch someone moved) is named by the refusal
+/// of the command that follows it.
+#[test]
+fn p9g_20_a_refusal_after_a_recovery_names_what_it_went_on_from() {
+    let fx = Fx::new("p9g-20", "published");
+    let (_, id) = fx.stage_and_task();
+    fx.commit("proposed");
+    let digest = fx.run(&["status", &id, "--json"]).doc()["shown"]["digest"].as_str().unwrap().to_owned();
+    assert_eq!(fx.run(&["authorize", &id, "--seen", &digest, "--say", SAY]).status, 0);
+    let stream = format!("task-{id}");
+    let events = fx.events(&stream);
+    let auth = format!("{:06}", events.len());
+    let file = fs::read_dir(fx.domain.join("data/events").join(&stream))
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .find(|p| p.file_name().unwrap().to_str().unwrap().starts_with(&auth) && p.extension().unwrap() == "json")
+        .unwrap();
+    let at = json!({"seq": events.len(), "digest": sha256_hex(&fs::read(file).unwrap())});
+    let run = json!({"task": id, "head": at, "authorization": {"stream": stream, "seq": at["seq"], "digest": at["digest"]}, "base": events[0]["payload"]["base"]});
+    appended(&fx, &stream, "run-started", run, true);
+    let attempt = json!({"role": "build", "profile": "build", "tool": "claude", "version": null, "model": "m", "effort": "low", "allowedSeconds": 60});
+    appended(&fx, &stream, "attempt-started", attempt, false);
+    // The recovery's record commit meets a branch someone moved, and is rebuilt on it; then the words are empty.
+    let steps = tmp("p9g-20-steps");
+    let child = paused(&fx, &["reject", &id, "--say", " ", "--json"], "before-commit", &steps);
+    fs::write(fx.root.join("README.md"), "moved\n").unwrap();
+    fx.git(&["commit", "-q", "-m", "a person's change", "README.md"]);
+    let ran = resume(child, "before-commit", &steps);
+    assert_eq!(ran.status, 1, "{ran:?}");
+    let e = &ran.doc()["refusals"][0];
+    assert_eq!(e["code"], "WORDS_MISSING", "{e}");
+    assert!(e["detail"].as_str().unwrap().contains("before it, git update-ref"), "{e}");
+}

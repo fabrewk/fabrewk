@@ -254,3 +254,18 @@ fn p9g_7_a_touched_entry_below_hides_no_other() {
     let held = merge::held(&repo, &changes, &scratch).unwrap();
     assert_eq!(merge::clean(&changes, &held, true, false).unwrap_err().code(), Some(Code::WorktreeDirty));
 }
+
+/// P9G-21: the evidence a failure names is read from its own directory, the last component of the path its words
+/// give, whatever the repository's path holds.
+#[test]
+fn p9g_21_the_evidence_is_read_from_its_own_directory() {
+    let domain = tmp("merge-kept").join("local/evidence/git-parent/repo/.brewstillery");
+    let dir = domain.join("local/evidence/git-1-2-3");
+    fs::create_dir_all(&dir).unwrap();
+    fs::write(dir.join("stderr"), "fatal\n").unwrap();
+    fs::write(dir.join("status"), "128\n").unwrap();
+    let words =
+        format!("git update-ref failed with exit status 128; Git's output is kept in {}; and more", dir.display());
+    let kept = fabrewk_core::record::kept_in(&domain, &words).expect("the directory named");
+    assert_eq!(kept, (fabrewk_core::record::sha256_hex(b"fatal\n"), Some(128)));
+}

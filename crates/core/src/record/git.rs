@@ -80,8 +80,13 @@ pub fn keep_in(domain: &Path) {
 /// status, `None` for a signal (D-089); none when it names none, or what it names cannot be read.
 pub fn kept_in(domain: &Path, detail: &str) -> Option<(String, Option<i32>)> {
     let after = detail.split_once(KEPT_IN)?.1;
-    let at = after.find("local/evidence/git-")? + "local/evidence/".len();
-    let name: String = after[at..].chars().take_while(|c| c.is_ascii_alphanumeric() || *c == '-').collect();
+    // The directory's own name, the last component of the path the words give: a `git-` name with no `/` after it,
+    // whatever the repository's path holds (P9G-21).
+    let name = after.match_indices("local/evidence/git-").find_map(|(at, _)| {
+        let rest = &after[at + "local/evidence/".len()..];
+        let name: String = rest.chars().take_while(|c| c.is_ascii_alphanumeric() || *c == '-').collect();
+        (!rest[name.len()..].starts_with('/')).then_some(name)
+    })?;
     let dir = domain.join("local/evidence").join(name);
     let stderr = std::fs::read(dir.join("stderr")).ok()?;
     let status = std::fs::read_to_string(dir.join("status")).ok()?;

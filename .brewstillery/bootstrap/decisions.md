@@ -4321,3 +4321,22 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   `core-specification.md` (the paragraph of part 9g); R-045.
 - Sources: chat of session 36; Codex's passes 1 to 8 of part 9g; D-083, D-086, D-088.
 - Supersedes: none.
+
+## D-090 — Part 9g: P9G-20 and P9G-21 corrected, P9G-22 declared, and the review closed
+
+- Status: decided
+- Decided: 2026-11-13
+- Origin: maintainer XEL in session 36's chat, after Codex's narrow ninth pass (confirmed blocking findings by pass 4,
+  2, 2, 1, 3, 2, 1, 4, 3; P9G-16 to P9G-19 confirmed closed): "Corregir dos, declarar uno (Recomendado)".
+- Decision: the integrator corrects P9G-20 (what a recovery went on from is named by a refusal of the command that
+  follows it) and P9G-21 (the evidence a failure names is read from its directory's own name, the last component of
+  the path its words give, never from a component of the repository's path), each with a test that fails without its
+  correction. P9G-22 is declared: an internal error (exit 70, `fabrewk.internal/1`) says only its path, by design, and
+  what failed in Git before it stays kept in `local/evidence/`, named by no word. The review closes without another
+  pass.
+- Reason: nine passes; the last three each found narrower paths of D-089's change. The alternatives offered:
+  correcting P9G-22 too, under a new schema of the internal error's document, and closing; correcting the three and a
+  tenth narrow pass.
+- Consequences: `core-specification.md` (the paragraph of part 9g); R-045.
+- Sources: chat of session 36; Codex's passes 1 to 9 of part 9g; D-089.
+- Supersedes: none.
