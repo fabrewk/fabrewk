@@ -7,16 +7,16 @@ view generated from that registry. Technical files are in English by default (D-
 
 **Phases 0 to 7 are closed (D-037, D-040, D-070). Phase 7 (the first code) was split into parts 7a, 7b, 7c1, 7c2a,
 7c2b, 7d1, 7d2, 7s, 7d3a and 7d3b (D-041, D-047, D-048, D-050, D-053, D-059, D-062), the last the task commands
-(D-068, D-069, R-034); phase 8, the core's part 2, was split into 8a, 8b and 8c (D-072) and all three are closed, and so is the phase (D-077); phase 9 is open: its design is accepted and it is cut into parts 9a to 9i (D-075, D-076); parts 9a to 9f are closed and 9g is next.** The repository holds the first code at its root: a
+(D-068, D-069, R-034); phase 8, the core's part 2, was split into 8a, 8b and 8c (D-072) and all three are closed, and so is the phase (D-077); phase 9 is open: its design is accepted and it is cut into parts 9a to 9i (D-075, D-076); parts 9a to 9g are closed and 9h is next.** The repository holds the first code at its root: a
 Cargo workspace with one crate per ring (`crates/core`, `crates/fabrewk`, the binary, which runs the core's command
 surface, `crates/confine-bwrap`, the confinement backend for Linux, `crates/adapter-claude`, Claude Code's adapter, and `crates/adapter-codex`, Codex's) and the size counter `tools/budget`, the licence files, `deny.toml` and a root `.gitignore` with `/target`.
 The record is built in `crates/core/src/record/`, the settings in `crates/core/src/settings/`, identity in
 `identity.rs`, the private folder and the machine file in `machine.rs`, detection and profiles in `detect.rs`, the
 domain's layout in `domain.rs`, the transition table in `table.rs`, the payloads and pattern guards in `task.rs`, the
-credential scan in `scan.rs`, the fermento in `fermento.rs`, the alambique and the rules in `alambique.rs`, the cell's contract and its runner in `confine.rs`, the attempt's copy, its change set and the candidate in `candidate.rs`, the tool adapter's contract in `adapter.rs`, the checks, the identities and the rounds' measure in `gate.rs`, the run in `crates/core/src/cli/run.rs`, and the command surface in `crates/core/src/cli/` with its catalogue in
+credential scan in `scan.rs`, the fermento in `fermento.rs`, the alambique and the rules in `alambique.rs`, the cell's contract and its runner in `confine.rs`, the attempt's copy, its change set and the candidate in `candidate.rs`, the tool adapter's contract in `adapter.rs`, the checks, the identities and the rounds' measure in `gate.rs`, the run in `crates/core/src/cli/run.rs`, the integration in `merge.rs` and `crates/core/src/cli/accept.rs`, and the command surface in `crates/core/src/cli/` with its catalogue in
 `crates/core/catalogue/` (`en`, `es`); `fabrewk status`, `fabrewk config` and `fabrewk check` read, and `fabrewk
-adopt`, `fabrewk propose`, `fabrewk authorize`, `fabrewk reject`, `fabrewk sweep`, `fabrewk discard`, `fabrewk approve`, `fabrewk close` and `fabrewk run` (round after round of the builder, the checks and the reviewer, to a verified task or a halt) write, through one
-write path in `crates/core/src/cli/write.rs`. The skills the maestro approved are in `.brewstillery/skills/`, listed in `AGENTS.md`. The core counts 10,319 of 11,000 lines, the backend 278 of 400, Claude Code's adapter 269 of 600 and Codex's 319 of 600, formatted at width 120 (D-049, D-054, D-074, D-075). No `data/` exists in this
+adopt`, `fabrewk propose`, `fabrewk authorize`, `fabrewk reject`, `fabrewk sweep`, `fabrewk discard`, `fabrewk approve`, `fabrewk close`, `fabrewk run` (round after round of the builder, the checks and the reviewer, to a verified task or a halt) and `fabrewk accept` (an acceptance and its integration) write, through one
+write path in `crates/core/src/cli/write.rs`. The skills the maestro approved are in `.brewstillery/skills/`, listed in `AGENTS.md`. The core counts 11,276 of 12,000 lines, the backend 278 of 400, Claude Code's adapter 269 of 600 and Codex's 319 of 600, formatted at width 120 (D-049, D-054, D-074, D-075). No `data/` exists in this
 repository, whose project file still holds bootstrap keys, so `fabrewk check` here reports them. The domain is
 `.brewstillery/`, hidden (D-032).
 
@@ -424,26 +424,42 @@ repository, is imported into the single registry at production and then stays re
   the maestro may want to read are in R-044. The machine ran out of memory during the mutation reruns (the scope's
   3 GB cap above the 2 GB the editor leaves free) and was restarted; nothing was lost. No credential of the person's
   was read.
-- **Next: part 9g (plan, "Phase 9").** Acceptance and integration: `accept`, the preconditions at their three points
-  (`EVIDENCE_STALE` refused at accept and integration, REQ-GATE-10's identities recomputed before the move), the move,
-  the working tree written from the objects' bytes, `reject` saying where the branch is; Git's own output and exit
-  status kept as evidence for every command (D-083). Inputs: the plan's row 9g; REQ-GATE-7, REQ-GATE-8, REQ-GATE-10;
-  D-068 point 3; S-4 and S-11 at integration; the 9a to 9f paragraphs of `core-specification.md`; R-043, R-044.
-  `BASE_MOVED` must read the last integration as 9e wrote it (R-043, interpretation 4). `FABREWK_FAULT_PLATFORM`
-  (part 9f) waits for `EVIDENCE_STALE`'s test through the flow.
-- **Start prompt:** `Eres el integrador de Fabrewk; fase 9, parte 9g: aceptación e integración (accept, las
-  precondiciones, el movimiento, el árbol de trabajo, la salida de Git como evidencia); empieza por
-  .brewstillery/STATUS.md`. Model and effort: Claude Code on Opus 5.5 (`claude-opus-5-5`), effort high; Codex GPT-6.1
-  Sol, effort high, reviews. Read the skills `verify-part` and `codex-review` before the checks and the review, and
-  `differential-review` before a pass. The run's tests (`crates/fabrewk/tests/run.rs`) and the backend's and the
-  adapters' launch tests run real cells and need `bwrap`, `pasta`, `socat`, `python3` and the network; Codex's sandbox
-  cannot run them nor bind sockets, which is no finding. `verify-part`'s `ulimit -v 1000000` no longer fits the
-  core's build: 1,600,000 was used; its scope's 3 GB is above what this machine leaves free with the editor open:
-  the last reruns used 2 GB with `--jobserver-tasks 2` (both the maestro's to change in the skill). Under `-j 2` a
-  passing suite takes about 175 s, so `--timeout 180` turns slowness into timeouts: run them again alone with a
-  longer timeout. When waiting for Codex, wait on the launching command itself. Codex's prompt asks it not to read
-  `.brewstillery/skills/` and to report each finding as an input, an expected result and an actual one; a narrow,
-  plainly worded prompt gets past its provider's filter. A mutation run over a whole part takes about two hours.
+- **Part 9g closed (session 36, R-045, D-086 to D-090).** Acceptance and integration (`crates/core/src/merge.rs` and
+  `crates/core/src/cli/accept.rs`, new): `status <id>` shows what an acceptance binds with its digest
+  (`fabrewk.subject/4`), which `accept` takes with `--seen` (REQ-GATE-7, PD-37); the preconditions at three points,
+  before the signature (refusing, D-087), just before the move and with the branch at the candidate (`merge-failed`,
+  exit 4, waiting for a maestro); the third guard on the whole trees, the touched paths clean in the index and the
+  working tree, an integration commit with a `Fabrewk-Candidate` trailer or none when the branch is already at the
+  candidate, the move by compare-and-swap, the working tree and the index brought from the objects' bytes with no
+  filter (S-11); `run` finishes an accepted task (D-087 point 2); `reject` says where the record branch is
+  (`fabrewk.rejected/2`); a verification is bound to the policy its review was recorded under (D-086 point 4). Git's
+  standard error and exit status are kept by write commands in `local/evidence/git-*` and named in the words; the
+  evidence travels in the error's text, and what a write command went on from is named in `recovered` and in a
+  refusal that follows (D-083, D-086, D-089). The core's ceiling is 12,000 (D-086). Codex reviewed nine times, the
+  last two narrow (D-088 to D-090; one launch cut by its provider): confirmed blocking 4, 2, 2, 1, 3, 2, 1, 4, 3;
+  P9G-1 to P9G-21 corrected, P9G-22 declared (D-090). Mutation: 432 mutants, every viable one caught, tested or
+  removed, one equivalent, two loops caught by the timeout. Clean clone of `7ffb3a2`: 611 tests, `crash` 3 and `faults`
+  37 green, musl build, `budget check`, clippy, fmt, `cargo deny` clean. Measured: the core +957 (projected 550); 724
+  lines remain for 9h and 9i against about 350 projected. Nine interpretations the maestro may want to read are in
+  R-045; among them, `check` reports an `own-repository` domain's own `.git` as `ALIAS_INVALID`, older than this part.
+  No credential of the person's was read.
+- **Next: part 9h (plan, "Phase 9").** Extensions: the runner, the variables, the requests, their cell, exit status
+  10. Inputs: the plan's row 9h; REQ-EXT-1 to REQ-EXT-5, REQ-CLI-3; AD-5's contract; S-9; part 9a; the 9a to 9g
+  paragraphs of `core-specification.md`; R-045. Acceptance: their criteria, S-9's two cases included;
+  `EXTENSION_DIGEST`, `EXTENSION_OUTPUT_INVALID`; REQ-SEC-2 for extensions; as 7a.
+- **Start prompt:** `Eres el integrador de Fabrewk; fase 9, parte 9h: extensiones (el ejecutor, las variables, las
+  solicitudes, su celda, el estado de salida 10); empieza por .brewstillery/STATUS.md`. Model and effort: Claude Code
+  on Opus 5.5 (`claude-opus-5-5`), effort high; Codex GPT-6.1 Sol, effort high, reviews. Read the skills
+  `verify-part` and `codex-review` before the checks and the review, and `differential-review` before a pass. The
+  run's tests (`crates/fabrewk/tests/run.rs`) and the backend's and the adapters' launch tests run real cells and need
+  `bwrap`, `pasta`, `socat`, `python3` and the network; Codex's sandbox cannot run them nor bind sockets, which is no
+  finding. On this machine: `ulimit -v 1600000` and a scope of 2 GB with `--jobserver-tasks 2` and no debug
+  information (`CARGO_PROFILE_DEV_DEBUG=0`, `CARGO_PROFILE_TEST_DEBUG=0`); a passing suite takes about 190 s even
+  alone, so run mutants with `-j 1 --timeout 400`, or `-j 2 --timeout 180` and the timeouts again alone; in a mutation
+  run end each idle `pasta` whose namespace's process is gone (R-045), and look for scopes and `pasta` left by earlier
+  runs before starting (all the maestro's to put in the skill). When waiting for Codex, wait on the launching command
+  itself. Codex's prompt asks it not to read `.brewstillery/skills/` and to report each finding as an input, an
+  expected result and an actual one; a narrow, plainly worded prompt gets past its provider's filter.
 
 Carried without blocking, with destinations, in D-013. A phase that does not pass is corrected and retried; it
 never ends the project (D-003).

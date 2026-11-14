@@ -4340,3 +4340,117 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Consequences: `core-specification.md` (the paragraph of part 9g); R-045.
 - Sources: chat of session 36; Codex's passes 1 to 9 of part 9g; D-089.
 - Supersedes: none.
+
+## R-045 — Session 36, part 9g: acceptance and integration
+
+- Status: recorded
+- Date: 2026-11-13
+- Who: integrator Claude Code, `claude-opus-5-5`, effort high (D-078). Reviewer: Codex `codex-cli 0.166.0`,
+  `gpt-6.1-sol`, effort high, launched as the `codex-review` skill says.
+- Start: HEAD `730f243`, tree clean. The machine lost its network three times during the session; one Codex pass
+  waited and resumed by itself, and two of the backend's tests that need a route outwards failed while it was down and
+  passed once it was back (no finding).
+- Read: `STATUS.md`, `AGENTS.md`, `plan.md`, `confinement-design.md` 3.8 and 7, `core-specification.md` (GATE-1 to
+  GATE-10, REG-10 to REG-13, RUN-6, RUN-9, sections 3 to 5, 11.2, 11.4's cases of the part, 12's criteria, the 9a to
+  9f paragraphs), this file (D-068, D-082 to D-085, R-043, R-044); the skills `verify-part`, `codex-review` and
+  `differential-review`; the code of `cli/` (`run.rs`, `tasks.rs`, `write.rs`, `status.rs`, `decl.rs`, `mod.rs`,
+  `adopt.rs`), `record/` (`git.rs`, `store.rs`, `fault.rs`), `candidate.rs`, `gate.rs`, `table.rs`, `task.rs`,
+  `view.rs`, `code.rs`, both catalogues, and their tests. No credential of the person's was read.
+- Decided by the maestro in this session: D-086 to D-090.
+- Written: `crates/core/src/merge.rs` (new: a commit's product tree, the change set between two commits and its third
+  guard, what the index and the working tree hold at the touched paths, the integration commit, the move, the working
+  tree and the index brought to the candidate); `crates/core/src/cli/accept.rs` (new: `accept`, what an acceptance
+  binds, the preconditions at their three points, `merge-failed`, `task-integrated`, `run` on an accepted task, where
+  the record branch is); `cli/tasks.rs` (`reject` saying where the branch is, `MERGE_IN_PROGRESS` with the branch at the
+  candidate, `run` finishing an accepted task); `cli/run.rs` (the task's settings shared, `BASE_MOVED` reading the
+  commit an integration left); `cli/status.rs` (`accepting`, `fabrewk.subject/4`); `cli/write.rs` (Git's evidence kept
+  from the write path's start, the session's notes, a refusal naming what came before it); `cli/adopt.rs`
+  (`recovered`); `cli/decl.rs` (`accept`, the schemas); `record/git.rs` (Git's standard error captured, `failed`,
+  `kept_in`, Git's exit status 1 alone as an absence, the record commit's rounds naming a refused compare-and-swap);
+  `record/store.rs` (the integration's commit as the record commit's start, the notes); `record/fault.rs`
+  (`FABREWK_FAULT_GIT`, `FABREWK_FAULT_GIT_THEN`); `candidate.rs` (the lanes guard shared); `gate.rs` (a verification
+  bound to its policy); `table.rs` (an acceptance bound to the last candidate); `task.rs` (the four payloads);
+  `view.rs` (`task-merge`); `code.rs` and both catalogues (`WORKTREE_DIRTY`, the words of `accept`, `reject`, the
+  recovered notes); `identity.rs` (the key read once); `tools/budget` (the ceiling, D-086); the tests of the core, the
+  binary's `run.rs`, `tasks.rs`, `writing.rs`, `faults.rs` and the new `crates/core/tests/merge.rs`; the reference
+  documentation regenerated; the paragraph "Acceptance and integration, as part 9g fixed them" in
+  `core-specification.md`; `plan.md`; `STATUS.md`; D-086 to D-090 and this entry.
+- Interpretations the maestro may want to read (each in the new paragraph):
+  1. The base an integration compares with is the candidate's parent (REQ-RUN-4).
+  2. The third guard is REQ-RUN-3's rules on the whole trees: protected components (with empty, `.` and `..` ones),
+     paths that are not text and the lanes, so `LANE_VIOLATION` is among an integration's codes.
+  3. The integration commit is the person's Git's as author and committer; its message is the candidate's, with
+     `Fabrewk-Candidate` after its trailers.
+  4. A submodule's path in the working tree is never written but made as an empty directory where none is; its index
+     entry is written.
+  5. Index entries are written with no stat data, so a configured clean filter may make the person's `git status`
+     show a file changed whose bytes are the object's (T-28's other side).
+  6. `merge-failed` exits 4 and waits for a maestro (`task-merge`); `moved` is `null` when the branch cannot be read.
+  7. PD-11's leftover index lock: every write command refuses it before writing (P7B-6's design), so it is no merge
+     failure; PD-11 is tested with a Git error in one task's move, other tasks building meanwhile.
+  8. A Git failure in a reading command is said with its exit status and keeps nothing (D-086 point 3); `status`
+     refuses `TOOL_FAILED` when what an acceptance binds cannot be read.
+  9. `own-repository`: `check` reports the domain's own `.git` as `ALIAS_INVALID` (C8), older than this part (found
+     by the fast-forward test, which runs `check` only in `unpublished`); destination: the maestro, before phase 10's
+     installation makes such a domain.
+- Codex, nine passes and one launch cut by its provider, confirmed blocking findings by pass: 4, 2, 2, 1, 3, 2, 1, 4,
+  3.
+  1. Launch 1 (`b3ecd14`): cut by the provider ("flagged for possible cybersecurity risk"), counted as none; before
+     its end it explored a file that becomes a directory, which the integrator found broken and corrected first
+     (`0363bec`).
+  2. Pass 1 (`0363bec`, a neutral prompt): P9G-1 (an edit after the reading overwritten), P9G-2 (`moved` a literal on
+     a retry), P9G-3 (a failed Git read as an absent committed or staged file), P9G-4 (a refused compare-and-swap's
+     output lost).
+  3. Pass 2 (`b5c3ed3`): all closed; P9G-5 (an index entry a touched path displaces), P9G-6 (`moved` still a literal
+     in two failures).
+  4. Pass 3 (`387151b`): all closed; P9G-7 (a touched entry hiding another below it), P9G-8 (the evidence replaced by
+     the reading of `moved`).
+  5. Pass 4 (`8704fea`): all closed; P9G-9 (a ref naming no commit losing its output).
+  6. Pass 5 (`0e1bcd1`): all closed; P9G-10 to P9G-12 (`reject` taking a failed reading for a place, a candidate's
+     parent taken for absent, the listing hiding the reading's output); corrected by one rule: Git's exit status 1
+     alone is an absence.
+  7. Pass 6 (`b391dd2`): all closed; P9G-13, P9G-14 (what an acceptance binds and the branch checked out taken from a
+     failed Git); the integrator swept the class (the key, the main working tree, the base's ignore rules, the
+     candidate's branch).
+  8. Pass 7 (`9846a32`): all closed; P9G-15, five sites of the class. The maestro chose to correct them and a narrow
+     eighth pass (D-088).
+  9. Pass 8 (`c8ff4b6`, narrow): P9G-15 closed but four paths of its corrections, P9G-16 to P9G-19. Two retries
+     without progress: the maestro changed the design (D-089).
+  10. Pass 9 (`18fe2e0`, narrow): P9G-16 to P9G-19 closed; P9G-20 to P9G-22. The maestro chose to correct P9G-20 and
+      P9G-21, declare P9G-22 and close the review (D-090).
+  Each new test failed without its correction, checked by reverting the code under test. Two cases are held by the
+  design and not provoked by a test, since `FABREWK_FAULT_GIT` cannot fail one of two commands with the same words:
+  the key read twice (P9G-15's first site) and a recovery's own note (P9G-17). Codex's sandbox cannot run `bwrap`,
+  `pasta` or `ssh-agent`; those tests ran on this machine.
+- Found and corrected by the integrator's own review: a third guard with no refusal of empty, `.` and `..` components,
+  a scratch directory left by a refusal, a pause after the second check instead of before it, `status` failing on a
+  task whose acceptance the table does not allow.
+- Mutation, with `--features fabrewk-core/fault-injection`, `--test-workspace true`, `ulimit -v 1600000`, no debug
+  information, in its own user scope over the part's diff (`730f243..84b1af0`): 432 mutants, `-j 2`, `--timeout 180`,
+  in 5 hours: 242 caught, 108 unviable, 76 timed out, 6 missed. A passing suite took about 175 s there, so the 76 and
+  the 6 were run again (`--iterate`, `-j 1`, `--timeout 400`, 2 GB): 19 caught, 42 timed out, 21 missed (a suite took
+  190 s). The 6 and the 21 were tested or removed (`7ffb3a2`), each new test failing with its mutant applied by hand;
+  most of the 42 hung in `p9g_19`, which waited for its pause with no limit and now waits at most 30 s. The run over
+  the diff to that commit, `--iterate`: 148 mutants (those whose lines moved again among them), 99 caught, 46
+  unviable, 2 timed out (`apply` and `held` giving nothing, which makes `write::run` read the record and go again
+  forever: a loop), 1 missed, declared equivalent: `reject`'s `>` against `>=` between the positions of the last
+  acceptance and the last candidate (they are equal only when neither event exists, and then no candidate is located,
+  so the branch is not at it). Removed by simplifying: the slice up to an acceptance in `table.rs` (now up to and with
+  it, itself no candidate) and the conjunction in `accept.rs`'s `verified` (a filter, then the tree).
+- Found by the mutation run, no finding of the part: the idle `pasta` a killed cell leaves (the backend's declared
+  residual `network-helper`, part 9a) piles up when the timeout kills tests: 72 in the first run's scope, about 1 GB,
+  which slowed every suite; 4 more from this session's own test runs, and 2 from each full suite (its tests that
+  kill the binary). The reruns ran a watcher in the scope ending each `pasta` whose namespace's process was gone;
+  `verify-part` saying so is the maestro's to change. The scopes left by earlier sessions' runs, each holding such
+  helpers, were stopped.
+- Clean clone of `7ffb3a2`: 611 tests (10 ignored: the real tools' and a kept stream's), `crash` 3 and `faults` 37
+  green, the musl build, `budget check` (the core 11,276 of 12,000, the backend 278 of 400, Claude Code's adapter 269
+  of 600, Codex's 319 of 600, 5 direct runtime crates, 31 in the release build, the binary 3,150,216 bytes), clippy
+  with and without `fault-injection`, fmt and `cargo deny` clean; `--version --json` lists no feature. The steps ran
+  in a user scope capped at 2.5 GB with two build jobs.
+- Measured: the core +957 (projected 550: Git's evidence through every write command and the nine passes' corrections
+  took the rest); the backend and both adapters unchanged. Left for parts 9h and 9i: 724 lines against about 350
+  projected (`confinement-design.md` section 7).
+- Not done: the extensions (part 9h); the flows and the crash suite over them, and a view's temporary file left by a
+  stopped write (part 9i); `check` on an `own-repository` domain (interpretation 9, the maestro's). P9G-22 was declared
+  and not corrected (D-090).
