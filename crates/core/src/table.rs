@@ -264,7 +264,8 @@ fn task(record: &Replay, (name, events): (&String, &Vec<Event>), covers: &Covers
         // An acceptance binds the task's last candidate (REQ-GATE-7).
         if e.kind == "task-accepted" {
             let p = &e.value["payload"];
-            let last = events[..e.seq as usize - 1].iter().rfind(|x| x.kind == "candidate-recorded");
+            // Up to the acceptance, itself no candidate.
+            let last = events[..e.seq as usize].iter().rfind(|x| x.kind == "candidate-recorded");
             let last = last.map(|c| &c.value["payload"]);
             if !last.is_some_and(|c| c["commit"] == p["candidate"] && c["tree"] == p["tree"]) {
                 return Err(invalid(e, "an acceptance of another candidate than the task's last"));

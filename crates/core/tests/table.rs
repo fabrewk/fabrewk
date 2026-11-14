@@ -659,8 +659,10 @@ fn refusal_task_invalid() {
     // A layer's value: of no settings type is the shape's failure; of another type than its key's, the content's.
     assert_eq!(put(&[("/settings", json!({"limits.rounds": {"x": 1}}))]), Err(Code::RecordVersionUnknown));
     assert_eq!(put(&[("/settings", json!({"limits.rounds": true}))]), invalid);
-    // The authorizations' payloads are held to their shape too.
-    for kind in ["task-authorized", "stage-authorized", "task-rejected"] {
+    // The authorizations', the acceptance's and the integration's payloads are held to their shape too.
+    for kind in
+        ["task-authorized", "stage-authorized", "task-rejected", "task-accepted", "merge-failed", "task-integrated"]
+    {
         assert_eq!(task::check(kind, &json!({})).map_err(|e| e.code().unwrap()), Err(Code::RecordVersionUnknown));
     }
     // The shape is schema 1's: a record holding a malformed payload does not replay.

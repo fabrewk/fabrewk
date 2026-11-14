@@ -19,9 +19,14 @@ const SAY: &str = "Lo adopto: las rondas alcanzan para esta etapa.";
 
 /// Starts the binary in the fixture, paused at `step`; gives the child once it waits there.
 fn paused(fx: &Fx, args: &[&str], step: &str, dir: &Path) -> Child {
+    paused_env(fx, args, step, dir, &[])
+}
+
+/// [`paused`] with more of the binary's environment; a command that never reaches `step` fails the test in 30 s.
+fn paused_env(fx: &Fx, args: &[&str], step: &str, dir: &Path, env: &[(&str, &str)]) -> Child {
     let mut c = Command::new(env!("CARGO_BIN_EXE_fabrewk"));
     isolate(&mut c, &fx.home, fx.path.as_deref());
-    c.env("FABREWK_FAULT_PAUSE", format!("{step}:{}", dir.display()));
+    c.env("FABREWK_FAULT_PAUSE", format!("{step}:{}", dir.display())).envs(env.iter().copied());
     let mut child = c.current_dir(&fx.root).args(args).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().unwrap();
     for _ in 0..600 {
         if dir.join(format!("{step}.paused")).exists() {
@@ -966,6 +971,8 @@ fn pd_12_a_precondition_false_just_before_the_move() {
             (&json!(code), &json!(what == "race-to-candidate"))
         );
         assert_eq!(product(&fx), before, "{what}: nothing moved");
+        let place = if what == "race-to-candidate" { "accept.moved" } else { "accept.unmoved" };
+        assert!(ran.stdout.contains(&cli::say("es", place, &[])), "{what}: {ran:?}");
         // The compare-and-swap Git refused keeps Git's output as evidence, as every failed Git does (P9G-4).
         // A branch someone else brought to the candidate meanwhile is at it, which the failure says (P9G-6).
         if what.starts_with("race") {
@@ -1006,6 +1013,9 @@ fn pd_12_pd_14_with_the_branch_at_the_candidate() {
             child.kill().unwrap();
             child.wait().unwrap();
             assert!(!fx.root.join("src/new.txt").exists());
+            // An accepted task whose integration stopped without a failure on record waits for no one.
+            let waits = fx.run(&["status", "--json"]).doc()["waiting"].clone();
+            assert!(waits.as_array().unwrap().iter().all(|w| w["what"] != "task-merge"), "{waits}");
             // Run again with a person's edit there: the branch is at the candidate, and the failure says so (P9G-2).
             fs::create_dir_all(fx.root.join("src")).unwrap();
             fs::write(fx.root.join("src/new.txt"), "mine\n").unwrap();
@@ -1061,7 +1071,21 @@ fn refusal_evidence_stale_through_the_flow() {
     let ran = fx.run_env(&args, &[("FABREWK_FAULT_PLATFORM", "another-platform")]);
     says(&ran, "EVIDENCE_STALE", false);
     assert_eq!(fx.snapshot(), before);
-    let ran = fx.run(&args);
+    // Accepted, its integration failed on a person's file; the evidence stale when it runs again is refused just before
+    // the move, nothing moved (point 2).
+    let steps = tmp("stale-platform-steps");
+    let child = paused(&fx, &args, "before-move", &steps);
+    fs::create_dir_all(fx.root.join("src")).unwrap();
+    fs::write(fx.root.join("src/new.txt"), "mine\n").unwrap();
+    assert_eq!(resume(child, "before-move", &steps).status, 4);
+    fs::remove_file(fx.root.join("src/new.txt")).unwrap();
+    let product_before = product(&fx);
+    let ran = fx.run_env(&["run", &id, "--say", SAY], &[("FABREWK_FAULT_PLATFORM", "another-platform")]);
+    assert_eq!(ran.status, 4, "{ran:?}");
+    let p = &last_of(&fx, &id)["payload"];
+    assert_eq!((&p["code"], &p["moved"]), (&json!("EVIDENCE_STALE"), &json!(false)), "{p}");
+    assert_eq!(product(&fx), product_before);
+    let ran = fx.run(&["run", &id, "--say", SAY]);
     assert_eq!(ran.status, 0, "{ran:?}");
     assert_eq!(last_of(&fx, &id)["kind"], "task-integrated");
 }
@@ -1284,13 +1308,8 @@ fn p9g_19_the_events_evidence_is_the_first_its_words_name() {
     let good = fx.git(&["rev-parse", "HEAD"]);
     let blob = fx.git(&["hash-object", "-w", "README.md"]);
     let steps = tmp("p9g-19-steps");
-    let mut c = Command::new(env!("CARGO_BIN_EXE_fabrewk"));
-    isolate(&mut c, &fx.home, fx.path.as_deref());
-    c.env("FABREWK_FAULT_PAUSE", format!("before-move:{}", steps.display())).env("FABREWK_FAULT_GIT", "for-each-ref");
-    let child = c.current_dir(&fx.root).args(&args).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().unwrap();
-    while !steps.join("before-move.paused").exists() {
-        std::thread::sleep(std::time::Duration::from_millis(50));
-    }
+    let argv: Vec<&str> = args.iter().map(String::as_str).collect();
+    let child = paused_env(&fx, &argv, "before-move", &steps, &[("FABREWK_FAULT_GIT", "for-each-ref")]);
     fs::write(fx.root.join(".git/refs/heads/main"), format!("{blob}\n")).unwrap();
     let ran = resume(child, "before-move", &steps);
     fs::write(fx.root.join(".git/refs/heads/main"), format!("{good}\n")).unwrap();

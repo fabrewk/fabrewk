@@ -36,7 +36,8 @@ pub(super) fn located(cx: &Cx, events: &[Event]) -> Result<Option<(String, bool)
 
 /// The last verification of a task's candidate whose tree is `tree`, and its review, as the record holds them.
 fn verified<'e>(events: &'e [Event], tree: &str) -> Option<(&'e Value, &'e Value)> {
-    let v = &events.iter().rfind(|e| e.kind == "task-verified" && e.value["payload"]["tree"] == tree)?.value["payload"];
+    let mut verifications = events.iter().filter(|e| e.kind == "task-verified");
+    let v = &verifications.rfind(|e| e.value["payload"]["tree"] == tree)?.value["payload"];
     let review = events.get(usize::try_from(v["review"].as_u64()?).ok()?.checked_sub(1)?)?;
     Some((v, &review.value["payload"]))
 }

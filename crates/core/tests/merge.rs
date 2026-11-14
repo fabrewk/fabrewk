@@ -46,7 +46,11 @@ fn blob(root: &Path, bytes: &str) -> String {
 
 /// A tree of `entries` (mode, name, object), made with `mktree`, which checks no name.
 fn tree(root: &Path, entries: &[(&str, &str, String)]) -> String {
-    let kind = |m: &str| if m == "040000" { "tree" } else { "blob" };
+    let kind = |m: &str| match m {
+        "040000" => "tree",
+        "160000" => "commit",
+        _ => "blob",
+    };
     let text: String = entries.iter().map(|(m, n, o)| format!("{m} {} {o}\t{n}\n", kind(m))).collect();
     run(root, &["mktree"], &text)
 }
@@ -59,7 +63,7 @@ fn candidate(root: &Path, base: &str, more: &[(&str, &str, String)]) -> String {
         .map(|l| {
             let (meta, name) = l.split_once('\t').unwrap();
             let m: Vec<&str> = meta.split(' ').collect();
-            (if m[0] == "040000" { "040000" } else { "100644" }, name, m[2].to_owned())
+            (m[0], name, m[2].to_owned())
         })
         .collect();
     entries.retain(|(_, n, _)| more.iter().all(|(_, m, _)| m != n));
@@ -268,4 +272,108 @@ fn p9g_21_the_evidence_is_read_from_its_own_directory() {
         format!("git update-ref failed with exit status 128; Git's output is kept in {}; and more", dir.display());
     let kept = fabrewk_core::record::kept_in(&domain, &words).expect("the directory named");
     assert_eq!(kept, (fabrewk_core::record::sha256_hex(b"fatal\n"), Some(128)));
+}
+
+/// A submodule (interpretation 4): its index entry is the base's, its path in the working tree is Git's checkout, a
+/// directory, which is clean as it is and never written; one the candidate adds is made as an empty directory, and both
+/// entries are written to the index.
+#[test]
+fn req_gate_8_a_submodules_path_is_clean_as_checked_out_and_never_written() {
+    let (root, base) = base("merge-submodule");
+    let repo = Repo { root: root.clone(), prefix: PathBuf::new() };
+    let other = run(&root, &["commit-tree", &format!("{base}^{{tree}}"), "-m", "another"], "");
+    let listed = git(&root, &["ls-tree", &base]);
+    let mut entries: String = listed.lines().map(|l| format!("{l}\n")).collect();
+    entries += &format!("160000 commit {base}\tsub\n160000 commit {base}\tgone\n");
+    let t = run(&root, &["mktree"], &entries);
+    let with = run(&root, &["commit-tree", &t, "-p", &base, "-m", "a submodule"], "");
+    run(&root, &["read-tree", "--reset", &with], "");
+    fs::create_dir_all(root.join("sub")).unwrap();
+    fs::write(root.join("sub/checked-out.txt"), "its own\n").unwrap();
+    fs::create_dir_all(root.join("gone")).unwrap();
+    fs::write(root.join("gone/checked-out.txt"), "its own\n").unwrap();
+    let c = candidate(&root, &with, &[("160000", "sub", other.clone()), ("160000", "added", other.clone())]);
+    let c = {
+        let t = run(&root, &["rev-parse", &format!("{c}^{{tree}}")], "");
+        let kept: String =
+            git(&root, &["ls-tree", &t]).lines().filter(|l| !l.ends_with("\tgone")).map(|l| format!("{l}\n")).collect();
+        let t = run(&root, &["mktree"], &kept);
+        run(&root, &["commit-tree", &t, "-p", &with, "-m", "candidate"], "")
+    };
+    let changes = changes(&root, &with, &c, &["**"]).unwrap();
+    assert_eq!(changes.len(), 3, "{changes:?}");
+    let sub = |e: &Option<_>| matches!(e, Some(fabrewk_core::candidate::Entry { mode: Mode::Submodule, .. }));
+    assert!(changes.iter().all(|c| sub(&c.before) || sub(&c.after)), "{changes:?}");
+    let scratch = root.join(".brewstillery/local/tmp/merge");
+    let held = merge::held(&repo, &changes, &scratch).unwrap();
+    merge::clean(&changes, &held, true, false).unwrap();
+    merge::bring(&repo, &changes, &held, &scratch).unwrap();
+    assert_eq!(fs::read(root.join("sub/checked-out.txt")).unwrap(), b"its own\n");
+    assert_eq!(fs::read(root.join("gone/checked-out.txt")).unwrap(), b"its own\n");
+    assert_eq!(git(&root, &["ls-files", "-s", "gone"]), "");
+    merge::clean(&changes, &merge::held(&repo, &changes, &scratch).unwrap(), false, true).unwrap();
+    assert!(root.join("added").is_dir() && fs::read_dir(root.join("added")).unwrap().next().is_none());
+    for path in ["sub", "added"] {
+        assert_eq!(git(&root, &["ls-files", "-s", path]), format!("160000 {other} 0\t{path}"));
+    }
+}
+
+/// What the person holds where a touched path goes, outside the index: a file where the path's parent directory goes,
+/// and a directory where the path's file goes, each untouched by the candidate, is no entry of the base's.
+#[test]
+fn req_gate_8_a_persons_file_or_directory_in_a_touched_paths_way_is_dirty() {
+    let (root, base) = base("merge-in-the-way");
+    let repo = Repo { root: root.clone(), prefix: PathBuf::new() };
+    let new = tree(&root, &[("100644", "x.txt", blob(&root, "x\n"))]);
+    let c = candidate(&root, &base, &[("040000", "new", new), ("100644", "fresh", blob(&root, "f\n"))]);
+    let changes = changes(&root, &base, &c, &["**"]).unwrap();
+    let scratch = root.join(".brewstillery/local/tmp/merge");
+    merge::clean(&changes, &merge::held(&repo, &changes, &scratch).unwrap(), true, false).unwrap();
+    fs::write(root.join("new"), "mine\n").unwrap();
+    let e = merge::clean(&changes, &merge::held(&repo, &changes, &scratch).unwrap(), true, false).unwrap_err();
+    assert_eq!(e.code(), Some(Code::WorktreeDirty));
+    assert!(e.detail().contains("new/x.txt"), "{e:?}");
+    fs::remove_file(root.join("new")).unwrap();
+    fs::create_dir_all(root.join("fresh")).unwrap();
+    fs::write(root.join("fresh/mine.txt"), "mine\n").unwrap();
+    let e = merge::clean(&changes, &merge::held(&repo, &changes, &scratch).unwrap(), true, false).unwrap_err();
+    assert_eq!(e.code(), Some(Code::WorktreeDirty));
+    assert!(e.detail().contains("fresh"), "{e:?}");
+}
+
+/// A link: the candidate's is written as a link with the object's target, read back as the candidate's entry.
+#[test]
+fn req_gate_8_a_link_is_brought_as_a_link() {
+    let (root, base) = base("merge-link");
+    let repo = Repo { root: root.clone(), prefix: PathBuf::new() };
+    let c = candidate(&root, &base, &[("120000", "to-readme", blob(&root, "README.md"))]);
+    let changes = changes(&root, &base, &c, &["**"]).unwrap();
+    assert!(changes[0].after.as_ref().is_some_and(|e| e.mode == Mode::Link), "{changes:?}");
+    let scratch = root.join(".brewstillery/local/tmp/merge");
+    let held = merge::held(&repo, &changes, &scratch).unwrap();
+    merge::bring(&repo, &changes, &held, &scratch).unwrap();
+    assert_eq!(fs::read_link(root.join("to-readme")).unwrap(), PathBuf::from("README.md"));
+    merge::clean(&changes, &merge::held(&repo, &changes, &scratch).unwrap(), false, true).unwrap();
+}
+
+/// A touched path, or a directory above it, that cannot be read is an error, never taken for an absence.
+#[test]
+fn req_gate_8_a_path_that_cannot_be_read_is_no_absence() {
+    use std::os::unix::fs::PermissionsExt;
+    let (root, base) = base("merge-unreadable");
+    let repo = Repo { root: root.clone(), prefix: PathBuf::new() };
+    let deep = tree(&root, &[("100644", "x.txt", blob(&root, "x\n"))]);
+    let locked = tree(&root, &[("040000", "inner", deep), ("100644", "y.txt", blob(&root, "y\n"))]);
+    let c = candidate(&root, &base, &[("040000", "locked", locked)]);
+    let changes = changes(&root, &base, &c, &["**"]).unwrap();
+    let scratch = root.join(".brewstillery/local/tmp/merge");
+    fs::create_dir_all(root.join("locked")).unwrap();
+    fs::set_permissions(root.join("locked"), fs::Permissions::from_mode(0o000)).unwrap();
+    // `locked/inner`, above `locked/inner/x.txt`, and `locked/y.txt` itself cannot be read.
+    for c in &changes {
+        let held = merge::held(&repo, std::slice::from_ref(c), &scratch);
+        assert!(held.is_err(), "{}: {held:?}", c.path);
+    }
+    fs::set_permissions(root.join("locked"), fs::Permissions::from_mode(0o755)).unwrap();
+    merge::clean(&changes, &merge::held(&repo, &changes, &scratch).unwrap(), true, false).unwrap();
 }

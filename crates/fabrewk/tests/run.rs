@@ -1262,7 +1262,15 @@ fn req_gate_7_8_pd_37_accept_shows_what_it_binds_and_integrates_a_verified_task(
     ok(&human);
     whole(&human.all());
     let digest = accepting(&fx, &id);
+    let before = fx.events(&stream(&id));
+    let v = &before.iter().rfind(|e| e["kind"] == "task-verified").unwrap()["payload"];
+    let r = &before[v["review"].as_u64().unwrap() as usize - 1]["payload"];
+    let (seq, examined, found) =
+        (v["review"].to_string(), r["examined"].to_string(), r["findings"].as_array().unwrap().len());
+    let review =
+        [("seq", seq.as_str()), ("verdict", "accept"), ("examined", &examined), ("findings", &found.to_string())];
     for words in [
+        cli::say("es", "accept.review", &review),
         cli::say("es", "accept.title", &[]),
         cli::say("es", "accept.candidate", &[("commit", &candidate), ("tree", &tree)]),
         cli::say("es", "accept.added", &[("path", "src/new.txt")]),
@@ -1280,6 +1288,9 @@ fn req_gate_7_8_pd_37_accept_shows_what_it_binds_and_integrates_a_verified_task(
     whole(&ran.all());
     let integration = fx.git(&["rev-parse", "HEAD~1"]);
     assert!(ran.stdout.contains(&cli::say("es", "accept.integrated", &[("id", &id), ("commit", &integration)])));
+    // The record commit starts from the integration's, with no compare-and-swap refused on the way.
+    let recovered = cli::say("es", "write.recovered", &[("detail", "")]);
+    assert!(!ran.stdout.contains(recovered.trim_end()), "{ran:?}");
     // The signed event binds what was shown (REQ-GATE-7).
     let (accepted, integrated) = accepted_and_integrated(&fx, &id);
     let events = fx.events(&stream(&id));
@@ -1350,6 +1361,28 @@ fn req_gate_8_with_the_head_at_the_base_the_branch_moves_to_the_candidate_itself
     }
 }
 
+/// What a candidate removes and a link it adds: status shows the removal, the integration writes the link as a link,
+/// and the files it hashed to read the working tree are gone, none left in the repository.
+#[test]
+fn req_gate_8_a_removal_and_a_link_are_integrated() {
+    let script = "rm src/old.txt && ln -s new.txt src/link && ";
+    let fx = Fx::builder("accept-kinds", "published", &format!("{script}{WRITES}{SUCCESS}"));
+    fs::create_dir_all(fx.root.join("src")).unwrap();
+    fs::write(fx.root.join("src/old.txt"), "old\n").unwrap();
+    fx.commit("an old file");
+    let id = verified_task(&fx, json!({}), json!({}));
+    let human = fx.run(&["status", &id]);
+    assert!(human.stdout.contains(&cli::say("es", "accept.removed", &[("path", "src/old.txt")])), "{human:?}");
+    assert!(human.stdout.contains(&cli::say("es", "accept.added", &[("path", "src/link")])), "{human:?}");
+    integrate(&fx, &id);
+    assert_eq!(fs::read_link(fx.root.join("src/link")).unwrap(), PathBuf::from("new.txt"));
+    assert!(!fx.root.join("src/old.txt").exists());
+    assert_eq!(fx.git(&["status", "--porcelain"]), "");
+    let tmp = fx.domain.join("local/tmp");
+    let left: Vec<_> = fs::read_dir(&tmp).map(|d| d.map(|e| e.unwrap().file_name()).collect()).unwrap_or_default();
+    assert!(left.iter().all(|n| !n.to_string_lossy().starts_with("merge-")), "{left:?}");
+}
+
 #[test]
 fn refusal_move_not_allowed_for_accept() {
     let fx = Fx::builder("accept-moves", "published", &format!("{WRITES}{SUCCESS}"));
@@ -1366,7 +1399,7 @@ fn refusal_move_not_allowed_for_accept() {
 
 /// D-087 point 1: a precondition already false before the signature refuses `accept`, nothing written: a product that
 /// moved (record commits alone do not move it), a touched path with a person's edit in the working tree or in the
-/// index, and evidence a policy adopted since makes stale, though the task requires no check (D-086 point 4).
+/// index, an alambique no maestro approved, and evidence a policy adopted since makes stale, though the task requires no check (D-086 point 4).
 #[test]
 fn refusal_base_moved_worktree_dirty_and_evidence_stale_at_accept() {
     let fx = Fx::builder("accept-pre", "published", &format!("{WRITES}{SUCCESS}"));
@@ -1386,6 +1419,15 @@ fn refusal_base_moved_worktree_dirty_and_evidence_stale_at_accept() {
     fs::remove_file(fx.root.join("src/new.txt")).unwrap();
     refused(&fx, &accept, "WORKTREE_DIRTY", 1, "es");
     fx.git(&["rm", "-q", "--cached", "src/new.txt"]);
+    // An alambique changed by hand, which no maestro approved.
+    let alambique = fx.domain.join("ALAMBIQUE.md");
+    let kept = fs::read(&alambique).ok();
+    fs::write(&alambique, "# Changed by hand\n").unwrap();
+    refused(&fx, &accept, "ALAMBIQUE_UNAPPROVED", 1, "es");
+    match kept {
+        Some(bytes) => fs::write(&alambique, bytes).unwrap(),
+        None => fs::remove_file(&alambique).unwrap(),
+    }
     // A policy adopted after the verification.
     let text = fs::read_to_string(fx.domain.join("settings.toml")).unwrap() + "\n[limits]\nminutes = 60\n";
     fx.edit_policy(&text);
