@@ -120,8 +120,9 @@ Every point classified I has at least one requirement; every deferral has its re
 - **REQ-DOM-1.** Every file Fabrewk writes in a repository is under `.brewstillery/`, except the entry block of
   REQ-DOM-6 and, in the publication modes that need it, one line in `.git/info/exclude` (REQ-DOM-7). (§2, 6.3, AD-12)
 - **REQ-DOM-2.** The domain holds only: `ALAMBIQUE.md`, `STATUS.md`, `RULES.md`, `settings.toml`, `.gitignore`,
-  `data/`, `local/`, `skills/` (the skills the maestros approved, §2; amended by D-060), one directory per alias, and
-  `review/` in review mode. Fabrewk creates nothing else; the core reads nothing inside `skills/`. `check` reports
+  `data/`, `local/`, `skills/` (the skills the maestros approved, §2; amended by D-060), one directory per alias,
+  `review/` in review mode, and, in `own-repository`, `.git`, the directory of its own repository (REQ-DOM-7; amended
+  by D-091). Fabrewk creates nothing else; the core reads nothing inside `skills/`. `check` reports
   any other entry at the domain's top as a warning (`DOMAIN_UNKNOWN_ENTRY`); it does not delete it. (§2, AD-8, AD-12)
 - **REQ-DOM-3.** Reserved names: `ALAMBIQUE.md`, `STATUS.md`, `RULES.md`, `settings.toml`, `.gitignore`, `data`,
   `local`, `review`, `bootstrap`, `skills` (D-060). An alias matches `^[a-z][a-z0-9]*(-[a-z0-9]+)*$`, has at most 32 characters and is
@@ -148,7 +149,8 @@ Every point classified I has at least one requirement; every deferral has its re
   `.brewstillery/` is a Git repository of its own and Fabrewk commits there. (6.27, AD-1, AD-7 step 6)
 
 **The domain, as part 7c2b fixed it (D-051).** At the domain's top a listed name counts only with its kind (the five
-files as files, `data/`, `local/`, `skills/` (D-060) and each alias as directories); a link is never followed and is an unknown entry. A
+files as files, `data/`, `local/`, `skills/` (D-060) and each alias as directories, and `.git` as a directory only
+while the publication mode in force is `own-repository`, D-091); a link is never followed and is an unknown entry. A
 directory whose name is neither an alias nor reserved is `ALIAS_INVALID`; anything else not listed is
 `DOMAIN_UNKNOWN_ENTRY`, `bootstrap/` and, while review mode is not built, `review/` included, so `check` does not fail
 in this repository. `.gitignore` must be a file, not a link, holding exactly `local/` and a newline. The publication
@@ -1372,6 +1374,9 @@ REQ-GATE-10, REQ-REG-10, REQ-RUN-6, REQ-REG-13; S-4, S-11; D-083, D-086, D-087).
   refusal that writes (11.2 rule 4). Reading commands keep nothing. With `fault-injection`, `FABREWK_FAULT_GIT` makes a
   Git command whose words hold its text fail as Git fails on an option it does not know.
 - With `fault-injection`, the pauses `before-move` (before the second check), `before-update-ref` and `after-move`.
+- D-091, in its closing: `check`'s layout (C8) takes the publication mode in force, and in `own-repository` the
+  domain's own `.git`, as a directory, is part of the domain (REQ-DOM-2 amended); with another mode or none on record,
+  or as a file or a link, it is still a finding (`ALIAS_INVALID` as a directory, `DOMAIN_UNKNOWN_ENTRY` otherwise).
 
 ### EXT: extensions
 

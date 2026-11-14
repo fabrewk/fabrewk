@@ -1354,10 +1354,8 @@ fn req_gate_8_with_the_head_at_the_base_the_branch_moves_to_the_candidate_itself
         assert_eq!(accepted_and_integrated(&fx, &id).1["payload"], json!({"from": base, "to": candidate}), "{mode}");
         assert_eq!(fs::read(fx.root.join("src/new.txt")).unwrap(), b"new\n");
         assert_eq!(fx.git(&["status", "--porcelain"]), "", "{mode}");
-        // `check` takes the domain's own `.git` for an unknown alias, which this part leaves as it found it.
-        if mode == "unpublished" {
-            ok(&fx.run(&["check"]));
-        }
+        // In `own-repository` the domain's own `.git` is part of it (D-091).
+        ok(&fx.run(&["check"]));
     }
 }
 

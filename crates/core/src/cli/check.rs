@@ -238,7 +238,7 @@ pub(super) fn run(cx: &Cx) -> Result<Out, Failed> {
         found.extend(walk.err().map(|e| ("C4", unknown(e))));
     }
     // C8: the layout, the ignore file, and the product's ignore rule in the modes that do not publish the domain.
-    match domain::layout(d) {
+    match domain::layout(d, mode) {
         Ok(entries) => found.extend(entries.into_iter().map(|e| ("C8", e))),
         Err(e) => found.push(("C8", unknown(e))),
     }

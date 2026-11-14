@@ -17,9 +17,14 @@ use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
 
-/// Each finding of the layout as (name, code).
+/// Each finding of the layout as (name, code), with no publication mode on record.
 fn findings(domain: &Path) -> Vec<(String, Code)> {
-    let found = domain::layout(domain).unwrap();
+    findings_in(domain, None)
+}
+
+/// Each finding of the layout as (name, code), under the publication mode `mode`.
+fn findings_in(domain: &Path, mode: Option<Publication>) -> Vec<(String, Code)> {
+    let found = domain::layout(domain, mode).unwrap();
     let name = |e: &fabrewk_core::Error| match e {
         fabrewk_core::Error::Refused { path: Some(p), .. } => p.file_name().unwrap().to_string_lossy().into_owned(),
         other => panic!("{other:?}"),
@@ -113,6 +118,26 @@ fn req_dom_2_a_listed_name_of_the_wrong_kind_is_not_the_listed_entry() {
     fs::create_dir(f.domain.join("elsewhere")).unwrap();
     symlink(f.domain.join("elsewhere"), f.domain.join("skills")).unwrap();
     assert_eq!(findings(&f.domain), [("skills".into(), Code::DomainUnknownEntry)]);
+}
+
+/// D-091: in `own-repository` the domain's own repository is part of it, as a directory; in another mode, with no mode
+/// on record, or not as a directory, `.git` is still a finding.
+#[test]
+fn req_dom_2_the_domain_s_own_git_is_part_of_it_only_in_own_repository() {
+    let f = Fixture::new("dom-2-git", false);
+    let d = &f.domain;
+    fs::create_dir(d.join(".git")).unwrap();
+    assert_eq!(findings_in(d, Some(Publication::OwnRepository)), []);
+    for mode in [None, Some(Publication::Published), Some(Publication::Unpublished)] {
+        assert_eq!(findings_in(d, mode), [(".git".into(), Code::AliasInvalid)], "{mode:?}");
+    }
+    fs::remove_dir(d.join(".git")).unwrap();
+    fs::write(d.join(".git"), "gitdir: elsewhere\n").unwrap();
+    assert_eq!(findings_in(d, Some(Publication::OwnRepository)), [(".git".into(), Code::DomainUnknownEntry)]);
+    fs::remove_file(d.join(".git")).unwrap();
+    fs::create_dir(d.join("elsewhere")).unwrap();
+    symlink(d.join("elsewhere"), d.join(".git")).unwrap();
+    assert_eq!(findings_in(d, Some(Publication::OwnRepository)), [(".git".into(), Code::DomainUnknownEntry)]);
 }
 
 #[test]
@@ -308,7 +333,7 @@ fn req_dom_5_write_commands_rebuild_the_cache_and_reading_ones_leave_it_absent()
             let r = replay(&f.domain, &f.verifier()).unwrap();
             check_mark(&f.domain, &r).unwrap();
             detect::detect(&f.domain, &eff, &[], path.as_deref());
-            domain::layout(&f.domain).unwrap();
+            domain::layout(&f.domain, Some(Publication::Published)).unwrap();
             domain::check_gitignore(&f.domain).unwrap();
             domain::check_ignored(&f.domain, Publication::Published).unwrap();
             fabrewk_core::record::walk_history(&Repo::for_domain(&f.domain, Publication::Published).unwrap(), "main")

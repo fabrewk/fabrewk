@@ -366,6 +366,10 @@ fn refusal_alias_invalid() {
     let fx = published("alias-invalid");
     fs::create_dir(fx.domain.join("Xel")).unwrap();
     refused(&fx, &["check"], "ALIAS_INVALID", 3, "es");
+    // A `.git` is the domain's own repository only in `own-repository` (D-091); in a published domain, a finding.
+    fs::remove_dir(fx.domain.join("Xel")).unwrap();
+    fs::create_dir(fx.domain.join(".git")).unwrap();
+    refused(&fx, &["check"], "ALIAS_INVALID", 3, "es");
 }
 
 #[test]
