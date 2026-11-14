@@ -4454,3 +4454,60 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Not done: the extensions (part 9h); the flows and the crash suite over them, and a view's temporary file left by a
   stopped write (part 9i); `check` on an `own-repository` domain (interpretation 9, the maestro's). P9G-22 was declared
   and not corrected (D-090).
+
+## D-091 — Part 9g's closing: the domain's own `.git` is part of it in `own-repository`
+
+- Status: decided
+- Decided: 2026-11-14
+- Origin: maintainer XEL in session 36's chat, after the integrator's recommendations on R-045's interpretation 9: "De
+  acuerdo en todas tus recomendaciones".
+- Decision: REQ-DOM-2 is amended: in `own-repository`, the domain also holds `.git`, the directory of its own
+  repository (REQ-DOM-7). `layout` counts `.git` as part of the domain only as a directory and only when the
+  publication mode in force is `own-repository`; in another mode, with no mode on record, or as a link, it stays a
+  finding as today. The integrator corrects it before part 9g closes, with tests (`check` in both modes of the
+  fast-forward test; a `.git` in a `published` domain still a finding), a narrow Codex pass, a mutation run over the
+  change and a clean clone.
+- Reason: REQ-DOM-2 and REQ-DOM-7 contradicted each other, so `check` failed (`ALIAS_INVALID`, an error of C8) in every
+  `own-repository` project; found by part 9g's fast-forward test (R-045, interpretation 9). The alternative offered:
+  leaving it to phase 10's installation.
+- Consequences: `core-specification.md` (REQ-DOM-2 and the paragraph of part 9g); `crates/core/src/domain.rs`,
+  `cli/check.rs`; the provenance entry of session 37.
+- Sources: chat of session 36; R-045; REQ-DOM-2, REQ-DOM-3, REQ-DOM-7; D-051.
+- Supersedes: none.
+
+## D-092 — The idle `pasta` a killed Fabrewk leaves is ended by the recovery, in part 9i
+
+- Status: decided
+- Decided: 2026-11-14
+- Origin: maintainer XEL in session 36's chat, the same answer as D-091.
+- Decision: the cell's runner writes, for each process a backend started beside a cell, its identifier and its start
+  time as the kernel gives it (`/proc/<pid>/stat`); the recovery of a stopped run (REQ-RUN-5) ends each one still
+  alive whose start time is the one written, whose executable is the backend's helper (`pasta`) and whose cell's
+  process is gone, and removes the file. The residual `network-helper` stays declared, its words saying it lasts
+  until the next write command. Assigned to part 9i, whose crash suite kills Fabrewk during a run and checks what it
+  leaves; budget about +30 lines (the core and the backend).
+- Reason: part 9a found that this machine's SELinux refuses both of `pasta`'s own ways to end with its namespace (the
+  watch, and `setpriv --pdeathsig` across its change of domain; R-039, finding 3) and noted that part 9e's recovery
+  might end it, which no part did. A mutation run left 72 of them, about 1 GB (R-045). The alternative offered: doing
+  it in part 9g's closing.
+- Consequences: `plan.md` (row 9i); part 9i's provenance entry; `confine.rs`, `crates/confine-bwrap/`, the recovery.
+- Sources: chat of session 36; R-039; R-045; REQ-RUN-5; `confinement-design.md` 3.10.
+- Supersedes: none.
+
+## D-093 — `verify-part` amended for this machine, drafted and approved before it is written
+
+- Status: decided
+- Decided: 2026-11-14
+- Origin: maintainer XEL in session 36's chat, the same answer as D-091.
+- Decision: in part 9g's closing the integrator drafts an edit of `.brewstillery/skills/verify-part/SKILL.md` and the
+  maestro approves its text in chat before it is written. It covers: the scope at 2 GB with `--jobserver-tasks 2`,
+  `ulimit -v 1600000` and no debug information (`CARGO_PROFILE_DEV_DEBUG=0`, `CARGO_PROFILE_TEST_DEBUG=0`); mutants
+  with `-j 1 --timeout 400` (a passing suite takes about 190 s even alone), or two jobs and the timeouts again alone;
+  a watcher in the scope ending each idle `pasta` whose cell's process is gone, until D-092 is built; looking for
+  scopes and `pasta` left by earlier runs before starting; the part's diff written again against the working tree
+  before an `--iterate` run when the code changed.
+- Reason: the skill's 3 GB and `ulimit -v 1000000` no longer fit this machine (R-044, R-045), and part 9g's first
+  mutation run took 5 hours, slowed by idle helpers (R-045).
+- Consequences: `verify-part/SKILL.md`; the provenance entry of session 37.
+- Sources: chat of session 36; R-044; R-045; D-060.
+- Supersedes: none.
