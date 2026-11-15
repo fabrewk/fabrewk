@@ -575,6 +575,29 @@ fn p9i_1_a_helper_killed_while_the_network_comes_up_is_named_and_ended() {
     assert!(!alive(pasta) && !beside.exists());
 }
 
+/// P9I-8: a helper whose name cannot be written is ended at once, and the cell fails with its command never released.
+#[test]
+fn p9i_8_a_helper_that_cannot_be_named_is_ended_and_the_cell_fails() {
+    let fx = fixture("unnamed");
+    let name = unique("unnamed");
+    let scratch = Scratch::create(&fx.domain, &name).unwrap();
+    let evidence = confine::evidence(&fx.domain, &name).unwrap();
+    // What would name the helper already stands there, so that it cannot be written new.
+    std::fs::write(scratch.root.join("beside"), "planted\n").unwrap();
+    let marker = unique("unreleased");
+    let script = format!("echo {marker}; sleep 600");
+    let c = cell(&scratch, Network::Outbound, true, &["/bin/sh", "-c", &script]);
+    let begun = Instant::now();
+    let u = confine::run(&BACKEND, &programs(), &c, &scratch, &evidence, limits(60)).unwrap_err();
+    assert!(u.ended && begun.elapsed() < Duration::from_secs(8), "{:?}", begun.elapsed());
+    assert!(matches!(&u.error, Error::Io { path, .. } if path.ends_with("beside")), "{:?}", u.error);
+    assert_eq!(std::fs::read_to_string(evidence.join("stdout")).unwrap(), "");
+    assert_eq!(holding(&marker), vec![]);
+    let scratch_path = scratch.root.display().to_string();
+    assert_eq!(holding(&format!("{scratch_path}/")), vec![], "a process of the cell is left");
+    scratch.remove().unwrap();
+}
+
 #[test]
 fn d_092_only_the_helper_written_still_running_with_its_start_time_and_program_is_ended() {
     let fx = fixture("idle");

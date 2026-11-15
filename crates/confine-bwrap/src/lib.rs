@@ -269,8 +269,13 @@ fn attach(first: u32, pasta: &Path, (scratch, evidence): (&Path, &Path), deadlin
         .stderr(err)
         .spawn()
         .map_err(io(pasta))?;
-    let noted = note(scratch, pasta, helper.id(), first);
-    let mut ended = noted.is_err();
+    // A helper that cannot be named is ended at once, and the cell is not released (P9I-8).
+    if let Err(e) = note(scratch, pasta, helper.id(), first) {
+        let _ = helper.kill();
+        let _ = helper.wait();
+        return Err(e);
+    }
+    let mut ended = false;
     let up = until(deadline, || {
         ended = !matches!(helper.try_wait(), Ok(None));
         ended || routed(command)
@@ -280,7 +285,6 @@ fn attach(first: u32, pasta: &Path, (scratch, evidence): (&Path, &Path), deadlin
     }
     let _ = helper.kill();
     let _ = helper.wait();
-    noted?;
     Err(unavailable(Some(&log), format!("pasta gave the cell no network; its output is kept in {}", log.display())))
 }
 
