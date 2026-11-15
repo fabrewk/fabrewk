@@ -4511,3 +4511,50 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Consequences: `verify-part/SKILL.md`; the provenance entry of session 37.
 - Sources: chat of session 36; R-044; R-045; D-060.
 - Supersedes: none.
+
+## R-046 — Session 37, part 9g's closing: the domain's own `.git` and `verify-part`
+
+- Status: recorded
+- Date: 2026-11-14
+- Who: integrator Claude Code, `claude-opus-5-5`, effort high (D-078). Reviewer: Codex `codex-cli 0.166.0`,
+  `gpt-6.1-sol`, effort high, one narrow pass, launched as the `codex-review` skill says.
+- Start: HEAD `13fb764`, tree clean.
+- Read: `STATUS.md`, `AGENTS.md`, this file (D-091 to D-093, R-045), `core-specification.md` (REQ-DOM-2, REQ-DOM-3,
+  REQ-DOM-7, the paragraphs "The domain, as part 7c2b fixed it" and "Acceptance and integration, as part 9g fixed
+  them"), `plan.md`; the skills `verify-part`, `codex-review` and `differential-review`; `crates/core/src/domain.rs`,
+  `cli/check.rs`, `crates/confine-bwrap/src/` (how `pasta` is started), and the tests `crates/core/tests/domain.rs`,
+  `crates/fabrewk/tests/reading.rs` and `run.rs`. No credential of the person's was read.
+- Decided by the maestro in this session: the text of `verify-part`'s edit (D-093), approved in chat: "Apruebo el
+  texto o textos que faltaban".
+- Written: `crates/core/src/domain.rs` (`layout` takes the publication mode in force; `.git` is part of the domain only
+  as a directory and only in `own-repository`, D-091); `cli/check.rs` (C8 passes the mode); the tests: the layout's
+  `.git` in the four modes, as a file and as a link (`crates/core/tests/domain.rs`), `check` with a `.git` in a
+  published domain still `ALIAS_INVALID` and, for P9G-23, with an `own-repository` record that does not replay
+  (`reading.rs`), `check` in both modes of the fast-forward test (`run.rs`, its `if mode == "unpublished"` dropped);
+  REQ-DOM-2 amended, and the 7c2b and 9g paragraphs, in `core-specification.md`;
+  `.brewstillery/skills/verify-part/SKILL.md` (D-093: every check in a user scope of 2 GB with no debug information and two build jobs; the mutation run's scope at
+  2 GB, `ulimit -v 1600000`, `--jobserver-tasks 2`, `-j 1 --timeout 400` or two jobs and the timeouts again alone;
+  looking for scopes and idle `pasta` left by earlier runs, a container's `pasta` left alone; the watcher
+  `target/watch-pasta.sh`, ending each idle `pasta` of its own scope whose cell's process is gone, until D-092; the
+  part's diff written again against the working tree before an `--iterate` run when the code changed); `plan.md`;
+  `STATUS.md`; this entry.
+- The watcher was tried before the text was shown: three stand-ins named `pasta` (a copy of `tail` whose arguments
+  name `/proc/<pid>/ns/net`), one in the scope whose process was gone, ended; one in the scope whose process lived,
+  and one outside the scope, both left running.
+- Codex, one narrow pass over `13fb764..e67df09`: accept, no blocking finding. P9G-23, not blocking: no test combined
+  a `.git` with an `own-repository` record that does not replay (the mode then unknown, `.git` still a finding); the
+  binary behaved so in Codex's own probe. Covered by a test (`77a9071`). Codex also found no other listing of the
+  domain's top that takes `.git` for an alias (they filter by `is_alias`), and probed the three modes, a file, a link,
+  a dangling link, a record absent or broken, a record with no mode and a mode changed later.
+- Mutation over `13fb764..77a9071`, with `--features fabrewk-core/fault-injection`, `--test-workspace true`, as the
+  amended skill says (2 GB, `ulimit -v 1600000`, `-j 1 --jobserver-tasks 2 --timeout 400`, the watcher): 7 mutants in
+  8 minutes, 5 caught, 2 unviable, none missed, no timeout, no equivalent. The baseline cargo-mutants builds tests the
+  mutated package alone (`fabrewk-core`, 30 s); each mutant was tested on the whole workspace.
+- Clean clone of `77a9071`: 613 tests (603 passed, 10 ignored: the real tools' and a kept stream's), `crash` 3 and
+  `faults` 37 green, the musl build, `budget check` (the core 11,278 of 12,000, the backend 278 of 400, Claude Code's
+  adapter 269 of 600, Codex's 319 of 600, 5 direct runtime crates, 31 in the release build, the binary 3,150,216
+  bytes), clippy with and without `fault-injection`, fmt and `cargo deny` clean; `--version --json` lists no feature.
+  The steps ran in a user scope of 2 GB with two build jobs and the watcher; no idle `pasta` was left.
+- Measured: the core +2; 722 lines remain for parts 9h and 9i.
+- Part 9g is closed. Not done: the idle `pasta` a killed Fabrewk leaves (D-092, part 9i); P9G-22 stays declared
+  (D-090).

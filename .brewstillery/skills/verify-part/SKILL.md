@@ -37,9 +37,13 @@ With the prefix, from the repository's root:
     cargo +1.99.1 fmt --check
     cargo deny --offline check licenses advisories
 
-Also check that the release binary's `--version --json` lists no feature. Write down what `budget check` prints
-(counted lines of the core against its ceiling, direct runtime crates, crates in the release build, the binary's
-size): the record carries it, and a change of the ceiling is a maestro's decision (`AGENTS.md` "Code").
+On this machine each of them runs, as the mutation run does, in a user scope of 2 GB with no debug information and
+two build jobs (`systemd-run --user --scope -p MemoryMax=2G -p MemorySwapMax=0`, `CARGO_PROFILE_DEV_DEBUG=0`,
+`CARGO_PROFILE_TEST_DEBUG=0`, `-j 2`; R-045); the run's tests and the launch tests need `bwrap`, `pasta`, `socat`,
+`python3` and the network. Also check that the release binary's `--version --json` lists no feature. Write down what
+`budget check` prints (counted lines of the core against its ceiling, direct runtime crates, crates in the release
+build, the binary's size): the record carries it, and a change of the ceiling is a maestro's decision (`AGENTS.md`
+"Code").
 
 ## The clean clone
 
@@ -52,41 +56,75 @@ and run every check above there, with the same prefix. Record the commit the clo
 
 ## Mutation
 
-This machine has 7.3 GB of RAM and `/tmp` is memory; a mutant that loops on memory once took VS Code down (R-022),
-and a run filled the disk once (R-029). So every run goes into its own user scope, with a cap per process, two jobs,
-and `TMPDIR` on disk under `target/`:
+This machine has 7.3 GB of RAM, of which the editor leaves about 2 GB free, and `/tmp` is memory; a mutant that
+loops on memory once took VS Code down (R-022), a run filled the disk once (R-029), and a run in a 3 GB scope ran the
+machine out of memory (R-044). So every run goes into its own user scope of 2 GB, with a cap per process of 1.6 GB,
+two jobserver tasks, no debug information, and `TMPDIR` on disk under `target/`.
+
+Before starting, look for what earlier runs left. `systemctl --user list-units --type=scope` lists the scopes of
+`systemd-run`; stop each one an earlier run or suite left (`systemctl --user stop <scope>`), never one in use. Then
+`pgrep -a pasta`: a `pasta` whose `--netns` is `/proc/<pid>/ns/net` with no `/proc/<pid>` left is the idle helper of a
+cell that was killed (the backend's declared residual `network-helper`, part 9a); end it with `kill`. Any other `pasta`
+(a container's, for example) is not Fabrewk's and is left alone.
+
+Until the recovery of a stopped run ends those helpers (D-092, part 9i), each test the timeout kills leaves one, and
+they pile up and slow every suite (R-045: 72 in one run, about 1 GB). So the run carries a watcher in its own scope
+that ends each idle `pasta` of that scope whose cell's process is gone; write it once as `target/watch-pasta.sh`:
+
+    #!/bin/bash
+    # Ends each idle pasta of this scope whose cell's process is gone (D-093; until D-092 is built).
+    own=$(cat /proc/self/cgroup)
+    while sleep 10; do
+      for p in $(pgrep -x pasta); do
+        [ "$(cat /proc/$p/cgroup 2>/dev/null)" = "$own" ] || continue
+        ns=$(tr '\0' '\n' < /proc/$p/cmdline 2>/dev/null | grep -m1 '^/proc/[0-9]*/ns/net$') || continue
+        pid=${ns#/proc/}; pid=${pid%%/*}
+        [ -d /proc/$pid ] || kill $p
+      done
+    done
+
+Then, with the prefix exported first:
 
     mkdir -p target/mutants-tmp
-    export TMPDIR=$PWD/target/mutants-tmp
-    systemd-run --user --scope -p MemoryMax=3G -p MemorySwapMax=0 -p OOMPolicy=continue \
-      bash -c 'ulimit -v 1000000; exec cargo mutants --package fabrewk-core --package fabrewk --test-workspace true -j 2 --timeout 90 --build-timeout 600 --features fabrewk-core/fault-injection --in-diff target/<part>.diff --output target/mutants-<part>'
+    export TMPDIR=$PWD/target/mutants-tmp CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0
+    systemd-run --user --scope -p MemoryMax=2G -p MemorySwapMax=0 -p OOMPolicy=continue \
+      bash -c 'ulimit -v 1600000; bash target/watch-pasta.sh & w=$!; cargo mutants --package fabrewk-core --package fabrewk --test-workspace true -j 1 --jobserver-tasks 2 --timeout 400 --build-timeout 600 --features fabrewk-core/fault-injection --in-diff target/<part>.diff --output target/mutants-<part>; s=$?; kill $w; exit $s'
 
 and, when the part touches `tools/budget/`, a second run in the same kind of scope for the counter, without the
 feature (it does not depend on the core):
 
-      bash -c 'ulimit -v 1000000; exec cargo mutants --package budget -j 2 --timeout 90 --build-timeout 600 --in-diff target/<part>.diff --output target/mutants-<part>-budget'
+      bash -c 'ulimit -v 1600000; exec cargo mutants --package budget -j 2 --jobserver-tasks 2 --timeout 90 --build-timeout 600 --in-diff target/<part>.diff --output target/mutants-<part>-budget'
 
-with the prefix exported first, and `target/<part>.diff` written by `git diff <start>..HEAD > target/<part>.diff`.
+with `target/<part>.diff` written by `git diff <start>..HEAD > target/<part>.diff`.
+
+A passing suite of the core and the binary takes about 190 s even alone (R-045), hence `-j 1 --timeout 400`. Two jobs
+(`-j 2 --timeout 180`) finish sooner, but a mutant that only lost the processor to the other job ends as a timeout:
+run the timeouts of such a run again alone (`--iterate -j 1 --timeout 400`, same scope) before counting them.
+`--iterate` skips the mutants caught before; when the code changed since the last run (a correction of a missed
+mutant), write the part's diff again first, against the working tree (`git diff <start> > target/<part>.diff`), so
+that `--in-diff` finds the lines where they now are.
 `--features fabrewk-core/fault-injection` makes the crash suite judge every mutant too (R-024: mutants in the
 record's store, Git and fault code are caught only by it), and builds the binary's fault test `faults` (part 7d3a,
 R-031); without it neither target is built.
 `--test-workspace true` runs every package's tests on each mutant (the binary's tests reach the core's command
 surface). The counter has its own run because cargo-mutants builds the baseline for the mutated packages alone, and
 `budget` refuses the core's feature (P7S-5). `--in-diff` limits a run to the part; a full run drops it. Keep `OOMPolicy=continue` (with `stop` the scope ends the
-run) and 1 GB per process (with 4 GB the scope's killer once took `cargo-mutants` itself). Run one heavy job at a time:
+run) and a cap per process below the scope's (with 4 GB per process the scope's killer once took `cargo-mutants`
+itself). Run one heavy job at a time:
 never a mutation run beside a Codex review or another build.
 
 For each missed mutant: add the assertion or case that kills it, or simplify the code so it no longer exists, or declare
 it equivalent with the reason (why no input can tell the mutant from the original). Then run again over what changed.
 Timeouts are loops caught by the timeout, not misses. A build that reaches the cap per process can wait forever instead
 of failing (R-034: one compiler waited 1 h 45 min); with `--build-timeout 600` it ends as a timeout, and such a mutant
-is run again alone (`--re` naming it, `-j 1`, in the same scope without `ulimit -v`, the scope's 3 GB still capping it)
-before it is counted. The record lists every declared equivalent.
+is run again alone (`--re` naming it, `-j 1`, in the same kind of scope without `ulimit -v`, the scope's 2 GB still
+capping it) before it is counted. The record lists every declared equivalent.
 
 ## After
 
-- Remove what the run left: `target/mutants-tmp/` contents, old clones and review directories of earlier parts
-  under `target/`, and anything a reviewer left in `/tmp`. Check the free disk space before a full run.
+- Remove what the run left: any `pasta` and scope the run left (as before starting), `target/mutants-tmp/` contents,
+  old clones and review directories of earlier parts under `target/`, and anything a reviewer left in `/tmp`. Check
+  the free disk space before a full run.
 - Report in the session's provenance entry (`decisions.md`, an R entry): the clean clone's commit, the number of
   tests, each check's result, the measure of `budget check`, and the mutation figures (mutants, missed, timeouts,
   declared equivalents with their reasons). A check that fails is reported with its output, never retried silently.
