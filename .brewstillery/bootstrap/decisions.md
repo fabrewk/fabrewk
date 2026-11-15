@@ -4588,3 +4588,79 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Sources: chat of session 38; `confinement-design.md` 3.4 and 3.7; `core-specification.md` REQ-EXT-1 to REQ-EXT-5,
   REQ-CLI-3, section 8; AD-5; D-085.
 - Supersedes: none.
+
+## R-047 — Session 38, part 9h: extensions
+
+- Status: recorded
+- Date: 2026-11-14
+- Who: integrator Claude Code, `claude-opus-5-5`, effort high (D-078). Reviewer: Codex `codex-cli 0.166.0`,
+  `gpt-6.1-sol`, effort high, launched as the `codex-review` skill says, in a scope of 2 GB.
+- Start: HEAD `d6753ed`, tree clean.
+- Read: `STATUS.md`, `AGENTS.md`, `plan.md`, `core-specification.md` (REQ-EXT-1 to REQ-EXT-5, REQ-CLI-3, REQ-SEC-1,
+  REQ-SEC-2, REQ-SEC-5, REQ-SEC-7, REQ-REG-1, REQ-REG-2, sections 3, 8, 9, 11.4, 12 and 13, the paragraphs of parts 9a
+  and 9b), `confinement-design.md` (3.1 to 3.4, 3.7, 3.8, S-9, S-10, section 7), `architecture-decisions.md` AD-5, this
+  file (D-085, D-091 to D-093, R-045, R-046); the skills `verify-part`, `codex-review` and `differential-review`; the
+  code of `cli/` (`mod.rs`, `decl.rs`, `write.rs`, `propose.rs`, `config.rs`, `adopt.rs`, the run's dispatch of a
+  check), `confine.rs`, `detect.rs`, `gate.rs`, `record/event.rs`, `task.rs`, `settings/`, `code.rs`, the backend
+  `crates/confine-bwrap/src/lib.rs`, both catalogues, and the binary's test fixtures. No credential of the person's was
+  read.
+- Decided by the maestro in this session: D-094, before any code.
+- Written: `crates/core/src/cli/ext.rs` (new: the routing of a name no core command has, permission and presence, the
+  digest and its pin, the area and its lock, the cell, the run, the exit statuses, the requests and their application);
+  `cli/mod.rs` (the route, exit 10); `cli/propose.rs` (its plan takes an actor and the identifiers already drawn, and
+  gives its lines); `cli/config.rs` (each permitted extension's path and digest, `fabrewk.config/3`); `cli/decl.rs`
+  (exit 10, the schema); `record/event.rs` (a proposal takes an extension as actor); `task.rs` (`extension-note`'s
+  payload); `settings/keys.rs` (`extensions.<name>.minutes`); `detect.rs` (the search shared); `code.rs` and both
+  catalogues (`EXTENSION_DIGEST`, `EXTENSION_OUTPUT_INVALID`, exit 10, the words of a run and of `config`); the tests:
+  `crates/fabrewk/tests/extensions.rs` (new, 12 tests with real cells), two in `faults.rs` (the minutes, P9H-2), the
+  record's and the table's, the pinned schema of `config`; the reference documentation regenerated; section 8 and the
+  paragraph "Extensions, as part 9h fixed them" in `core-specification.md`; `plan.md`; `STATUS.md`; D-094 and this entry.
+- Interpretations the maestro may want to read (each in the new paragraph):
+  1. Every word after the extension's name is its own, `--json` included; what Fabrewk prints of an extension's run is
+     human text only.
+  2. A name outside the alias pattern, an absent program and an extension not permitted are each an unknown command's
+     usage error; a present program whose permission cannot be read (a record that does not replay) is the record's
+     refusal.
+  3. What runs is a copy of the bytes whose digest was taken, shown read-only at the program's resolved path (a link in
+     `PATH` is resolved), so a file changed between the digest and the run does not change what runs; the program's
+     directory is not shown beside it.
+  4. The area `local/ext/<name>/` and its home and `/tmp` are kept between runs, never emptied by Fabrewk.
+  5. Its standard error reaches the person once it has ended, every hidden character escaped; not while it runs.
+  6. A `propose` request's own refusals (`TASK_INVALID`, `STAGE_CLOSED`, …) keep their codes, the detail naming the
+     line; nothing of the output is applied.
+  7. A policy adopted while it ran that no longer permits it, or pins another digest, refuses its requests
+     `EXTENSION_DIGEST`.
+  8. A run that applies requests keeps the backend's programs as verified by use; a run with none writes nothing, so
+     until a write command keeps them the probe runs at each run.
+  9. Exit 126 and 127 are read as a start that failed (what `env` gives for an interpreter it cannot find); an
+     extension that exits 127 itself is worded so too.
+  10. Two runs of one extension never overlap (`LOCK_HELD`); runs of different extensions, and write commands, may run
+      beside one, which takes the record's lock only to apply its requests.
+  11. Inside its cell `status` shows `local/`'s sizes as 0, since `local/evidence/` and `local/tmp/` are hidden there.
+- Codex, three passes, confirmed blocking findings by pass: 2, 1, 0.
+  1. Pass 1 (`e7a2273`): P9H-1 (another run of the same extension, confined with write access to the area, swapping its
+     home for a link between this run's check and its mount); P9H-2 (two `propose` requests of one output drawing
+     identifiers apart, so a collision went unseen and left the record unreplayable).
+  2. Pass 2 (`32f0f11`): both closed; P9H-3 (the requests planned on the record read before the extension ran, so a
+     write meanwhile made them `RECORD_ROLLBACK` and skipped the check of the policy in force).
+  3. Pass 3 (`e9cf866`): P9H-3 closed; accept.
+  Each new test failed without its correction, checked by reverting the code under test. Codex's sandbox cannot run
+  `bwrap` or `pasta` nor bind sockets; those tests ran on this machine, and Codex reproduced each finding with the
+  production core and a substituted backend.
+- Found and corrected by the integrator's own review before the first pass: a name outside the pattern searched in
+  `PATH`; a mistyped command in a record that does not replay taken for the record's refusal; the program's bytes
+  changeable between the digest and the run; the area made through a link before it was checked.
+- Mutation, with `--features fabrewk-core/fault-injection`, `--test-workspace true`, as `verify-part` says (2 GB,
+  `ulimit -v 1600000`, `-j 1 --jobserver-tasks 2 --timeout 400`, the watcher), over `77a9071..e9cf866`: 112 mutants in
+  40 minutes, 82 caught, 30 unviable, none missed, no timeout, no equivalent. The run left in its scope one `bwrap` of
+  an extension's cell (the test `ext-3`), its parent gone and its command waiting for the line that releases it; a
+  mutated binary ended without ending it. Ended by the integrator; the extension's run uses the cell's one runner, so
+  it is left for part 9i's crash suite, which kills Fabrewk during a run, to look at.
+- Clean clone of `e9cf866`: 626 tests (616 passed, 10 ignored: the real tools' and a kept stream's), `crash` 3 and
+  `faults` 39 green, the musl build, `budget check` (the core 11,607 of 12,000, the backend 278 of 400, Claude Code's
+  adapter 269 of 600, Codex's 319 of 600, 5 direct runtime crates, 31 in the release build, the binary 3,215,752
+  bytes), clippy with and without `fault-injection`, fmt and `cargo deny` clean; `--version --json` lists no feature.
+  Every step in a user scope of 2 GB with two build jobs; two idle `pasta` left by full suites were ended.
+- Measured: the core +329 (projected 300); the backend and both adapters unchanged. Left for part 9i: 393 lines.
+- Not done: the flows F-1 to F-3, the crash suite over them, one real dispatch per provider, the idle `pasta` a
+  killed Fabrewk leaves (D-092) and the phase's close (part 9i).
