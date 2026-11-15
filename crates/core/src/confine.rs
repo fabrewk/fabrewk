@@ -100,8 +100,9 @@ pub struct Backend {
     /// Ends a started cell if it has not ended, and returns once every process of it has ended.
     pub stop: fn(&mut Started) -> Result<(), Error>,
     /// Ends what it started beside a cell whose scratch directory is given, once the cell is gone and its runner was
-    /// killed before ending it; every write command calls it on each such directory (D-092).
-    pub idle: fn(&Path),
+    /// killed before ending it; every write command calls it on each such directory (D-092). Gives whether nothing it
+    /// started beside that cell is left.
+    pub idle: fn(&Path) -> bool,
     /// Catalogue keys `residual.<key>` that `config` lists (REQ-SEC-5, S-7).
     pub residual: &'static [&'static str],
 }
@@ -150,6 +151,20 @@ pub fn end_idle(backend: Option<&Backend>, domain: &Path) {
     for dir in fs::read_dir(domain.join("local/tmp")).into_iter().flatten().flatten() {
         (backend.idle)(&dir.path());
     }
+}
+
+/// Whether nothing `backend` started beside the cell of `scratch` is left, waiting up to ten seconds for a cell whose
+/// runner is gone to end (D-092, P9I-2): only then may its directories be removed.
+pub fn settled(backend: Option<&Backend>, scratch: &Path) -> bool {
+    let Some(backend) = backend else { return true };
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while !(backend.idle)(scratch) {
+        if Instant::now() >= deadline {
+            return false;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    true
 }
 
 /// Removes `path` and everything under it, never following a link: a directory is made the owner's again (a cell may

@@ -770,6 +770,7 @@ fn pd_08_pd_10_a_killed_run_is_ended_unknown_by_the_next_write_command() {
     refused(&fx, &["run", &ids[1], "--say", SAY], "LOCK_HELD", 1, "es");
     // The cell's pasta, as the backend wrote it beside the cell (D-092).
     let beside = dirs(&fx, "tmp", &format!("attempt-{}", ids[0])).pop().unwrap().join("beside");
+    until("the helper's name", || fs::read_to_string(&beside).is_ok_and(|l| l.ends_with('\n')));
     let line = fs::read_to_string(&beside).unwrap();
     let (pasta, program) =
         (line.split(' ').next().unwrap(), format!("{}\0", line.trim_end().rsplit(' ').next().unwrap()));
@@ -829,6 +830,56 @@ fn pd_08_pd_10_a_killed_run_is_ended_unknown_by_the_next_write_command() {
     drop(s);
     let doc = fx.run(&["check", "--json"]).doc();
     assert!(doc["findings"].as_array().unwrap().iter().any(|f| f["code"] == "ATTEMPT_REPLACED"), "{doc}");
+}
+
+/// A process's start time, as `/proc/<pid>/stat` gives it.
+fn start_time(pid: u32) -> String {
+    let stat = fs::read_to_string(format!("/proc/{pid}/stat")).unwrap();
+    stat.rsplit_once(')').unwrap().1.split_whitespace().nth(19).unwrap().to_owned()
+}
+
+/// D-092, P9I-2: a stopped run's cell that has not ended when the next write command recovers it keeps its directories
+/// and what names its helper, which a later write command ends once the cell is gone.
+#[test]
+fn d_092_a_cell_still_ending_keeps_its_directories_until_its_helper_is_ended() {
+    let fx = Fx::builder("still-ending", "published", &format!("{WAITS}{WRITES}{SUCCESS}"));
+    let (stage, ids) = plan(&fx, json!({}), vec![json!({}), json!({"goal": "Two."})]);
+    ok(&authorize(&fx, &stage, &[]));
+    let (mut child, work) = started(&fx, &ids[0]);
+    let beside = work.parent().unwrap().join("beside");
+    until("the helper's name", || fs::read_to_string(&beside).is_ok_and(|l| l.ends_with('\n')));
+    let real = fs::read_to_string(&beside).unwrap().split(' ').next().unwrap().to_owned();
+    child.kill().unwrap();
+    child.wait().unwrap();
+    // The cell's first process still runs (a process of the test's stands for it) and its helper is a `pasta` of the
+    // test's; the real one is ended by hand.
+    assert!(std::process::Command::new("kill").arg(&real).status().unwrap().success());
+    let pasta = fx.root.parent().unwrap().join("pasta");
+    fs::copy("/usr/bin/sleep", &pasta).unwrap();
+    let mut first = std::process::Command::new("sleep").arg("600").spawn().unwrap();
+    let mut helper = std::process::Command::new(&pasta).arg("600").spawn().unwrap();
+    let line = format!(
+        "{} {} {} {} {}\n",
+        helper.id(),
+        start_time(helper.id()),
+        first.id(),
+        start_time(first.id()),
+        pasta.display()
+    );
+    fs::write(&beside, line).unwrap();
+    // The recovery halts the task, but keeps the cell's directories and the helper's name.
+    ok(&fx.run(&["reject", &ids[1], "--say", SAY]));
+    assert_eq!(fx.events(&stream(&ids[0])).last().unwrap()["payload"]["code"], "OUTCOME_UNKNOWN");
+    assert!(beside.is_file() && work.is_dir());
+    assert!(helper.try_wait().unwrap().is_none());
+    // Once the cell is gone, the next write command ends its helper.
+    first.kill().unwrap();
+    first.wait().unwrap();
+    // Even one that then refuses, with nothing of the record written.
+    assert_eq!(fx.run(&["discard", "p-00000000", "--say", SAY]).status, 1);
+    let status = helper.wait().unwrap();
+    assert_eq!(std::os::unix::process::ExitStatusExt::signal(&status), Some(9));
+    assert!(!beside.exists());
 }
 
 #[test]

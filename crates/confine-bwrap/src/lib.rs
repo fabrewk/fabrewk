@@ -244,8 +244,9 @@ fn until(deadline: Instant, mut what: impl FnMut() -> bool) -> bool {
 
 /// Gives the cell of process `first` a private network (`confinement-design.md` 3.5, P-4, P-5): `pasta` joins the
 /// namespaces of the cell's command once it is the wrapper, maps none of the host's ports, addresses or loopback, and
-/// forwards names to the host's resolver; ready once the default route is up.
-fn attach(first: u32, pasta: &Path, evidence: &Path, deadline: Instant) -> Result<Child, Error> {
+/// forwards names to the host's resolver; ready once the default route is up. What names it is written in `scratch` as
+/// soon as it exists (D-092, P9I-1).
+fn attach(first: u32, pasta: &Path, (scratch, evidence): (&Path, &Path), deadline: Instant) -> Result<Child, Error> {
     let mut command = None;
     let joinable = until(deadline, || {
         command = first_child(first).filter(|c| fs::read_link(format!("/proc/{c}/ns/net")).is_ok());
@@ -268,7 +269,8 @@ fn attach(first: u32, pasta: &Path, evidence: &Path, deadline: Instant) -> Resul
         .stderr(err)
         .spawn()
         .map_err(io(pasta))?;
-    let mut ended = false;
+    let noted = note(scratch, pasta, helper.id(), first);
+    let mut ended = noted.is_err();
     let up = until(deadline, || {
         ended = !matches!(helper.try_wait(), Ok(None));
         ended || routed(command)
@@ -278,6 +280,7 @@ fn attach(first: u32, pasta: &Path, evidence: &Path, deadline: Instant) -> Resul
     }
     let _ = helper.kill();
     let _ = helper.wait();
+    noted?;
     Err(unavailable(Some(&log), format!("pasta gave the cell no network; its output is kept in {}", log.display())))
 }
 
@@ -297,8 +300,8 @@ fn program_of(pid: u64) -> Option<String> {
     Some(String::from_utf8_lossy(line.split(|b| *b == 0).next()?).into_owned())
 }
 
-/// Writes in `scratch` what names the helper `pasta`, started as `program`, beside the cell of process `first`, before
-/// the cell is released.
+/// Writes in `scratch` what names the helper `pasta`, started as `program`, beside the cell of process `first`, as soon
+/// as the helper exists and before the cell is released.
 fn note(scratch: &Path, program: &Path, helper: u32, first: u32) -> Result<(), Error> {
     let file = scratch.join(BESIDE);
     let (h, f) = (started_at(helper).unwrap_or(0), started_at(first).unwrap_or(0));
@@ -307,26 +310,27 @@ fn note(scratch: &Path, program: &Path, helper: u32, first: u32) -> Result<(), E
     out.write_all(line.as_bytes()).map_err(io(&file))
 }
 
-/// Ends the `pasta` a killed Fabrewk left beside the cell of `scratch` (D-092): only while it runs with the start time
-/// and the program written, once the cell's first process is gone; then, or once it is gone, removes the file.
-fn idle(scratch: &Path) {
+/// Ends the `pasta` a killed Fabrewk left beside the cell of `scratch` (D-092): only a program named `pasta` running
+/// with the start time and the program written, once the cell's first process is gone; then, or once it is gone,
+/// removes the file. Gives whether nothing it names is left: no file, or the file removed.
+fn idle(scratch: &Path) -> bool {
     let file = scratch.join(BESIDE);
-    let Ok(line) = fs::read_to_string(&file) else { return };
+    let Ok(line) = fs::read_to_string(&file) else { return !file.exists() };
     let mut f = line.trim_end_matches('\n').splitn(5, ' ');
     let mut num = || f.next().and_then(|n| n.parse::<u64>().ok());
-    let (Some(helper), Some(h), Some(first), Some(c)) = (num(), num(), num(), num()) else { return };
-    let program = f.next();
+    let (Some(helper), Some(h), Some(first), Some(c)) = (num(), num(), num(), num()) else { return false };
+    let program = f.next().filter(|p| Path::new(p).file_name().is_some_and(|n| n == "pasta"));
     let running = |pid: u64, at: u64| u32::try_from(pid).ok().and_then(started_at) == Some(at);
     if running(first, c) {
-        return;
+        return false;
     }
-    if running(helper, h) && program_of(helper).as_deref() == program {
+    if running(helper, h) && program.is_some() && program_of(helper).as_deref() == program {
         let ended = Command::new("/bin/sh").args(["-c", "kill -KILL \"$0\"", &helper.to_string()]).env_clear().status();
         if !ended.is_ok_and(|s| s.success()) {
-            return;
+            return false;
         }
     }
-    let _ = fs::remove_file(&file);
+    fs::remove_file(&file).is_ok()
 }
 
 /// Starts `cell` (`confinement-design.md` 3.3, 3.7).
@@ -371,17 +375,14 @@ fn start(cell: &Cell, programs: &Programs, scratch: &Path, evidence: &Path) -> R
     });
     let mut started = Started { child, beside: Vec::new(), first, failed: None };
     if let (Network::Outbound, Some(first)) = (cell.network, first) {
-        // A helper is the runner's to end once started, even if what names it could not be written.
-        let attached = attach(first, pasta, evidence, deadline).and_then(|helper| {
-            let noted = note(scratch, pasta, helper.id(), first);
-            started.beside.push(helper);
-            noted
-        });
-        // The command stays held: its standard input closes with no line, and the runner ends the cell.
-        if let Err(e) = attached {
-            started.failed = Some(e);
-            drop(started.child.stdin.take());
-            return Ok(started);
+        match attach(first, pasta, (scratch, evidence), deadline) {
+            Ok(helper) => started.beside.push(helper),
+            // The command stays held: its standard input closes with no line, and the runner ends the cell.
+            Err(e) => {
+                started.failed = Some(e);
+                drop(started.child.stdin.take());
+                return Ok(started);
+            }
         }
     }
     if let Some(mut stdin) = started.child.stdin.take() {

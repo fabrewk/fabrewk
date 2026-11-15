@@ -521,6 +521,60 @@ fn a_cell_dies_with_fabrewk_and_its_idle_pasta_is_ended_by_the_next_write_comman
     assert!(noted.iter().all(|f| !f.exists()), "{noted:?}");
 }
 
+/// P9I-1: what names the helper is written as soon as it exists, so that a Fabrewk killed while the helper brings the
+/// network up leaves it to the next write command. The fake `pasta` never brings it up and keeps its name.
+#[test]
+fn p9i_1_a_helper_killed_while_the_network_comes_up_is_named_and_ended() {
+    if let Ok(marker) = std::env::var(HELPER).as_deref().map(str::to_owned)
+        && marker.starts_with("bringing-")
+    {
+        let fx = fixture("bringing");
+        let fake = fx.repo.parent().unwrap().join("pasta");
+        std::fs::write(&fake, "#!/bin/bash\nexec -a \"$0\" sleep 600\n").unwrap();
+        std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let mut d = detection(Some("2026-11-11T00:00:00Z"), &[]);
+        d.found.get_mut(&(Space::Program, "pasta".into())).unwrap().as_mut().unwrap().path = fake;
+        let programs = confine::available(Some(&BACKEND), &mut d, &fx.domain).unwrap();
+        println!("domain {}", fx.domain.display());
+        let scratch = Scratch::create(&fx.domain, "bringing").unwrap();
+        let evidence = confine::evidence(&fx.domain, "bringing").unwrap();
+        let script = format!("echo {marker}; sleep 600");
+        let c = cell(&scratch, Network::Outbound, true, &["/bin/sh", "-c", &script]);
+        let _ = confine::run(&BACKEND, &programs, &c, &scratch, &evidence, limits(60));
+        unreachable!("the parent kills this process while the network comes up");
+    }
+    let marker = unique("bringing-up");
+    let mut child = helper("p9i_1_a_helper_killed_while_the_network_comes_up_is_named_and_ended", &marker, "x");
+    let mut out = std::io::BufReader::new(child.stdout.take().unwrap());
+    let domain = loop {
+        let mut line = String::new();
+        assert!(std::io::BufRead::read_line(&mut out, &mut line).unwrap() > 0, "the helper said no domain");
+        if let Some(i) = line.find("domain ") {
+            break PathBuf::from(line[i + "domain ".len()..].trim_end());
+        }
+    };
+    let beside = domain.join("local/tmp/bringing/beside");
+    let deadline = Instant::now() + Duration::from_secs(8);
+    while !std::fs::read_to_string(&beside).is_ok_and(|l| l.ends_with('\n')) {
+        assert!(Instant::now() < deadline, "the helper is not named while the network comes up");
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    let pasta: u32 = std::fs::read_to_string(&beside).unwrap().split(' ').next().unwrap().parse().unwrap();
+    child.kill().unwrap();
+    child.wait().unwrap();
+    let alive = |p: u32| std::fs::read(format!("/proc/{p}/cmdline")).is_ok_and(|c| !c.is_empty());
+    let gone = Instant::now() + Duration::from_secs(10);
+    while !(BACKEND.idle)(&domain.join("local/tmp/bringing")) {
+        assert!(Instant::now() < gone, "the cell did not end, or its helper was not ended");
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    let gone = Instant::now() + Duration::from_secs(5);
+    while alive(pasta) && Instant::now() < gone {
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    assert!(!alive(pasta) && !beside.exists());
+}
+
 #[test]
 fn d_092_only_the_helper_written_still_running_with_its_start_time_and_program_is_ended() {
     let fx = fixture("idle");
@@ -531,37 +585,47 @@ fn d_092_only_the_helper_written_still_running_with_its_start_time_and_program_i
         stat.rsplit_once(')').unwrap().1.split_whitespace().nth(19).unwrap().to_owned()
     };
     let alive = |c: &mut std::process::Child| c.try_wait().unwrap().is_none();
+    // A helper named as the backend's is, and a program of another name.
+    let pasta = fx.repo.parent().unwrap().join("pasta");
+    std::fs::copy(which("sleep"), &pasta).unwrap();
     let mut cell = Command::new("sleep").arg("600").spawn().unwrap();
     let (cell_id, cell_start) = (cell.id(), start(cell.id()));
-    let mut helper = Command::new("sleep").arg("600").spawn().unwrap();
-    let (id, at, exe) = (helper.id(), start(helper.id()), "sleep");
+    let mut helper = Command::new(&pasta).arg("600").spawn().unwrap();
+    let (id, at, exe) = (helper.id(), start(helper.id()), pasta.display().to_string());
+    let mut other = Command::new("sleep").arg("600").spawn().unwrap();
+    let (other_id, other_at) = (other.id(), start(other.id()));
     let file = dir.join("beside");
     let idle = |line: String| {
         std::fs::write(&file, line).unwrap();
-        (BACKEND.idle)(&dir);
+        (BACKEND.idle)(&dir)
     };
-    // Its cell still running: nothing is ended, nothing removed.
-    idle(format!("{id} {at} {cell_id} {cell_start} {exe}\n"));
+    // Its cell still running: nothing is ended, nothing removed, and something is left.
+    assert!(!idle(format!("{id} {at} {cell_id} {cell_start} {exe}\n")));
     assert!(alive(&mut helper) && file.exists());
     cell.kill().unwrap();
     cell.wait().unwrap();
-    // Another start time, or another program: not the helper written, which is gone; the file is removed.
-    for line in
-        [format!("{id} 1 {cell_id} {cell_start} {exe}\n"), format!("{id} {at} {cell_id} {cell_start} /usr/bin/pasta\n")]
-    {
-        idle(line);
-        assert!(alive(&mut helper) && !file.exists());
+    // Another start time or another program: not the helper written, which is gone; the file is removed. A program
+    // not named `pasta`, though written as it runs, is never ended (P9I-5).
+    for line in [
+        format!("{id} 1 {cell_id} {cell_start} {exe}\n"),
+        format!("{id} {at} {cell_id} {cell_start} /usr/bin/pasta\n"),
+        format!("{other_id} {other_at} {cell_id} {cell_start} sleep\n"),
+    ] {
+        assert!(idle(line));
+        assert!(alive(&mut helper) && alive(&mut other) && !file.exists());
     }
     // A line that does not hold five fields ends nothing and stays.
-    idle(format!("{id} {at} {cell_id}\n"));
+    assert!(!idle(format!("{id} {at} {cell_id}\n")));
     assert!(alive(&mut helper) && file.exists());
     // The helper written, its cell gone: ended, and the file removed.
-    idle(format!("{id} {at} {cell_id} {cell_start} {exe}\n"));
+    assert!(idle(format!("{id} {at} {cell_id} {cell_start} {exe}\n")));
     assert!(!file.exists());
     let status = helper.wait().unwrap();
     assert_eq!(std::os::unix::process::ExitStatusExt::signal(&status), Some(9));
-    // Nothing written: nothing to do.
-    (BACKEND.idle)(&dir);
+    // Nothing written: nothing left.
+    assert!((BACKEND.idle)(&dir));
+    other.kill().unwrap();
+    other.wait().unwrap();
 }
 
 // ---- PD-28, REQ-REG-13: the evidence of each run ----------------------------------------------------------------------

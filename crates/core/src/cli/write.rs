@@ -267,10 +267,13 @@ fn recovery(cx: &Cx, record: &Replay) -> Result<Plan<()>, Failed> {
                       dispatch";
         events.push((stream, draft("task-halted", serde_json::json!({"code": "OUTCOME_UNKNOWN", "reason": reason}))));
     }
+    let backend = cx.backend;
     let then: Then = Box::new(move |a, prepared| {
         // Removed before the events, so that a recovery stopped between them is made again whole (P9E-8); following no
-        // link, and only what exists: a run killed before it made them left none.
-        for root in gone.into_iter().filter(|d| std::fs::symlink_metadata(d).is_ok_and(|m| m.is_dir())) {
+        // link, and only what exists: a run killed before it made them left none. A cell the backend cannot show ended
+        // with nothing left beside it keeps its directories, for a later command (D-092, P9I-2).
+        let dirs = gone.into_iter().filter(|d| std::fs::symlink_metadata(d).is_ok_and(|m| m.is_dir()));
+        for root in dirs.filter(|d| crate::confine::settled(backend, d)) {
             let [home, tmp, work] = ["home", "tmp", "work"].map(|d| root.join(d));
             crate::confine::Scratch { root, home, tmp, work }.remove()?;
         }

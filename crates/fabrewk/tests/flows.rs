@@ -88,8 +88,10 @@ impl<'a> Flow<'a> {
             let last = record_new.last().unwrap_or_else(|| panic!("{args:?}: no record commit"));
             assert_eq!(git_in(fx, repo, &["log", "-1", "--format=%s", last]), "fabrewk: record", "{args:?}");
             let trailers = git_in(fx, repo, &["log", "-1", "--format=%(trailers:key=Fabrewk-Event,valueonly)", last]);
-            let named: BTreeSet<String> = trailers.lines().filter(|l| !l.is_empty()).map(str::to_owned).collect();
-            assert_eq!(named, new, "{args:?}");
+            // One trailer per event, none twice (P9I-7).
+            let mut named: Vec<String> = trailers.lines().filter(|l| !l.is_empty()).map(str::to_owned).collect();
+            named.sort();
+            assert_eq!(named, new.iter().cloned().collect::<Vec<_>>(), "{args:?}");
             let domain = if in_product { ".brewstillery" } else { "." };
             assert_eq!(git_in(fx, repo, &["status", "--porcelain", "--", domain]), "", "{args:?}");
         } else {

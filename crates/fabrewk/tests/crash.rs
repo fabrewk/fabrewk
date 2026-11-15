@@ -14,7 +14,7 @@ use common::*;
 use fabrewk_core::identity::PolicyVerifier;
 use fabrewk_core::record::replay;
 use serde_json::Value;
-use std::collections::BTreeSet;
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Mutex;
@@ -47,10 +47,21 @@ fn open(dir: &Path) {
     }
 }
 
-/// The event files the record branch's head holds.
-fn committed(fx: &Fx) -> BTreeSet<String> {
-    let tree = fx.git(&["ls-tree", "-r", "--name-only", "HEAD", "--", ".brewstillery/data/events"]);
-    tree.lines().filter(|l| l.ends_with(".json")).map(str::to_owned).collect()
+/// The event files the record branch's head holds, each with its blob.
+fn committed(fx: &Fx) -> BTreeMap<String, String> {
+    let tree = fx.git(&["ls-tree", "-r", "HEAD", "--", ".brewstillery/data/events"]);
+    let entry = |l: &str| {
+        let (meta, path) = l.split_once('\t').unwrap();
+        (path.to_owned(), meta.split(' ').nth(2).unwrap().to_owned())
+    };
+    tree.lines().map(entry).filter(|(p, _)| p.ends_with(".json")).collect()
+}
+
+/// `kept` is in `now`, each event with the same bytes (P9I-3).
+fn holds(now: &BTreeMap<String, String>, kept: &BTreeMap<String, String>, what: &str) {
+    for (path, blob) in kept {
+        assert_eq!(now.get(path), Some(blob), "{what}: {path} lost or changed");
+    }
 }
 
 /// Every task's attempts started, by stream.
@@ -65,18 +76,47 @@ fn attempts(fx: &Fx) -> usize {
     n
 }
 
-/// A command's document lists its findings or refusals, each with a code.
+/// A command's document lists its findings or refusals, each with a code, and at least one when it did not exit 0: a
+/// raw error is no refusal (P9I-6).
 fn coded(ran: &Ran, list: &str, what: &str) {
     let doc: Value = serde_json::from_str(&ran.stdout).unwrap_or_else(|e| panic!("{what}: {e}: {ran:?}"));
-    for f in doc[list].as_array().into_iter().flatten() {
+    let entries = doc[list].as_array().unwrap_or_else(|| panic!("{what}: no {list}: {ran:?}"));
+    assert!(ran.status == 0 || !entries.is_empty(), "{what}: {ran:?}");
+    for f in entries {
         assert!(f["code"].as_str().is_some_and(|c| !c.is_empty()), "{what}: {f}");
     }
 }
 
-/// What a stop left, checked (see the module's description).
-fn after_stop(fx: &Fx, what: &str) {
+/// The processes whose command line names `base`: what a stopped command of this fixture left running.
+fn left(base: &Path) -> Vec<String> {
+    let base = base.to_str().unwrap();
+    let mut out = Vec::new();
+    for entry in std::fs::read_dir("/proc").into_iter().flatten().flatten() {
+        let line = std::fs::read(entry.path().join("cmdline")).unwrap_or_default();
+        let line = String::from_utf8_lossy(&line).replace('\0', " ");
+        if line.contains(base)
+            && entry.file_name().to_str().is_some_and(|n| n.parse::<u32>().is_ok_and(|n| n != std::process::id()))
+        {
+            out.push(line);
+        }
+    }
+    out
+}
+
+/// What a stop left, checked (see the module's description); `before` is what the record branch held before the
+/// command ran.
+fn after_stop(fx: &Fx, before: &BTreeMap<String, String>, what: &str) {
+    // No process of the stopped command is left: its cells and helpers end with it, or none was running.
+    let base = fx.root.parent().unwrap();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    while !left(base).is_empty() {
+        assert!(std::time::Instant::now() < deadline, "{what}: left running: {:?}", left(base));
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
     // The record replays, or is refused by codes.
-    let running = match replay(&fx.domain, &PolicyVerifier) {
+    let first = replay(&fx.domain, &PolicyVerifier);
+    let replayed_before = first.is_ok();
+    let running = match first {
         Ok(r) => fabrewk_core::table::current(&r).unwrap().values().any(|s| *s == "running"),
         Err(errors) => {
             assert!(errors.iter().all(|e| e.code().is_some()), "{what}: {errors:?}");
@@ -86,12 +126,17 @@ fn after_stop(fx: &Fx, what: &str) {
     let ran = fx.run(&["check", "--json"]);
     assert!(matches!(ran.status, 0 | 3), "{what}: {ran:?}");
     coded(&ran, "findings", what);
+    // Nothing committed before the command, nor by it before it stopped, is lost or changed.
     let (kept, dispatched) = (committed(fx), attempts(fx));
+    holds(&kept, before, what);
     // The next write command, which a person makes and which dispatches nothing: a task left running is recovered.
     let ran = fx.run(&["discard", "p-00000000", "--say", "Descártala.", "--json"]);
     assert_eq!(ran.status, 1, "{what}: {ran:?}");
     coded(&ran, "refusals", what);
-    if let Ok(r) = replay(&fx.domain, &PolicyVerifier) {
+    let replayed = replay(&fx.domain, &PolicyVerifier);
+    // A recovery never makes a record that replayed refuse.
+    assert!(replayed.is_ok() || !replayed_before, "{what}: {replayed:?}");
+    if let Ok(r) = replayed {
         let states = fabrewk_core::table::current(&r).unwrap();
         assert!(states.values().all(|s| *s != "running"), "{what}: {states:?}");
         if running {
@@ -105,10 +150,24 @@ fn after_stop(fx: &Fx, what: &str) {
     }
     assert_eq!(attempts(fx), dispatched, "{what}: dispatched without a person's move");
     let now = committed(fx);
-    assert!(kept.is_subset(&now), "{what}: lost {:?}", kept.difference(&now).collect::<Vec<_>>());
-    for file in &kept {
-        assert!(fx.root.join(file).is_file(), "{what}: {file} is not on disk");
-    }
+    holds(&now, &kept, what);
+    // And each is on disk with the bytes committed.
+    let paths: Vec<&String> = now.keys().collect();
+    let mut c = Command::new("git");
+    isolate(&mut c, &fx.home, None);
+    let mut child = c
+        .current_dir(&fx.root)
+        .args(["hash-object", "--stdin-paths"])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    let list: String = paths.iter().map(|p| format!("{p}\n")).collect();
+    std::io::Write::write_all(&mut child.stdin.take().unwrap(), list.as_bytes()).unwrap();
+    let out = String::from_utf8(child.wait_with_output().unwrap().stdout).unwrap();
+    let disk: Vec<&str> = out.lines().collect();
+    let blobs: Vec<&str> = now.values().map(String::as_str).collect();
+    assert_eq!(disk, blobs, "{what}: an event on disk is not what was committed");
     let ran = fx.run(&["check", "--json"]);
     assert!(matches!(ran.status, 0 | 3), "{what}: {ran:?}");
     coded(&ran, "findings", what);
@@ -117,7 +176,7 @@ fn after_stop(fx: &Fx, what: &str) {
 /// One worker's fixture: F-1 run whole, with the fixture kept before each write command and that command's words.
 struct Worker {
     fx: Fx,
-    steps: Vec<(PathBuf, Vec<String>)>,
+    steps: Vec<(PathBuf, Vec<String>, BTreeMap<String, String>)>,
 }
 
 fn worker(n: usize) -> Worker {
@@ -129,9 +188,10 @@ fn worker(n: usize) -> Worker {
             base.with_file_name(format!("{}-before-{}", base.file_name().unwrap().to_str().unwrap(), steps.len()));
         copy(&base, &snapshot);
         let words: Vec<String> = args.iter().map(|a| a.to_string()).chain(["--json".to_owned()]).collect();
+        let before = committed(&fx);
         let ran = fx.run(&words.iter().map(String::as_str).collect::<Vec<_>>());
         assert_eq!(ran.status, 0, "{args:?}: {ran:?}");
-        steps.push((snapshot, words));
+        steps.push((snapshot, words, before));
         ran.doc()
     });
     Worker { fx, steps }
@@ -156,7 +216,7 @@ fn the_crash_suite_over_f_1() {
             s.spawn(move || {
                 let base = w.fx.root.parent().unwrap();
                 while let Some(i) = queue.lock().unwrap().next() {
-                    let (snapshot, words) = &w.steps[i];
+                    let (snapshot, words, before) = &w.steps[i];
                     let args: Vec<&str> = words.iter().map(String::as_str).collect();
                     let mut n = 1;
                     loop {
@@ -167,7 +227,7 @@ fn the_crash_suite_over_f_1() {
                             assert_eq!(ran.status, 0, "{words:?} at {n}: {ran:?}");
                             break;
                         }
-                        after_stop(&w.fx, &format!("{words:?} stopped at point {n}"));
+                        after_stop(&w.fx, before, &format!("{words:?} stopped at point {n}"));
                         n += 1;
                     }
                     points.lock().unwrap().push((words[0].clone(), n - 1));
@@ -180,7 +240,7 @@ fn the_crash_suite_over_f_1() {
     assert_eq!(points.len(), commands);
     assert!(points.iter().all(|(_, n)| *n > 0), "{points:?}");
     for w in &workers {
-        for (snapshot, _) in &w.steps {
+        for (snapshot, _, _) in &w.steps {
             open(snapshot);
             std::fs::remove_dir_all(snapshot).unwrap();
         }

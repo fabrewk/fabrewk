@@ -1434,6 +1434,34 @@ absent; an extension that then fails to start is `TOOL_FAILED`, whose words say 
 - `config` (`fabrewk.config/3`) lists each permitted extension with its resolved path and digest, or as absent, without
   running it (D-094 point 4). `extension-note`'s payload is `{"text"}` (schema 1).
 
+**The whole, as part 9i fixed it (11.5, REQ-RUN-5, REQ-SEC-1, REQ-SEC-5; D-092, D-095).**
+
+- The idle `pasta` (D-092). As soon as the helper exists, before it brings the cell's network up and before the cell
+  is released, the bubblewrap backend writes in the cell's scratch directory a file `beside`: the helper's identifier
+  and start time (`/proc/<pid>/stat`, field 22), the cell's first process's, and the program the helper was started
+  as, its first argument (`pasta` makes `/proc/<pid>/exe` unreadable to its owner); only the instant between the
+  helper's start and that write stays uncovered, and the residual stays declared. A backend's `idle` ends the helper
+  only while a program named `pasta` runs with the start time and the program written, and once the cell's first
+  process is gone or another; then, or when the helper is gone, it removes the file and says nothing is left; a file
+  it cannot read whole, a cell still running or a signal not sent leave it. Every write command calls it on each
+  directory of `local/tmp/` first, whatever it then does, so that the helper of a probe or a preflight killed before
+  `run-started`, which no recovery reaches, is ended too; the residual `network-helper` says it lasts until the next
+  write command. The recovery of a stopped run removes a cell's directories only once nothing is left beside it,
+  waiting up to ten seconds for the cell to end; otherwise it keeps them, with the file, for a later command (P9I-2).
+  A helper whose file could not be written is ended at once, and the cell fails.
+- The flows of 11.5 are `crates/fabrewk/tests/flows.rs`, with F-1's commands in `tests/common/flow.rs`: the project
+  events from the test helper (before phase 10); `run <stage>` takes the first task, rejected in round 1 and accepted
+  in round 2; the second waits (`DEPENDENCY_OPEN` at its `run`) until the first is integrated. In `own-repository`
+  and `unpublished` the product's branch moves only by an integration, to the candidate itself.
+- The crash suite over F-1 is `crates/fabrewk/tests/crash.rs`: each write command of F-1 runs again from the fixture
+  as it stood before it, stopped at its n-th write point for every n, until it ends by itself. The points are those of
+  the record (each event, signature, mark, view, record commit and ref update), of the integration (its commit, ref
+  and working tree) and of the candidate (its objects, its commit and its branch, P9I-4); a cell's own files, the
+  export and the evidence are not the record's and have none: a kill while a cell runs is `pd_08_…`'s and the
+  backend's tests. The next write command after a stop is a person's `discard` of a proposal that does not exist,
+  which recovers a task left `running` and dispatches nothing; every event the branch held before the command, or
+  after the stop, keeps its bytes on the branch and on disk.
+
 ### BUD: size, dependencies and build
 
 - **REQ-BUD-1.** Size is counted in non-blank lines of Rust that are not only comment (`//`, `///`, `//!`, and lines

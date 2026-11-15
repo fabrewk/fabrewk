@@ -582,13 +582,18 @@ pub fn commit(
         if let Some(c) = stage(repo, base, &index, changes)? {
             return Err(failed(Some(&work.join(&c.path)), "Git would not hold this path in the candidate"));
         }
+        // The crash suite stops before and after each of the candidate's writes: its objects, its commit, its branch
+        // (core-specification 11.5, P9I-4).
+        crate::record::fault::point();
         let written = entries_of(repo, work, scratch, &refs, true)?;
         let moved = |c: &&Change| c.after.as_ref().is_some_and(|e| written.get(c.path.as_bytes()) != Some(e));
         if let Some(c) = changes.iter().find(moved) {
             return Err(failed(Some(&work.join(&c.path)), "the copy changed after its change set was read"));
         }
         let tree = line(git::git(repo, &os(&["write-tree"]), b"", Some(&index))?);
+        crate::record::fault::point();
         let commit = line(git::git(repo, &os(&["commit-tree", &tree, "-p", base, "-F", "-"]), text.as_bytes(), None)?);
+        crate::record::fault::point();
         let branch = format!("refs/heads/fabrewk/{task}");
         let update = os(&["update-ref", "-m", "fabrewk: candidate", &branch, &commit, previous.unwrap_or_default()]);
         let moved = git::run(git::command(repo, &update), b"")?;
@@ -599,6 +604,7 @@ pub fn commit(
             );
             return Err(failed(Some(&repo.root), why));
         }
+        crate::record::fault::point();
         Ok(Candidate { commit, tree })
     })();
     let _ = fs::remove_file(&index);
