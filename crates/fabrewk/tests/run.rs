@@ -768,10 +768,19 @@ fn pd_08_pd_10_a_killed_run_is_ended_unknown_by_the_next_write_command() {
     let doc = fx.run(&["status", "--json"]).doc();
     assert_eq!((doc["local"]["tmp"].clone(), doc["local"]["evidence"].is_u64()), (Value::Null, true), "{doc}");
     refused(&fx, &["run", &ids[1], "--say", SAY], "LOCK_HELD", 1, "es");
-    // Killed before the attempt's end (PD-08).
+    // The cell's pasta, as the backend wrote it beside the cell (D-092).
+    let beside = dirs(&fx, "tmp", &format!("attempt-{}", ids[0])).pop().unwrap().join("beside");
+    let line = fs::read_to_string(&beside).unwrap();
+    let (pasta, program) =
+        (line.split(' ').next().unwrap(), format!("{}\0", line.trim_end().rsplit(' ').next().unwrap()));
+    assert!(program.ends_with("/pasta\0"), "{line}");
+    let alive = || fs::read(format!("/proc/{pasta}/cmdline")).is_ok_and(|c| c.starts_with(program.as_bytes()));
+    assert!(alive(), "{pasta}");
+    // Killed before the attempt's end (PD-08): the cell ends with it, its pasta stays idle until a write command.
     child.kill().unwrap();
     child.wait().unwrap();
     assert_eq!(fx.run(&["status", &ids[0], "--json"]).doc()["state"], "running");
+    assert!(alive(), "{pasta}");
     // The next write command ends it as unknown, counts it, halts the task, removes its copy; then makes its own move.
     let before = fx.events(&stream(&ids[0])).len();
     ok(&fx.run(&["reject", &ids[1], "--say", SAY]));
@@ -783,6 +792,7 @@ fn pd_08_pd_10_a_killed_run_is_ended_unknown_by_the_next_write_command() {
     );
     assert_eq!(new[1]["payload"]["code"], "OUTCOME_UNKNOWN");
     assert!(dirs(&fx, "tmp", "attempt-").is_empty());
+    until("the idle pasta's end", || !alive());
     assert!(fx.run(&["status", "--json"]).doc()["local"]["tmp"].is_u64());
     // A cell's directories kept unread, its task no longer running (a backend that could not show it ended): not
     // walked either (P9E-7).

@@ -99,6 +99,9 @@ pub struct Backend {
     pub start: fn(&Cell, &Programs, &Path, &Path) -> Result<Started, Error>,
     /// Ends a started cell if it has not ended, and returns once every process of it has ended.
     pub stop: fn(&mut Started) -> Result<(), Error>,
+    /// Ends what it started beside a cell whose scratch directory is given, once the cell is gone and its runner was
+    /// killed before ending it; every write command calls it on each such directory (D-092).
+    pub idle: fn(&Path),
     /// Catalogue keys `residual.<key>` that `config` lists (REQ-SEC-5, S-7).
     pub residual: &'static [&'static str],
 }
@@ -138,6 +141,14 @@ impl Scratch {
     /// Removes the directories with all a cell left in them, following no link; only once the cell has ended.
     pub fn remove(self) -> Result<(), Error> {
         remove_tree(&self.root)
+    }
+}
+
+/// Ends, through `backend`, what a killed run left beside each cell under `local/tmp/` (D-092).
+pub fn end_idle(backend: Option<&Backend>, domain: &Path) {
+    let Some(backend) = backend else { return };
+    for dir in fs::read_dir(domain.join("local/tmp")).into_iter().flatten().flatten() {
+        (backend.idle)(&dir.path());
     }
 }
 

@@ -29,3 +29,7 @@ fault-injection = ["fabrewk-core/fault-injection"]
 [[test]]
 name = "faults"
 required-features = ["fabrewk-core/fault-injection"]
+
+[[test]]
+name = "crash"
+required-features = ["fabrewk-core/fault-injection"]

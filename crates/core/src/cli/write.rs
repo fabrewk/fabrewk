@@ -191,6 +191,8 @@ fn head_in(record: &Replay, stream: &str) -> Option<Head> {
 pub(super) fn run<T>(cx: &Cx, plan: impl Fn(&Replay) -> Result<Plan<T>, Failed>) -> Result<(T, Written), Failed> {
     // What a failed Git prints is kept as this command's evidence (D-083, D-086 point 3).
     crate::record::git::keep_in(&cx.domain);
+    // What a killed run left beside its cells is ended first, whatever this command does (D-092).
+    crate::confine::end_idle(cx.backend, &cx.domain);
     // What failed in Git that the command went on from, a recovery's first included (D-089).
     let mut notes = Vec::new();
     // A task found running, before the lock or under it, is recovered first (REQ-RUN-5); then the command plans again

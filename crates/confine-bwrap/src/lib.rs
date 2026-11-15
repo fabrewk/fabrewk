@@ -11,7 +11,7 @@
 //! configure; for the same reason a cell with a network cannot be kept from nesting (`--disable-userns`), and this
 //! backend refuses that cell. `pasta` cannot watch the namespace on this machine, so Fabrewk ends it after the cell;
 //! after Fabrewk is killed during a run the cell dies with it (`--die-with-parent`) but an idle `pasta` remains, a
-//! residual risk `config` declares.
+//! residual risk `config` declares, until the next write command ends it from what `start` wrote of it (D-092).
 
 use fabrewk_core::confine::{Access, Backend, Cell, Network, Programs, Started};
 use fabrewk_core::detect::Program;
@@ -26,7 +26,7 @@ use std::time::{Duration, Instant};
 
 /// The backend, as the binary wires it on Linux.
 pub const BACKEND: Backend =
-    Backend { name: "bubblewrap", programs: &PROGRAMS, system: &SYSTEM, start, stop, residual: &RESIDUAL };
+    Backend { name: "bubblewrap", programs: &PROGRAMS, system: &SYSTEM, start, stop, idle, residual: &RESIDUAL };
 
 /// The programs it drives, detected at every start like the core's own (REQ-SET-8, S-1).
 pub const PROGRAMS: [Program; 2] = [
@@ -281,6 +281,54 @@ fn attach(first: u32, pasta: &Path, evidence: &Path, deadline: Instant) -> Resul
     Err(unavailable(Some(&log), format!("pasta gave the cell no network; its output is kept in {}", log.display())))
 }
 
+/// The file of a cell's scratch directory naming its `pasta` (D-092): its identifier and start time, the cell's first
+/// process's, and the program it was started as, on one line.
+const BESIDE: &str = "beside";
+
+/// The start time of process `pid` as the kernel gives it (`/proc/<pid>/stat`, field 22), while it exists.
+fn started_at(pid: u32) -> Option<u64> {
+    let stat = fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
+    stat.rsplit_once(')')?.1.split_whitespace().nth(19)?.parse().ok()
+}
+
+/// The program process `pid` was started as, its first argument: `pasta` makes itself unreadable as `/proc/<pid>/exe`.
+fn program_of(pid: u64) -> Option<String> {
+    let line = fs::read(format!("/proc/{pid}/cmdline")).ok()?;
+    Some(String::from_utf8_lossy(line.split(|b| *b == 0).next()?).into_owned())
+}
+
+/// Writes in `scratch` what names the helper `pasta`, started as `program`, beside the cell of process `first`, before
+/// the cell is released.
+fn note(scratch: &Path, program: &Path, helper: u32, first: u32) -> Result<(), Error> {
+    let file = scratch.join(BESIDE);
+    let (h, f) = (started_at(helper).unwrap_or(0), started_at(first).unwrap_or(0));
+    let line = format!("{helper} {h} {first} {f} {}\n", program.display());
+    let mut out = fs::File::options().write(true).create_new(true).mode(0o600).open(&file).map_err(io(&file))?;
+    out.write_all(line.as_bytes()).map_err(io(&file))
+}
+
+/// Ends the `pasta` a killed Fabrewk left beside the cell of `scratch` (D-092): only while it runs with the start time
+/// and the program written, once the cell's first process is gone; then, or once it is gone, removes the file.
+fn idle(scratch: &Path) {
+    let file = scratch.join(BESIDE);
+    let Ok(line) = fs::read_to_string(&file) else { return };
+    let mut f = line.trim_end_matches('\n').splitn(5, ' ');
+    let mut num = || f.next().and_then(|n| n.parse::<u64>().ok());
+    let (Some(helper), Some(h), Some(first), Some(c)) = (num(), num(), num(), num()) else { return };
+    let program = f.next();
+    let running = |pid: u64, at: u64| u32::try_from(pid).ok().and_then(started_at) == Some(at);
+    if running(first, c) {
+        return;
+    }
+    if running(helper, h) && program_of(helper).as_deref() == program {
+        let ended = Command::new("/bin/sh").args(["-c", "kill -KILL \"$0\"", &helper.to_string()]).env_clear().status();
+        if !ended.is_ok_and(|s| s.success()) {
+            return;
+        }
+    }
+    let _ = fs::remove_file(&file);
+}
+
 /// Starts `cell` (`confinement-design.md` 3.3, 3.7).
 fn start(cell: &Cell, programs: &Programs, scratch: &Path, evidence: &Path) -> Result<Started, Error> {
     if !ARCHES.contains(&std::env::consts::ARCH) {
@@ -323,14 +371,17 @@ fn start(cell: &Cell, programs: &Programs, scratch: &Path, evidence: &Path) -> R
     });
     let mut started = Started { child, beside: Vec::new(), first, failed: None };
     if let (Network::Outbound, Some(first)) = (cell.network, first) {
-        match attach(first, pasta, evidence, deadline) {
-            Ok(helper) => started.beside.push(helper),
-            // The command stays held: its standard input closes with no line, and the runner ends the cell.
-            Err(e) => {
-                started.failed = Some(e);
-                drop(started.child.stdin.take());
-                return Ok(started);
-            }
+        // A helper is the runner's to end once started, even if what names it could not be written.
+        let attached = attach(first, pasta, evidence, deadline).and_then(|helper| {
+            let noted = note(scratch, pasta, helper.id(), first);
+            started.beside.push(helper);
+            noted
+        });
+        // The command stays held: its standard input closes with no line, and the runner ends the cell.
+        if let Err(e) = attached {
+            started.failed = Some(e);
+            drop(started.child.stdin.take());
+            return Ok(started);
         }
     }
     if let Some(mut stdin) = started.child.stdin.take() {

@@ -4,6 +4,8 @@
 //! record is written with the library without Git (until phase 10's `apply`, as rule 2 says), then committed.
 #![allow(dead_code)]
 
+pub mod flow;
+
 use fabrewk_core::record::{Draft, KeySigner, Say, Session, nonce, sha256_hex, subject_stream};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;

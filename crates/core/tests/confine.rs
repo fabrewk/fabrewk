@@ -52,6 +52,7 @@ const UNCONFINED: Backend = Backend {
     system: &["/usr"],
     start: unconfined,
     stop,
+    idle: |_| {},
     residual: &["kernel"],
 };
 

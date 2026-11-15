@@ -4664,3 +4664,26 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Measured: the core +329 (projected 300); the backend and both adapters unchanged. Left for part 9i: 393 lines.
 - Not done: the flows F-1 to F-3, the crash suite over them, one real dispatch per provider, the idle `pasta` a
   killed Fabrewk leaves (D-092) and the phase's close (part 9i).
+
+## D-095 — Part 9i: the real run's permission and budget
+
+- Status: decided
+- Decided: 2026-11-15
+- Origin: maintainer XEL in session 39's chat, answering the integrator's question at the part's start: "Sí, hasta 2
+  por proveedor (Recomendado)".
+- Decision:
+  1. The integrator may run, once, a whole `fabrewk run` through the built binary on a fixture repository of a few
+     files under `target/`: the builder this machine's Claude Code, `claude-sonnet-5-5` at effort `low`; the reviewer
+     its Codex, `gpt-6-luna` at effort `low`, another provider; each tool's preflight first (it calls no model); one
+     round; ten minutes per dispatch; then `accept`, which calls no model. If something outside Fabrewk cuts the run
+     (the provider, the network), one retry: at most two dispatches of each tool in all.
+  2. Those dispatches use the person's own credentials, `~/.claude/.credentials.json` and `~/.codex/auth.json`, bound
+     read-only as D-079 and D-081 fixed; Fabrewk reads of them only `expiresAt` and `last_refresh`, the integrator
+     nothing of them. The fixture keeps its own private folder and Git configuration; only `HOME` is the person's.
+- Reason: section 13 asks, for phase 9, one real dispatch per provider with its preflight first; parts 9c and 9d
+  dispatched each tool through its adapter's own tests, never through `run`. The alternatives offered: one dispatch
+  per provider with no retry; the adapters' real tests alone, as in 9c and 9d.
+- Consequences: `crates/fabrewk/tests/real.rs` (ignored, run with `FABREWK_REAL_RUN`); the provenance entry of
+  session 39.
+- Sources: chat of session 39; D-079, D-081; `core-specification.md` section 13; `plan.md` row 9.
+- Supersedes: none.
