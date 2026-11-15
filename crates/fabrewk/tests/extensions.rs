@@ -23,7 +23,12 @@ fn bin(fx: &Fx) -> PathBuf {
 /// A fixture whose policy permits the extensions of `more` (tables `[extensions.<name>]`), with [`bin`] first in
 /// `PATH`.
 fn fixture(name: &str, more: &str) -> Fx {
-    let mut fx = Fx::new_with(name, "unpublished", more);
+    fixture_in(name, "unpublished", more)
+}
+
+/// [`fixture`] in the publication mode `mode`.
+fn fixture_in(name: &str, mode: &str, more: &str) -> Fx {
+    let mut fx = Fx::new_with(name, mode, more);
     fs::create_dir_all(bin(&fx)).unwrap();
     let path = std::env::join_paths(
         std::iter::once(bin(&fx)).chain(std::env::split_paths(&std::env::var_os("PATH").unwrap())),
@@ -454,4 +459,49 @@ fn p9h_1_no_run_of_an_extension_mounts_a_home_another_run_swapped() {
     let ran = refused(&fx, &["probe"], "TOOL_FAILED", 1);
     assert!(ran.stderr.contains("a link on the extension's area's path"), "{ran:?}");
     assert_eq!(fs::read_dir(&target).unwrap().count(), 0);
+}
+
+/// P9H-3: another command may write while an extension runs. Its requests are planned on the record as it then is:
+/// a proposal written meanwhile does not make its note a rollback, and a policy adopted meanwhile that no longer
+/// permits it refuses them, `EXTENSION_DIGEST`.
+#[test]
+fn p9h_3_an_extensions_requests_are_planned_on_the_record_as_it_is_once_it_ends() {
+    let fx = fixture_in("ext-p9h3", "published", "\n[extensions.wait]\n");
+    let home = area(&fx, "wait").join("home");
+    let script = format!(
+        "touch \"$HOME/started\"; while [ ! -e \"$HOME/go\" ]; do sleep 0.1; done; rm \"$HOME/go\"\n{}",
+        line(&note("after"))
+    );
+    install(&fx, "wait", &script);
+    let wait_started = || {
+        let begun = std::time::Instant::now();
+        while !home.join("started").exists() {
+            assert!(begun.elapsed() < std::time::Duration::from_secs(30), "the extension never started");
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        fs::remove_file(home.join("started")).unwrap();
+    };
+    let ext = fx.spawn(&["wait"]);
+    wait_started();
+    let mut plan = proposal(&fx.git(&["rev-parse", "HEAD"]));
+    plan.as_object_mut().unwrap().retain(|k, _| k == "stage" || k == "tasks");
+    fs::write(fx.root.join("plan.json"), serde_json::to_vec(&plan).unwrap()).unwrap();
+    let proposed = fx.run(&["propose", "plan.json"]);
+    assert_eq!(proposed.status, 0, "{proposed:?}");
+    fs::write(home.join("go"), "").unwrap();
+    let out = ext.wait_with_output().unwrap();
+    assert_eq!(out.status.code(), Some(0), "{}", String::from_utf8_lossy(&out.stderr));
+    assert_eq!(fx.events("ext-wait").len(), 1);
+    // A policy adopted meanwhile that no longer permits it: nothing is applied.
+    let ext = fx.spawn(&["wait"]);
+    wait_started();
+    fx.edit_policy(&common::policy_text(&fx.keys));
+    let adopted = fx.run(&["adopt", "--say", "Ya no la permito."]);
+    assert_eq!(adopted.status, 0, "{adopted:?}");
+    fs::write(home.join("go"), "").unwrap();
+    let out = ext.wait_with_output().unwrap();
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(out.status.code(), Some(1), "{stderr}");
+    assert!(stderr.contains("EXTENSION_DIGEST") && stderr.contains("no longer permits the extension wait"), "{stderr}");
+    assert_eq!(fx.events("ext-wait").len(), 1);
 }

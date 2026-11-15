@@ -262,6 +262,9 @@ pub(super) fn run(cx: &Cx, name: &str, args: &[OsString]) -> Result<Out, Failed>
     if requests.is_empty() {
         return Ok(Out::new(Value::Null, cx.t("extension.none", &[("name", name)]) + "\n"));
     }
+    // The record as it is now: another command may have written while the extension ran, and its requests are
+    // planned on what the write path then reads, not on what this command read before running it (P9H-3).
+    let cx = &super::Cx { writes: true, ..super::Cx::new(cx.root.clone(), (cx.adapters, cx.backend)) };
     let actor = json!({"kind": "extension", "name": name, "digest": digest});
     let file = ran.stdout.path.clone();
     let plan = |record: &Replay| -> Result<Plan<Vec<String>>, Failed> {

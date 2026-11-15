@@ -1423,7 +1423,8 @@ absent; an extension that then fails to start is `TOOL_FAILED`, whose words say 
   optional) must be one JSON object with no member named twice: `{"protocol":1,"request":"note","text":<text>}` or
   `{"protocol":1,"request":"propose","stage":…,"tasks":…}`, whose two fields are those of `propose`'s file; otherwise
   `EXTENSION_OUTPUT_INVALID`, naming the line and why, never its bytes. With no line, nothing is written.
-- The requests are applied in one write command, all or none: a note is `extension-note` in `ext-<name>`; a proposal
+- The requests are applied in one write command, all or none, planned on the record as it is once the extension has
+  ended, since another command may have written meanwhile (P9H-3): a note is `extension-note` in `ext-<name>`; a proposal
   is planned as `propose` plans its file, every request drawing from one set of identifiers (P9H-2), with the
   extension as the events' actor (`stage-proposed` and
   `task-proposed` take an extension, D-094; never a person), and its own refusals keep their codes, their detail
