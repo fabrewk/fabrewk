@@ -4687,3 +4687,107 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   session 39.
 - Sources: chat of session 39; D-079, D-081; `core-specification.md` section 13; `plan.md` row 9.
 - Supersedes: none.
+
+## R-048 — Session 39, part 9i: the whole, and phase 9's acceptance
+
+- Status: recorded
+- Date: 2026-11-15
+- Who: integrator Claude Code, `claude-opus-5-5`, effort high (D-078). Reviewer: Codex `codex-cli 0.166.0`,
+  `gpt-6.1-sol`, effort high, launched as the `codex-review` skill says, in a scope of 3 GB.
+- Start: HEAD `c74ccb3`, tree clean.
+- Read: `STATUS.md`, `AGENTS.md`, `plan.md` (rows 9 and 10, "Phase 9"), `core-specification.md` (11.4, 11.5, 12, 13,
+  REQ-RUN-5, REQ-SEC-1, REQ-SEC-5), `confinement-design.md` (3.5, 3.7, 3.10, 6), this file (D-070, D-071, D-077 to
+  D-079, D-081, D-092 to D-094, R-047); the skills `verify-part`, `codex-review` and `differential-review`; the code of
+  `confine.rs`, `cli/write.rs`, `cli/run.rs`, `candidate.rs`, `record/fault.rs`, `record/store.rs`, `record/git.rs`, the
+  backend `crates/confine-bwrap/src/lib.rs`, the adapters' credential readers, and the tests' fixtures
+  (`crates/fabrewk/tests/common/`, `run.rs`, `alambique.rs`, `fermento.rs`, `writing.rs`, `faults.rs`, the core's
+  `crash.rs`, the backend's `cell.rs`), and `core/tests/confine.rs`. No credential of the person's was read.
+- Decided by the maestro in this session: D-095, before any code; D-096, at the close.
+- Written: `crates/confine-bwrap/src/lib.rs` (`beside`, written as soon as the helper exists; `idle`);
+  `crates/core/src/confine.rs` (`Backend::idle`, `end_idle`, `settled`); `cli/write.rs` (every write command ends
+  what a killed run left; the recovery removes a cell's directories only once nothing is left beside it);
+  `candidate.rs` (four write points); both catalogues (`residual.network-helper`); the tests:
+  `crates/fabrewk/tests/flows.rs` (new: F-1, F-2, F-3), `tests/common/flow.rs` (new: F-1's commands, shared),
+  `tests/crash.rs` (new, feature `fault-injection`: the crash suite over F-1), `tests/real.rs` (new, ignored: the real
+  run), `run.rs` (P9I-2's test, D-092 in `pd_08_…`), `extensions.rs` (`req_ext_4_…`'s socket), the core's
+  `confine.rs` (`settled`'s wait), the backend's `cell.rs` (D-092, P9I-1, P9I-5, P9I-8);
+  `core-specification.md` (the paragraph "The whole, as part 9i fixed it"); `confinement-design.md` (section 8,
+  phase 9's acceptance); `plan.md`; `STATUS.md`; `.brewstillery/skills/verify-part/SKILL.md` (D-096);
+  D-095, this entry and D-096.
+- Interpretations the maestro may want to read (each in the new paragraph):
+  1. Every write command ends the idle helpers, not only the recovery of a stopped run, so that a probe's or a
+     preflight's helper, killed before `run-started`, is ended too and the residual's words hold. A refused write
+     command does it as well; it is no write of the record.
+  2. The helper is identified by the program it was started as, not its executable, which `pasta` makes unreadable;
+     only a program named `pasta` is ever ended.
+  3. The recovery waits up to ten seconds for a stopped run's cell to end, and keeps its directories when it has not.
+  4. The crash suite's write points are the record's, the integration's and the candidate's; the export, a cell's own
+     files and the evidence have none (P9I-4, accepted by Codex at its second pass).
+  5. The next write command after each stop is a person's `discard` of a proposal that does not exist.
+  6. The mutation run judges each mutant without the crash suite over F-1 (six minutes a mutant), which the diff's
+     code does not reach but through the candidate's write points; the suite runs whole in the clean clone.
+- Codex, three passes, confirmed blocking findings by pass: 4, 1, 0.
+  1. Pass 1 (`efa94d3`): P9I-1 (the helper unnamed while it brings the network up, up to ten seconds); P9I-2 (the
+     recovery removing the only name of a helper whose cell had not yet ended); P9I-3 (the crash suite taking the
+     committed events after the stop, by name only); P9I-4 (no write point at the candidate's commit and branch).
+     Not blocking: P9I-5 (a planted name ending a foreign process, outside the threat model, T-25), P9I-6 (an empty
+     refusal list passing), P9I-7 (a trailer named twice passing).
+  2. Pass 2 (`537bc96`): all seven closed; P9I-8 (a failure to write the name overwritten by the wait).
+  3. Pass 3 (`17f1e97`), narrow on P9I-8's correction: closed; accept.
+  The mutation run's commit (`95ab36f`) came after the acceptance and changes only tests.
+  Each new test failed without its correction, checked by reverting the code under test. Codex's sandbox cannot run
+  `bwrap` or `pasta`; it reproduced each finding with the production core and substituted programs, and ran the flows
+  and the crash suite with a substituted backend (352 points).
+- Found by the integrator before the first pass: `pasta` makes `/proc/<pid>/exe` unreadable to its owner, so the first
+  version, comparing executables, never ended one; a helper dropped unended when its name failed.
+- Mutation: 32 mutants over the part's diff, each judged without the crash suite over F-1: 23 caught, 9 unviable,
+  none missed, none equivalent. The first whole run left two missed (`settled`'s deadline, its sign and its comparison)
+  and seven caught only by the timeout (a test that waited on a helper with no limit); a test of `settled`'s ten seconds
+  (`core/confine.rs::a_cell_that_ends_within_ten_seconds_is_settled_and_one_that_does_not_is_kept`) and a bound of ten
+  seconds on that wait were added (`95ab36f`), and the nine run again were all caught by a failing test. Two runs before
+  were void: under cargo-mutants' copy of the tree the socket path of `req_ext_4_…` passed `SUN_LEN`, so every mutant
+  failed there first; its socket now lives under the temporary directory.
+- Clean clone of `95ab36f`: 635 tests (624 passed, 11 ignored), the crash suite over F-1 (352 write points), `crash` 3
+  and `faults` 39 green; the musl build, `budget check`, clippy with and without `fault-injection`, fmt and `cargo deny`
+  clean; `--version --json` lists no feature. No `pasta` was left after the whole suite.
+- The real run (D-095), once, through the built binary, with the person's `HOME` and nothing of their credentials read
+  by the integrator: each adapter's preflight in both roles before any dispatch (Claude Code 2.1.316, `codex-cli`
+  0.166.0); one dispatch each. The builder, Claude Code with `claude-sonnet-5-5` at effort low: success in 3 seconds,
+  9,097 tokens in (8,986 cached) and 199 out, the model observed as asked. The reviewer, Codex with `gpt-6-luna` at
+  effort low: success in 6 seconds, 19,520 tokens in (9,344 cached) and 158 out, verdict accept at round 1; its stream
+  names no model, so the model observed is none, as 9d built it. The task was verified, accepted and integrated
+  (`src/hello.txt` holding `hello`), and `check` passed clean. No retry was spent; two dispatches of the four allowed.
+  The receipts are the task's events and the evidence under the fixture's `local/evidence/`, which the next test run
+  may remove.
+- Phase 9's acceptance: `confinement-design.md` section 8 holds, criterion by criterion, the tests that meet what
+  section 13 assigns to phase 9; F-1 to F-3 and the crash suite are this part's.
+- D-071's comparison (D-078 point 2 gave it for the opening; here it is for the phase): confirmed blocking findings
+  per Codex pass. The opening on Fable 5.2, a design: 6, 1, 1, 0 (four passes), 23 % of its weekly allotment and 94 %
+  of a five-hour window. The nine parts of code on Opus 5.5: 9a 3, 1, 0; 9b 3, 5, 3, 1, 0; 9c 3, 2, 1, 1, 1, 0; 9d 1,
+  0; 9e 4, 2, 2, 2, 0; 9f 2, 0; 9g 4, 2, 2, 1, 3, 2, 1, 4, 3 and its closing 0; 9h 2, 1, 0; 9i 4, 1, 0: from two to ten
+  passes, three at the median, as phase 7's (most parts at their second or third pass, the hard ones at their sixth to
+  tenth). Fable's opening was rejected three times on the class of edge Opus's parts were, so no clear gain shows;
+  Fable keeps no standing role (D-078), and phase 10 stays on the plan's models unless the maestro decides otherwise.
+- Measured: the core 11,632 of 12,000 (+25; projected +50), the backend 318 of 400 (+40), Claude Code's adapter 269 and
+  Codex's 319 of 600 (unchanged); five direct runtime crates, 31 in the release build; the musl binary 3,150,216 bytes.
+  Phase 9 took the core from 7,630 to 11,632 (projected about 10,500, at most about 11,400).
+
+## D-096 — Phase 9 closed; the watcher of idle `pasta` retired
+
+- Status: decided
+- Decided: 2026-11-15
+- Origin: maintainer XEL in session 39's chat, answering the integrator's two questions after part 9i's checks: "Cerrar
+  la fase 9 (Recomendado)" and, on the watcher `verify-part` runs beside every suite and mutation run (D-093),
+  "Retirarlo (Recomendado)".
+- Decision:
+  1. Phase 9 (confinement, adapters and the run) is closed. Its parts 9a to 9i are done (R-039 to R-048), each with
+     tests green in a clean clone, every viable mutant caught, within the size budget, and Codex's review accepted;
+     `confinement-design.md` section 8 holds, criterion by criterion, what section 13 of `core-specification.md` assigns
+     to phase 9, and the real run of D-095 dispatched once to each provider, its preflight first.
+  2. Since D-092 is built, `verify-part` no longer runs `target/watch-pasta.sh`: the next write command ends an idle
+     helper, and one found before or after a run is reported in the record. The skill's text was amended in this
+     session (D-093's other rules for this machine stand).
+- Consequences: `plan.md`, `STATUS.md`, `.brewstillery/skills/verify-part/SKILL.md`. Phase 10 (installation) is next,
+  on the plan's models.
+- Sources: chat of session 39; `plan.md` row 9 and "Phase 9"; D-075, D-076, D-092, D-093, D-095; R-039 to R-048.
+- Supersedes: D-093 only for the watcher.

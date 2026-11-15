@@ -67,28 +67,16 @@ Before starting, look for what earlier runs left. `systemctl --user list-units -
 cell that was killed (the backend's declared residual `network-helper`, part 9a); end it with `kill`. Any other `pasta`
 (a container's, for example) is not Fabrewk's and is left alone.
 
-Until the recovery of a stopped run ends those helpers (D-092, part 9i), each test the timeout kills leaves one, and
-they pile up and slow every suite (R-045: 72 in one run, about 1 GB). So the run carries a watcher in its own scope
-that ends each idle `pasta` of that scope whose cell's process is gone; write it once as `target/watch-pasta.sh`:
-
-    #!/bin/bash
-    # Ends each idle pasta of this scope whose cell's process is gone (D-093; until D-092 is built).
-    own=$(cat /proc/self/cgroup)
-    while sleep 10; do
-      for p in $(pgrep -x pasta); do
-        [ "$(cat /proc/$p/cgroup 2>/dev/null)" = "$own" ] || continue
-        ns=$(tr '\0' '\n' < /proc/$p/cmdline 2>/dev/null | grep -m1 '^/proc/[0-9]*/ns/net$') || continue
-        pid=${ns#/proc/}; pid=${pid%%/*}
-        [ -d /proc/$pid ] || kill $p
-      done
-    done
+Since part 9i the next write command ends such a helper once its cell is gone (D-092), and no watcher runs beside a
+suite or a mutation run (D-096; R-045 counted 72 left by one run before it). An idle `pasta` found before or after a
+run, its cell's process gone, is reported in the record, not only ended.
 
 Then, with the prefix exported first:
 
     mkdir -p target/mutants-tmp
     export TMPDIR=$PWD/target/mutants-tmp CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0
     systemd-run --user --scope -p MemoryMax=2G -p MemorySwapMax=0 -p OOMPolicy=continue \
-      bash -c 'ulimit -v 1600000; bash target/watch-pasta.sh & w=$!; cargo mutants --package fabrewk-core --package fabrewk --test-workspace true -j 1 --jobserver-tasks 2 --timeout 400 --build-timeout 600 --features fabrewk-core/fault-injection --in-diff target/<part>.diff --output target/mutants-<part>; s=$?; kill $w; exit $s'
+      bash -c 'ulimit -v 1600000; exec cargo mutants --package fabrewk-core --package fabrewk --test-workspace true -j 1 --jobserver-tasks 2 --timeout 400 --build-timeout 600 --features fabrewk-core/fault-injection --in-diff target/<part>.diff --output target/mutants-<part>'
 
 and, when the part touches `tools/budget/`, a second run in the same kind of scope for the counter, without the
 feature (it does not depend on the core):

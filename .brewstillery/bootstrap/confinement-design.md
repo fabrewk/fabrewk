@@ -471,3 +471,28 @@ a ceiling.
 
 Phase 7's projections ran short by a third where the file system was adversarial (7d2); the same error here would
 reach about 11,400. An adapter with its audit of twenty anomalies may press its 600; it is measured in part 9c.
+
+## 8. Phase 9's acceptance, as part 9i checked it
+
+What section 13 of `core-specification.md` assigns to phase 9, with the tests that meet it in the clean clone of the
+part's last commit (`crates/<crate>/tests/<file>.rs`, or the crate's own unit tests; a name stands for its test). Each
+part's own record (R-039 to R-048) holds the rest: its refusals, its Codex passes and its mutation run.
+
+| Criterion | Part | Met by |
+| --- | --- | --- |
+| REQ-SEC-1, the cell and its amendment (D-075) | 9a, 9i | `confine-bwrap/cell.rs`: `an_agents_cell_sees_and_writes_only_what_it_lists_and_reaches_nothing_of_the_host`, `a_checks_cell_has_no_network_and_cannot_nest`, `an_extensions_cell_reads_the_repository_and_writes_only_its_own_area`, `nothing_of_fabrewks_own_environment_or_arguments_reaches_a_cell`, `a_process_that_ignores_signals_in_its_own_session_is_gone_after_the_time_limit`, `a_cell_dies_with_fabrewk_and_its_idle_pasta_is_ended_by_the_next_write_command` |
+| REQ-SEC-1 (adapter), REQ-SEC-6 for the dispatch, REQ-SEC-7 | 9c, 9d | `adapter-claude/launch.rs` and `adapter-codex/launch.rs`: `req_sec_6_…`, `req_sec_7_and_s_4_…`, `pd_27_…`; `a_launch_is_refused_in_a_directory_that_holds_another_repository` (plan row 9's launch outside a repository, 6.38) |
+| REQ-SEC-2 | 9a, 9e, 9h | `fabrewk/run.rs::refusal_confinement_unavailable`, `fabrewk/extensions.rs::req_sec_2_with_no_backend_an_extension_refuses_and_never_runs`, `confine-bwrap/cell.rs::an_absent_program_refuses_and_a_cell_with_a_network_that_may_not_nest_refuses` |
+| REQ-SEC-3 in the change set, REQ-RUN-3, REQ-RUN-4, REQ-RUN-10 | 9b | `core/candidate.rs` (`refusal_credential_suspected_in_a_candidate`, `refusal_lane_violation`, `refusal_disk_low`, PD-16 and PD-18 to PD-22, PD-45), `fabrewk/reading.rs::req_run_10_status_shows_what_the_work_areas_hold` |
+| REQ-SEC-5 and the residual risks (S-7) | 9a, 9i | `fabrewk/reading.rs::req_sec_5_s7_config_lists_the_residual_risks_of_the_core_the_backend_and_the_adapters_in_words` |
+| REQ-RUN-1, REQ-RUN-2, REQ-RUN-5 to REQ-RUN-7, REQ-TASK-3 (`BASE_MOVED`), REQ-TASK-5, S-5, S-6 | 9e | `fabrewk/run.rs` (`a_fake_builder_and_reviewer_verify_a_task`, `pd_08_pd_10_a_killed_run_is_ended_unknown_by_the_next_write_command`, `req_run_7_…`, `refusal_tool_missing`, `refusal_budget_exhausted`, `refusal_base_moved_…`), `fabrewk/tasks.rs::pd_09_…`, `fabrewk/faults.rs::p9e_13_…`, `core/table.rs::refusal_attempt_replaced_on_replay` |
+| REQ-RUN-8, REQ-RUN-9, REQ-GATE-1 to REQ-GATE-6, REQ-GATE-10 | 9c, 9f | `core/adapter.rs::req_run_8_…`, `fabrewk/run.rs` (`req_gate_1_2_…`, `req_gate_6_…`, `req_run_9_…`, `pd_07_pd_33_…`, `pd_25_pd_26_…`, `refusal_no_progress_…`, `refusal_provider_missing_…`, `a_run_killed_during_a_check_is_recovered_and_its_copy_removed`), `core/gate.rs` |
+| REQ-GATE-7, REQ-GATE-8, REQ-GATE-9, REQ-REG-10 | 9b, 9g | `core/merge.rs`, `fabrewk/run.rs::req_gate_7_8_pd_37_…`, `pd_44_pd_14_…`, `fabrewk/faults.rs::pd_12_…`, `pd_11_…` |
+| REQ-EXT-1 to REQ-EXT-5, REQ-CLI-3 (exit 10) | 9h | `fabrewk/extensions.rs` |
+| REQ-SET-9's dispatch | 9e | `core/machine.rs::req_set_9_each_invalid_profile_is_refused_before_any_dispatch`, `fabrewk/run.rs::refusal_tool_missing` |
+| PD-07 to PD-14, PD-16, PD-18 to PD-29, PD-33, PD-44 to PD-46 | 9b to 9g | the tests named after each case, listed by the parts' records (R-040 to R-045) |
+| The refusals 11.4 assigns to phase 9 | 9b to 9h | one test each, `refusal_<code>` or named in the parts' records |
+| The flows F-1 to F-3 with fake tools | 9i | `fabrewk/flows.rs`: `f_1_a_stage_from_its_proposal_to_its_close_in_published`, `f_2_the_same_flow_in_own_repository_and_unpublished`, `f_3_a_maestro_and_a_contributor_in_two_clones` |
+| The crash suite over F-1 | 9i | `fabrewk/crash.rs::the_crash_suite_over_f_1`: 352 write points of the 10 write commands of F-1, each a stop and the next write command's recovery |
+| One real dispatch per provider, preflight first | 9c, 9d, 9i | `fabrewk/real.rs::real_one_dispatch_per_provider_through_run_and_accept`, ignored, run once by D-095: each adapter's preflight in both roles before any dispatch (Claude Code 2.1.316, `codex-cli` 0.166.0), Claude Code's build (`claude-sonnet-5-5`, 3 seconds, 9,097 tokens in and 199 out) and Codex's review (`gpt-6-luna` asked; its stream names no model; 6 seconds, 19,520 in and 158 out), accepted at round 1, then `accept` and `check` clean (R-048) |
+| D-092, the idle `pasta` | 9i | `confine-bwrap/cell.rs::d_092_only_the_helper_written_still_running_with_its_start_time_and_program_is_ended`, `a_cell_dies_with_fabrewk_…`, `fabrewk/run.rs::pd_08_pd_10_…` and `d_092_a_cell_still_ending_keeps_its_directories_until_its_helper_is_ended`, `core/confine.rs::a_cell_that_ends_within_ten_seconds_is_settled_and_one_that_does_not_is_kept` |
