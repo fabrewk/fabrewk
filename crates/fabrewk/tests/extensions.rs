@@ -425,3 +425,33 @@ fn an_extension_area_reached_through_a_link_is_refused_and_nothing_is_made_throu
     assert!(ran.stderr.contains("a link on the extension's area's path"), "{ran:?}");
     assert_eq!(fs::read_dir(&outside).unwrap().count(), 0);
 }
+
+/// P9H-1: a run of an extension, confined with write access to its area, cannot swap the area's home for a link that
+/// another run then mounts: two runs of one extension never overlap (`LOCK_HELD`), and a link left behind is refused.
+#[test]
+fn p9h_1_no_run_of_an_extension_mounts_a_home_another_run_swapped() {
+    let fx = fixture("ext-p9h1", "\n[extensions.probe]\n");
+    let own = area(&fx, "probe");
+    let marker = own.join("home/started");
+    install(&fx, "probe", "touch \"$HOME/started\"; sleep 3");
+    let mut first = fx.spawn(&["probe"]);
+    let begun = std::time::Instant::now();
+    while !marker.exists() {
+        assert!(begun.elapsed() < std::time::Duration::from_secs(30), "the first run never started");
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    let ran = refused(&fx, &["probe"], "LOCK_HELD", 1);
+    assert!(ran.stderr.contains("the extension probe runs in another command"), "{ran:?}");
+    assert!(first.wait().unwrap().success());
+    // A home swapped for a link, from inside, is refused at the next run, and nothing is written through it.
+    let target = fx.root.parent().unwrap().join("target-dir");
+    fs::create_dir_all(&target).unwrap();
+    let script = format!("mv '{0}/home' '{0}/old' && ln -s '{1}' '{0}/home'", own.display(), target.display());
+    install(&fx, "probe", &script);
+    assert_eq!(fx.run(&["probe"]).status, 0);
+    assert!(fs::symlink_metadata(own.join("home")).unwrap().file_type().is_symlink());
+    install(&fx, "probe", "touch \"$HOME/ran\"");
+    let ran = refused(&fx, &["probe"], "TOOL_FAILED", 1);
+    assert!(ran.stderr.contains("a link on the extension's area's path"), "{ran:?}");
+    assert_eq!(fs::read_dir(&target).unwrap().count(), 0);
+}

@@ -55,13 +55,18 @@ pub(super) struct Proposed {
     tasks: Vec<(String, Option<String>, String)>,
 }
 
-/// The events of `file` on `record`, with `actor` as theirs; a refusal names `path`.
+/// The identifiers a command's plan has drawn so far.
+pub(super) type Taken = std::cell::RefCell<std::collections::BTreeSet<String>>;
+
+/// The events of `file` on `record`, with `actor` as theirs and none of the identifiers in `taken`, which it adds to;
+/// a refusal names `path`.
 pub(super) fn plan(
     cx: &Cx,
     path: &Path,
     file: &Value,
     record: &Replay,
     actor: &Value,
+    taken: &Taken,
 ) -> Result<Plan<Proposed>, Failed> {
     let policy = write::state(cx, record)?.policy;
     let o = file.as_object().filter(|o| o.len() == 2 && o.contains_key("stage") && o.contains_key("tasks"));
@@ -79,7 +84,6 @@ pub(super) fn plan(
     // A creation's identifier is the first 8 digits of its digest, so two may meet: a nonce whose identifier the
     // record or this file already holds is drawn again, and after 8 draws the command refuses, with nothing written
     // (REQ-REG-1, P7D3A-15).
-    let taken = std::cell::RefCell::new(std::collections::BTreeSet::new());
     let fresh = |kind: &str, p: Value| -> Result<Value, Error> {
         for _ in 0..8 {
             let n = nonce().map_err(|e| Error::Io { path: "/dev/urandom".into(), error: e })?;
@@ -198,7 +202,7 @@ pub(super) fn run(cx: &Cx, file: &str) -> Result<Out, Failed> {
     let path = cx.root.join(file);
     let value = read(&path, Code::TaskInvalid)?;
     let fabrewk = json!({"kind": "fabrewk"});
-    let (proposed, written) = write::run(cx, |record| plan(cx, &path, &value, record, &fabrewk))?;
+    let (proposed, written) = write::run(cx, |record| plan(cx, &path, &value, record, &fabrewk, &Taken::default()))?;
     let (id, new, _) = &proposed.stage;
     let mut text = lines(cx, &proposed);
     let tasks: Vec<Value> =

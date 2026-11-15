@@ -1408,7 +1408,9 @@ absent; an extension that then fails to start is `TOOL_FAILED`, whose words say 
   a pinned `digest` that differs refuses `EXTENSION_DIGEST` before it runs. Then `extensions.<name>.network` refuses
   `CONFINEMENT_UNAVAILABLE` (D-094 point 1), and so does a backend that is absent or does not pass its probe.
 - Its cell: the repository read-only at its own path, `.brewstillery/local/` hidden but for its area `local/ext/<name>/`
-  (writable, `0700`, kept between runs, its home and `/tmp` the directories `home` and `tmp` inside it) and
+  (writable, `0700`, kept between runs, its home and `/tmp` the directories `home` and `tmp` inside it, each checked to
+  be reached through no link before it is made and again after; its lock `local/ext/<name>.lock`, which no cell
+  reaches, held for the whole run, so that two runs of one extension never overlap, `LOCK_HELD`, P9H-1) and
   `local/cache/` (read-only, where it exists, reached through no link); the running `fabrewk` and the program,
   read-only at their resolved paths; no network, no namespace of its own; the directory is the repository's root; the
   environment is a cell's (`PATH`, `HOME`, `TMPDIR`, `LANG`) and the four variables of REQ-EXT-2. Its run is limited by
@@ -1422,7 +1424,8 @@ absent; an extension that then fails to start is `TOOL_FAILED`, whose words say 
   `{"protocol":1,"request":"propose","stage":…,"tasks":…}`, whose two fields are those of `propose`'s file; otherwise
   `EXTENSION_OUTPUT_INVALID`, naming the line and why, never its bytes. With no line, nothing is written.
 - The requests are applied in one write command, all or none: a note is `extension-note` in `ext-<name>`; a proposal
-  is planned as `propose` plans its file, with the extension as the events' actor (`stage-proposed` and
+  is planned as `propose` plans its file, every request drawing from one set of identifiers (P9H-2), with the
+  extension as the events' actor (`stage-proposed` and
   `task-proposed` take an extension, D-094; never a person), and its own refusals keep their codes, their detail
   naming the line. Under the lock the policy in force must still permit the extension at the digest it ran with, else
   `EXTENSION_DIGEST`. Applying them keeps the backend's programs as verified by use; a run with no request writes

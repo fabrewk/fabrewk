@@ -751,6 +751,43 @@ fn d_094_an_extension_past_its_minutes_is_ended_and_applies_nothing() {
     assert_eq!(fs::read_to_string(kept.unwrap().join("stdout")).unwrap(), format!("{request}\n"));
 }
 
+/// P9H-2: two `propose` requests of one extension's output never draw one identifier: with every nonce the same, the
+/// second's stage collides with the first's after eight draws, `RECORD_ID_COLLISION`, and nothing is written.
+#[test]
+fn p9h_2_an_extensions_proposals_share_the_identifiers_they_draw() {
+    use std::os::unix::fs::PermissionsExt;
+    let mut fx = Fx::new_with("ext-nonce", "unpublished", "\n[extensions.twice]\n");
+    let bin = fx.root.parent().unwrap().join("ext-bin");
+    fs::create_dir_all(&bin).unwrap();
+    let request = json!({
+        "protocol": 1, "request": "propose",
+        "stage": {"lang": "en", "goal": "Index it.", "budget": {"dispatches": 6, "minutes": 120}, "checks": {}, "settings": {}},
+        "tasks": [{
+            "lang": "en", "goal": "Make it.", "requirements": [{"text": "It builds.", "criterion": "it builds"}],
+            "base": fx.git(&["rev-parse", "HEAD"]), "dependencies": [], "allowed": ["src/**"],
+            "profiles": {"build": "build", "review": "review"}, "checks": [],
+            "limits": {"rounds": 3, "dispatches": 6, "minutes": 120}, "delegationLanguage": "en", "settings": {},
+        }],
+    });
+    let line = format!("printf '%s\\n' '{}'", serde_json::to_string(&request).unwrap());
+    fs::write(bin.join("fabrewk-twice"), format!("#!/bin/sh\n{line}\n{line}\n")).unwrap();
+    fs::set_permissions(bin.join("fabrewk-twice"), fs::Permissions::from_mode(0o755)).unwrap();
+    let path =
+        std::env::join_paths(std::iter::once(bin).chain(std::env::split_paths(&std::env::var_os("PATH").unwrap())));
+    fx.path = Some(path.unwrap());
+    let before = fs::read_dir(fx.domain.join("data/events")).unwrap().count();
+    let ran = fx.run_env(&["twice"], &[("FABREWK_FAULT_NONCE", &"0".repeat(32))]);
+    assert_eq!(ran.status, 1, "{ran:?}");
+    assert!(ran.stderr.contains("RECORD_ID_COLLISION") && ran.stderr.contains("line 2: "), "{ran:?}");
+    assert_eq!(fs::read_dir(fx.domain.join("data/events")).unwrap().count(), before);
+    // One of them alone is written.
+    let one = format!("#!/bin/sh\n{line}\n");
+    fs::write(fx.root.parent().unwrap().join("ext-bin/fabrewk-twice"), one).unwrap();
+    let ran = fx.run_env(&["twice"], &[("FABREWK_FAULT_NONCE", &"0".repeat(32))]);
+    assert_eq!(ran.status, 0, "{ran:?}");
+    assert_eq!(fs::read_dir(fx.domain.join("data/events")).unwrap().count(), before + 2);
+}
+
 /// Appends to `stream` an event of `kind`, a maestro's (signed) or Fabrewk's, through the library; commits it.
 fn appended(fx: &Fx, stream: &str, kind: &str, payload: Value, person: bool) {
     use fabrewk_core::record::{KeySigner, Say, Session, Sign};

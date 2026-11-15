@@ -144,22 +144,39 @@ fn pinned(policy: &Policy, name: &str, digest: &str) -> Result<(), Error> {
     Err(refuse(Code::ExtensionDigest, None, why))
 }
 
-/// Its own area, `local/ext/<name>/`, with its home and `/tmp` (`0700`), reached through no link.
-fn area(cx: &Cx, name: &str) -> Result<PathBuf, Error> {
+/// Its own area, `local/ext/<name>/`, with its home and `/tmp` (`0700`), reached through no link, and its lock,
+/// `local/ext/<name>.lock`, which no cell reaches: held for the whole run, so that no other run of the extension,
+/// confined with write access to the area, can swap its home or `/tmp` for a link between their check and their
+/// mount (P9H-1). Another run holding it is `LOCK_HELD`.
+fn area(cx: &Cx, name: &str) -> Result<(PathBuf, std::fs::File), Error> {
     let area = cx.domain.join("local/ext").join(name);
-    // Checked before anything is made, so that nothing is made through a link, and again once it exists.
-    for made in [false, true] {
-        if !["home", "tmp"].iter().all(|d| crate::code::unlinked(&cx.domain, &format!("local/ext/{name}/{d}"))) {
-            return Err(refuse(Code::ToolFailed, Some(&area), "a link on the extension's area's path; not followed"));
+    let rels = [format!("local/ext/{name}.lock"), format!("local/ext/{name}/home"), format!("local/ext/{name}/tmp")];
+    let linked = || !rels.iter().all(|r| crate::code::unlinked(&cx.domain, r));
+    let refused = || refuse(Code::ToolFailed, Some(&area), "a link on the extension's area's path; not followed");
+    if linked() {
+        return Err(refused());
+    }
+    let parent = cx.domain.join("local/ext");
+    std::fs::create_dir_all(&parent).map_err(io_at(&parent))?;
+    let path = parent.join(format!("{name}.lock"));
+    let lock = std::fs::File::options().create(true).append(true).mode(0o600).open(&path).map_err(io_at(&path))?;
+    match lock.try_lock() {
+        Ok(()) => {}
+        Err(std::fs::TryLockError::WouldBlock) => {
+            return Err(refuse(Code::LockHeld, Some(&path), format!("the extension {name} runs in another command")));
         }
-        for dir in [area.join("home"), area.join("tmp")].iter().filter(|_| !made) {
-            std::fs::create_dir_all(dir).map_err(io_at(dir))?;
-        }
+        Err(std::fs::TryLockError::Error(e)) => return Err(io_at(&path)(e)),
+    }
+    for dir in [area.join("home"), area.join("tmp")] {
+        std::fs::create_dir_all(&dir).map_err(io_at(&dir))?;
+    }
+    if linked() {
+        return Err(refused());
     }
     for dir in [area.clone(), area.join("home"), area.join("tmp")] {
         std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700)).map_err(io_at(&dir))?;
     }
-    Ok(area)
+    Ok((area, lock))
 }
 
 /// Runs the extension `name` with `args` (see the module's description).
@@ -192,7 +209,8 @@ pub(super) fn run(cx: &Cx, name: &str, args: &[OsString]) -> Result<Out, Failed>
     let programs = confine::available(cx.backend, &mut detection, &cx.domain)?;
     let backend = cx.backend.expect("an available backend");
     let bin = std::env::current_exe().and_then(|p| p.canonicalize()).map_err(io_at(Path::new("fabrewk")))?;
-    let area = area(cx, name)?;
+    // Held until the requests are applied, so that no other run of it starts meanwhile.
+    let (area, _lock) = area(cx, name)?;
     let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos());
     let run_name = format!("ext-{name}-{}-{nanos}", std::process::id());
     let scratch = Scratch::create(&cx.domain, &run_name)?;
@@ -257,6 +275,8 @@ pub(super) fn run(cx: &Cx, name: &str, args: &[OsString]) -> Result<Out, Failed>
         pinned(&policy, name, &digest)?;
         let mut events = Vec::new();
         let mut lines = Vec::new();
+        // The identifiers every request of this output takes, so that none is drawn twice (P9H-2).
+        let taken = propose::Taken::default();
         for (n, request) in &requests {
             let at = |f: Failed| match f {
                 Failed::Refused(mut errors) => {
@@ -284,7 +304,7 @@ pub(super) fn run(cx: &Cx, name: &str, args: &[OsString]) -> Result<Out, Failed>
                     lines.push(cx.t("extension.noted", &[("name", name)]));
                 }
                 Request::Propose(file_value) => {
-                    let p = propose::plan(cx, &file, file_value, record, &actor).map_err(at)?;
+                    let p = propose::plan(cx, &file, file_value, record, &actor, &taken).map_err(at)?;
                     events.extend(p.events);
                     lines.push(propose::lines(cx, &p.out));
                 }
