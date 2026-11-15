@@ -24,7 +24,7 @@ Shows every effective setting with its source, the changes not adopted, the keys
 
 Moves it may cause: none.
 
-Documents with --json: `fabrewk.config/2`, `fabrewk.value/1`
+Documents with --json: `fabrewk.config/3`, `fabrewk.value/1`
 
 Refusals
 
@@ -651,4 +651,5 @@ Documents with --json: `fabrewk.refused/1`, `fabrewk.usage/1`, `fabrewk.internal
 - `2`: usage error: the command line was not accepted.
 - `3`: the check found a problem.
 - `4`: the run stopped and waits for a person: the task is halted.
+- `10`: the extension does not support the protocol of this version of Fabrewk.
 - `70`: internal error.

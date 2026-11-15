@@ -24,7 +24,7 @@ Muestra cada ajuste efectivo con su origen, los cambios no adoptados, las llaves
 
 Movimientos que puede causar: ninguno.
 
-Documentos con --json: `fabrewk.config/2`, `fabrewk.value/1`
+Documentos con --json: `fabrewk.config/3`, `fabrewk.value/1`
 
 Rechazos
 
@@ -651,4 +651,5 @@ Documentos con --json: `fabrewk.refused/1`, `fabrewk.usage/1`, `fabrewk.internal
 - `2`: error de uso: no se aceptó la línea de comandos.
 - `3`: la verificación encontró un problema.
 - `4`: la corrida se detuvo y espera a una persona: la tarea está detenida.
+- `10`: la extensión no soporta el protocolo de esta versión de Fabrewk.
 - `70`: error interno.

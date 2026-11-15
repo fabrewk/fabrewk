@@ -205,6 +205,8 @@ pub const HALTS: [&str; 14] = [
     "DISK_LOW",
 ];
 const TASK_HALTED: T = T::Obj(&[("code", T::One(&HALTS)), ("reason", T::Text)]);
+/// An extension's note records its text and nothing else (REQ-EXT-3).
+const EXTENSION_NOTE: T = T::Obj(&[("text", T::Text)]);
 const SWEPT: T = T::Obj(&[("alias", T::Text), ("head", HEAD)]);
 const STAGE_CLOSED: T = T::Obj(&[("stage", T::Id('s')), ("head", HEAD), ("sweeps", T::List(&SWEPT))]);
 
@@ -303,6 +305,7 @@ pub fn check(kind: &str, p: &Value) -> Result<(), Error> {
         "review-recorded" => (&REVIEW_RECORDED, Level::Task),
         "task-verified" => (&TASK_VERIFIED, Level::Task),
         "task-halted" => (&TASK_HALTED, Level::Task),
+        "extension-note" => (&EXTENSION_NOTE, Level::Task),
         _ => return Ok(()),
     };
     let fail = |code: Code, why: String| refuse(code, None, format!("{kind}: {why}"));

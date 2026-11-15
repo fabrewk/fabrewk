@@ -19,7 +19,8 @@ pub enum StreamKind {
     Ext,
 }
 
-/// Who may record a kind: a person (signed, with words), Fabrewk, an agent, any actor but a person, an extension.
+/// Who may record a kind: a person (signed, with words), Fabrewk, an agent, any actor but a person (an agent, Fabrewk
+/// or an extension, REQ-EXT-3), an extension.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Class {
     Person,
@@ -196,7 +197,7 @@ pub(crate) fn check(v: &Value, stream: &str, seq: u64) -> Result<Class, (Code, &
     if !KINDS.iter().any(|k| k.0 == kind && k.1 == place) {
         return Err((Invalid, "kind not recorded in this stream"));
     }
-    if actor != Some(class) && !(class == NotPerson && matches!(actor, Some(Agent | Fabrewk))) {
+    if actor != Some(class) && !(class == NotPerson && matches!(actor, Some(Agent | Fabrewk | Extension))) {
         return Err((Invalid, "actor"));
     }
     if say != (class == Person) {
@@ -425,6 +426,40 @@ mod tests {
         }
         let other = json!({"content": "other", "digest": digest, "heads": {}, "widened": []});
         assert_eq!(event(other), Err(Code::RecordBroken));
+    }
+
+    #[test]
+    fn req_ext_3_a_proposal_takes_an_extension_as_actor_and_a_note_only_an_extension() {
+        let ext = json!({"kind": "extension", "name": "lint", "digest": "a".repeat(64)});
+        let agent =
+            json!({"kind": "agent", "tool": "t", "provider": "p", "modelRequested": "m", "modelObserved": null});
+        let person = json!({"kind": "person", "alias": "xel", "role": "maestro"});
+        let event = |kind: &str, stream: &str, actor: &Value| {
+            let payload = if kind == "extension-note" { json!({"text": "Indexed."}) } else { json!({}) };
+            let draft = Draft {
+                kind: kind.into(),
+                actor: actor.clone(),
+                policy: "b".repeat(64),
+                instance: "i".into(),
+                say: None,
+                payload,
+            };
+            check(&draft.build(stream, 1, None), stream, 1)
+        };
+        let invalid = Err((Code::RecordTransitionInvalid, "actor"));
+        // A person's proposal is refused for its actor; any other actor's passes that guard (its payload is the next).
+        for (actor, ok) in [(&ext, true), (&agent, true), (&json!({"kind": "fabrewk"}), true), (&person, false)] {
+            let class = event("stage-proposed", "stage-s-00000000", actor);
+            assert_eq!(class != invalid, ok, "{actor}: {class:?}");
+        }
+        assert_eq!(event("extension-note", "ext-lint", &ext), Ok(Extension));
+        for actor in [&agent, &json!({"kind": "fabrewk"})] {
+            assert_eq!(event("extension-note", "ext-lint", actor), invalid, "{actor}");
+        }
+        assert_eq!(
+            event("extension-note", "project", &ext),
+            Err((Code::RecordTransitionInvalid, "kind not recorded in this stream"))
+        );
     }
 
     #[test]

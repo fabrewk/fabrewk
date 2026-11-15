@@ -107,4 +107,5 @@ pub const KEYS: &[Key] = &[
     k("git.signOff", Bool, P, Lit("false"), Neutral, "Sign-off on Fabrewk's commits"),
     k("extensions.*.digest", Str, P, Absent, Neutral, "The extension's digest"),
     k("extensions.*.network", Bool, P, Lit("false"), Widens, "Whether the extension has network"),
+    k("extensions.*.minutes", Int, P, Lit("30"), Widens, "The extension's time limit"),
 ];

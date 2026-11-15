@@ -11,6 +11,7 @@ mod check;
 mod close;
 mod config;
 mod decl;
+mod ext;
 mod propose;
 mod run;
 mod status;
@@ -46,6 +47,7 @@ pub const REFUSED: i32 = 1;
 pub const USAGE: i32 = 2;
 pub const FOUND: i32 = 3;
 pub const WAITING: i32 = 4;
+pub const UNSUPPORTED: i32 = ext::UNSUPPORTED;
 pub const INTERNAL: i32 = 70;
 
 /// What a command gives: its document, its human text, where the text goes and the exit status.
@@ -273,9 +275,11 @@ type Wired = (&'static [&'static Adapter], Option<&'static Backend>);
 /// are the built-in tool adapters, whose programs are detected (D-051) and whose markers show a process runs inside an
 /// agent (REQ-SEC-7).
 pub fn main(args: Vec<OsString>, adapters: &'static [&'static Adapter], backend: Option<&'static Backend>) -> i32 {
-    let asked = args.iter().any(|a| a == "--json");
-    let parsed = decl::parse(args);
-    let writes = matches!(&parsed, Ok(Parsed::Run { command, .. }) if decl::writes(command));
+    // `fabrewk <name> …` for a name no core command has is an extension's, with every word after it its own (REQ-EXT-1).
+    let extension = ext::called(&args);
+    let asked = extension.is_none() && args.iter().any(|a| a == "--json");
+    let parsed = decl::parse(args.clone());
+    let writes = extension.is_some() || matches!(&parsed, Ok(Parsed::Run { command, .. }) if decl::writes(command));
     std::panic::set_hook(Box::new(move |_| {
         let key = if writes { "internal.panic-write" } else { "internal.panic" };
         let _ = writeln!(std::io::stderr(), "{}", say("en", key, &[]));
@@ -288,25 +292,28 @@ pub fn main(args: Vec<OsString>, adapters: &'static [&'static Adapter], backend:
         (_, Err(_)) => internal("en", ".", writes),
         (parsed, Ok(root)) => {
             let cx = Cx { writes, ..Cx::new(root, (adapters, backend)) };
-            let result = match parsed {
-                Err(u) => Err(Failed::Usage(u)),
-                Ok(Parsed::Help(c)) => Ok(Out::new(Value::Null, decl::help(cx.lang, c))),
-                Ok(Parsed::Run { command, arg, options, .. }) => match command.name {
-                    "status" => status::run(&cx, arg.as_deref()),
-                    "config" => config::run(&cx, arg.as_deref()),
-                    "adopt" => adopt::run(&cx, &options),
-                    "propose" => propose::run(&cx, arg.as_deref().unwrap_or_default()),
-                    "authorize" => tasks::authorize(&cx, arg.as_deref().unwrap_or_default(), &options),
-                    "accept" => accept::accept(&cx, arg.as_deref().unwrap_or_default(), &options),
-                    "reject" => tasks::reject(&cx, arg.as_deref().unwrap_or_default(), &options),
-                    "run" => tasks::run(&cx, arg.as_deref().unwrap_or_default(), &options),
-                    "sweep" => sweep::sweep(&cx, arg.as_deref().unwrap_or_default(), &options),
-                    "discard" => sweep::discard(&cx, arg.as_deref().unwrap_or_default(), &options),
-                    "approve" => approve::approve(&cx, arg.as_deref().unwrap_or_default(), &options),
-                    "close" => close::close(&cx, arg.as_deref().unwrap_or_default(), &options),
-                    _ => check::run(&cx),
+            let result = match (parsed, extension) {
+                (_, Some(name)) => ext::run(&cx, &name, &args[1..]),
+                (parsed, None) => match parsed {
+                    Err(u) => Err(Failed::Usage(u)),
+                    Ok(Parsed::Help(c)) => Ok(Out::new(Value::Null, decl::help(cx.lang, c))),
+                    Ok(Parsed::Run { command, arg, options, .. }) => match command.name {
+                        "status" => status::run(&cx, arg.as_deref()),
+                        "config" => config::run(&cx, arg.as_deref()),
+                        "adopt" => adopt::run(&cx, &options),
+                        "propose" => propose::run(&cx, arg.as_deref().unwrap_or_default()),
+                        "authorize" => tasks::authorize(&cx, arg.as_deref().unwrap_or_default(), &options),
+                        "accept" => accept::accept(&cx, arg.as_deref().unwrap_or_default(), &options),
+                        "reject" => tasks::reject(&cx, arg.as_deref().unwrap_or_default(), &options),
+                        "run" => tasks::run(&cx, arg.as_deref().unwrap_or_default(), &options),
+                        "sweep" => sweep::sweep(&cx, arg.as_deref().unwrap_or_default(), &options),
+                        "discard" => sweep::discard(&cx, arg.as_deref().unwrap_or_default(), &options),
+                        "approve" => approve::approve(&cx, arg.as_deref().unwrap_or_default(), &options),
+                        "close" => close::close(&cx, arg.as_deref().unwrap_or_default(), &options),
+                        _ => check::run(&cx),
+                    },
+                    Ok(Parsed::Version { .. }) => Ok(version()),
                 },
-                Ok(Parsed::Version { .. }) => Ok(version()),
             };
             match result {
                 Ok(out) => out,

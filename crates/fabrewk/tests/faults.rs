@@ -722,6 +722,35 @@ fn pd_28_a_builder_that_times_out_keeps_its_output_and_halts() {
     }
 }
 
+/// An extension past its minutes (`extensions.<name>.minutes`, D-094; here two seconds a minute) is ended, what it
+/// printed is kept as evidence, and none of its requests is applied: `TOOL_FAILED`.
+#[test]
+fn d_094_an_extension_past_its_minutes_is_ended_and_applies_nothing() {
+    use std::os::unix::fs::PermissionsExt;
+    let mut fx = Fx::new_with("ext-time", "unpublished", "\n[extensions.slow]\nminutes = 1\n");
+    let bin = fx.root.parent().unwrap().join("ext-bin");
+    fs::create_dir_all(&bin).unwrap();
+    let request = r#"{"protocol":1,"request":"note","text":"too late"}"#;
+    fs::write(bin.join("fabrewk-slow"), format!("#!/bin/sh\necho '{request}'\necho said >&2\nsleep 30\n")).unwrap();
+    fs::set_permissions(bin.join("fabrewk-slow"), fs::Permissions::from_mode(0o755)).unwrap();
+    let path =
+        std::env::join_paths(std::iter::once(bin).chain(std::env::split_paths(&std::env::var_os("PATH").unwrap())));
+    fx.path = Some(path.unwrap());
+    let begun = std::time::Instant::now();
+    let ran = fx.run_env(&["slow"], &[("FABREWK_FAULT_MINUTE", "2")]);
+    assert!(begun.elapsed() < std::time::Duration::from_secs(15), "{:?}", begun.elapsed());
+    assert_eq!(ran.status, 1, "{ran:?}");
+    assert!(ran.stderr.contains("TOOL_FAILED") && ran.stderr.contains("ended at its time limit"), "{ran:?}");
+    assert!(ran.stderr.starts_with("said\n"), "its standard error reaches the person: {ran:?}");
+    assert!(fx.events("ext-slow").is_empty());
+    let store = fx.domain.join("local/evidence");
+    let kept = fs::read_dir(&store)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .find(|p| p.file_name().unwrap().to_str().unwrap().starts_with("ext-slow-"));
+    assert_eq!(fs::read_to_string(kept.unwrap().join("stdout")).unwrap(), format!("{request}\n"));
+}
+
 /// Appends to `stream` an event of `kind`, a maestro's (signed) or Fabrewk's, through the library; commits it.
 fn appended(fx: &Fx, stream: &str, kind: &str, payload: Value, person: bool) {
     use fabrewk_core::record::{KeySigner, Say, Session, Sign};

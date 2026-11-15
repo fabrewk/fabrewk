@@ -665,6 +665,12 @@ fn refusal_task_invalid() {
     {
         assert_eq!(task::check(kind, &json!({})).map_err(|e| e.code().unwrap()), Err(Code::RecordVersionUnknown));
     }
+    // An extension's note records its text and nothing else (REQ-EXT-3).
+    let note = |v: Value| task::check("extension-note", &v).map_err(|e| e.code().unwrap());
+    assert_eq!(note(json!({"text": "Indexed."})), Ok(()));
+    for v in [json!({}), json!({"text": "x", "more": 1}), json!({"text": 1})] {
+        assert_eq!(note(v), Err(Code::RecordVersionUnknown));
+    }
     // The shape is schema 1's: a record holding a malformed payload does not replay.
     let f = Fixture::new("task-shape", false);
     let (stream, d) = creation("task-proposed", json!({"goal": "x"}));

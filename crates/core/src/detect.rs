@@ -136,7 +136,7 @@ fn is_executable(path: &Path) -> bool {
 }
 
 /// The first executable file named `executable` in an absolute directory of `path`; a name with a `/` is none.
-fn search(path: Option<&OsStr>, executable: &str) -> Option<PathBuf> {
+pub(crate) fn search(path: Option<&OsStr>, executable: &str) -> Option<PathBuf> {
     if executable.contains('/') {
         return None;
     }

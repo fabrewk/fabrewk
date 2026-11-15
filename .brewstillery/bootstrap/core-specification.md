@@ -1398,6 +1398,38 @@ REQ-GATE-10, REQ-REG-10, REQ-RUN-6, REQ-REG-13; S-4, S-11; D-083, D-086, D-087).
 the path where it was found. An interpreter or support file outside the system directories and the repository is
 absent; an extension that then fails to start is `TOOL_FAILED`, whose words say so.
 
+**Extensions, as part 9h fixed them (REQ-EXT-1 to REQ-EXT-5, REQ-CLI-3, S-9; D-094).**
+
+- The runner is `crates/core/src/cli/ext.rs`. `fabrewk <name> …`, for a first word that is no core command's, is an
+  extension's, every word after it its own (`--json` included). A name outside the alias pattern, or with no program
+  `fabrewk-<name>` in `PATH`, or one the policy in force does not permit (no table `[extensions.<name>]`), is a usage
+  error, as an unknown command is; a present program whose permission cannot be read (no record that replays) is the
+  record's refusal. The program is the executable `PATH` finds, resolved; its digest is the SHA-256 of its bytes, and
+  a pinned `digest` that differs refuses `EXTENSION_DIGEST` before it runs. Then `extensions.<name>.network` refuses
+  `CONFINEMENT_UNAVAILABLE` (D-094 point 1), and so does a backend that is absent or does not pass its probe.
+- Its cell: the repository read-only at its own path, `.brewstillery/local/` hidden but for its area `local/ext/<name>/`
+  (writable, `0700`, kept between runs, its home and `/tmp` the directories `home` and `tmp` inside it) and
+  `local/cache/` (read-only, where it exists, reached through no link); the running `fabrewk` and the program,
+  read-only at their resolved paths; no network, no namespace of its own; the directory is the repository's root; the
+  environment is a cell's (`PATH`, `HOME`, `TMPDIR`, `LANG`) and the four variables of REQ-EXT-2. Its run is limited by
+  `extensions.<name>.minutes` (D-094 point 2) and by 1 MiB kept of each channel; its evidence is
+  `local/evidence/ext-<name>-<process>-<nanoseconds>/`. Its standard error reaches the person once it has ended, every
+  hidden character written as an escape.
+- Exit 10 applies nothing and exits 10; 126 and 127 are `TOOL_FAILED` whose words say that an interpreter or a support
+  file may lie outside the cell (S-9); any other status but 0, a time limit or a cap passed, `TOOL_FAILED` naming its
+  evidence (D-094 point 3). On 0, every line of its standard output (UTF-8, split at line breaks, the last one's
+  optional) must be one JSON object with no member named twice: `{"protocol":1,"request":"note","text":<text>}` or
+  `{"protocol":1,"request":"propose","stage":…,"tasks":…}`, whose two fields are those of `propose`'s file; otherwise
+  `EXTENSION_OUTPUT_INVALID`, naming the line and why, never its bytes. With no line, nothing is written.
+- The requests are applied in one write command, all or none: a note is `extension-note` in `ext-<name>`; a proposal
+  is planned as `propose` plans its file, with the extension as the events' actor (`stage-proposed` and
+  `task-proposed` take an extension, D-094; never a person), and its own refusals keep their codes, their detail
+  naming the line. Under the lock the policy in force must still permit the extension at the digest it ran with, else
+  `EXTENSION_DIGEST`. Applying them keeps the backend's programs as verified by use; a run with no request writes
+  nothing, so its probe runs again next time.
+- `config` (`fabrewk.config/3`) lists each permitted extension with its resolved path and digest, or as absent, without
+  running it (D-094 point 4). `extension-note`'s payload is `{"text"}` (schema 1).
+
 ### BUD: size, dependencies and build
 
 - **REQ-BUD-1.** Size is counted in non-blank lines of Rust that are not only comment (`//`, `///`, `//!`, and lines
@@ -1735,7 +1767,7 @@ authority), N (narrows), — (neutral).
 | `gate.protectedPaths` | list of paths | `Cargo.toml`, `Cargo.lock`, `.github/`, every file a check's command names and the hooks directory inside the working tree (D-076) | N | REQ-GATE-9 |
 | `gate.protectedNames` | list of names | `.gitattributes`, `.gitmodules` and each adapter's instruction names (D-076) | N | REQ-GATE-9 |
 | `git.signOff` | boolean | `false` | — | REQ-RUN-4 |
-| `extensions.<name>.digest`, `.network` | string, boolean | none, `false` | —, W | REQ-EXT-1, AD-5 |
+| `extensions.<name>.digest`, `.network`, `.minutes` | string, boolean, integer | none, `false`, 30 | —, W, W | REQ-EXT-1, AD-5, D-094 |
 
 Adding a table under `maintainers`, `tools`, `providers`, `models`, `profiles`, `checks` or `extensions` is a widening;
 removing one is a narrowing.

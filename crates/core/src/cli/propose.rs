@@ -1,6 +1,7 @@
 //! `fabrewk propose <file>` (sections 4 and 5; REQ-TASK-2, REQ-TASK-3, REQ-TASK-7, REQ-GATE-1, REQ-GATE-9; part
 //! 7d3a): a stage and its tasks, or tasks added to a stage the record holds, from a JSON file the integrator wrote.
-//! It grants nothing: anyone may run it, it takes no words, and Fabrewk is the events' actor. Each move's guards run
+//! It grants nothing: anyone may run it, it takes no words, and Fabrewk is the events' actor; an extension's `propose`
+//! request is planned alike, with the extension as their actor (REQ-EXT-3, part 9h). Each move's guards run
 //! in the table's order: for a new stage `TASK_INVALID` and `CHECK_DUPLICATE`; for each task `STAGE_CLOSED`,
 //! `TASK_INVALID`, `PROTECTED_PATH` and `PROTECTED_PATH_WILDCARD`.
 
@@ -49,21 +50,27 @@ fn content(path: &Path, kind: &str, p: &Value) -> Result<(), Error> {
 }
 
 /// What `propose` reports: the stage, whether it is new, and each task with its name in the file.
-struct Proposed {
+pub(super) struct Proposed {
     stage: (String, bool, String),
     tasks: Vec<(String, Option<String>, String)>,
 }
 
-fn plan(cx: &Cx, path: &Path, file: &Value, record: &Replay) -> Result<Plan<Proposed>, Failed> {
+/// The events of `file` on `record`, with `actor` as theirs; a refusal names `path`.
+pub(super) fn plan(
+    cx: &Cx,
+    path: &Path,
+    file: &Value,
+    record: &Replay,
+    actor: &Value,
+) -> Result<Plan<Proposed>, Failed> {
     let policy = write::state(cx, record)?.policy;
     let o = file.as_object().filter(|o| o.len() == 2 && o.contains_key("stage") && o.contains_key("tasks"));
     let o = o.ok_or_else(|| invalid(path, "the file holds exactly stage and tasks"))?;
     let tasks = o["tasks"].as_array().filter(|t| !t.is_empty());
     let tasks = tasks.ok_or_else(|| invalid(path, "tasks: a list of one task or more"))?;
-    let fabrewk = json!({"kind": "fabrewk"});
     let draft = |kind: &str, payload: Value| Draft {
         kind: kind.into(),
-        actor: fabrewk.clone(),
+        actor: actor.clone(),
         policy: policy.digest.clone(),
         instance: String::new(),
         say: None,
@@ -175,19 +182,27 @@ fn plan(cx: &Cx, path: &Path, file: &Value, record: &Replay) -> Result<Plan<Prop
     })
 }
 
-pub(super) fn run(cx: &Cx, file: &str) -> Result<Out, Failed> {
-    let path = cx.root.join(file);
-    let value = read(&path, Code::TaskInvalid)?;
-    let (proposed, written) = write::run(cx, |record| plan(cx, &path, &value, record))?;
+/// What was proposed, as the person reads it: the stage, then each task.
+pub(super) fn lines(cx: &Cx, proposed: &Proposed) -> String {
     let (id, new, goal) = &proposed.stage;
     let key = if *new { "propose.stage" } else { "propose.added" };
     let mut text = cx.t(key, &[("id", id), ("goal", &super::tasks::verbatim(goal, "  "))]) + "\n";
-    let mut tasks = Vec::new();
-    for (tid, name, goal) in &proposed.tasks {
+    for (tid, _, goal) in &proposed.tasks {
         text +=
             &format!("  {}\n", cx.t("propose.task", &[("id", tid), ("goal", &super::tasks::verbatim(goal, "    "))]));
-        tasks.push(json!({"id": tid, "name": name, "goal": goal}));
     }
+    text
+}
+
+pub(super) fn run(cx: &Cx, file: &str) -> Result<Out, Failed> {
+    let path = cx.root.join(file);
+    let value = read(&path, Code::TaskInvalid)?;
+    let fabrewk = json!({"kind": "fabrewk"});
+    let (proposed, written) = write::run(cx, |record| plan(cx, &path, &value, record, &fabrewk))?;
+    let (id, new, _) = &proposed.stage;
+    let mut text = lines(cx, &proposed);
+    let tasks: Vec<Value> =
+        proposed.tasks.iter().map(|(tid, name, goal)| json!({"id": tid, "name": name, "goal": goal})).collect();
     text += &format!("{}\n", cx.t("propose.grants", &[]));
     let mut doc = json!({"schema": "fabrewk.proposed/2", "stage": {"id": id, "new": new}, "tasks": tasks});
     text += &written_lines(cx, &written, &mut doc);

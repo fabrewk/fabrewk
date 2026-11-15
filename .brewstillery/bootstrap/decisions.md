@@ -4558,3 +4558,33 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Measured: the core +2; 722 lines remain for parts 9h and 9i.
 - Part 9g is closed. Not done: the idle `pasta` a killed Fabrewk leaves (D-092, part 9i); P9G-22 stays declared
   (D-090).
+
+## D-094 — Part 9h: an extension with network refused, its minutes a key, its requests applied only on exit 0, `config` lists each extension's path and digest
+
+- Status: decided
+- Decided: 2026-11-14
+- Origin: maintainer XEL in session 38's chat, answering the integrator's four questions before any code: "Rehusar
+  (Recomendado)", "Clave nueva (Recomendado)", "No; TOOL_FAILED (Recomendado)" and "Ruta y digest (Recomendado)".
+- Decision:
+  1. An extension with `extensions.<name>.network = true` cannot be confined by the bubblewrap backend, which cannot
+     keep a cell with a network from nesting (part 9a): `fabrewk <name>` refuses `CONFINEMENT_UNAVAILABLE` before it
+     runs, its words saying so, as a check with network does (D-085). An extension with network is left for after the
+     pilot.
+  2. A new key, `extensions.<name>.minutes` (integer, project level, default 30, a widening), limits an extension's
+     run, as `checks.<name>.minutes` limits a check's; section 8 of `core-specification.md` is amended so.
+  3. An extension that exits with a status other than 0 and 10 has none of its requests applied: `fabrewk <name>`
+     refuses `TOOL_FAILED` (exit 1), naming its evidence; with 126 or 127, the statuses with which its cell's command
+     fails to start, its words say that an interpreter or a support file may lie outside the system directories and
+     the repository, which its cell does not show (S-9). Exit 10 applies nothing and exits 10 (REQ-CLI-3).
+  4. `config` lists each extension the policy permits with its path and digest as found (`fabrewk.config/3`); no
+     version, since knowing it would mean running the extension outside its cell (AD-5 point 1).
+- Reason: the specification leaves the first open since part 9a (`extensions.<name>.network` "to the parts that build
+  them"), the runner needs a time limit that no key gave, REQ-EXT-3 does not say whether a failing extension's requests
+  apply, and AD-5 point 1 asks for what REQ-EXT does not. The alternatives offered: a cell with network that may nest,
+  declared under T-08; a fixed limit of 60 minutes, or none; applying the valid requests and passing the extension's
+  status through, as Git does; nothing in `config` until after the pilot.
+- Consequences: `core-specification.md` (section 8 and a paragraph "Extensions, as part 9h fixed them"); the provenance
+  entry of session 38.
+- Sources: chat of session 38; `confinement-design.md` 3.4 and 3.7; `core-specification.md` REQ-EXT-1 to REQ-EXT-5,
+  REQ-CLI-3, section 8; AD-5; D-085.
+- Supersedes: none.

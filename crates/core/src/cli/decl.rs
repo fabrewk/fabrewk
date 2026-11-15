@@ -84,7 +84,7 @@ pub const COMMANDS: &[Command] = &[
             PrivateFolderPermissions,
             KeyUnknown,
         ],
-        schemas: &["fabrewk.config/2", "fabrewk.value/1"],
+        schemas: &["fabrewk.config/3", "fabrewk.value/1"],
     },
     Command {
         name: "check",
@@ -324,8 +324,8 @@ pub const PROGRAM_FLAGS: [&str; 2] = ["help", "version"];
 /// The documents every command may give besides its own: a refusal, a usage error, an internal error, the version.
 pub const SCHEMAS: [&str; 4] = ["fabrewk.refused/1", "fabrewk.usage/1", "fabrewk.internal/1", "fabrewk.version/1"];
 
-/// The exit statuses of this phase (REQ-CLI-3): 4 since part 9e; 10 comes with part 9h.
-pub const EXITS: [i32; 6] = [0, 1, 2, 3, 4, 70];
+/// The exit statuses (REQ-CLI-3): 4 since part 9e, 10 since part 9h.
+pub const EXITS: [i32; 7] = [0, 1, 2, 3, 4, 10, 70];
 
 /// What the command line asks for.
 #[derive(Debug)]

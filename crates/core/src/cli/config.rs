@@ -1,7 +1,7 @@
 //! `fabrewk config [<key>]` (REQ-SET-7, REQ-ID-5, REQ-SEC-5; section 5; part 7d2): every effective value with its
 //! source, the project file's changes not adopted, each maintainer's key, what is present on this machine, every
-//! control with its label, and the residual risks of the core and of the confinement backend (S-7, part 9a); with a
-//! key, that one value. It takes no lock and writes nothing (REQ-VIEW-4).
+//! control with its label, the residual risks of the core and of the confinement backend (S-7, part 9a), and each
+//! extension the policy permits with its path and digest as found (D-094); with a key, that one value. It takes no lock and writes nothing (REQ-VIEW-4).
 
 use super::check::{CHECKS, control_of, label};
 use super::{Cx, Failed, Out};
@@ -146,6 +146,27 @@ pub(super) fn run(cx: &Cx, key: Option<&str>) -> Result<Out, Failed> {
     let tools: Vec<String> = detect::effective_tools(&eff, &detection).into_iter().collect();
     let list = if tools.is_empty() { cx.t("config.none", &[]) } else { tools.join(", ") };
     text += &format!("{}\n", cx.t("config.tools", &[("tools", &list)]));
+    // Each permitted extension as found, without running it (D-094 point 4).
+    let mut extensions = Vec::new();
+    for name in super::ext::permitted(policy) {
+        let (line, doc) = match super::ext::found(name, path.as_deref()) {
+            Some((p, bytes)) => {
+                let digest = crate::record::sha256_hex(&bytes);
+                let shown = p.display().to_string();
+                let line = cx.t("config.extension", &[("name", name), ("path", &shown), ("digest", &digest)]);
+                (line, json!({"name": name, "path": p.to_str(), "digest": digest}))
+            }
+            None => (
+                cx.t("config.extension-absent", &[("name", name)]),
+                json!({"name": name, "path": null, "digest": null}),
+            ),
+        };
+        if extensions.is_empty() {
+            text += &format!("\n{}\n", cx.t("config.extensions", &[]));
+        }
+        text += &format!("  {line}\n");
+        extensions.push(doc);
+    }
     text += &format!("\n{}\n", cx.t("config.controls", &[]));
     let mut controls = Vec::new();
     let mode = cx.record.as_ref().ok().and_then(crate::domain::publication);
@@ -179,8 +200,8 @@ pub(super) fn run(cx: &Cx, key: Option<&str>) -> Result<Out, Failed> {
         text += &format!("  {}\n", cx.t("config.no-backend", &[]));
     }
     let doc = json!({
-        "schema": "fabrewk.config/2", "policy": policy.digest, "person": cx.person, "values": values,
-        "pending": changes, "keys": keys, "machine": present, "tools": tools, "controls": controls,
+        "schema": "fabrewk.config/3", "policy": policy.digest, "person": cx.person, "values": values,
+        "pending": changes, "keys": keys, "machine": present, "tools": tools, "extensions": extensions, "controls": controls,
         "backend": backend.map(|b| b.0), "residual": residual,
     });
     Ok(Out::new(doc, text))

@@ -217,6 +217,7 @@ exits = "Estados de salida"
 2 = "error de uso: no se aceptó la línea de comandos."
 3 = "la verificación encontró un problema."
 4 = "la corrida se detuvo y espera a una persona: la tarea está detenida."
+10 = "la extensión no soporta el protocolo de esta versión de Fabrewk."
 70 = "error interno."
 
 [check]
@@ -373,8 +374,8 @@ fabrewk = "Fabrewk"
 extension = "la extensión {name}"
 
 [config]
-heading = "Configuración efectiva, de la política vigente (resumen {digest}); no aplica el archivo de ningún mantenedor, pues la llave de firma de Git no nombra a ninguno:"
-heading-person = "Configuración efectiva, de la política vigente (resumen {digest}) y del archivo del mantenedor {alias}:"
+heading = "Configuración efectiva, de la política vigente (digest {digest}); no aplica el archivo de ningún mantenedor, pues la llave de firma de Git no nombra a ninguno:"
+heading-person = "Configuración efectiva, de la política vigente (digest {digest}) y del archivo del mantenedor {alias}:"
 unset = "declarado, sin valor"
 pending = "Cambios en el archivo del proyecto aún no adoptados:"
 keys = "Llaves de los mantenedores:"
@@ -388,6 +389,9 @@ none = "ninguna"
 controls = "Controles, cada uno efectivo o cooperativo:"
 residual = "Riesgos residuales, que ningún control de esta versión cierra:"
 no-backend = "No existe un backend de confinamiento para este sistema operativo: aquí no corre ningún agente, verificación ni extensión."
+extensions = "Extensiones que la política permite, como este equipo las encuentra:"
+extension = "{name}: {path}, digest {digest}"
+extension-absent = "{name}: ausente"
 
 [residual]
 check-proves = "Una verificación prueba solo lo que sus archivos protegidos la hacen probar: un candidato puede hacer pasar una verificación no protegida sin probar nada."
@@ -475,6 +479,7 @@ declared = "{path}, {version}; declarado en machine.toml; verificado por uso por
 "git.signOff" = "Un sign-off en los commits de Fabrewk"
 "extensions.*.digest" = "El resumen de la extensión"
 "extensions.*.network" = "Si la extensión tiene red"
+"extensions.*.minutes" = "El límite de tiempo de la extensión"
 
 [code.AGENT_ENVIRONMENT]
 reason = "Esto corre dentro de un agente o una extensión, cuyos marcadores están en el entorno, y solo una persona hace este movimiento. El control es cooperativo: un proceso puede limpiar su entorno."
@@ -949,3 +954,18 @@ sweep = "Falta barrer el fermento de {id}: las tareas de la etapa {detail} termi
 10 = "**Idiomas.** Habla con cada mantenedor en su idioma de interacción. Los documentos técnicos van en el idioma canónico de documentación del proyecto."
 11 = "**Informes.** Informa los resultados tal como son: lo que falla se dice con su salida y lo que se omitió se dice omitido. Un agente nunca cambia un criterio de aceptación para que pase."
 12 = "**Agentes despachados.** Un agente despachado a una tarea recibe su paquete y nada más, y no lee el dominio."
+
+[extension]
+unsupported = "La extensión {name} no soporta el protocolo de esta versión de Fabrewk; no se aplicó ninguna de sus solicitudes."
+none = "La extensión {name} terminó y no solicitó nada."
+applied = "Se aplicaron las solicitudes de la extensión {name} (digest {digest}), ninguna firmada por una persona:"
+noted = "Se registró una nota de la extensión {name}."
+
+[code.EXTENSION_DIGEST]
+reason = "El programa de la extensión no es el que permite la política vigente: su digest difiere del fijado, o la política ya no la permite."
+next = "Un maestro revisa el programa y, si es el que se quiere, adopta una política que fije su digest."
+run = "fabrewk config"
+
+[code.EXTENSION_OUTPUT_INVALID]
+reason = "Cada línea que imprime una extensión debe ser una solicitud válida; una no lo era, así que no se aplicó ninguna de sus solicitudes."
+next = "Corrige la extensión para que imprima solo solicitudes y vuelve a correrla; el detalle nombra la línea."

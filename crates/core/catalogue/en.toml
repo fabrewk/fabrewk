@@ -248,6 +248,7 @@ about = "What each exit status means"
 2 = "usage error: the command line was not accepted."
 3 = "the check found a problem."
 4 = "the run stopped and waits for a person: the task is halted."
+10 = "the extension does not support the protocol of this version of Fabrewk."
 70 = "internal error."
 
 [check]
@@ -430,6 +431,9 @@ none = "none"
 controls = "Controls, each effective or cooperative:"
 residual = "Residual risks, which no control of this version closes:"
 no-backend = "No confinement backend exists for this operating system: no agent, check or extension runs here."
+extensions = "Extensions the policy permits, as this machine finds them:"
+extension = "{name}: {path}, digest {digest}"
+extension-absent = "{name}: absent"
 
 [residual]
 about = "The residual risks config declares, of the core and of each module (REQ-SEC-5, S-7)"
@@ -524,6 +528,7 @@ about = "What each settings key means"
 "git.signOff" = "A sign-off on Fabrewk's commits"
 "extensions.*.digest" = "The extension's digest"
 "extensions.*.network" = "Whether the extension has network"
+"extensions.*.minutes" = "The extension's time limit"
 
 # The refusal codes the core raises (section 7): what each means, its reason and its next step.
 
@@ -1096,3 +1101,21 @@ about = "The base rules of every project Fabrewk serves, which RULES.md opens wi
 10 = "**Languages.** Speak to each maintainer in their interaction language. Technical documents are in the project's canonical documentation language."
 11 = "**Reports.** Report outcomes as they are: what fails is said with its output, and what was skipped is said skipped. An agent never changes an acceptance criterion to make it pass."
 12 = "**Dispatched agents.** An agent dispatched on a task receives its packet and no more, and does not read the domain."
+
+[extension]
+about = "What Fabrewk says when it runs an extension (REQ-EXT-1 to REQ-EXT-5)"
+unsupported = "The extension {name} does not support the protocol of this version of Fabrewk; none of its requests was applied."
+none = "The extension {name} ended and requested nothing."
+applied = "Applied the requests of the extension {name} (digest {digest}), none signed by a person:"
+noted = "Recorded a note of the extension {name}."
+
+[code.EXTENSION_DIGEST]
+about = "An extension whose program differs from the digest the policy pins (REQ-EXT-1)"
+reason = "The extension's program is not the one the policy in force permits: its digest differs from the one pinned, or the policy no longer permits it."
+next = "A maestro checks the program and, if it is the one wanted, adopts a policy that pins its digest."
+run = "fabrewk config"
+
+[code.EXTENSION_OUTPUT_INVALID]
+about = "An extension whose standard output holds a line that is not a valid request (REQ-EXT-3)"
+reason = "Every line an extension prints must be one valid request; one was not, so none of its requests was applied."
+next = "Correct the extension so that it prints only requests, and run it again; the detail names the line."
