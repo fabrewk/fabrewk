@@ -288,3 +288,26 @@ fn p9a_3_a_cell_that_failed_to_start_keeps_its_output_and_is_ended() {
 fn the_cores_residual_risks_are_three() {
     assert_eq!(confine::RESIDUAL, ["check-proves", "reviewer-steered", "same-user"]);
 }
+
+/// D-092, P9I-2: the recovery waits for a cell whose runner is gone to end, up to ten seconds, before its directories
+/// may be removed; past them it keeps them. A backend of the test's says a cell has ended once its `busy` file is gone.
+#[test]
+fn a_cell_that_ends_within_ten_seconds_is_settled_and_one_that_does_not_is_kept() {
+    let busy = Backend { idle: |scratch| !scratch.join("busy").exists(), ..UNCONFINED };
+    assert!(confine::settled(None, Path::new("/nonexistent")));
+    let d = domain("confine-settled");
+    std::fs::write(d.join("busy"), "").unwrap();
+    let file = d.join("busy");
+    let ending = std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_secs(2));
+        std::fs::remove_file(file).unwrap();
+    });
+    let t = Instant::now();
+    assert!(confine::settled(Some(&busy), &d));
+    assert!(t.elapsed() >= Duration::from_secs(2), "{:?}", t.elapsed());
+    ending.join().unwrap();
+    std::fs::write(d.join("busy"), "").unwrap();
+    let t = Instant::now();
+    assert!(!confine::settled(Some(&busy), &d));
+    assert!((Duration::from_secs(10)..Duration::from_secs(15)).contains(&t.elapsed()), "{:?}", t.elapsed());
+}

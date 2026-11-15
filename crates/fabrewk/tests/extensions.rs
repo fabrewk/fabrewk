@@ -302,8 +302,10 @@ fn refusal_extension_output_invalid() {
 #[test]
 fn req_ext_4_an_extension_reads_the_repository_and_writes_only_its_area() {
     let fx = fixture("ext-4", "\n[extensions.probe]\n");
-    // An SSH agent's socket and the private folder, both outside what the cell shows.
-    let sock = fx.root.parent().unwrap().join("agent.sock");
+    // An SSH agent's socket and the private folder, both outside what the cell shows; the socket in the temporary
+    // directory, whose path stays shorter than a socket's limit wherever the fixture lies (a mutation run's copy).
+    let sock = std::env::temp_dir().join(format!("fabrewk-ext-4-{}.sock", std::process::id()));
+    let _ = fs::remove_file(&sock);
     let _listener = std::os::unix::net::UnixListener::bind(&sock).unwrap();
     fs::create_dir_all(fx.folder()).unwrap();
     fs::set_permissions(fx.folder(), fs::Permissions::from_mode(0o700)).unwrap();
@@ -338,6 +340,7 @@ fn req_ext_4_an_extension_reads_the_repository_and_writes_only_its_area() {
     install(&fx, "probe", &script);
     let ran = fx.run_env(&["probe"], &[("SSH_AUTH_SOCK", sock.to_str().unwrap())]);
     assert_eq!(ran.status, 0, "{ran:?}");
+    let _ = fs::remove_file(&sock);
     let result = fs::read_to_string(area(&fx, "probe").join("home/result")).unwrap();
     let events = fs::read_dir(fx.domain.join("data/events")).unwrap().count();
     let mut expected = format!("fixture\n{events}\nstatus\n");

@@ -877,7 +877,18 @@ fn d_092_a_cell_still_ending_keeps_its_directories_until_its_helper_is_ended() {
     first.wait().unwrap();
     // Even one that then refuses, with nothing of the record written.
     assert_eq!(fx.run(&["discard", "p-00000000", "--say", SAY]).status, 1);
-    let status = helper.wait().unwrap();
+    let t = std::time::Instant::now();
+    let status = loop {
+        if let Some(status) = helper.try_wait().unwrap() {
+            break status;
+        }
+        if t.elapsed() > std::time::Duration::from_secs(10) {
+            helper.kill().unwrap();
+            helper.wait().unwrap();
+            panic!("the helper was not ended");
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    };
     assert_eq!(std::os::unix::process::ExitStatusExt::signal(&status), Some(9));
     assert!(!beside.exists());
 }
