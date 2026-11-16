@@ -1406,3 +1406,23 @@ fn p10a_52_to_p10a_55_operations_worktree_configuration_and_an_empty_git_directo
     std::fs::create_dir(other.root.join(".git")).unwrap();
     refused(&other, &["assess"], "NOT_A_REPOSITORY", 1, "en");
 }
+
+#[test]
+fn p10a_56_p10a_57_the_git_file_s_bytes_and_the_configuration_s_precedence() {
+    // A Git directory named with a final space, beside one named without it (P10A-56).
+    let fx = product("p10a-56");
+    let spaced = fx.root.parent().unwrap().join("metadata ");
+    std::fs::rename(fx.root.join(".git"), &spaced).unwrap();
+    std::fs::write(fx.root.join(".git"), format!("gitdir: {}\n", spaced.display())).unwrap();
+    std::fs::create_dir_all(fx.root.parent().unwrap().join("metadata")).unwrap();
+    std::fs::write(spaced.join("MERGE_HEAD"), "x\n").unwrap();
+    assert!(reasons(&fx.assess(&[])).iter().any(|r| r.0 == "operation"), "the named Git directory");
+    std::fs::remove_file(spaced.join("MERGE_HEAD")).unwrap();
+    assert_eq!(fx.assess(&[])["plan"]["verdict"], "adopt");
+    // `config.worktree` in force overrides the main file (P10A-57).
+    let fx = product("p10a-57");
+    fx.git(&["config", "extensions.worktreeConfig", "true"]);
+    fx.git(&["config", "core.bare", "true"]);
+    std::fs::write(fx.root.join(".git/config.worktree"), "[core]\n\tbare = false\n").unwrap();
+    assert_eq!(fx.assess(&[])["plan"]["verdict"], "adopt");
+}

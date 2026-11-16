@@ -240,8 +240,12 @@ fn person(root: &Path) -> Result<Person, Error> {
     // find another repository and follow its configuration before refusing (P10A-45), so the place is told from the
     // files and refused before any Git, which is then given that Git directory and this working tree (P10A-47).
     let not = || refuse(Code::NotARepository, Some(root), "not the top of a repository's main working tree");
-    let named =
-        std::fs::read_to_string(&dot).ok().and_then(|t| t.strip_prefix("gitdir: ").map(|d| d.trim().to_owned()));
+    // Its bytes as Git reads them: only the line's end is dropped, never a space of the name (P10A-56).
+    let named = std::fs::read(&dot).ok().and_then(|b| {
+        let path = b.strip_prefix(b"gitdir: ")?;
+        let end = path.iter().rposition(|c| !matches!(c, b'\n' | b'\r')).map_or(0, |i| i + 1);
+        Some(PathBuf::from(OsStr::from_bytes(&path[..end])))
+    });
     if named.is_none() && kind(root, ".git") != "directory" {
         return Err(not());
     }
@@ -262,6 +266,7 @@ fn person(root: &Path) -> Result<Person, Error> {
     }
     let worktree =
         read(&config, &["--type=bool", "--get", "extensions.worktreeConfig"])? == (Some(0), b"true\n".to_vec());
+    let (mut bare, mut moved) = (false, None);
     for file in std::iter::once(config).chain(worktree.then(|| gitdir.join("config.worktree"))) {
         if inside(&file) {
             return Err(found(&file));
@@ -276,17 +281,18 @@ fn person(root: &Path) -> Result<Person, Error> {
                 return Err(found(&target));
             }
         }
-        // A bare repository has no working tree (P10A-50).
-        if read(&file, &["--type=bool", "--get", "core.bare"])? == (Some(0), b"true\n".to_vec()) {
-            return Err(not());
+        // `core.bare` and `core.worktree`, the later file's value winning, as Git reads them (P10A-57).
+        if let (Some(0), v) = read(&file, &["--type=bool", "--get", "core.bare"])? {
+            bare = v == b"true\n";
         }
-        // A working tree moved elsewhere is not this one (P10A-46); relative, it is relative to the Git directory.
         if let (Some(0), v) = read(&file, &["--type=path", "--get", "core.worktree"])? {
-            let moved = gitdir.join(OsStr::from_bytes(v.strip_suffix(b"\n").unwrap_or(&v)));
-            if moved.canonicalize().ok() != root.canonicalize().ok() {
-                return Err(not());
-            }
+            moved = Some(gitdir.join(OsStr::from_bytes(v.strip_suffix(b"\n").unwrap_or(&v))));
         }
+    }
+    // A bare repository has no working tree (P10A-50); one moved elsewhere is not this one (P10A-46), relative to the
+    // Git directory when relative.
+    if bare || moved.is_some_and(|m| m.canonicalize().ok() != root.canonicalize().ok()) {
+        return Err(not());
     }
     // The person's global files as their Git finds them, a relative `GIT_CONFIG_GLOBAL` from here (P10A-25); the
     // later one wins.
