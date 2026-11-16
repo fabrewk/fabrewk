@@ -909,14 +909,17 @@ code. Where a point below and a sentence above differ, the point holds.
    installation incomplete (P10O-15). The same `apply` finishes each of them: it writes a missing view and makes the
    missing commit. The receipt's committed paths are, in `published`, every path of the receipt; in `own-repository`,
    those under the domain, whose repository commits them, the product's entry files and its exclude file being left
-   as point 6 says; in `unpublished`, none (P10O-14). A record commit stopped after the branch moved and before the
-   person's index was brought to it (P10O-12) is repaired as REQ-REG-10 repairs the record's own files: the index
-   synchronization every write command already runs first (`sync_index`) also covers, while the tip is the commit that
-   holds `installed`, each committed path of its receipt whose index entry is still that commit's parent's (absent
-   where the parent had none), and brings it to the commit's; an entry that differs from the parent's is the person's,
-   staged after, and is kept (P10O-16). Until it is complete every other write command refuses (`INSTALLATION_INCOMPLETE`, new) and `check` reports
+   as point 6 says; in `unpublished`, none (P10O-14). Their entries in the person's index are written before the
+   branch moves, never after (P10O-12, P10O-17, P10O-18): just before the record commit, `apply` stages each committed
+   path of the receipt whose index entry carries no staged change (equal to `HEAD`'s, or absent where `HEAD` has
+   none), with the bytes the commit takes; an entry that carries a staged change is the person's and is kept, staged
+   against the new commit. The commit is then made as REQ-REG-10 makes it, its tree built apart from the person's
+   index, and once the branch has moved `apply` changes no entry of those paths. A kill before the branch moves leaves
+   the installation's files staged and not committed, which is what they are, and the same `apply` makes the commit; a
+   kill after it leaves the index already at the commit for every path `apply` staged. So no recovery has to tell a
+   stale entry from a staged one, and `sync_index` keeps covering the record's own files only. Until it is complete every other write command refuses (`INSTALLATION_INCOMPLETE`, new) and `check` reports
    it, so that no other command commits a part of it (P10O-6). Once it is complete, the same `apply` again says so,
-   writes nothing but that index synchronization, and exits 0;
+   writes nothing, and exits 0;
    another plan meets point 4's record and is `VERDICT_NONE`. Section 12's "a second `apply` changing nothing" for
    REQ-DOM-6 is read so (P10O-1). Before `assessed` is written nothing is, but the lock under `local/` and what point
    3 reads as before (P10O-10). The crash suite runs over `apply`'s write points, the record commit's between the
