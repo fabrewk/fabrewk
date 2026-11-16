@@ -534,8 +534,11 @@ fn assessed(asked: &Asked) -> Result<(Value, String), Error> {
     // Git's state.
     let branch = match g.run(&["symbolic-ref", "-q", "HEAD"])? {
         // Shown as every name the plan holds, so that two branches never show alike (P10A-62).
-        (Some(0), b) => Some(shown(&value(b)).strip_prefix("refs/heads/").map(str::to_owned).unwrap_or_default()),
-        (Some(1), _) => {
+        // A head that names no branch, detached or a ref outside `refs/heads/`, blocks as detached (P10A-64).
+        (Some(0), b) if shown(&value(b.clone())).starts_with("refs/heads/") => {
+            Some(shown(&value(b))["refs/heads/".len()..].to_owned())
+        }
+        (Some(0 | 1), _) => {
             reasons.push(reason("detached", true, None, None));
             None
         }
@@ -704,7 +707,8 @@ fn assessed(asked: &Asked) -> Result<(Value, String), Error> {
             tools.push((t, adapter.program.adapter.unwrap_or_default(), adapter.provider));
         }
     }
-    let name = root.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    // The directory's name as the plan shows names, so that two never show alike (P10A-65).
+    let name = root.file_name().map(shown).unwrap_or_default();
     if mode == "adopt" {
         let project = files::project(&name, alias, key.as_deref(), tag, &tools);
         if let (Some(_), Some(_)) = (alias, &key) {

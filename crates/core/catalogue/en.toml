@@ -1170,7 +1170,7 @@ shell-posix = "In a POSIX shell"
 words = "your words"
 
 [assess.reason]
-detached = "The head is detached: check out a branch first."
+detached = "The head names no branch: check out a branch first."
 operation = "A Git {detail} is in progress: finish it or abort it first."
 record = "A record is already here: Fabrewk is installed in this repository."
 present = "{path} is present, and the plan would create it."

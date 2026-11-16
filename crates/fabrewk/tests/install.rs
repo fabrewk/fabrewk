@@ -1536,3 +1536,27 @@ fn p10a_62_p10a_63_a_branch_and_a_signing_key_of_any_name() {
     let args = ["assess", "--json", "--alias", "ana", "--key", public.to_str().unwrap(), "--publication", "published"];
     assert_eq!(fx.run(&args).doc()["plan"]["git"]["signs"], true);
 }
+
+#[test]
+fn p10a_64_p10a_65_a_head_that_names_no_branch_and_a_project_of_any_name() {
+    let fx = product("p10a-64");
+    fx.git(&["update-ref", "refs/tags/release", "HEAD"]);
+    fx.git(&["symbolic-ref", "HEAD", "refs/tags/release"]);
+    let doc = fx.assess(&["--publication", "own-repository"]);
+    assert!(reasons(&doc).contains(&("detached".into(), true, String::new())), "{doc}");
+    assert_eq!(doc["apply"], serde_json::json!([]));
+    // A project named by a directory whose name is not UTF-8 (P10A-65).
+    use std::os::unix::ffi::OsStrExt;
+    let fx = product("p10a-65");
+    let moved = fx.root.parent().unwrap().join(std::ffi::OsStr::from_bytes(b"product-\xfe"));
+    std::fs::rename(&fx.root, &moved).unwrap();
+    let at = Fx {
+        domain: moved.join(".brewstillery"),
+        root: moved.clone(),
+        home: fx.home.clone(),
+        keys: fx.keys.clone(),
+        path: None,
+    };
+    let doc = at.assess(&[]);
+    assert!(content(&doc, ".brewstillery/ALAMBIQUE.md").starts_with("# product-\\xfe\n"));
+}

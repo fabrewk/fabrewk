@@ -1016,7 +1016,7 @@ shell-posix = "En un shell POSIX"
 words = "tus palabras"
 
 [assess.reason]
-detached = "La cabeza está separada: primero cambia a una rama."
+detached = "La cabeza no nombra una rama: primero cambia a una rama."
 operation = "Hay una operación de Git en curso ({detail}): primero termínala o abórtala."
 record = "Ya hay un registro aquí: Fabrewk está instalado en este repositorio."
 present = "{path} existe, y el plan lo crearía."
