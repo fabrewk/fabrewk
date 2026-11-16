@@ -793,3 +793,115 @@ fn every_message_the_installer_names_is_in_both_catalogues() {
         }
     }
 }
+
+/// Every file `args` opens, by any of its processes, as `strace` saw them.
+fn traced(fx: &Fx, args: &[&str]) -> String {
+    let trace = fx.root.parent().unwrap().join("trace");
+    let mut c = Command::new("strace");
+    isolate(&mut c, &fx.home, None);
+    c.args(["-f", "-qq", "-e", "trace=open,openat,openat2", "-o"]).arg(&trace).arg(env!("CARGO_BIN_EXE_fabrewk"));
+    let out = c.args(args).current_dir(&fx.root).output().expect("strace is needed");
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    std::fs::read_to_string(trace).unwrap()
+}
+
+#[test]
+fn p10a_1_assess_runs_no_filter_git_would_run_on_a_changed_file() {
+    let fx = product("p10a-1");
+    std::fs::write(fx.root.join(".gitattributes"), "README.md filter=probe\nAGENTS.md filter=probe\n").unwrap();
+    std::fs::write(fx.root.join("AGENTS.md"), "# Agents\n").unwrap();
+    fx.commit("filtered");
+    // The repository's own filter driver, as Git LFS's: a clean filter, a process filter, required.
+    for (k, v) in [
+        ("filter.probe.clean", "touch filter-ran; cat"),
+        ("filter.probe.process", "touch process-ran"),
+        ("filter.probe.required", "true"),
+        ("filter.Other.Name.clean", "touch other-ran; cat"),
+    ] {
+        fx.git(&["config", k, v]);
+    }
+    // The same size, so that only the content tells the change, which Git reads through the filter.
+    std::fs::write(fx.root.join("README.md"), "PRODUCT\n").unwrap();
+    let before = fx.snapshot();
+    let doc = fx.assess(&[]);
+    assert_eq!(fx.snapshot(), before, "a filter ran");
+    assert!(reasons(&doc).contains(&("changes".into(), false, String::new())), "{doc}");
+    assert_eq!(doc["plan"]["verdict"], "adopt");
+}
+
+#[test]
+fn p10a_2_a_data_directory_that_is_a_link_is_not_walked() {
+    let fx = product("p10a-2");
+    let outside = fx.root.parent().unwrap().join("outside");
+    std::fs::create_dir_all(outside.join("events/project")).unwrap();
+    std::fs::write(outside.join("events/project/000001"), "{}").unwrap();
+    std::fs::create_dir_all(&fx.domain).unwrap();
+    std::os::unix::fs::symlink(&outside, fx.domain.join("data")).unwrap();
+    let doc = fx.assess(&[]);
+    assert!(!reasons(&doc).iter().any(|r| r.0 == "record"), "{doc}");
+    let inputs = doc["plan"]["inputs"].as_array().unwrap();
+    assert!(inputs.iter().any(|i| i["path"] == ".brewstillery/data" && i["kind"] == "link"), "{inputs:?}");
+    // Nor is a link inside it an event.
+    std::fs::remove_file(fx.domain.join("data")).unwrap();
+    std::fs::create_dir_all(fx.domain.join("data/events/project")).unwrap();
+    std::os::unix::fs::symlink(outside.join("events/project/000001"), fx.domain.join("data/events/project/000001"))
+        .unwrap();
+    assert!(!reasons(&fx.assess(&[])).iter().any(|r| r.0 == "record"));
+}
+
+#[test]
+fn p10a_3_the_file_git_s_signing_key_names_is_never_opened() {
+    let fx = product("p10a-3");
+    let private = fx.home.join(".config/fabrewk");
+    std::fs::create_dir_all(&private).unwrap();
+    std::fs::write(private.join("secret"), "PRIVATE-MARKER\n").unwrap();
+    use std::os::unix::fs::PermissionsExt;
+    // A file its owner cannot read: opening it fails, which a test of the access time would only suggest.
+    std::fs::set_permissions(private.join("secret"), std::fs::Permissions::from_mode(0o000)).unwrap();
+    fx.git(&["config", "user.signingkey", private.join("secret").to_str().unwrap()]);
+    fx.git(&["config", "gpg.format", "ssh"]);
+    let trace = traced(&fx, &["assess", "--alias", "ana", "--key", &fx.key(), "--publication", "published"]);
+    std::fs::set_permissions(private.join("secret"), std::fs::Permissions::from_mode(0o600)).unwrap();
+    assert!(!trace.contains(".config/fabrewk"), "the private folder was opened");
+    // Git signs with the key when its signing key names the `--key` file, or the private key beside it.
+    fx.git(&["config", "user.signingkey", &fx.key()]);
+    assert_eq!(fx.assess(&[])["plan"]["git"]["signs"], true);
+    fx.git(&["config", "user.signingkey", fx.keys.join("ana").to_str().unwrap()]);
+    assert_eq!(fx.assess(&[])["plan"]["git"]["signs"], true);
+    let literal = format!("key::{}", std::fs::read_to_string(fx.key()).unwrap().trim());
+    fx.git(&["config", "user.signingkey", &literal]);
+    assert_eq!(fx.assess(&[])["plan"]["git"]["signs"], true);
+    fx.git(&["config", "gpg.format", "openpgp"]);
+    assert_eq!(fx.assess(&[])["plan"]["git"]["signs"], false);
+}
+
+#[test]
+fn p10a_4_assess_reads_no_event() {
+    let fx = product("p10a-4");
+    std::fs::create_dir_all(fx.domain.join("data/events/project")).unwrap();
+    std::fs::write(fx.domain.join("data/events/project/000001-0000000000000000.json"), "{}").unwrap();
+    let trace = traced(&fx, &["assess", "--alias", "ana", "--key", &fx.key(), "--publication", "published"]);
+    assert!(!trace.contains("000001-0000000000000000.json"), "an event was opened");
+    assert!(reasons(&fx.assess(&[])).contains(&("record".into(), true, String::new())));
+}
+
+#[test]
+fn p10a_5_a_tag_in_capitals_reaches_its_catalogue() {
+    let fx = product("p10a-5");
+    let doc = fx.assess(&["--lang", "ES-MX", "--publication", "unpublished"]);
+    assert!(
+        content(&doc, ".brewstillery/ALAMBIQUE.md")
+            .contains(&fabrewk_core::cli::say("es", "skeleton.opening", &[]).trim_end().to_owned())
+    );
+    assert_eq!(doc["plan"]["warning"]["title"], fabrewk_core::cli::say("es", "warning.title", &[]));
+    assert!(content(&doc, ".brewstillery/settings.toml").contains("canonicalDocumentationLanguage = \"ES-MX\""));
+}
+
+#[test]
+fn p10a_7_an_incomplete_plan_lists_its_files_as_far_as_its_answers_go() {
+    let fx = product("p10a-7");
+    let doc = fx.run(&["assess", "--json"]).doc();
+    assert_eq!(doc["apply"], serde_json::json!([]));
+    assert!(!content(&doc, ".brewstillery/settings.toml").contains("[maintainers"));
+    assert!(doc["plan"]["files"].as_array().unwrap().iter().all(|f| !f["path"].as_str().unwrap().contains("/ana/")));
+}

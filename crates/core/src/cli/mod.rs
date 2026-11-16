@@ -103,13 +103,15 @@ pub(crate) struct Cx {
 }
 
 impl Cx {
-    fn new(root: PathBuf, wired: Wired) -> Cx {
+    /// The context of a command run at `root`; with `read` false, as for `assess`, which reads no record (REQ-INS-1,
+    /// P10A-4), nothing is read: no record, no policy, no person.
+    fn new(root: PathBuf, wired: Wired, read: bool) -> Cx {
         let (adapters, backend, installer) = wired;
         let modules =
             adapters.iter().map(|a| a.program).chain(backend.map_or(&[][..], |b| b.programs).iter().copied()).collect();
         let markers = adapters.iter().flat_map(|a| a.markers).copied().collect();
         let domain = root.join(".brewstillery");
-        let record = replay(&domain, &PolicyVerifier);
+        let record = if read { replay(&domain, &PolicyVerifier) } else { Err(Vec::new()) };
         let policy = record.as_ref().ok().and_then(|r| settings::in_force(r).ok().flatten());
         let person = policy.as_ref().and_then(|p| identity::person(&p.settings, &root));
         let lang = language(&domain, policy.as_ref(), person.as_deref());
@@ -294,10 +296,11 @@ pub fn main(args: Vec<OsString>, wired: Wired) -> i32 {
         (Ok(Parsed::Version { .. }), _) => version(),
         (_, Err(_)) => internal("en", ".", writes),
         (parsed, Ok(root)) => {
-            let mut cx = Cx { writes, ..Cx::new(root, wired) };
+            let reads = !matches!(&parsed, Ok(Parsed::Run { command, .. }) if command.name == "assess");
+            let mut cx = Cx { writes, ..Cx::new(root, wired, reads) };
             // The installation's commands speak the language their answers name (D-097 point 2).
             if let Ok(Parsed::Run { options, .. }) = &parsed {
-                cx.lang = options.answers.get("lang").map_or(cx.lang, |l| catalogue(l));
+                cx.lang = options.answers.get("lang").map_or(cx.lang, |l| catalogue(&l.to_ascii_lowercase()));
             }
             let result = match (parsed, extension) {
                 (_, Some(name)) => ext::run(&cx, &name, &args[1..]),

@@ -128,9 +128,40 @@ fn reason(key: &str, blocks: bool, path: Option<&str>, detail: Option<&str>) -> 
     r
 }
 
-/// Git's output, or `TOOL_FAILED` naming the command and its exit status; Git's text never reaches the words.
-fn git_ok(root: &Path, args: &[&str]) -> Result<Vec<u8>, Error> {
-    match git(root, args)? {
+/// Git as `assess` runs it: the core's way, and with every filter driver the configuration names turned off, so that
+/// no clean or process filter runs when Git reads a changed file (P10A-1): a driver with no command passes the bytes
+/// through, and one not required fails nothing.
+struct Git {
+    root: PathBuf,
+    off: Vec<String>,
+}
+
+impl Git {
+    fn new(root: &Path) -> Result<Git, Error> {
+        let (_, names) = git(root, &["config", "--name-only", "-z", "--get-regexp", r"^filter\."])?;
+        let mut off = Vec::new();
+        for name in names.split(|b| *b == 0).filter_map(|n| std::str::from_utf8(n).ok()) {
+            if let Some((driver, _)) = name.strip_prefix("filter.").and_then(|n| n.rsplit_once('.')) {
+                for k in ["clean=", "smudge=", "process=", "required=false"] {
+                    off.extend(["-c".to_owned(), format!("filter.{driver}.{k}")]);
+                }
+            }
+        }
+        Ok(Git { root: root.to_path_buf(), off })
+    }
+
+    fn run(&self, args: &[&str]) -> Result<(Option<i32>, Vec<u8>), Error> {
+        git(&self.root, &self.off.iter().map(String::as_str).chain(args.iter().copied()).collect::<Vec<_>>())
+    }
+
+    /// Git's output, or `TOOL_FAILED` naming the command and its exit status; Git's text never reaches the words.
+    fn ok(&self, args: &[&str]) -> Result<Vec<u8>, Error> {
+        git_ok(&self.root, &self.run(args)?, args)
+    }
+}
+
+fn git_ok(root: &Path, ran: &(Option<i32>, Vec<u8>), args: &[&str]) -> Result<Vec<u8>, Error> {
+    match ran.clone() {
         (Some(0), out) => Ok(out),
         (status, _) => {
             let status = status.map_or_else(|| "a signal".to_owned(), |n| format!("exit status {n}"));
@@ -159,11 +190,14 @@ fn data(dir: &Path, events: bool) -> (bool, bool) {
     let mut out = (false, false);
     for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
         let (path, name) = (entry.path(), entry.file_name().to_string_lossy().into_owned());
-        let inner = if entry.file_type().is_ok_and(|t| t.is_dir()) {
-            data(&path, events || (dir.ends_with("data") && name == "events"))
-        } else {
-            let leftover = name.ends_with(".sig") || (name.starts_with('.') && name.ends_with(".tmp"));
-            (!leftover && events, !leftover)
+        // No link is followed, nor is one an event (P10A-2).
+        let inner = match entry.file_type() {
+            Ok(t) if t.is_dir() => data(&path, events || (dir.ends_with("data") && name == "events")),
+            Ok(t) if t.is_file() => {
+                let leftover = name.ends_with(".sig") || (name.starts_with('.') && name.ends_with(".tmp"));
+                (!leftover && events, !leftover)
+            }
+            _ => (false, true),
         };
         out = (out.0 || inner.0, out.1 || inner.1);
     }
@@ -177,7 +211,10 @@ fn domain(root: &Path) -> (Vec<String>, bool) {
     if kind(root, DOMAIN) != "directory" {
         return (Vec::new(), false);
     }
-    let (event, other) = data(&dir.join("data"), false);
+    let (event, other) = match kind(root, &format!("{DOMAIN}/data")) {
+        "directory" => data(&dir.join("data"), false),
+        k => (false, k != "absent"),
+    };
     let mut names: Vec<String> = std::fs::read_dir(&dir)
         .into_iter()
         .flatten()
@@ -254,11 +291,12 @@ fn assessed(asked: &Asked) -> Result<(Value, String), Error> {
     let (tag, mode, publication, alias) =
         (a("lang").unwrap_or("en"), a("mode").unwrap_or("adopt"), a("publication"), a("alias"));
     // The tag is written as given; the words come from the first catalogue it reaches (`es-MX`'s is `es`).
-    let lang = catalogue(tag);
+    let lang = catalogue(&tag.to_ascii_lowercase());
     if let Some(alias) = alias.filter(|x| !is_alias(x)) {
         return Err(refuse(Code::AliasInvalid, None, format!("{alias:?} is not an alias, or is a reserved name")));
     }
     repository(root)?;
+    let g = Git::new(root)?;
     let mut r = Reading::default();
     let mut reasons = Vec::new();
     // Git's state.
@@ -271,26 +309,24 @@ fn assessed(asked: &Asked) -> Result<(Value, String), Error> {
         }
         Err(e) => return Err(e),
     };
-    let gitdir = PathBuf::from(line(git_ok(root, &["rev-parse", "--path-format=absolute", "--git-dir"])?));
+    let gitdir = PathBuf::from(line(g.ok(&["rev-parse", "--path-format=absolute", "--git-dir"])?));
     if let Some((_, op)) = OPERATIONS.iter().find(|(f, _)| std::fs::symlink_metadata(gitdir.join(f)).is_ok()) {
         reasons.push(reason("operation", true, None, Some(op)));
     }
-    if !git_ok(root, &["status", "--porcelain=v1", "-z", "--untracked-files=no"])?.is_empty() {
+    if !g.ok(&["status", "--porcelain=v1", "-z", "--untracked-files=no", "--ignore-submodules=all"])?.is_empty() {
         reasons.push(reason("changes", false, None, None));
     }
-    let entry_status = git_ok(
-        root,
-        &[
-            "status",
-            "--porcelain=v1",
-            "-z",
-            "--untracked-files=all",
-            "--ignored=matching",
-            "--",
-            "AGENTS.md",
-            "CLAUDE.md",
-        ],
-    )?;
+    let entry_status = g.ok(&[
+        "status",
+        "--porcelain=v1",
+        "-z",
+        "--untracked-files=all",
+        "--ignored=matching",
+        "--ignore-submodules=all",
+        "--",
+        "AGENTS.md",
+        "CLAUDE.md",
+    ])?;
     let flagged: Vec<String> = entry_status
         .split(|b| *b == 0)
         .filter_map(|t| t.get(3..))
@@ -367,16 +403,24 @@ fn assessed(asked: &Asked) -> Result<(Value, String), Error> {
         reasons.push(reason(why, false, None, None));
         None
     });
-    let format = git(root, &["config", "--get", "gpg.format"])?;
-    let ssh = format == (Some(0), b"ssh\n".to_vec());
-    let named = fabrewk_core::identity::signing(root).and_then(|k| key_blob(&k.public));
-    let signs = key.as_deref().is_some_and(|k| ssh && named.is_some() && key_blob(k) == named);
+    let ssh = g.run(&["config", "--get", "gpg.format"])? == (Some(0), b"ssh\n".to_vec());
+    let named = g.run(&["config", "--type=path", "--get", "user.signingkey"])?.1;
+    let named = String::from_utf8_lossy(&named).trim_end_matches('\n').to_owned();
     let mut next = Vec::new();
+    let mut signs = false;
     if let (Some(given), Some(k)) = (a("key"), &key) {
+        // Git's key, by its literal or by its path, the file itself never opened (P10A-3): the `--key` file, or the
+        // private key beside it.
+        let same = |p: PathBuf| p.canonicalize().ok() == root.join(given).canonicalize().ok();
+        let held = match named.strip_prefix("key::") {
+            Some(literal) => key_blob(literal.trim()) == key_blob(k),
+            None => !named.is_empty() && (same(root.join(&named)) || same(root.join(format!("{named}.pub")))),
+        };
+        signs = ssh && held;
         if !ssh {
             next.extend(commands("git config gpg.format", &[(String::new(), "ssh")]));
         }
-        if key_blob(k) != named {
+        if !held {
             next.extend(commands("git config user.signingkey", &[(String::new(), given)]));
         }
     }
@@ -460,7 +504,7 @@ fn assessed(asked: &Asked) -> Result<(Value, String), Error> {
             }
         }
         if matches!(publication, Some("own-repository" | "unpublished")) {
-            let exclude = line(git_ok(root, &["rev-parse", "--git-path", "info/exclude"])?);
+            let exclude = line(g.ok(&["rev-parse", "--git-path", "info/exclude"])?);
             let present = r
                 .read(root, &exclude, &exclude)
                 .is_some_and(|b| b.split(|c| *c == b'\n').any(|l| l == b"/.brewstillery/"));

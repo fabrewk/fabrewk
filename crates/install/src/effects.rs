@@ -130,13 +130,16 @@ fn holds(when: &When, v: &Value) -> bool {
     }
 }
 
-/// How many strings in `v`, at any depth, run `git commit` or `git push`, however spaced.
+/// How many strings in `v`, at any depth, run `git commit` or `git push`: in one command of the string, between its
+/// separators, a word `git` (or a path to it) and, after it and its options, `commit` or `push` (P10A-6).
 fn commits(v: &Value) -> usize {
     match v {
-        Value::String(s) => {
-            let words = s.split_whitespace().collect::<Vec<_>>().join(" ");
-            usize::from(words.contains("git commit") || words.contains("git push"))
-        }
+        Value::String(s) => usize::from(s.split([';', '&', '|', '(', ')', '`', '\n']).any(|command| {
+            let words: Vec<&str> =
+                command.split_whitespace().map(|w| w.trim_matches(|c: char| !c.is_ascii_alphanumeric())).collect();
+            let git = words.iter().position(|w| *w == "git" || w.ends_with("/git"));
+            git.is_some_and(|at| words[at..].iter().any(|w| matches!(*w, "commit" | "push")))
+        })),
         Value::Array(a) => a.iter().map(commits).sum(),
         Value::Object(o) => o.values().map(commits).sum(),
         _ => 0,
@@ -160,20 +163,20 @@ mod tests {
     fn claude_settings_are_read_by_key_and_count() {
         let text = r#"{"hooks": {"PostToolUse": [{"hooks": [{"type": "command", "command": "git  add -A && git commit -m x"}]}],
             "Stop": [{"hooks": [{"command": "echo"}]}]},
-            "permissions": {"allow": ["Bash(git push:*)", "Read"], "defaultMode": "bypassPermissions"},
+            "permissions": {"allow": ["Bash(git push:*)", "Read", "Bash(git -C . commit -am x)", "Bash(git log)"], "defaultMode": "bypassPermissions"},
             "env": {"DISABLE_TELEMETRY": "1", "SECRET": "sk-x"}, "autoUpdates": false, "sandbox": {"enabled": false},
             "enableAllProjectMcpServers": true}"#;
         let found = kinds("~/.claude/settings.json", text, false);
         for (key, kind, count) in [
             ("hooks", "hooks", json!(2)),
-            ("permissions.allow", "approvals", json!(2)),
+            ("permissions.allow", "approvals", json!(4)),
             ("permissions.defaultMode", "approvals", Value::Null),
             ("sandbox.enabled", "sandbox", Value::Null),
             ("enableAllProjectMcpServers", "mcp", Value::Null),
             ("autoUpdates", "updates", Value::Null),
             ("env.DISABLE_TELEMETRY", "telemetry", Value::Null),
             ("hooks", "commits", json!(1)),
-            ("permissions.allow", "commits", json!(1)),
+            ("permissions.allow", "commits", json!(2)),
         ] {
             assert!(found.contains(&(key.to_owned(), kind.to_owned(), count.clone())), "{key} {kind}: {found:?}");
         }
