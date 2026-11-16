@@ -4982,3 +4982,25 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   amendment of part 10a; D-100 point 2's scan of the global, system and environment's includes is replaced.
 - Sources: chat of session 41; Codex's fourth report of part 10a; D-100, D-101.
 - Supersedes: D-100 point 2 for the global and system files and the environment.
+
+## D-103 — Part 10a: what lies inside the Git directory is the person's own state, a declared residual
+
+- Status: decided
+- Decided: 2026-11-16
+- Origin: maintainer XEL in session 41's chat, after Codex's seventh pass of part 10a (P10A-40 to P10A-44; confirmed
+  blocking over the seven passes 5, 5, 4, 8, 3, 3, 4, two consecutive retries without progress, so the integrator
+  gave alternatives as the plan's rule for every phase asks), choosing "Residuo del .git (Recomendado)".
+- Decision: a link inside the repository's Git directory (its objects, alternates, index, hooks) that leads to the
+  private folder is a declared residual: the person's own state, which a clone cannot plant. `assess` keeps refusing
+  the `.git` entry, the Git directory, its configuration files, their includes and its `info/attributes` when they lie
+  in the private folder, and the person's global files when they lie there; it walks no other part of the Git
+  directory. Every file `assess` opens by itself is checked by where it really lies, link or not, and one in the
+  private folder is reported as `private` and not read (P10A-42); a `--key` file there is `key-inside`. A key is one
+  public key when `ssh-keygen -l` reads it as one from its standard input (P10A-44).
+- Reason: the plan's rule for every phase (two retries without progress give the maestro alternatives); the
+  remaining paths into the private folder were links the person alone can make inside their own Git directory. The
+  alternatives offered: every Git of `assess` in a bubblewrap cell with the private folder hidden; pausing the part.
+- Consequences: `crates/install/src/lib.rs` and its tests; `core-specification.md`, the amendment of part 10a; the
+  catalogue's `key-inside`.
+- Sources: chat of session 41; Codex's seventh report of part 10a; D-100 to D-102.
+- Supersedes: none.

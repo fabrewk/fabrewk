@@ -1187,7 +1187,7 @@ no-licence = "There is no licence file at the root."
 key-absent = "The key file cannot be found."
 key-not-a-file = "The key file is not a regular file."
 key-too-large = "The key file is over 1 MiB."
-key-inside = "The key file lies in this repository or in a Fabrewk domain."
+key-inside = "The key file lies in this repository, in a Fabrewk domain or in Fabrewk's private folder."
 key-not-public = "The key file does not hold one public key."
 settings-invalid = "The project file the plan would write is not valid: {detail}"
 

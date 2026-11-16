@@ -1033,7 +1033,7 @@ no-licence = "No hay archivo de licencia en la raíz."
 key-absent = "No se encuentra el archivo de la llave."
 key-not-a-file = "El archivo de la llave no es un archivo regular."
 key-too-large = "El archivo de la llave pesa más de 1 MiB."
-key-inside = "El archivo de la llave está en este repositorio o en un dominio de Fabrewk."
+key-inside = "El archivo de la llave está en este repositorio, en un dominio de Fabrewk o en la carpeta privada de Fabrewk."
 key-not-public = "El archivo de la llave no contiene una sola llave pública."
 settings-invalid = "El archivo del proyecto que escribiría el plan no es válido: {detail}"
 

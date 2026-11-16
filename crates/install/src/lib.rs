@@ -92,13 +92,11 @@ impl Reading {
     fn read(&mut self, base: &Path, rel: &str, shown: &str) -> Option<Vec<u8>> {
         let mut entry = json!({"path": shown, "kind": kind(base, rel)});
         let path = base.join(rel);
-        // Never to a file of the private folder (P10A-31).
-        let private = fabrewk_core::machine::private_folder(|k| std::env::var_os(k)).ok();
-        let resolved = path.canonicalize().ok();
-        let private = resolved
-            .zip(private)
-            .is_some_and(|(p, f)| p.starts_with(&f) || f.canonicalize().is_ok_and(|f| p.starts_with(f)));
-        let followed = shown.starts_with("~/") && !private && std::fs::metadata(&path).is_ok_and(|m| m.is_file());
+        // Never a file of the private folder, by link or not (P10A-31, P10A-42): it is reported as such.
+        if private(&path) {
+            entry["kind"] = "private".into();
+        }
+        let followed = shown.starts_with("~/") && std::fs::metadata(&path).is_ok_and(|m| m.is_file());
         let mut out = None;
         if entry["kind"] == "file" || (entry["kind"] == "link" && followed) {
             match std::fs::metadata(&path).map(|m| m.len()) {
@@ -127,6 +125,13 @@ impl Reading {
         self.inputs.entry(rel.to_owned()).or_insert(entry);
         k
     }
+}
+
+/// Whether `path`, as written or where it leads, lies in the private folder, which `assess` never reads (point 3).
+fn private(path: &Path) -> bool {
+    let Ok(folder) = fabrewk_core::machine::private_folder(|k| std::env::var_os(k)) else { return false };
+    let path = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+    path.starts_with(&folder) || folder.canonicalize().is_ok_and(|f| path.starts_with(f))
 }
 
 fn reason(key: &str, blocks: bool, path: Option<&str>, detail: Option<&str>) -> Value {
@@ -202,11 +207,7 @@ impl Git {
 /// include of the global configuration sets, are declared residuals.
 fn person(root: &Path) -> Result<BTreeMap<&'static str, String>, Error> {
     let var = |k: &str| std::env::var_os(k).filter(|v| !v.is_empty()).map(PathBuf::from);
-    let private = fabrewk_core::machine::private_folder(|k| std::env::var_os(k)).ok();
-    let inside = |p: &Path| {
-        let p = p.canonicalize().unwrap_or_else(|_| p.to_path_buf());
-        private.as_ref().is_some_and(|f| p.starts_with(f) || f.canonicalize().is_ok_and(|f| p.starts_with(f)))
-    };
+    let inside = private;
     let found = |p: &Path| refuse(Code::PrivateFolderIncluded, Some(p), "a file Git's configuration is in or names");
     let read = |file: &Path, args: &[&str]| -> Result<Vec<u8>, Error> {
         let name = file.to_str().unwrap_or_default();
@@ -223,14 +224,6 @@ fn person(root: &Path) -> Result<BTreeMap<&'static str, String>, Error> {
     let gitdir = named.map_or(dot, |d| root.join(d));
     if let Some(f) = [gitdir.clone(), gitdir.join("info/attributes")].into_iter().find(|f| inside(f)) {
         return Err(found(&f));
-    }
-    // Any link in the Git directory that leads there (its index, P10A-35), and an alternate object store there.
-    if let Some(f) = linked(&gitdir, &inside) {
-        return Err(found(&f));
-    }
-    let alternates = std::fs::read_to_string(gitdir.join("objects/info/alternates")).unwrap_or_default();
-    if let Some(a) = alternates.lines().map(|a| gitdir.join("objects").join(a)).find(|a| inside(a)) {
-        return Err(found(&a));
     }
     for file in [gitdir.join("config"), gitdir.join("config.worktree")] {
         if inside(&file) {
@@ -426,7 +419,8 @@ fn key(root: &Path, given: &str, r: &mut Reading) -> Result<String, &'static str
     }
     // A key is no maintainer's material: never one in this repository or in any Fabrewk domain (as Git's, D-055).
     let resolved = path.canonicalize().map_err(|_| "key-absent")?;
-    if root.canonicalize().is_ok_and(|r| resolved.starts_with(r))
+    if private(&resolved)
+        || root.canonicalize().is_ok_and(|r| resolved.starts_with(r))
         || resolved.components().any(|c| c.as_os_str() == DOMAIN)
     {
         return Err("key-inside");
@@ -440,36 +434,19 @@ fn key(root: &Path, given: &str, r: &mut Reading) -> Result<String, &'static str
     Ok(text.to_owned())
 }
 
-/// Whether `text` is one whole public key: its blob's SSH strings are those of its type, an Ed25519 key of 32 bytes
-/// (P10A-38).
+/// Whether `text` is one public key, as `ssh-keygen -l` reads one from its standard input (P10A-38, P10A-44).
 fn whole_key(text: &str) -> bool {
-    let Some(mut blob) = key_blob(text) else { return false };
-    let mut strings = Vec::new();
-    while blob.len() >= 4 {
-        let n = u32::from_be_bytes([blob[0], blob[1], blob[2], blob[3]]) as usize;
-        strings.push(blob.get(4..4 + n).map_or(0, <[u8]>::len));
-        blob.drain(..(4 + n).min(blob.len()));
-    }
-    match text.split(' ').next() {
-        Some("ssh-ed25519") => strings == [11, 32],
-        Some("sk-ssh-ed25519@openssh.com") => strings.len() == 3 && strings[1] == 32,
-        _ => strings.len() >= 2 && strings[1..].iter().all(|n| *n > 0),
-    }
-}
-
-/// The first link under `dir`, at any depth, that leads where `inside` says; no link is followed.
-fn linked(dir: &Path, inside: &dyn Fn(&Path) -> bool) -> Option<PathBuf> {
-    for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
-        let found = match entry.file_type() {
-            Ok(t) if t.is_symlink() => inside(&entry.path()).then(|| entry.path()),
-            Ok(t) if t.is_dir() => linked(&entry.path(), inside),
-            _ => None,
-        };
-        if found.is_some() {
-            return found;
-        }
-    }
-    None
+    use std::io::Write;
+    let child = std::process::Command::new("ssh-keygen")
+        .args(["-l", "-f", "-"])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn();
+    child.is_ok_and(|mut c| {
+        let written = c.stdin.take().is_some_and(|mut i| i.write_all(format!("{text}\n").as_bytes()).is_ok());
+        c.wait().is_ok_and(|s| s.success()) && written && key_blob(text).is_some()
+    })
 }
 
 /// `assess` (REQ-INS-1, REQ-INS-2): reads point 3's list, gives the verdict, the plan and its digest, and the `apply`

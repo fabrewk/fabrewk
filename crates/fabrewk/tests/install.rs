@@ -1189,18 +1189,47 @@ fn p10a_34_a_repository_s_empty_signing_key_wins_over_the_global_one() {
 }
 
 #[test]
-fn p10a_35_a_link_in_the_git_directory_to_the_private_folder_stops_assess() {
-    let fx = product("p10a-35");
-    let private = fx.home.join(".config/fabrewk");
-    std::fs::create_dir_all(&private).unwrap();
-    std::fs::rename(fx.root.join(".git/index"), private.join("index")).unwrap();
-    std::os::unix::fs::symlink(private.join("index"), fx.root.join(".git/index")).unwrap();
-    let needle = private.join("index").to_str().unwrap().to_owned();
-    assert_eq!(opened_any(&fx, &[], &[&needle, "[\"git\""]), (1, false));
-    std::fs::remove_file(fx.root.join(".git/index")).unwrap();
-    std::fs::rename(private.join("index"), fx.root.join(".git/index")).unwrap();
-    std::fs::write(fx.root.join(".git/objects/info/alternates"), format!("{}\n", private.display())).unwrap();
-    refused(&fx, &["assess"], "PRIVATE_FOLDER_INCLUDED", 1, "en");
+fn p10a_43_what_lies_inside_the_git_directory_is_the_person_s_own_state() {
+    // A link inside the Git directory, which a clone cannot plant, is a declared residual (D-103): it neither blocks
+    // nor is walked, a hook that no Git of assess runs among them.
+    let fx = product("p10a-43");
+    let secret = secret(&fx);
+    std::os::unix::fs::symlink(&secret, fx.root.join(".git/hooks/pre-commit")).unwrap();
+    assert_eq!(opened(&fx, &[], &secret), (0, false));
+    assert_eq!(fx.assess(&[])["plan"]["verdict"], "adopt");
+}
+
+#[test]
+fn p10a_42_no_file_of_the_private_folder_is_read_even_a_regular_one() {
+    let fx = product("p10a-42");
+    // A home inside the private folder, its settings a regular file there.
+    let home = fx.home.join(".config/fabrewk/home");
+    std::fs::create_dir_all(home.join(".codex")).unwrap();
+    std::fs::write(home.join(".codex/config.toml"), "approval_policy = \"never\"\n").unwrap();
+    let key = fx.key();
+    let args = ["assess", "--json", "--alias", "ana", "--key", &key, "--publication", "published"];
+    let home_s = home.to_str().unwrap();
+    let doc =
+        fx.run_env(&args, &[("HOME", home_s), ("XDG_CONFIG_HOME", fx.home.join(".config").to_str().unwrap())]).doc();
+    assert_eq!(doc["plan"]["effects"], serde_json::json!([]), "{doc}");
+    let inputs = doc["plan"]["inputs"].as_array().unwrap();
+    assert!(inputs.iter().any(|i| i["path"] == "~/.codex/config.toml" && i["kind"] == "private"), "{inputs:?}");
+    // A key file there is no key assess reads.
+    let private_key = fx.home.join(".config/fabrewk/ana.pub");
+    std::fs::copy(fx.key(), &private_key).unwrap();
+    let doc = fx
+        .run(&[
+            "assess",
+            "--json",
+            "--alias",
+            "ana",
+            "--key",
+            private_key.to_str().unwrap(),
+            "--publication",
+            "published",
+        ])
+        .doc();
+    assert!(reasons(&doc).contains(&("key-inside".into(), false, String::new())), "{doc}");
 }
 
 #[test]
@@ -1218,15 +1247,17 @@ fn p10a_36_p10a_37_a_filter_driver_by_any_name_blocks_and_only_a_file_there_is()
 }
 
 #[test]
-fn p10a_38_a_truncated_key_is_not_a_public_key() {
+fn p10a_38_p10a_44_a_truncated_key_is_not_a_public_key() {
     let fx = product("p10a-38");
     let file = fx.keys.join("truncated.pub");
-    std::fs::write(&file, "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 invalid\n").unwrap();
-    let doc = fx
-        .run(&["assess", "--json", "--alias", "ana", "--key", file.to_str().unwrap(), "--publication", "published"])
-        .doc();
-    assert!(reasons(&doc).contains(&("key-not-public".into(), false, String::new())), "{doc}");
-    assert_eq!(doc["apply"], serde_json::json!([]));
+    for line in ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 invalid", "ssh-rsa AAAAB3NzaC1yc2EAAAABAQ== invalid"] {
+        std::fs::write(&file, format!("{line}\n")).unwrap();
+        let args =
+            ["assess", "--json", "--alias", "ana", "--key", file.to_str().unwrap(), "--publication", "published"];
+        let doc = fx.run(&args).doc();
+        assert!(reasons(&doc).contains(&("key-not-public".into(), false, String::new())), "{line}: {doc}");
+        assert_eq!(doc["apply"], serde_json::json!([]));
+    }
 }
 
 #[test]

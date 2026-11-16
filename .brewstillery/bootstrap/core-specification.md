@@ -980,7 +980,11 @@ repository, the repository's configuration files are refused when they lie in th
 of it, and the person's global files when they lie there; from those global files, each read alone with no include
 followed, `assess` takes only `user.signingkey`, `gpg.format` and `core.autocrlf`, the repository's own value
 winning. A setting only an include of the global configuration holds, and a global attribute, are not seen: a
-declared residual, which can make `assess` see a change that is not one, never hide one.
+declared residual, which can make `assess` see a change that is not one, never hide one. What lies inside the Git
+directory (its objects, alternates, index and hooks) is the person's own state, which a clone cannot plant: a link
+there to the private folder is a declared residual, but for the repository's configuration and attributes file,
+checked as above (D-103). Every file `assess` opens by itself is checked by where it really lies, and one in the
+private folder is reported as `private` and not read; a key file there is unusable (`key-inside`).
 
 ### SEC: confinement, credentials and controls
 
