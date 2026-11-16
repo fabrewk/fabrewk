@@ -209,7 +209,8 @@ fn req_ins_2_the_plan_holds_every_item_and_its_identity_is_its_digest() {
     assert_eq!(input("LICENSE")["digest"], fabrewk_core::record::sha256_hex(b"MIT\n"));
     assert_eq!(input("README.md")["kind"], "file");
     assert_eq!(input("AGENTS.md")["kind"], "absent");
-    assert_eq!(input("--key")["digest"], fabrewk_core::record::sha256_hex(std::fs::read(fx.key()).unwrap().as_slice()));
+    let key_input = inputs.iter().find(|i| i["option"] == "key").unwrap();
+    assert_eq!(key_input["digest"], fabrewk_core::record::sha256_hex(std::fs::read(fx.key()).unwrap().as_slice()));
     assert!(
         !serde_json::to_string(plan).unwrap().contains(fx.root.to_str().unwrap()),
         "no path outside the repository"
@@ -382,7 +383,7 @@ fn req_ins_2_what_informs_never_blocks_and_an_incomplete_plan_names_what_it_lack
         ]);
         let doc = out.doc();
         assert!(reasons(&doc).contains(&(why.into(), false, String::new())), "{why}: {doc}");
-        assert!(doc["plan"]["inputs"].as_array().unwrap().iter().all(|i| i["path"] != "--key"));
+        assert!(doc["plan"]["inputs"].as_array().unwrap().iter().all(|i| i["option"] != "key"));
         assert_eq!(doc["apply"], serde_json::json!([]));
         assert!(!content(&doc, ".brewstillery/settings.toml").contains("key ="));
         let body = secret.lines().nth(1).unwrap();
@@ -1478,4 +1479,26 @@ fn p10a_60_a_root_entry_of_any_name_is_read_by_its_bytes() {
     let doc = fx.assess(&[]);
     assert!(input(&doc, "LICENSE-\\xff").unwrap()["digest"].is_string());
     assert!(!reasons(&doc).iter().any(|r| r.0 == "no-licence"));
+}
+
+#[test]
+fn p10a_59_p10a_61_a_git_directory_of_any_name_and_a_root_entry_named_as_an_option() {
+    use std::os::unix::ffi::OsStrExt;
+    let fx = product("p10a-59-apart");
+    let apart = fx.root.parent().unwrap().join(std::ffi::OsStr::from_bytes(b"metadata-\xff"));
+    std::fs::rename(fx.root.join(".git"), &apart).unwrap();
+    std::fs::write(fx.root.join(".git"), [&b"gitdir: "[..], apart.as_os_str().as_bytes(), b"\n"].concat()).unwrap();
+    let doc = fx.assess(&["--publication", "unpublished"]);
+    let exclude = doc["plan"]["files"].as_array().unwrap().iter().find(|f| f["action"] == "exclude").unwrap().clone();
+    assert!(exclude["path"].as_str().unwrap().ends_with("metadata-\\xff/info/exclude"), "{exclude}");
+    // A root entry named `--key` is one entry, the key another (P10A-61).
+    let fx = product("p10a-61");
+    std::fs::write(fx.root.join("--key"), "ordinary\n").unwrap();
+    let first = fx.assess(&[]);
+    std::fs::remove_file(fx.root.join("--key")).unwrap();
+    std::fs::create_dir(fx.root.join("--key")).unwrap();
+    let second = fx.assess(&[]);
+    assert_ne!(first["digest"], second["digest"]);
+    let entry = second["plan"]["inputs"].as_array().unwrap().iter().find(|i| i["path"] == "--key").cloned();
+    assert_eq!(entry.unwrap()["kind"], "directory");
 }

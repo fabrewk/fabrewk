@@ -480,7 +480,8 @@ fn key(root: &Path, given: &str, r: &mut Reading) -> Result<String, &'static str
     if text.contains('\n') || !whole_key(text) {
         return Err("key-not-public");
     }
-    r.inputs.insert("--key".into(), json!({"path": "--key", "kind": "file", "digest": sha256_hex(&bytes)}));
+    // Recorded as the option it is, apart from the root's entries, one of which may be named `--key` (P10A-61).
+    r.inputs.insert("\0key".into(), json!({"option": "key", "kind": "file", "digest": sha256_hex(&bytes)}));
     Ok(text.to_owned())
 }
 
@@ -766,7 +767,7 @@ fn assessed(asked: &Asked) -> Result<(Value, String), Error> {
             // names, read where it is, its bytes kept (P10A-58, P10A-59); shown relative to the repository when inside.
             let dir = &g.gitdir;
             let exclude = dir.join("info/exclude");
-            let exclude = exclude.strip_prefix(root).unwrap_or(&exclude).display().to_string();
+            let exclude = shown(exclude.strip_prefix(root).unwrap_or(&exclude).as_os_str());
             let present = r
                 .read(dir, "info/exclude", &exclude)
                 .is_some_and(|b| b.split(|c| *c == b'\n').any(|l| l == b"/.brewstillery/"));
