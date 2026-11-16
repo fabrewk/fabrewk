@@ -219,9 +219,22 @@ fn person(root: &Path) -> Result<BTreeMap<&'static str, String>, Error> {
     if inside(&dot) {
         return Err(found(&dot));
     }
+    // Only the top of a main working tree has its own `.git` there, a directory or a pointer to one that is no linked
+    // working tree's (with no `commondir`): anywhere else Git would find another repository and follow its
+    // configuration before refusing (P10A-45), so the place is refused before any Git.
+    let not = || refuse(Code::NotARepository, Some(root), "not the top of a repository's main working tree");
     let named =
         std::fs::read_to_string(&dot).ok().and_then(|t| t.strip_prefix("gitdir: ").map(|d| d.trim().to_owned()));
+    if named.is_none() && kind(root, ".git") != "directory" {
+        return Err(not());
+    }
     let gitdir = named.map_or(dot, |d| root.join(d));
+    if inside(&gitdir) {
+        return Err(found(&gitdir));
+    }
+    if gitdir.join("commondir").exists() || !gitdir.is_dir() {
+        return Err(not());
+    }
     if let Some(f) = [gitdir.clone(), gitdir.join("info/attributes")].into_iter().find(|f| inside(f)) {
         return Err(found(&f));
     }
@@ -330,6 +343,11 @@ fn repository(g: &Git) -> Result<(), Error> {
     let not =
         || refuse(Code::NotARepository, Some(&g.root), "not the main working tree of a repository that is not bare");
     if g.run(&["rev-parse", "--is-bare-repository"])? != (Some(0), b"false\n".to_vec()) {
+        return Err(not());
+    }
+    // A `core.worktree` that moves the working tree elsewhere is refused too (P10A-46).
+    let top = line(g.run(&["rev-parse", "--show-toplevel"])?.1);
+    if Path::new(&top).canonicalize().ok() != g.root.canonicalize().ok() {
         return Err(not());
     }
     let (status, out) = g.run(&["worktree", "list", "--porcelain", "-z"])?;

@@ -1275,3 +1275,34 @@ fn p10a_39_a_later_global_file_s_empty_value_wins() {
     std::fs::write(fx.home.join(".gitconfig"), "[user]\n\tsigningkey =\n").unwrap();
     assert_eq!(signs(), false);
 }
+
+#[test]
+fn p10a_45_p10a_46_a_place_that_is_not_the_top_of_the_main_working_tree_is_refused_before_any_git() {
+    let fx = product("p10a-45");
+    let secret = secret(&fx);
+    fx.git(&["config", "include.path", &secret]);
+    // A subdirectory, a linked working tree: refused before Git would find the repository and its include.
+    std::fs::create_dir_all(fx.root.join("sub")).unwrap();
+    let linked = fx.root.parent().unwrap().join("linked");
+    fx.git(&["worktree", "add", "-q", "--detach", linked.to_str().unwrap()]);
+    for dir in [fx.root.join("sub"), linked] {
+        let at = Fx {
+            domain: dir.join(".brewstillery"),
+            root: dir.clone(),
+            home: fx.home.clone(),
+            keys: fx.keys.clone(),
+            path: None,
+        };
+        assert_eq!(opened_any(&at, &[], &[&secret, "[\"git\""]), (1, false), "{}", dir.display());
+        refused(&at, &["assess"], "NOT_A_REPOSITORY", 1, "en");
+    }
+    fx.git(&["config", "--unset", "include.path"]);
+    // A `core.worktree` that moves the working tree into the private folder (P10A-46).
+    let elsewhere = fx.home.join(".config/fabrewk/worktree");
+    std::fs::create_dir_all(&elsewhere).unwrap();
+    std::fs::write(elsewhere.join(".gitattributes"), "AGENTS.md filter=private-marker\n").unwrap();
+    fx.git(&["config", "core.worktree", elsewhere.to_str().unwrap()]);
+    let trace = traced(&fx, &["assess", "--alias", "ana", "--key", &fx.key(), "--publication", "published"]);
+    assert!(!trace.contains("worktree/.gitattributes"), "the private folder was opened");
+    refused(&fx, &["assess"], "NOT_A_REPOSITORY", 1, "en");
+}
