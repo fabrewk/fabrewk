@@ -806,8 +806,10 @@ code. Where a point below and a sentence above differ, the point holds.
    error that lists them; `--key` is a file holding one OpenSSH public key. `fabrewk apply <plan-digest> <the same
    options> --say <words> [--say-lang <tag>] [--json]` writes; there `--publication`, `--alias` and `--key` are
    required (a usage error without them, exit 2). `fabrewk onboard` takes no option but `--help`. `assess` ends with
-   the exact `apply` command its plan corresponds to, each value in single quotes with a quote inside written `'\''`,
-   which fish and a POSIX shell both read.
+   the exact `apply` command its plan corresponds to, each value in single quotes. When no value holds a single
+   quote or a backslash, that one command serves fish and a POSIX shell alike; otherwise two are printed, each named:
+   for fish, with `\` written `\\` and `'` written `\'` inside the quotes; for a POSIX shell, with `'` written `'\''`
+   (fish reads a backslash inside single quotes, a POSIX shell does not; P10O-9).
 3. **What `assess` reads** (REQ-INS-1, a closed list the module declares). It runs at the top of the main working
    tree of a repository that is not bare (`NOT_A_REPOSITORY` otherwise, as REQ-DOM-7's check). It reads: Git's state
    (the checked-out branch or a detached head; an operation in progress, merge, rebase, cherry-pick, revert or bisect;
@@ -819,14 +821,18 @@ code. Where a point below and a sentence above differ, the point holds.
    `.codex/config.toml`) and in the home (`~/.claude/settings.json`, `~/.codex/config.toml`): hooks, automatic
    updates, telemetry and error reports, MCP servers, tools approved in advance (permission allow lists, an approval
    policy that never asks, a sandbox turned off) and hooks or commands that run `git commit` or `git push`; the
-   `--key` file; and Git's `gpg.format` and `user.signingkey`, to say whether Git signs with that key. Each side
+   `--key` file; Git's `gpg.format` and `user.signingkey`, to say whether Git signs with that key; whether `AGENTS.md`
+   or `CLAUDE.md` has staged or unstaged changes; and every target of point 5, by kind (absent, regular file, link,
+   directory) and, for a regular file, by content (P10O-7). Each side
    effect is reported by file and key path, with a count where it is a list, never with a value, which may hold a
-   credential. A file over 1 MiB is reported by name and size and not read. Nothing else: not the private folder, not
-   the network, no cache, no file written.
+   credential. A file over 1 MiB is reported by name and size and not read. `.brewstillery/local/` is never an input
+   (it is unversioned, and `apply`'s lock lives there). Nothing else: not the private folder, not the network, no
+   cache, no file written.
 4. **The verdict** (REQ-INS-2). `none` when any of these holds, each a reason: a detached head; an operation in
-   progress; a record in `.brewstillery/data/` (Fabrewk is already there), save point 7's interrupted `apply`; a path
-   the plan would create present with other content, the alambique excepted (point 6); `AGENTS.md` or `CLAUDE.md`
-   present but not a regular file or not UTF-8. Otherwise the verdict is `--mode`'s, `adopt` or `review`. Another
+   progress; a record in `.brewstillery/data/` (Fabrewk is already there; point 7 says what `apply` does with its
+   own); a target of point 5 to `create` present in any form (a file, a link, a directory), the alambique excepted,
+   which is kept; `AGENTS.md` or `CLAUDE.md` present but not a regular file, not UTF-8, over 1 MiB (P10O-8), or with
+   staged or unstaged changes, which the person commits or puts aside first (P10O-3). Otherwise the verdict is `--mode`'s, `adopt` or `review`. Another
    harness, side effects, changes in tracked files and a missing licence are reasons shown so that the maestro decides
    informed, never blockers. A plan missing `--publication`, `--alias` or `--key` is shown as incomplete, naming what
    it lacks; its verdict stands, and `apply` requires them (point 2). An alias that is invalid or reserved is
@@ -835,8 +841,7 @@ code. Where a point below and a sentence above differ, the point holds.
 5. **The plan** (`fabrewk.plan/1`): a canonical JSON document, as the record's events are (REQ-REG-3); its identity is
    the SHA-256 of those bytes. It holds no time, no nonce and no path outside the repository but the home's files
    read, written `~/…`. It holds the verdict and its reasons; the answers (the options); every input read, by path,
-   with its digest or `absent`, an entry file's taken without its entry block, so that the plan an `apply` leaves is
-   the plan it applied; the side effects; the warning of point 9 in the plan's language when the publication is
+   with its digest or `absent`; the side effects; the warning of point 9 in the plan's language when the publication is
    `unpublished`; the next steps (Git's commands to sign with the key when Git does not, shown and never run); and,
    for `adopt`, every file with its action. The `apply` command of point 2 is printed beside the plan and is not part
    of its content, since it holds the digest:
@@ -863,21 +868,42 @@ code. Where a point below and a sentence above differ, the point holds.
    refuses a digest other than the one given (`PLAN_CHANGED`), a verdict `none` (`VERDICT_NONE`) and `review`
    (`MODE_NOT_AVAILABLE`); the key Git signs with must be the plan's (`ROLE_FORBIDDEN` otherwise, D-055); the words
    are checked as for every move (`WORDS_MISSING`, `WORDS_COPIED`); the project file must validate
-   (`SETTINGS_INVALID`). Then, under the domain's lock: the files to create, each written whole and atomically where
-   absent; the entry blocks; the domain's own repository or the exclude line; the five events of section 4 in order, signed with the
-   plan's key, the two before `policy-adopted` citing the policy it adopts (as part 7c2a reads them): `assessed` with
-   the verdict, the reasons, the plan and its digest; `publication-decided` with the mode, `warningShown` true when
-   the plan held the warning, and the person's words; `policy-adopted` as `adopt` writes it; `alambique-baseline` with
-   the alambique's digest; `installed` with the receipt, every file written or changed and its digest after; then the
-   views and the record commit. In `published` the record commit holds everything `apply` wrote,
-   the entry files included; in `own-repository` the domain's repository's first commit holds the domain's files and
-   the entry files are left in the product's working tree, uncommitted; in `unpublished` nothing is committed (F-2).
-   `apply` says what it left uncommitted and the Git command that commits it, running none.
-7. **An interrupted `apply`.** A killed `apply` is finished by running it again with the same options: a file with the
-   plan's content, an entry block equal to the plan's, the exclude line present, the domain's repository present and
-   project events recorded for the same plan's digest count as done, so the plan reassessed has the same digest and
-   `apply` writes only what is missing. Until `installed` is recorded every other write command refuses
-   (`INSTALLATION_INCOMPLETE`, new) and `check` reports it. The crash suite runs over `apply`'s write points.
+   (`SETTINGS_INVALID`). Then, under the domain's lock, in this order: `assessed`, with the verdict, the reasons, the
+   plan and its digest, and `publication-decided`, with the mode, `warningShown` true when the plan held the warning,
+   and the person's words; the plan's files, each written whole and atomically; the entry blocks; the domain's own
+   repository or the exclude line; `policy-adopted`, as `adopt` writes it; `alambique-baseline`, with the alambique's
+   digest; `installed`, with the receipt, every file written or changed and its digest after; then the views and the
+   record commit. The four person's events (`assessed`, `publication-decided`, `policy-adopted`,
+   `alambique-baseline`) are signed with the plan's key; `installed` is Fabrewk's and unsigned, as section 3 has it
+   (P10O-2). In `published` the record commit holds everything `apply` wrote, the entry files included, whose working
+   tree and index equal `HEAD` before (point 4), so that the commit keeps every other staged or unstaged change as
+   REQ-REG-10 does; in `own-repository` the domain's repository's first commit holds the domain's files and the entry
+   files are left in the product's working tree, uncommitted; in `unpublished` nothing is committed (F-2). `apply` says
+   what it left uncommitted and the Git command that commits it, running none.
+
+   **The core's contract for it (P10O-4).** The one write path gains an installation entry, used by `apply` alone: it
+   runs with no record, or with one holding only an installation of the same plan (point 7); the publication mode,
+   the policy and the signer come from the plan, not from the record; `policy-adopted`'s check that the project file
+   is committed (`POLICY_UNCOMMITTED`) does not apply to the first adoption, whose file the same record commit holds;
+   and the record commit takes the receipt's files besides the record's and the views. Every other guard of part
+   7d3a stands: the lock, the mark, the record branch, the machine key, and the mode's checks once the exclude line or
+   the domain's repository is in place.
+
+   **Events before the first adoption (P10O-5).** `assessed` and `publication-decided` cite the digest of the project
+   file the plan creates. Replay verifies them against the maintainers of the project file carried in the `assessed`
+   event's plan, whose digest the citation must equal; once `policy-adopted` follows, part 7c2a's rule holds as
+   before. A project stream with no `policy-adopted` replays only in that form, and only as an installation not
+   complete.
+7. **An interrupted `apply`.** A killed `apply` is finished by running it again with the same options. When the
+   record holds an `assessed` with the given digest and the installation is not complete, `apply` does not reassess:
+   it takes the plan from that event, checks that each target is either as the plan's inputs found it or as the plan
+   writes it (`PLAN_CHANGED` otherwise, writing nothing), and writes only what is missing, the events included. The
+   installation is complete once `installed` is recorded and, in a mode that commits, committed; until then every
+   other write command refuses (`INSTALLATION_INCOMPLETE`, new) and `check` reports it, so that no other command
+   commits a part of it (P10O-6). Once it is complete, the same `apply` again says so, writes nothing and exits 0;
+   another plan meets point 4's record and is `VERDICT_NONE`. Section 12's "a second `apply` changing nothing" for
+   REQ-DOM-6 is read so (P10O-1). Before `assessed` is written nothing is, but the lock under `local/`. The crash suite
+   runs over `apply`'s write points.
 8. **`onboard`** (REQ-INS-4). It opens the terminal itself (`/dev/tty`), since standard input is the script when it
    is piped into `sh`, and refuses when there is none (`TERMINAL_REQUIRED`: no controlling terminal; section 11.4's
    case is read so). It asks first the language (`en`, `es`), then, in that language: adopt or only review; whether
