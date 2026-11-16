@@ -799,9 +799,19 @@ fn traced(fx: &Fx, args: &[&str]) -> String {
     let trace = fx.root.parent().unwrap().join("trace");
     let mut c = Command::new("strace");
     isolate(&mut c, &fx.home, None);
-    c.args(["-f", "-qq", "-e", "trace=open,openat,openat2", "-o"]).arg(&trace).arg(env!("CARGO_BIN_EXE_fabrewk"));
-    c.args(args).current_dir(&fx.root).output().expect("strace is needed");
-    std::fs::read_to_string(trace).expect("strace wrote its trace")
+    c.args(["-f", "-qq", "-e", "trace=execve,open,openat,openat2", "-o"])
+        .arg(&trace)
+        .arg(env!("CARGO_BIN_EXE_fabrewk"));
+    let out = c.args(args).current_dir(&fx.root).output().expect("strace is needed");
+    let text = std::fs::read_to_string(trace).unwrap_or_default();
+    // Only a trace of the command really run proves what it did not open (P10A-20).
+    let ran = format!("execve(\"{}\"", env!("CARGO_BIN_EXE_fabrewk"));
+    assert!(
+        text.contains(&ran) && text.contains("openat("),
+        "strace saw nothing: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    text
 }
 
 #[test]
@@ -1001,4 +1011,78 @@ fn p10a_12_no_index_flag_hides_an_edit_of_an_entry_file() {
         assert_eq!(fx.assess(&[])["plan"]["verdict"], "adopt", "{flag}");
         fx.git(&["update-index", &flag.replace("--", "--no-"), "AGENTS.md"]);
     }
+}
+
+#[test]
+fn p10a_14_p10a_18_the_environment_s_git_values_are_read_as_git_reads_them() {
+    let fx = product("p10a-14");
+    let private = fx.home.join(".config/fabrewk");
+    std::fs::create_dir_all(&private).unwrap();
+    std::fs::write(private.join("secret"), "[user]\n\tname = PRIVATE\n").unwrap();
+    let secret = private.join("secret").to_str().unwrap().to_owned();
+    let key = fx.key();
+    let args = ["assess", "--json", "--alias", "ana", "--key", &key, "--publication", "published"];
+    let parameters = format!("'Include.path={secret}'");
+    let quoted = format!("'includeIf.onbranch:main'.'path'='{secret}'");
+    for env in [
+        vec![("GIT_CONFIG_PARAMETERS", parameters.as_str())],
+        vec![("GIT_CONFIG_PARAMETERS", quoted.as_str())],
+        vec![
+            ("GIT_CONFIG_COUNT", "1"),
+            ("GIT_CONFIG_KEY_0", "include.path"),
+            ("GIT_CONFIG_VALUE_0", "~/.config/fabrewk/secret"),
+        ],
+        vec![("GIT_CONFIG_COUNT", "1"), ("GIT_CONFIG_KEY_0", "core.attributesFile"), ("GIT_CONFIG_VALUE_0", &secret)],
+    ] {
+        let out = fx.run_env(&args, &env);
+        assert_eq!(out.status, 1, "{env:?}: {out:?}");
+        assert_eq!(out.doc()["refusals"][0]["code"], "PRIVATE_FOLDER_INCLUDED", "{env:?}");
+    }
+    // What includes no file of the private folder is no refusal (a relative include Git refuses from the command line).
+    let safe = format!("'include.path={}'", fx.root.parent().unwrap().join("safe.conf").display());
+    for env in [
+        vec![("GIT_CONFIG_PARAMETERS", "'user.name=include'")],
+        vec![("GIT_CONFIG_PARAMETERS", safe.as_str())],
+        vec![("GIT_CONFIG_COUNT", "1"), ("GIT_CONFIG_KEY_0", "user.name"), ("GIT_CONFIG_VALUE_0", &secret)],
+    ] {
+        assert_eq!(fx.run_env(&args, &env).status, 0, "{env:?}");
+    }
+}
+
+#[test]
+fn p10a_15_an_attributes_file_in_the_private_folder_stops_assess() {
+    let fx = product("p10a-15");
+    let private = fx.home.join(".config/fabrewk");
+    std::fs::create_dir_all(&private).unwrap();
+    std::fs::write(private.join("attributes"), "AGENTS.md filter=probe\n").unwrap();
+    fx.git(&["config", "core.attributesFile", "~/.config/fabrewk/attributes"]);
+    let trace = traced(&fx, &["assess", "--alias", "ana", "--key", &fx.key(), "--publication", "published"]);
+    assert!(!trace.contains("fabrewk/attributes"), "the private folder was opened");
+    refused(&fx, &["assess"], "PRIVATE_FOLDER_INCLUDED", 1, "en");
+}
+
+#[test]
+fn p10a_17_a_mode_change_of_an_entry_file_blocks() {
+    let fx = product("p10a-17");
+    std::fs::write(fx.root.join("AGENTS.md"), "# Agents\n").unwrap();
+    fx.commit("agents");
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::set_permissions(fx.root.join("AGENTS.md"), std::fs::Permissions::from_mode(0o755)).unwrap();
+    assert!(reasons(&fx.assess(&[])).contains(&("uncommitted".into(), true, "AGENTS.md".into())), "unstaged");
+    fx.git(&["add", "AGENTS.md"]);
+    assert!(reasons(&fx.assess(&[])).contains(&("uncommitted".into(), true, "AGENTS.md".into())), "staged");
+    fx.git(&["reset", "-q", "--", "AGENTS.md"]);
+    // When Git ignores the executable bit, so does assess.
+    fx.git(&["config", "core.fileMode", "false"]);
+    assert_eq!(fx.assess(&[])["plan"]["verdict"], "adopt");
+}
+
+#[test]
+fn p10a_19_a_root_file_over_1_mib_is_reported_by_its_size() {
+    let fx = product("p10a-19");
+    std::fs::write(fx.root.join("big.bin"), vec![b'x'; (1 << 20) + 1]).unwrap();
+    let doc = fx.assess(&[]);
+    let inputs = doc["plan"]["inputs"].as_array().unwrap();
+    assert!(inputs.iter().any(|i| i["path"] == "big.bin" && i["bytes"] == (1 << 20) + 1), "{inputs:?}");
+    assert!(inputs.iter().all(|i| i["path"] != "README.md" || i.get("bytes").is_none()));
 }

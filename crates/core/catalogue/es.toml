@@ -640,8 +640,9 @@ next = "Confirma .brewstillery/settings.toml y luego adóptalo."
 run = "fabrewk adopt"
 
 [code.PRIVATE_FOLDER_INCLUDED]
-reason = "La configuración de Git incluye un archivo de la carpeta privada de Fabrewk, que Git abriría: assess se detiene antes de ejecutar cualquier otro Git."
-next = "Quita ese include de la configuración de Git, o apúntalo fuera de la carpeta privada."
+reason = "La configuración de Git nombra un archivo de la carpeta privada de Fabrewk, un include o su archivo de atributos, que Git abriría: assess se detiene antes de ejecutar cualquier otro Git."
+next = "Quita ese ajuste de la configuración de Git, o apúntalo fuera de la carpeta privada; después evalúa de nuevo:"
+run = "fabrewk assess"
 
 [code.PRIVATE_FOLDER_PERMISSIONS]
 reason = "La carpeta privada da acceso a alguien más que su dueño, así que Fabrewk no la lee."

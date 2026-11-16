@@ -4941,3 +4941,20 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   11.4).
 - Sources: chat of session 41; Codex's second report of part 10a; D-097, D-098.
 - Supersedes: none.
+
+## D-101 — Part 10a: point 3's limit of 1 MiB is on what `assess` reads for its content
+
+- Status: decided
+- Decided: 2026-11-16
+- Origin: maintainer XEL in session 41's chat, after Codex's third pass of part 10a (P10A-16), answering the
+  integrator's question: "Solo lo que abre Fabrewk (Recomendado)".
+- Decision: point 3's "a file over 1 MiB is reported by name and size and not read" applies to the files `assess`
+  reads for their content (the entry files, the licence, the alambique, the other tools' settings, the key, the
+  exclude file, the targets). What Git reads to answer about its own state, its index, objects, configuration and
+  attributes, is the "Git's state" point 3 lists, and has no such limit. No code.
+- Reason: Git reads its index and packs on every command, and they exceed 1 MiB in any repository of some size, so the
+  wider reading cannot be met. The alternative offered: the same, and a refusal before any Git when one of the Git
+  configuration files `assess` already lists, or the root's `.gitattributes`, is over 1 MiB.
+- Consequences: `core-specification.md`, the amendment of part 10a; Codex's fourth pass reads P10A-16 so.
+- Sources: chat of session 41; Codex's third report of part 10a; D-100.
+- Supersedes: none.

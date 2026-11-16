@@ -969,6 +969,10 @@ attributes but no filter, so that an index flag (`assume-unchanged`, `skip-workt
 through a Git filter blocks with its own reason (`filtered`), since whether it holds changes cannot be told without
 running the filter. Whether other tracked files have changes, a reason that informs, is told from the index's staged
 changes and from each tracked file's size and time against what the index recorded, so no file's content is read.
+The check of the private folder covers every file Git's configuration names that Git opens while `assess` runs, its
+includes and its attributes file (`core.attributesFile`), in each file and in the `-c` values of the environment
+(P10A-14, P10A-15). Point 3's limit of 1 MiB is on the files `assess` reads for their content; what Git reads to
+answer about its own state (its index, objects, configuration and attributes) is Git's state (D-101).
 
 ### SEC: confinement, credentials and controls
 

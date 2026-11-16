@@ -110,10 +110,15 @@ impl Reading {
         out
     }
 
-    /// Records `rel` under `root` by kind alone, unless it was read.
+    /// Records `rel` under `root` by kind alone, and a file over 1 MiB by its size too (P10A-19), unless it was read.
     fn note(&mut self, root: &Path, rel: &str) -> &'static str {
         let k = kind(root, rel);
-        self.inputs.entry(rel.to_owned()).or_insert_with(|| json!({"path": rel, "kind": k}));
+        let mut entry = json!({"path": rel, "kind": k});
+        match std::fs::symlink_metadata(root.join(rel)).map(|m| m.len()) {
+            Ok(n) if k == "file" && n > MIB => entry["bytes"] = n.into(),
+            _ => {}
+        }
+        self.inputs.entry(rel.to_owned()).or_insert(entry);
         k
     }
 }
@@ -168,8 +173,8 @@ impl Git {
         git_ok(&self.root, &self.run(args)?, args)
     }
 
-    /// The object ids, by path, of what `args` lists (`ls-files -s`, `ls-tree`: the id before the tab, the path after);
-    /// an entry in conflict, at a stage other than 0, has no id.
+    /// The mode and object id, by path, of what `args` lists (`ls-files -s`, `ls-tree`: before the tab, the path after);
+    /// an entry in conflict, at a stage other than 0, has none.
     fn ids(&self, args: &[&str]) -> Result<BTreeMap<String, Option<String>>, Error> {
         let out = self.ok(args)?;
         let entries = out.split(|b| *b == 0).filter_map(|e| std::str::from_utf8(e).ok()?.split_once('\t'));
@@ -177,10 +182,8 @@ impl Git {
             .map(|(meta, path)| {
                 let words: Vec<&str> = meta.split(' ').collect();
                 let conflict = args[0] == "ls-files" && words.get(2) != Some(&"0");
-                (
-                    path.to_owned(),
-                    words.get(1 + usize::from(args[0] == "ls-tree")).filter(|_| !conflict).map(|w| w.to_string()),
-                )
+                let id = words.get(1 + usize::from(args[0] == "ls-tree")).filter(|_| !conflict);
+                (path.to_owned(), id.map(|w| format!("{} {w}", words[0])))
             })
             .collect())
     }
@@ -198,7 +201,7 @@ fn includes(root: &Path) -> Result<(), Error> {
         let p = p.canonicalize().unwrap_or_else(|_| p.to_path_buf());
         p.starts_with(&private) || private.canonicalize().is_ok_and(|f| p.starts_with(f))
     };
-    let found = |p: &Path| refuse(Code::PrivateFolderIncluded, Some(p), "an include of Git's configuration");
+    let found = |p: &Path| refuse(Code::PrivateFolderIncluded, Some(p), "a file Git's configuration names");
     // The repository's Git directory: `.git`, or the one its `gitdir:` file names.
     let dot = root.join(".git");
     let gitdir = match std::fs::read_to_string(&dot)
@@ -213,7 +216,8 @@ fn includes(root: &Path) -> Result<(), Error> {
     let mut files = vec![gitdir.join("config"), gitdir.join("config.worktree")];
     match var("GIT_CONFIG_GLOBAL") {
         Some(g) => files.push(g),
-        None => files.extend(xdg.map(|x| x.join("git/config")).into_iter().chain(home.map(|h| h.join(".gitconfig")))),
+        None => files
+            .extend(xdg.map(|x| x.join("git/config")).into_iter().chain(home.as_ref().map(|h| h.join(".gitconfig")))),
     }
     if var("GIT_CONFIG_NOSYSTEM").is_none() {
         files.push(var("GIT_CONFIG_SYSTEM").unwrap_or_else(|| PathBuf::from("/etc/gitconfig")));
@@ -224,31 +228,56 @@ fn includes(root: &Path) -> Result<(), Error> {
         ("GIT_CONFIG_COUNT", "0"),
         ("GIT_CONFIG_PARAMETERS", ""),
     ];
-    let regexp = r"^include(if\..*)?\.path$";
+    // The keys whose files Git opens while `assess` runs: its includes and its attributes file (P10A-15). A relative
+    // include is relative to the file that names it; a relative attributes file, to the working tree.
+    let regexp = r"^(include(if\..*)?\.path|core\.attributesfile)$";
+    let at = |base: &Path, key: &str, value: &str| {
+        let value = match (value.strip_prefix("~/"), &home) {
+            (Some(rest), Some(h)) => h.join(rest),
+            _ => PathBuf::from(value),
+        };
+        if key.ends_with("attributesfile") { root.join(value) } else { base.join(value) }
+    };
     for file in files.iter().filter(|f| f.is_file()) {
         let Some(name) = file.to_str() else { continue };
         let args = ["config", "--no-includes", "--file", name, "--type=path", "-z", "--get-regexp", regexp];
         let (_, out) = git(Path::new("/"), &args, b"", &alone)?;
         for entry in out.split(|b| *b == 0).filter_map(|e| std::str::from_utf8(e).ok()) {
-            // A relative include is relative to the file that names it.
-            if let Some((_, value)) = entry.split_once('\n') {
-                let target = file.parent().unwrap_or(root).join(value);
-                if inside(&target) {
-                    return Err(found(&target));
-                }
+            if let Some((key, value)) = entry.split_once('\n')
+                && inside(&at(file.parent().unwrap_or(root), key, value))
+            {
+                return Err(found(&at(file.parent().unwrap_or(root), key, value)));
             }
         }
     }
-    // The `-c` values Git takes from the environment.
+    // The `-c` values Git takes from the environment, read as Git reads them (P10A-14, P10A-18): the counted pairs,
+    // and `GIT_CONFIG_PARAMETERS`, words in single quotes, `'\''` a quote, each `key=value`.
     let n: usize = std::env::var("GIT_CONFIG_COUNT").ok().and_then(|n| n.parse().ok()).unwrap_or(0);
-    let values = (0..n).filter(|i| {
-        std::env::var(format!("GIT_CONFIG_KEY_{i}")).is_ok_and(|k| k.to_ascii_lowercase().starts_with("include"))
-    });
-    let mut values: Vec<PathBuf> = values.filter_map(|i| var(&format!("GIT_CONFIG_VALUE_{i}"))).collect();
-    values
-        .extend(std::env::var("GIT_CONFIG_PARAMETERS").ok().filter(|p| p.contains("include")).map(|_| private.clone()));
-    match values.iter().find(|v| inside(&root.join(v))) {
-        Some(v) => Err(found(v)),
+    let mut pairs: Vec<(String, String)> = (0..n)
+        .filter_map(|i| {
+            Some((
+                std::env::var(format!("GIT_CONFIG_KEY_{i}")).ok()?,
+                std::env::var(format!("GIT_CONFIG_VALUE_{i}")).ok()?,
+            ))
+        })
+        .collect();
+    let (mut word, mut quoted, mut words) = (String::new(), false, Vec::new());
+    for c in std::env::var("GIT_CONFIG_PARAMETERS").unwrap_or_default().chars() {
+        match c {
+            '\'' => quoted = !quoted,
+            '\\' if !quoted => {}
+            c if c.is_whitespace() && !quoted => words.extend((!word.is_empty()).then(|| std::mem::take(&mut word))),
+            c => word.push(c),
+        }
+    }
+    words.extend((!word.is_empty()).then_some(word));
+    pairs.extend(words.iter().filter_map(|w| w.split_once('=')).map(|(k, v)| (k.to_owned(), v.to_owned())));
+    let key = |k: &str| {
+        let k = k.to_ascii_lowercase();
+        k == "core.attributesfile" || k == "include.path" || (k.starts_with("includeif.") && k.ends_with(".path"))
+    };
+    match pairs.iter().map(|(k, v)| (k, at(root, &k.to_ascii_lowercase(), v))).find(|(k, v)| key(k) && inside(v)) {
+        Some((_, v)) => Err(found(&v)),
         None => Ok(()),
     }
 }
@@ -454,6 +483,7 @@ fn assessed(asked: &Asked) -> Result<(Value, String), Error> {
     }
     // The entry files: in the index and in `HEAD` by object id, and through a filter or not (D-100).
     let index = g.ids(&["ls-files", "-z", "-s", "--", "AGENTS.md", "CLAUDE.md"])?;
+    let filemode = g.run(&["config", "--type=bool", "--get", "core.filemode"])?.1 != b"false\n";
     let committed =
         if head { g.ids(&["ls-tree", "-z", "HEAD", "--", "AGENTS.md", "CLAUDE.md"])? } else { BTreeMap::new() };
     let attrs = g.ok(&["check-attr", "-z", "filter", "--", "AGENTS.md", "CLAUDE.md"])?;
@@ -502,12 +532,27 @@ fn assessed(asked: &Asked) -> Result<(Value, String), Error> {
         let why = why.or_else(|| filtered.iter().any(|f| f == name).then_some("filtered"));
         // The working tree's bytes hashed by Git from standard input, with the path's attributes and no filter, so that
         // no index flag hides an edit (P10A-12).
+        // Its mode as Git would record it: the index's when Git ignores the executable bit (P10A-17).
+        let indexed = index.get(name).cloned().flatten();
+        let mode = match (filemode, std::fs::symlink_metadata(root.join(name))) {
+            (true, Ok(m)) => {
+                if std::os::unix::fs::PermissionsExt::mode(&m.permissions()) & 0o111 != 0 {
+                    "100755"
+                } else {
+                    "100644"
+                }
+            }
+            _ => indexed.as_deref().and_then(|i| i.split(' ').next()).unwrap_or("100644"),
+        };
         let worktree = match (&why, &bytes) {
-            (None, Some(b)) => Some(line(git_ok(
-                root,
-                &g.with(&["hash-object", "--stdin", &format!("--path={name}")], b)?,
-                &["hash-object", "--stdin"],
-            )?)),
+            (None, Some(b)) => Some(format!(
+                "{mode} {}",
+                line(git_ok(
+                    root,
+                    &g.with(&["hash-object", "--stdin", &format!("--path={name}")], b)?,
+                    &["hash-object", "--stdin"],
+                )?)
+            )),
             _ => None,
         };
         let changed =

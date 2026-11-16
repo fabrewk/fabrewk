@@ -85,7 +85,7 @@ Rechazos
 
 - `NOT_A_REPOSITORY`: Esta no es la raíz del árbol de trabajo principal del repositorio.
 - `ALIAS_INVALID`: Un nombre que no es un alias válido: minúsculas, dígitos y guiones sueltos, empezando con una letra, de 32 caracteres a lo más, y que no sea un nombre reservado.
-- `PRIVATE_FOLDER_INCLUDED`: La configuración de Git incluye un archivo de la carpeta privada de Fabrewk, que Git abriría: assess se detiene antes de ejecutar cualquier otro Git.
+- `PRIVATE_FOLDER_INCLUDED`: La configuración de Git nombra un archivo de la carpeta privada de Fabrewk, un include o su archivo de atributos, que Git abriría: assess se detiene antes de ejecutar cualquier otro Git.
 - `TOOL_FAILED`: Una herramienta externa falló; lo que imprimió se guarda como evidencia y nunca se muestra aquí.
 - `TOOL_MISSING`: Una herramienta que esto necesita no está en este equipo.
 

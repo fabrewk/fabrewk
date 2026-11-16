@@ -85,7 +85,7 @@ Refusals
 
 - `NOT_A_REPOSITORY`: This is not the root of the repository's main working tree.
 - `ALIAS_INVALID`: A name that is not a valid alias: lowercase letters, digits and single hyphens, starting with a letter, at most 32 characters, and not a reserved name.
-- `PRIVATE_FOLDER_INCLUDED`: Git's configuration includes a file of Fabrewk's private folder, which Git would open: assess stops before running any other Git.
+- `PRIVATE_FOLDER_INCLUDED`: Git's configuration names a file of Fabrewk's private folder, an include or its attributes file, which Git would open: assess stops before running any other Git.
 - `TOOL_FAILED`: An external tool failed; what it printed is kept as evidence, never shown here.
 - `TOOL_MISSING`: A tool this needs is not on this machine.
 

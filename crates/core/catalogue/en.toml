@@ -724,9 +724,10 @@ next = "Commit .brewstillery/settings.toml, then adopt it."
 run = "fabrewk adopt"
 
 [code.PRIVATE_FOLDER_INCLUDED]
-about = "Git's configuration includes a file of the private folder"
-reason = "Git's configuration includes a file of Fabrewk's private folder, which Git would open: assess stops before running any other Git."
-next = "Remove that include from Git's configuration, or point it outside the private folder."
+about = "Git's configuration names a file of the private folder"
+reason = "Git's configuration names a file of Fabrewk's private folder, an include or its attributes file, which Git would open: assess stops before running any other Git."
+next = "Remove that setting from Git's configuration, or point it outside the private folder; then assess again:"
+run = "fabrewk assess"
 
 [code.PRIVATE_FOLDER_PERMISSIONS]
 about = "A private folder whose permissions give access to others"
