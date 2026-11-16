@@ -50,7 +50,8 @@ names, organization and domain, and the trademark check, are not code.
 | §1 Configure a new project | I | REQ-INS-1 to 4, REQ-DOM-1 to 7 | — |
 | §1 Adopt a cloned repository, or only review it | I | REQ-INS-2, REQ-INS-5 | Review mode: after the pilot. The pilot exercises administration; review mode reuses the same record, checks and evidence, and its directory name is reserved now (REQ-DOM-3). Until then `assess` can still conclude "review only" and `apply` refuses that plan (`MODE_NOT_AVAILABLE`). |
 | §1 Assess before writing [decidido] | I | REQ-INS-1, REQ-INS-2 | — |
-| §1 Install by script or by an agent's prompt | I | REQ-INS-6, REQ-INS-7 | Built in phase 10, inside the first core. |
+| §1 Install by script or by an agent's prompt | I | REQ-INS-6, REQ-INS-7 | Built in phase 10, in the installer's ring (AD-5, D-097). |
+| §1 The first alambique in the onboarding | I | REQ-INS-8 | Added at phase 10's opening (D-066, D-097). |
 | §1 Licence [decidido] | I | REQ-BUD-5 | Licence files come with the first code (phase 7). |
 | §2 Structure in each repository [decidido] | I | REQ-DOM-1 to 7 | — |
 
@@ -775,6 +776,142 @@ texts are (P7D3B-2); the documents carry each text as it is, JSON escaping it.
   nothing else installed; the agent's route ends at `assess`. (§1, AD-7)
 - **REQ-INS-7.** A platform not yet supported is refused with the list of those that are (`PLATFORM_UNSUPPORTED`).
   (6.46, AD-4)
+- **REQ-INS-8 (added at phase 10's opening, D-066, D-097).** When `.brewstillery/ALAMBIQUE.md` is absent, the plan
+  creates it from the catalogue's skeleton in the canonical documentation language: a title naming the project; an
+  opening that explains, pedagogically, the analogy that names everything (Brewstillery, the distillery, is Fabrewk's
+  domain in the project; each maestro prepares a fermento with what they want to add, remove or discuss; the alambique
+  is where the fermentos are poured to distil what the project must be; only maestros approve what enters); then
+  numbered sections with stable titles, what the project must achieve, for whom, and what it leaves out, each holding
+  the person's answer exactly as given, or the catalogue's placeholder line when the answer is empty. Fabrewk adds
+  nothing of its own. The whole text is in the plan, so the person reads it before confirming, and `apply`'s
+  `alambique-baseline` records its digest: it is the approved alambique of departure. An alambique present is kept
+  byte for byte and its digest is the baseline. On the agent's route the agent asks the same three questions in chat
+  and passes the answers as given, drafting nothing. (§1, D-066)
+
+**Installation, as phase 10's opening fixed it (D-097).** What the parts of phase 10 build; Codex reviews it before any
+code. Where a point below and a sentence above differ, the point holds.
+
+1. **Where it lives.** The installation is a built-in module in its own ring, as AD-5 decided: `crates/install`, the
+   ring `install` of kind `Installer` (1,200 counted lines), wired by the binary as the adapters are. The core keeps
+   what every module relies on: the declaration of `assess`, `apply` and `onboard` (help, completions, the reference
+   documentation and the catalogue come from it, REQ-CLI-1), their dispatch to the module through a contract the core
+   declares, the record (the events, their payloads' validation, the signatures, the lock, the record commit, through
+   the one write path of part 7d3a), the views and the codes. The module holds what is the installation's own: what
+   `assess` reads, the verdict's rules, the plan, its files' contents and its digest, and `onboard`'s interview. The
+   core's ceiling is 12,500 (D-097).
+2. **The commands.** `fabrewk assess [--mode adopt|review] [--publication published|own-repository|unpublished]
+   [--alias <alias>] [--key <file>] [--tool <name>]… [--lang <tag>] [--purpose <text>] [--audience <text>] [--excluded
+   <text>] [--json]` reads; `--mode` defaults to `adopt`, `--lang` (the canonical documentation language and the first
+   maestro's `agentInteraction`) to `en`; `--tool` names a built-in adapter (`claude`, `codex`), any other name a usage
+   error that lists them; `--key` is a file holding one OpenSSH public key. `fabrewk apply <plan-digest> <the same
+   options> --say <words> [--say-lang <tag>] [--json]` writes; there `--publication`, `--alias` and `--key` are
+   required (a usage error without them, exit 2). `fabrewk onboard` takes no option but `--help`. `assess` ends with
+   the exact `apply` command its plan corresponds to, each value in single quotes with a quote inside written `'\''`,
+   which fish and a POSIX shell both read.
+3. **What `assess` reads** (REQ-INS-1, a closed list the module declares). It runs at the top of the main working
+   tree of a repository that is not bare (`NOT_A_REPOSITORY` otherwise, as REQ-DOM-7's check). It reads: Git's state
+   (the checked-out branch or a detached head; an operation in progress, merge, rebase, cherry-pick, revert or bisect;
+   whether tracked files have changes); the names and kinds of the root's entries; the contents of `AGENTS.md`,
+   `CLAUDE.md` and the licence file (`LICENSE*`, `COPYING*`, `UNLICENSE`); the top entries of `.brewstillery/` and its
+   `ALAMBIQUE.md`; another harness by its names (a list the module declares, such as `.claude/`, `.codex/`, `.cursor/`,
+   `.github/copilot-instructions.md`, `GEMINI.md`, `.aider.conf.yml`, `.clinerules`); the side effects in the settings
+   of the catalogued tools, in the repository (`.claude/settings.json`, `.claude/settings.local.json`, `.mcp.json`,
+   `.codex/config.toml`) and in the home (`~/.claude/settings.json`, `~/.codex/config.toml`): hooks, automatic
+   updates, telemetry and error reports, MCP servers, tools approved in advance (permission allow lists, an approval
+   policy that never asks, a sandbox turned off) and hooks or commands that run `git commit` or `git push`; the
+   `--key` file; and Git's `gpg.format` and `user.signingkey`, to say whether Git signs with that key. Each side
+   effect is reported by file and key path, with a count where it is a list, never with a value, which may hold a
+   credential. A file over 1 MiB is reported by name and size and not read. Nothing else: not the private folder, not
+   the network, no cache, no file written.
+4. **The verdict** (REQ-INS-2). `none` when any of these holds, each a reason: a detached head; an operation in
+   progress; a record in `.brewstillery/data/` (Fabrewk is already there), save point 7's interrupted `apply`; a path
+   the plan would create present with other content, the alambique excepted (point 6); `AGENTS.md` or `CLAUDE.md`
+   present but not a regular file or not UTF-8. Otherwise the verdict is `--mode`'s, `adopt` or `review`. Another
+   harness, side effects, changes in tracked files and a missing licence are reasons shown so that the maestro decides
+   informed, never blockers. A plan missing `--publication`, `--alias` or `--key` is shown as incomplete, naming what
+   it lacks; its verdict stands, and `apply` requires them (point 2). An alias that is invalid or reserved is
+   `ALIAS_INVALID`; a key file that is not one public key makes the project file invalid, which `apply` refuses
+   (`SETTINGS_INVALID`) and `assess` shows as a reason.
+5. **The plan** (`fabrewk.plan/1`): a canonical JSON document, as the record's events are (REQ-REG-3); its identity is
+   the SHA-256 of those bytes. It holds no time, no nonce and no path outside the repository but the home's files
+   read, written `~/…`. It holds the verdict and its reasons; the answers (the options); every input read, by path,
+   with its digest or `absent`, an entry file's taken without its entry block, so that the plan an `apply` leaves is
+   the plan it applied; the side effects; the warning of point 9 in the plan's language when the publication is
+   `unpublished`; the next steps (Git's commands to sign with the key when Git does not, shown and never run); and,
+   for `adopt`, every file with its action. The `apply` command of point 2 is printed beside the plan and is not part
+   of its content, since it holds the digest:
+   - `create`, with its exact content: `.brewstillery/settings.toml` (`[project] name`, the repository directory's
+     name; `[maintainers.<alias>]` with `role = "maestro"` and the key; `[languages] canonicalDocumentationLanguage`;
+     for each `--tool`, `[tools.<name>]` with its `adapter` and `providers`, and `[providers.<provider>] allowed =
+     true`; no model and no profile, which a later `adopt` adds, as the next steps say); `.brewstillery/.gitignore`
+     (`local/`, REQ-DOM-4); `.brewstillery/<alias>/settings.toml` (`[maintainer] alias`, `[languages]
+     agentInteraction`); `.brewstillery/<alias>/fermento.md` (the catalogue's empty input in `--lang` and REQ-FER-1's
+     separator block); `.brewstillery/ALAMBIQUE.md` when absent (REQ-INS-8); `CLAUDE.md` when absent (`@AGENTS.md`
+     and a newline, REQ-DOM-6);
+   - `keep`: an alambique present;
+   - `block`: `AGENTS.md` (created holding only the block when absent) and a `CLAUDE.md` present, with the file's
+     bytes after and the lines added or replaced; the block goes at the end after one blank line, or replaces the one
+     present in place (REQ-DOM-6);
+   - `exclude`, in `own-repository` and `unpublished`: the line `/.brewstillery/` added to the file `git rev-parse
+     --git-path info/exclude` names (REQ-DOM-7);
+   - `repository`, in `own-repository`: `.brewstillery/` made a Git repository of its own on the product's branch
+     name;
+   - the views `STATUS.md` and `RULES.md`, by name only: they are generated from the events `apply` writes, as by every
+     write command (REQ-VIEW-3).
+   A plan for `review` holds no file: review mode is not built in the first core (REQ-INS-5).
+6. **`apply`** (REQ-INS-3). It refuses inside an agent (`AGENT_ENVIRONMENT`), then reassesses with its options and
+   refuses a digest other than the one given (`PLAN_CHANGED`), a verdict `none` (`VERDICT_NONE`) and `review`
+   (`MODE_NOT_AVAILABLE`); the key Git signs with must be the plan's (`ROLE_FORBIDDEN` otherwise, D-055); the words
+   are checked as for every move (`WORDS_MISSING`, `WORDS_COPIED`); the project file must validate
+   (`SETTINGS_INVALID`). Then, under the domain's lock: the files to create, each written whole and atomically where
+   absent; the entry blocks; the domain's own repository or the exclude line; the five events of section 4 in order, signed with the
+   plan's key, the two before `policy-adopted` citing the policy it adopts (as part 7c2a reads them): `assessed` with
+   the verdict, the reasons, the plan and its digest; `publication-decided` with the mode, `warningShown` true when
+   the plan held the warning, and the person's words; `policy-adopted` as `adopt` writes it; `alambique-baseline` with
+   the alambique's digest; `installed` with the receipt, every file written or changed and its digest after; then the
+   views and the record commit. In `published` the record commit holds everything `apply` wrote,
+   the entry files included; in `own-repository` the domain's repository's first commit holds the domain's files and
+   the entry files are left in the product's working tree, uncommitted; in `unpublished` nothing is committed (F-2).
+   `apply` says what it left uncommitted and the Git command that commits it, running none.
+7. **An interrupted `apply`.** A killed `apply` is finished by running it again with the same options: a file with the
+   plan's content, an entry block equal to the plan's, the exclude line present, the domain's repository present and
+   project events recorded for the same plan's digest count as done, so the plan reassessed has the same digest and
+   `apply` writes only what is missing. Until `installed` is recorded every other write command refuses
+   (`INSTALLATION_INCOMPLETE`, new) and `check` reports it. The crash suite runs over `apply`'s write points.
+8. **`onboard`** (REQ-INS-4). It opens the terminal itself (`/dev/tty`), since standard input is the script when it
+   is piped into `sh`, and refuses when there is none (`TERMINAL_REQUIRED`: no controlling terminal; section 11.4's
+   case is read so). It asks first the language (`en`, `es`), then, in that language: adopt or only review; whether
+   the maintainers will publish `.brewstillery/`, showing point 9's warning for `unpublished` and offering the exits;
+   the alias; the public key's file, showing Git's commands to sign with it when Git does not, running none; the
+   catalogued tools; and, when no alambique exists, REQ-INS-8's three questions. Then it assesses with those answers,
+   shows the verdict and the whole plan, the first alambique included, and asks whether to apply it: only the
+   catalogue's word for yes (`yes`; `sí` or `si`) is a yes; then it asks the person's words, which are `apply`'s
+   `--say`. Any other answer, an empty one, or the end of input, at any question, applies nothing, says so, and exits
+   0. A yes runs `apply`'s own path in the same process with the same answers, so the two routes reach the same
+   command (plan row 10).
+9. **The publication warning** (6.27, AD-7 step 6; section 9 item 9). Shown in the plan and by `onboard` when the
+   answer is `unpublished`: that the record stays on one computer, that other collaborators can neither see nor
+   continue the work, that the maintainers take that on at their own risk and responsibility; the exits, publishing
+   `.brewstillery/` with the product, and, as the last, a repository of its own for it (`own-repository`); and that
+   their answer is recorded in their own words. Its text is in the catalogue, `en` and `es`, drafted by Codex in part
+   10a; the maestro decides the final text (plan row 10).
+10. **The script and the release** (REQ-INS-6, REQ-INS-7, BUD-5; part 10d). `install.sh` at the repository's root,
+    POSIX `sh`. The supported platforms are those whose tests pass on them (6.46, AD-4): Linux on ARM64 alone today, so
+    any other `uname` is `PLATFORM_UNSUPPORTED` with that list. A release is `fabrewk-<version>-linux-aarch64.tar.gz`
+    (the musl binary, `LICENSE-MIT`, `LICENSE-APACHE`, `NOTICE`, the third-party notices generated from `Cargo.lock`
+    by a development tool under `tools/`, and the completion files), `SHA256SUMS`, and its signature by a maestro with
+    `ssh-keygen -Y sign -n fabrewk-release`. The script names the version, the release's address and the allowed
+    signers; it checks the signature, then the checksum; it installs `~/.local/bin/fabrewk` through a temporary file in
+    that directory renamed into place, and nothing else (the completion files stay in the archive, and the README says
+    where to put them); inside a repository with a terminal it offers `fabrewk onboard`. Its tests run a copy of the
+    script whose address points to a local release signed by a fixture key. Publishing the repository and the release
+    on GitHub is the maestro's decision and act.
+11. **Documentation** (6.17, 6.45; part 10d). `README.md` (English) and `README.es-MX.md` at the root: what Fabrewk is,
+    the two installation routes with the agent's preset prompt (AD-7 step 3), and the sentence of AP-3 on trusting the
+    release source; the manuals in `docs/en/` and `docs/es-MX/`: installation and onboarding, working with Fabrewk, and
+    the commands, linking the reference documentation generated in `crates/fabrewk/`. The first-line texts (the
+    README, the warning, the interview's questions) are written by Codex, the technical ones by Claude, each checked
+    for fidelity by the other (6.45, plan row 10).
 
 ### SEC: confinement, credentials and controls
 
@@ -1471,7 +1608,7 @@ absent; an extension that then fails to start is `TOOL_FAILED`, whose words say 
   400; installer and assessment 1,200; 8 direct runtime crates; 50 crates in the release lock file; a stripped release
   binary of 8 MB). A maestro freezes the budget after measuring phase 7's skeleton, before any feature; raising it later
   is a maestro's recorded decision with its reason. The core's ceiling was raised to 7,500 after part 7d1 was
-  measured (D-054). (AD-5, D-038)
+  measured (D-054), then to 8,000 (D-074), 11,000 (D-075), 12,000 (D-086) and 12,500 (D-097). (AD-5, D-038)
 - **REQ-BUD-3.** The MSRV is in `Cargo.toml` as `rust-version`; edition 2024; release builds for
   `aarch64-unknown-linux-musl`. (AD-4)
 - **REQ-BUD-4.** Every runtime crate has a recorded reason approved by a maestro; `Cargo.lock` is committed; every
@@ -1659,8 +1796,8 @@ the project file) and `close` (REQ-TASK-6). Every command takes `--help`; every 
 | `fabrewk config [<key>]` | no | — | `SETTINGS_INVALID`, `KEY_UNKNOWN` |
 | `fabrewk check` | no | — | section 6 |
 | `fabrewk onboard` | after the person's words | as `apply` | as `assess` and `apply`; `TERMINAL_REQUIRED` |
-| `fabrewk assess [--mode adopt\|review] [--publication <mode>] [--alias <alias>] [--key <file>] [--tool <name>]…` | no | — | `NOT_A_REPOSITORY`, `ALIAS_INVALID` |
-| `fabrewk apply <plan-digest> --say` | yes | project events | `PLAN_CHANGED`, `VERDICT_NONE`, `MODE_NOT_AVAILABLE`, `AGENT_ENVIRONMENT` |
+| `fabrewk assess [--mode adopt\|review] [--publication <mode>] [--alias <alias>] [--key <file>] [--tool <name>]… [--lang <tag>] [--purpose <text>] [--audience <text>] [--excluded <text>]` (D-097) | no | — | `NOT_A_REPOSITORY`, `ALIAS_INVALID` |
+| `fabrewk apply <plan-digest> <assess's options> --say` (D-097) | yes | project events | `PLAN_CHANGED`, `VERDICT_NONE`, `MODE_NOT_AVAILABLE`, `AGENT_ENVIRONMENT`, `ROLE_FORBIDDEN`, `SETTINGS_INVALID` |
 | `fabrewk adopt --say [--widen <key>]…` | yes | `policy-adopted` | `POLICY_UNCOMMITTED`, `WIDENING_UNNAMED`, `ROLE_NOT_ENFORCED`, `SETTINGS_INVALID` |
 | `fabrewk propose <file>` | yes | `stage-proposed`, `task-proposed` | `TASK_INVALID`, `STAGE_CLOSED` |
 | `fabrewk authorize <stage\|task> --seen <digest> --say [--widen <key>]… [--run]` | yes | `stage-authorized`, `task-authorized`; with `--run`, also as `run` | section 4 |
@@ -2061,6 +2198,7 @@ One test per code (11.2 rule 4), with the requirement that defines the code and 
 | `HEAD_DETACHED` | REQ-REG-11 | A write command with a detached head | 7 |
 | `INPUT_CHANGED` | REQ-FER-3 | The input edited between the sweep's two digests (`fault-injection` pauses the write) | 8 |
 | `INPUT_UNCOMMITTED` | REQ-FER-3 | `sweep` in `published` with the input edited and not committed | 8 |
+| `INSTALLATION_INCOMPLETE` | REQ-INS-3 (D-097 point 7) | `propose` after an `apply` killed before `installed`; `check` reports it; the same `apply` run again finishes it | 10 |
 | `KEY_UNKNOWN` | Section 7 | `config nosuch.key` | 7 |
 | `LANE_VIOLATION` | REQ-RUN-3 | The fake agent changes a file outside the allowed files | 9 |
 | `LIMIT_UNOBSERVABLE` | REQ-RUN-7 | A `tokens` limit on a profile whose adapter declares no token report, at `authorize` | 7 |
@@ -2113,7 +2251,7 @@ One test per code (11.2 rule 4), with the requirement that defines the code and 
 | `SWEEP_MISSING` | REQ-TASK-6 | `close` when a maintainer's last sweep predates the end of the stage's last task | 8 |
 | `TASK_CHANGED` | REQ-TASK-2 | `authorize` after the task's fields changed or its stream's head moved | 7 |
 | `TASK_INVALID` | Section 4, REQ-TASK-7 | A task with no requirement; a requirement with no criterion; a pattern with `..` (PD-15) | 7 |
-| `TERMINAL_REQUIRED` | Section 7 | `onboard` with standard input not a terminal | 10 |
+| `TERMINAL_REQUIRED` | Section 7 | `onboard` with no controlling terminal (`/dev/tty` cannot be opened, D-097 point 8) | 10 |
 | `TOOL_FAILED` | REQ-RUN-6 | `git` failing on an index lock (PD-11); a failed export (PD-21); `ssh-keygen` failing to sign | 7, 9 |
 | `TOOL_MISSING` | REQ-RUN-2 | A profile's `requiredTools` entry absent | 9 |
 | `UNIT_AMBIGUOUS` | REQ-FER-6 | An edit whose section heading occurs twice in the alambique | 8 |
@@ -2301,6 +2439,7 @@ Where a criterion names a case or a code, its test in 11.3 or 11.4 is part of th
 | REQ-INS-5 | Not built in the first core: `MODE_NOT_AVAILABLE`'s test. When built: in review mode, a snapshot shows writes only under `.brewstillery/review/` | 10 |
 | REQ-INS-6 | In `dash`, with a local release signed by a fixture key: exactly one file, `~/.local/bin/fabrewk`, is installed; a changed binary or signature installs nothing; the script has no option that skips verification and no `sudo`; the agent route's last command is `fabrewk assess` | 10 |
 | REQ-INS-7 | `PLATFORM_UNSUPPORTED`'s test; the message lists the supported platforms | 10 |
+| REQ-INS-8 | `apply` with the three answers and with none, in `en` and `es`: the alambique's bytes equal the catalogue's skeleton holding the answers as given; an alambique present is byte-identical after and its digest is the baseline's; `check` passes C7 after `apply` (D-097) | 10 |
 
 ### SEC
 
@@ -2364,6 +2503,7 @@ A criterion assigned to two phases is first met with what the earlier one builds
 - **Phase 9 (adapters and confinement).** RUN (RUN-9 included), GATE, TASK-5, SEC-1, SEC-2, SEC-3 in the change set, SEC-7, EXT, SET-9's
   dispatch; PD-07 to PD-14, PD-16, PD-18 to PD-29, PD-33, PD-44 to PD-46; the flows F-1 to F-3 with fake tools; one real
   dispatch per provider, preflight first. REQ-RUN-10 and the amendments of D-075 and D-076. Cut into 9a to 9i (D-075).
-- **Phase 10 (installation).** INS, DOM-1, DOM-6, SEC-6, BUD-5's release notices; F-1 from a real `apply`.
+- **Phase 10 (installation).** INS (REQ-INS-8 included, D-097), DOM-1, DOM-6, SEC-6, BUD-5's release notices; F-1 and F-2
+  from a real `apply`, the test helper's project events retired; the crash suite over `apply`. Cut into 10a to 10d (D-097).
 - **Phases 11 and 12 (the pilot).** The pilot's specification picks its six provoked refusals (6.48, D-009) from 11.4
   and holds both arms to the same measures.

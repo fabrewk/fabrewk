@@ -1,7 +1,7 @@
 //! The size budget (REQ-BUD-2) and the approved runtime crates (REQ-BUD-4).
 //!
 //! FROZEN by the maestro after measuring the skeleton (D-042): AD-5's ceilings, the binary's 8 MB read as 8,000,000
-//! bytes; the core's raised from 4,000 to 7,500 after part 7d1 was measured (D-054) to 8,000 before part 8c (D-074), to 11,000 when phase 9 opened (D-075) and to 12,000 before part 9g (D-086). Changing a number here, or the list of approved crates, is a maestro's recorded decision with its reason,
+//! bytes; the core's raised from 4,000 to 7,500 after part 7d1 was measured (D-054), to 8,000 before part 8c (D-074), to 11,000 when phase 9 opened (D-075), to 12,000 before part 9g (D-086) and to 12,500 when phase 10 opened (D-097). Changing a number here, or the list of approved crates, is a maestro's recorded decision with its reason,
 //! never an agent's.
 
 /// What a ring is, which sets its ceiling.
@@ -17,7 +17,7 @@ impl RingKind {
     /// The ceiling in counted lines (REQ-BUD-1's unit).
     pub const fn limit(self) -> usize {
         match self {
-            RingKind::Core => 12_000,
+            RingKind::Core => 12_500,
             RingKind::ToolAdapter => 600,
             RingKind::Confinement => 400,
             RingKind::Installer => 1_200,
