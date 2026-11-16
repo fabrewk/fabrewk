@@ -749,11 +749,13 @@ fn assessed(asked: &Asked) -> Result<(Value, String), Error> {
             }
         }
         if matches!(publication, Some("own-repository" | "unpublished")) {
-            let exclude = line(g.ok(&["rev-parse", "--git-path", "info/exclude"])?);
-            // Shown relative to the repository, as every path the plan holds.
-            let exclude = Path::new(&exclude).strip_prefix(root).map_or(exclude.clone(), |p| p.display().to_string());
+            // `info/exclude` in the main working tree's Git directory, the one `git rev-parse --git-path info/exclude`
+            // names, read where it is, its bytes kept (P10A-58, P10A-59); shown relative to the repository when inside.
+            let dir = &g.gitdir;
+            let exclude = dir.join("info/exclude");
+            let exclude = exclude.strip_prefix(root).unwrap_or(&exclude).display().to_string();
             let present = r
-                .read(root, &exclude, &exclude)
+                .read(dir, "info/exclude", &exclude)
                 .is_some_and(|b| b.split(|c| *c == b'\n').any(|l| l == b"/.brewstillery/"));
             if !matches!(r.inputs[&exclude]["kind"].as_str(), Some("absent" | "file")) {
                 reasons.push(reason("not-a-file", true, Some(&exclude), None));

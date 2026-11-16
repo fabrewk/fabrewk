@@ -1426,3 +1426,34 @@ fn p10a_56_p10a_57_the_git_file_s_bytes_and_the_configuration_s_precedence() {
     std::fs::write(fx.root.join(".git/config.worktree"), "[core]\n\tbare = false\n").unwrap();
     assert_eq!(fx.assess(&[])["plan"]["verdict"], "adopt");
 }
+
+#[test]
+fn p10a_58_p10a_59_the_exclude_file_is_the_git_directory_s_own() {
+    let fx = product("p10a-58");
+    // A Git directory apart from the working tree.
+    let apart = fx.root.parent().unwrap().join("metadata");
+    std::fs::rename(fx.root.join(".git"), &apart).unwrap();
+    std::fs::write(fx.root.join(".git"), format!("gitdir: {}\n", apart.display())).unwrap();
+    std::fs::write(apart.join("info/exclude"), "/.brewstillery/\n# first\n").unwrap();
+    let doc = fx.assess(&["--publication", "unpublished"]);
+    let shown = apart.join("info/exclude").display().to_string();
+    assert_eq!(file(&doc, &shown)["present"], true, "{doc}");
+    let input = doc["plan"]["inputs"].as_array().unwrap().iter().find(|i| i["path"] == shown).unwrap().clone();
+    assert_eq!(input["kind"], "file");
+    std::fs::write(apart.join("info/exclude"), "/.brewstillery/\n# second\n").unwrap();
+    assert_ne!(fx.assess(&["--publication", "unpublished"])["digest"], doc["digest"]);
+    // A root that is not UTF-8: the exclude file shown as the repository's own (P10A-59).
+    use std::os::unix::ffi::OsStrExt;
+    let fx = product("p10a-59");
+    let moved = fx.root.parent().unwrap().join(std::ffi::OsStr::from_bytes(b"product-\xff"));
+    std::fs::rename(&fx.root, &moved).unwrap();
+    let at = Fx {
+        domain: moved.join(".brewstillery"),
+        root: moved.clone(),
+        home: fx.home.clone(),
+        keys: fx.keys.clone(),
+        path: None,
+    };
+    std::fs::write(moved.join(".git/info/exclude"), "/.brewstillery/\n").unwrap();
+    assert_eq!(file(&at.assess(&["--publication", "unpublished"]), ".git/info/exclude")["present"], true);
+}
