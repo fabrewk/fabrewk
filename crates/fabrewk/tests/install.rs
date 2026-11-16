@@ -1369,3 +1369,40 @@ fn p10a_50_p10a_51_a_bare_repository_is_refused_and_a_root_of_any_name_is_assess
         assert_eq!(at.assess(&[])["plan"]["verdict"], "adopt", "{name:?}");
     }
 }
+
+#[test]
+fn p10a_52_to_p10a_55_operations_worktree_configuration_and_an_empty_git_directory() {
+    use std::os::unix::ffi::OsStrExt;
+    // An operation in progress in a root that is not UTF-8 (P10A-52), and a stopped sequence (P10A-54).
+    let fx = product("p10a-52");
+    let moved = fx.root.parent().unwrap().join(std::ffi::OsStr::from_bytes(b"product-\xff"));
+    std::fs::rename(&fx.root, &moved).unwrap();
+    let at = Fx {
+        domain: moved.join(".brewstillery"),
+        root: moved.clone(),
+        home: fx.home.clone(),
+        keys: fx.keys.clone(),
+        path: None,
+    };
+    for marker in ["MERGE_HEAD", "sequencer"] {
+        let path = moved.join(".git").join(marker);
+        if marker == "sequencer" {
+            std::fs::create_dir_all(&path).unwrap()
+        } else {
+            std::fs::write(&path, "x\n").unwrap()
+        }
+        assert!(reasons(&at.assess(&[])).iter().any(|r| r.0 == "operation" && r.1), "{marker}");
+        let _ = std::fs::remove_file(&path).or_else(|_| std::fs::remove_dir_all(&path));
+    }
+    assert_eq!(at.assess(&[])["plan"]["verdict"], "adopt");
+    // A `config.worktree` not in force changes nothing (P10A-53).
+    std::fs::write(moved.join(".git/config.worktree"), "[core]\n\tbare = true\n\tworktree = /elsewhere\n").unwrap();
+    assert_eq!(at.assess(&[])["plan"]["verdict"], "adopt");
+    at.git(&["config", "extensions.worktreeConfig", "true"]);
+    refused(&at, &["assess"], "NOT_A_REPOSITORY", 1, "en");
+    // An empty `.git` is no repository (P10A-55).
+    let other = product("p10a-55");
+    std::fs::remove_dir_all(other.root.join(".git")).unwrap();
+    std::fs::create_dir(other.root.join(".git")).unwrap();
+    refused(&other, &["assess"], "NOT_A_REPOSITORY", 1, "en");
+}

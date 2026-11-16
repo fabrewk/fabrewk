@@ -42,13 +42,15 @@ const SETTINGS: [&str; 4] = [".claude/settings.json", ".claude/settings.local.js
 const HOME_SETTINGS: [&str; 2] = [".claude/settings.json", ".codex/config.toml"];
 
 /// What a Git directory holds while an operation is in progress, and the operation.
-const OPERATIONS: [(&str, &str); 6] = [
+const OPERATIONS: [(&str, &str); 7] = [
     ("MERGE_HEAD", "merge"),
     ("rebase-merge", "rebase"),
     ("rebase-apply", "rebase"),
     ("CHERRY_PICK_HEAD", "cherry-pick"),
     ("REVERT_HEAD", "revert"),
     ("BISECT_LOG", "bisect"),
+    // A cherry-pick or revert of several commits stopped, which may leave no `CHERRY_PICK_HEAD` (P10A-54).
+    ("sequencer", "cherry-pick or revert"),
 ];
 
 /// The entry files, in the product's working tree (REQ-DOM-6).
@@ -156,6 +158,10 @@ struct Git {
 impl Git {
     fn new(root: &Path, (gitdir, person): (PathBuf, BTreeMap<&str, String>)) -> Result<Git, Error> {
         let mut g = Git { root: root.to_path_buf(), gitdir, off: Vec::new() };
+        // A Git directory Git does not take for one is no repository (P10A-55).
+        if g.run(&["rev-parse", "--git-dir"])?.0 != Some(0) {
+            return Err(refuse(Code::NotARepository, Some(root), "its `.git` is no Git directory"));
+        }
         let names = g.run(&["config", "--name-only", "-z", "--get-regexp", r"^filter\."])?.1;
         let mut off = Vec::new();
         if let Some(v) = person.get("core.autocrlf")
@@ -249,7 +255,14 @@ fn person(root: &Path) -> Result<Person, Error> {
     if let Some(f) = [gitdir.clone(), gitdir.join("info/attributes")].into_iter().find(|f| inside(f)) {
         return Err(found(&f));
     }
-    for file in [gitdir.join("config"), gitdir.join("config.worktree")] {
+    // `config.worktree` is in force only with `extensions.worktreeConfig` (P10A-53).
+    let config = gitdir.join("config");
+    if inside(&config) {
+        return Err(found(&config));
+    }
+    let worktree =
+        read(&config, &["--type=bool", "--get", "extensions.worktreeConfig"])? == (Some(0), b"true\n".to_vec());
+    for file in std::iter::once(config).chain(worktree.then(|| gitdir.join("config.worktree"))) {
         if inside(&file) {
             return Err(found(&file));
         }
@@ -498,7 +511,8 @@ fn assessed(asked: &Asked) -> Result<(Value, String), Error> {
         }
         other => return git_ok(root, &other, &["symbolic-ref", "HEAD"]).map(|_| unreachable!()),
     };
-    let gitdir = PathBuf::from(line(g.ok(&["rev-parse", "--path-format=absolute", "--git-dir"])?));
+    // The Git directory as found, its bytes kept (P10A-52).
+    let gitdir = g.gitdir.clone();
     if let Some((_, op)) = OPERATIONS.iter().find(|(f, _)| std::fs::symlink_metadata(gitdir.join(f)).is_ok()) {
         reasons.push(reason("operation", true, None, Some(op)));
     }
