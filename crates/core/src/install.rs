@@ -28,13 +28,22 @@ pub struct Installer {
 /// Git in the working tree at `root` as `assess` runs it (REQ-INS-1, D-102): the core's way (no hook, no file-system
 /// monitor, objects as stored), taking no optional lock, fetching no missing object, with only the repository's own
 /// configuration (no global or system file, no `-c` value or trace the environment carries) and no attributes file,
-/// so that the person's Git configuration makes it neither write nor open anything: its exit status and standard
+/// so that the person's Git configuration makes it neither write nor open anything; with `gitdir`, that Git directory
+/// and `root` as its working tree, so that Git looks for no other repository (P10A-47): its exit status and standard
 /// output, `input` on its standard input.
-pub fn git(root: &Path, args: &[&str], input: &[u8]) -> Result<(Option<i32>, Vec<u8>), Error> {
+pub fn git<A: AsRef<std::ffi::OsStr>>(
+    root: &Path,
+    gitdir: Option<&Path>,
+    args: &[A],
+    input: &[u8],
+) -> Result<(Option<i32>, Vec<u8>), Error> {
     let repo = crate::record::Repo { root: root.to_path_buf(), prefix: Default::default() };
-    let own = ["--no-optional-locks", "-c", "core.attributesFile=/dev/null"];
-    let args: Vec<&std::ffi::OsStr> = own.iter().chain(args).map(std::ffi::OsStr::new).collect();
+    let own = ["--no-optional-locks", "-c", "core.attributesFile=/dev/null"].map(std::ffi::OsStr::new);
+    let args: Vec<&std::ffi::OsStr> = own.into_iter().chain(args.iter().map(AsRef::as_ref)).collect();
     let mut c = crate::record::git::command(&repo, &args);
+    if let Some(dir) = gitdir {
+        c.env("GIT_DIR", dir).env("GIT_WORK_TREE", root);
+    }
     for (k, _) in std::env::vars_os() {
         if k.to_str().is_none_or(|k| k.starts_with("GIT_TRACE") || k.starts_with("GIT_CONFIG")) {
             c.env_remove(k);

@@ -149,15 +149,17 @@ fn reason(key: &str, blocks: bool, path: Option<&str>, detail: Option<&str>) -> 
 /// and with the person's `core.autocrlf` when the repository sets none, so that line ends convert as their Git does.
 struct Git {
     root: PathBuf,
+    gitdir: PathBuf,
     off: Vec<String>,
 }
 
 impl Git {
-    fn new(root: &Path, person: &BTreeMap<&str, String>) -> Result<Git, Error> {
-        let (_, names) = git(root, &["config", "--name-only", "-z", "--get-regexp", r"^filter\."], b"")?;
+    fn new(root: &Path, (gitdir, person): (PathBuf, BTreeMap<&str, String>)) -> Result<Git, Error> {
+        let mut g = Git { root: root.to_path_buf(), gitdir, off: Vec::new() };
+        let names = g.run(&["config", "--name-only", "-z", "--get-regexp", r"^filter\."])?.1;
         let mut off = Vec::new();
         if let Some(v) = person.get("core.autocrlf")
-            && git(root, &["config", "--get", "core.autocrlf"], b"")?.0 != Some(0)
+            && g.run(&["config", "--get", "core.autocrlf"])?.0 != Some(0)
         {
             off.extend(["-c".to_owned(), format!("core.autocrlf={v}")]);
         }
@@ -168,7 +170,8 @@ impl Git {
                 }
             }
         }
-        Ok(Git { root: root.to_path_buf(), off })
+        g.off = off;
+        Ok(g)
     }
 
     fn run(&self, args: &[&str]) -> Result<(Option<i32>, Vec<u8>), Error> {
@@ -176,7 +179,8 @@ impl Git {
     }
 
     fn with(&self, args: &[&str], input: &[u8]) -> Result<(Option<i32>, Vec<u8>), Error> {
-        git(&self.root, &self.off.iter().map(String::as_str).chain(args.iter().copied()).collect::<Vec<_>>(), input)
+        let args: Vec<&str> = self.off.iter().map(String::as_str).chain(args.iter().copied()).collect();
+        git(&self.root, Some(&self.gitdir), &args, input)
     }
 
     /// Git's output, or `TOOL_FAILED` naming the command and its exit status; Git's text never reaches the words.
@@ -205,13 +209,19 @@ impl Git {
 /// person's global configuration lies there; and gives, from the person's global files, read each alone with no
 /// include followed, the three keys `assess` needs of them. An include inside an included file, and a key only an
 /// include of the global configuration sets, are declared residuals.
-fn person(root: &Path) -> Result<BTreeMap<&'static str, String>, Error> {
+type Person = (PathBuf, BTreeMap<&'static str, String>);
+
+fn person(root: &Path) -> Result<Person, Error> {
+    use std::ffi::OsStr;
+    use std::os::unix::ffi::OsStrExt;
     let var = |k: &str| std::env::var_os(k).filter(|v| !v.is_empty()).map(PathBuf::from);
     let inside = private;
     let found = |p: &Path| refuse(Code::PrivateFolderIncluded, Some(p), "a file Git's configuration is in or names");
-    let read = |file: &Path, args: &[&str]| -> Result<Vec<u8>, Error> {
-        let name = file.to_str().unwrap_or_default();
-        Ok(git(Path::new("/"), &[&["config", "--no-includes", "--file", name][..], args].concat(), b"")?.1)
+    // A file read alone, by its path as bytes, whatever their encoding (P10A-48).
+    let read = |file: &Path, args: &[&str]| -> Result<(Option<i32>, Vec<u8>), Error> {
+        let head = ["config", "--no-includes", "--file"].map(OsStr::new);
+        let all: Vec<&OsStr> = head.into_iter().chain([file.as_os_str()]).chain(args.iter().map(OsStr::new)).collect();
+        git(Path::new("/"), None, &all, b"")
     };
     // The repository's Git directory: `.git`, or the one its `gitdir:` file names, which is read only once its place is
     // known (P10A-33); then what of it Git opens by path: its configuration and its attributes file (P10A-32).
@@ -242,13 +252,21 @@ fn person(root: &Path) -> Result<BTreeMap<&'static str, String>, Error> {
         if inside(&file) {
             return Err(found(&file));
         }
-        let out = read(&file, &["--type=path", "-z", "--get-regexp", r"^include(if\..*)?\.path$"])?;
+        let out = read(&file, &["--type=path", "-z", "--get-regexp", r"^include(if\..*)?\.path$"])?.1;
         // A relative include is relative to the file that names it.
-        for entry in out.split(|b| *b == 0).filter_map(|e| std::str::from_utf8(e).ok()) {
-            if let Some((_, value)) = entry.split_once('\n')
-                && inside(&file.parent().unwrap_or(root).join(value))
+        for entry in out.split(|b| *b == 0) {
+            let value = entry.iter().position(|b| *b == b'\n').map(|i| Path::new(OsStr::from_bytes(&entry[i + 1..])));
+            if let Some(target) = value.map(|v| file.parent().unwrap_or(root).join(v))
+                && inside(&target)
             {
-                return Err(found(&file.parent().unwrap_or(root).join(value)));
+                return Err(found(&target));
+            }
+        }
+        // A working tree moved elsewhere is not this one (P10A-46); relative, it is relative to the Git directory.
+        if let (Some(0), v) = read(&file, &["--type=path", "--get", "core.worktree"])? {
+            let moved = gitdir.join(OsStr::from_bytes(v.strip_suffix(b"\n").unwrap_or(&v)));
+            if moved.canonicalize().ok() != root.canonicalize().ok() {
+                return Err(not());
             }
         }
     }
@@ -271,15 +289,12 @@ fn person(root: &Path) -> Result<BTreeMap<&'static str, String>, Error> {
             [("user.signingkey", "--type=path"), ("gpg.format", "--no-type"), ("core.autocrlf", "--no-type")]
         {
             // A later file's value wins, even empty (P10A-39).
-            let name = file.to_str().unwrap_or_default();
-            if let (Some(0), value) =
-                git(Path::new("/"), &["config", "--no-includes", "--file", name, kind, "--get", key], b"")?
-            {
+            if let (Some(0), value) = read(file, &[kind, "--get", key])? {
                 out.insert(key, line(value));
             }
         }
     }
-    Ok(out)
+    Ok((gitdir, out))
 }
 
 /// Whether tracked files have, or may have, changes (D-100): staged changes, the index against `HEAD` by object id, or
@@ -484,14 +499,14 @@ fn assessed(asked: &Asked) -> Result<(Value, String), Error> {
     if let Some(alias) = alias.filter(|x| !is_alias(x)) {
         return Err(refuse(Code::AliasInvalid, None, format!("{alias:?} is not an alias, or is a reserved name")));
     }
-    let global = person(root)?;
-    let g = Git::new(root, &global)?;
+    let (gitdir, global) = person(root)?;
+    let g = Git::new(root, (gitdir, global.clone()))?;
     repository(&g)?;
     let mut r = Reading::default();
     let mut reasons = Vec::new();
     // Git's state.
     let branch = match g.run(&["symbolic-ref", "-q", "HEAD"])? {
-        (Some(0), b) => Some(line(b).trim_start_matches("refs/heads/").to_owned()),
+        (Some(0), b) => Some(line(b).strip_prefix("refs/heads/").map(str::to_owned).unwrap_or_default()),
         (Some(1), _) => {
             reasons.push(reason("detached", true, None, None));
             None
@@ -730,6 +745,8 @@ fn assessed(asked: &Asked) -> Result<(Value, String), Error> {
         }
         if matches!(publication, Some("own-repository" | "unpublished")) {
             let exclude = line(g.ok(&["rev-parse", "--git-path", "info/exclude"])?);
+            // Shown relative to the repository, as every path the plan holds.
+            let exclude = Path::new(&exclude).strip_prefix(root).map_or(exclude.clone(), |p| p.display().to_string());
             let present = r
                 .read(root, &exclude, &exclude)
                 .is_some_and(|b| b.split(|c| *c == b'\n').any(|l| l == b"/.brewstillery/"));

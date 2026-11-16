@@ -1306,3 +1306,37 @@ fn p10a_45_p10a_46_a_place_that_is_not_the_top_of_the_main_working_tree_is_refus
     assert!(!trace.contains("worktree/.gitattributes"), "the private folder was opened");
     refused(&fx, &["assess"], "NOT_A_REPOSITORY", 1, "en");
 }
+
+#[test]
+fn p10a_47_to_p10a_49_no_discovery_any_encoding_and_the_branch_s_whole_name() {
+    let fx = product("p10a-47");
+    let secret = secret(&fx);
+    fx.git(&["config", "include.path", &secret]);
+    // An empty `.git` in a subdirectory: Git is given its Git directory, so it finds no other (P10A-47).
+    std::fs::create_dir_all(fx.root.join("sub/.git")).unwrap();
+    let sub = fx.root.join("sub");
+    let at = Fx {
+        domain: sub.join(".brewstillery"),
+        root: sub.clone(),
+        home: fx.home.clone(),
+        keys: fx.keys.clone(),
+        path: None,
+    };
+    assert!(!opened_any(&at, &[], &[&secret]).1);
+    assert_eq!(at.run(&["assess"]).status, 1);
+    fx.git(&["config", "--unset", "include.path"]);
+    // An include whose path is not UTF-8 (P10A-48).
+    use std::os::unix::ffi::OsStrExt;
+    let odd = std::path::PathBuf::from(std::ffi::OsStr::from_bytes(&[secret.as_bytes(), b"-\xff"].concat()));
+    std::fs::copy(&secret, &odd).unwrap();
+    let mut config = std::fs::read(fx.root.join(".git/config")).unwrap();
+    config.extend_from_slice(&[b"[include]\n\tpath = ", odd.as_os_str().as_bytes(), b"\n"].concat());
+    std::fs::write(fx.root.join(".git/config"), config).unwrap();
+    refused(&fx, &["assess"], "PRIVATE_FOLDER_INCLUDED", 1, "en");
+    fx.git(&["config", "--unset", "include.path"]);
+    // A branch whose name starts as a ref does (P10A-49).
+    fx.git(&["branch", "-m", "refs/heads/topic"]);
+    let doc = fx.assess(&["--publication", "own-repository"]);
+    assert_eq!(doc["plan"]["git"]["branch"], "refs/heads/topic");
+    assert_eq!(file(&doc, ".brewstillery/.git")["branch"], "refs/heads/topic");
+}
