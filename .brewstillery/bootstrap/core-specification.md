@@ -959,6 +959,17 @@ code. Where a point below and a sentence above differ, the point holds.
     README, the warning, the interview's questions) are written by Codex, the technical ones by Claude, each checked
     for fidelity by the other (6.45, plan row 10).
 
+**Amended in part 10a (D-100).** How `assess` reads Git's state, points 3 and 4 above read so, after Codex's second
+pass (P10A-8 to P10A-12): `assess` runs no `git status`. First, before any other Git, it lists Git's includes without
+following them (`git config --no-includes`); one that names a file of the private folder stops it
+(`PRIVATE_FOLDER_INCLUDED`); an include nested inside an included file is a declared residual. Every Git it runs
+fetches no missing object and runs no filter. `AGENTS.md` and `CLAUDE.md` are compared by Fabrewk: the index and
+`HEAD` by object id, the working tree's bytes, at most 1 MiB, hashed by Git from standard input with the path's
+attributes but no filter, so that an index flag (`assume-unchanged`, `skip-worktree`) hides no edit; one that goes
+through a Git filter blocks with its own reason (`filtered`), since whether it holds changes cannot be told without
+running the filter. Whether other tracked files have changes, a reason that informs, is told from the index's staged
+changes and from each tracked file's size and time against what the index recorded, so no file's content is read.
+
 ### SEC: confinement, credentials and controls
 
 - **REQ-SEC-1.** On Linux every agent and check runs under bubblewrap: system read-only, an empty home, only the tool's
@@ -1939,7 +1950,7 @@ All codes, in one list: `AGENT_ENVIRONMENT`, `ALAMBIQUE_CHANGED`, `ALAMBIQUE_MIS
 `GITIGNORE_CHANGED`, `HEAD_DETACHED`, `INPUT_CHANGED`, `INPUT_UNCOMMITTED`, `KEY_UNKNOWN`, `LANE_VIOLATION`,
 `LIMIT_UNOBSERVABLE`, `LOCK_HELD`, `MAINTAINER_UNLISTED`, `MARK_INVALID`, `MERGE_IN_PROGRESS`, `MODE_NOT_AVAILABLE`,
 `MOVE_NOT_ALLOWED`, `NOT_A_REPOSITORY`, `NO_PROGRESS`, `OUTCOME_UNKNOWN`, `PLAN_CHANGED`, `PLATFORM_UNSUPPORTED`, `POINT_CHANGED`,
-`POLICY_ABSENT`, `POLICY_PENDING`, `POLICY_UNCOMMITTED`, `PRIVATE_FOLDER_PERMISSIONS`, `PROPOSAL_STALE`,
+`POLICY_ABSENT`, `POLICY_PENDING`, `POLICY_UNCOMMITTED`, `PRIVATE_FOLDER_INCLUDED`, `PRIVATE_FOLDER_PERMISSIONS`, `PROPOSAL_STALE`,
 `PROPOSAL_UNKNOWN`, `PROTECTED_PATH`, `PROTECTED_PATH_WILDCARD`, `PROVIDER_MISSING`, `RECORD_ABSENT`,
 `RECORD_BROKEN`, `RECORD_COMMIT_RACE`, `RECORD_DIGEST_MISMATCH`, `RECORD_FORK`, `RECORD_HEAD_MOVED`, `RECORD_ID_COLLISION`,
 `RECORD_NONCANONICAL`, `RECORD_ROLLBACK`, `RECORD_SIGNATURE_INVALID`, `RECORD_TRANSITION_INVALID`,
@@ -2263,6 +2274,7 @@ One test per code (11.2 rule 4), with the requirement that defines the code and 
 | `POLICY_ABSENT` | REQ-SET-4 | `authorize` in a record with no `policy-adopted` | 7 |
 | `POLICY_PENDING` | Section 6, C2 | The project file edited after adoption: a warning at `check`, the change pending in `config` | 7 |
 | `POLICY_UNCOMMITTED` | REQ-SET-4 | `adopt` in `published` with the file edited and not committed | 7 |
+| `PRIVATE_FOLDER_INCLUDED` | REQ-INS-1 (D-100) | `assess` with Git's `include.path` naming a file of the private folder: it stops before any other Git | 10 |
 | `PRIVATE_FOLDER_PERMISSIONS` | REQ-SEC-4 | The private folder with mode `0755` | 7 |
 | `PROPOSAL_STALE` | REQ-FER-5, REQ-FER-6 | `approve` after its point's text changed, after the point's number changed with the same words, and after the drafted text changed; a `rules` proposal after another rules proposal was incorporated | 8 |
 | `PROPOSAL_UNKNOWN` | Section 7 | `discard p-00000000` | 8 |

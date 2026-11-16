@@ -140,6 +140,11 @@ fn commits(v: &Value) -> usize {
             let git = words.iter().position(|w| *w == "git" || w.ends_with("/git"));
             git.is_some_and(|at| words[at..].iter().any(|w| matches!(*w, "commit" | "push")))
         })),
+        // A command given as its words, as Codex's `notify` is (P10A-13), is read as one command too.
+        Value::Array(a) if a.iter().all(Value::is_string) => {
+            let words: Vec<&str> = a.iter().filter_map(Value::as_str).collect();
+            commits(&Value::String(words.join(" "))).max(a.iter().map(commits).sum())
+        }
         Value::Array(a) => a.iter().map(commits).sum(),
         Value::Object(o) => o.values().map(commits).sum(),
         _ => 0,
@@ -188,14 +193,14 @@ mod tests {
 
     #[test]
     fn codex_settings_are_read_by_key_and_count() {
-        let text = "approval_policy = \"never\"\nsandbox_mode = \"danger-full-access\"\nnotify = [\"sh\", \"-c\", \"git push\"]\n\
+        let text = "approval_policy = \"never\"\nsandbox_mode = \"danger-full-access\"\nnotify = [\"git\", \"-C\", \".\", \"push\"]\n\
             check_for_update_on_startup = true\n[mcp_servers.a]\ncommand = \"x\"\n[mcp_servers.b]\ncommand = \"y\"\n\
             [projects.\"/home/x/p\"]\ntrust_level = \"trusted\"\n[projects.\"/home/x/q\"]\ntrust_level = \"untrusted\"\n[otel]\nexporter = \"none\"\n";
         let found = kinds("~/.codex/config.toml", text, true);
         for (key, kind, count) in [
             ("approval_policy", "approvals", Value::Null),
             ("sandbox_mode", "sandbox", Value::Null),
-            ("notify", "hooks", json!(3)),
+            ("notify", "hooks", json!(4)),
             ("notify", "commits", json!(1)),
             ("check_for_update_on_startup", "updates", Value::Null),
             ("mcp_servers", "mcp", json!(2)),

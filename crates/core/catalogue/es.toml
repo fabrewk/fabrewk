@@ -639,6 +639,10 @@ reason = "El archivo del proyecto no está como se confirmó en el head de la ra
 next = "Confirma .brewstillery/settings.toml y luego adóptalo."
 run = "fabrewk adopt"
 
+[code.PRIVATE_FOLDER_INCLUDED]
+reason = "La configuración de Git incluye un archivo de la carpeta privada de Fabrewk, que Git abriría: assess se detiene antes de ejecutar cualquier otro Git."
+next = "Quita ese include de la configuración de Git, o apúntalo fuera de la carpeta privada."
+
 [code.PRIVATE_FOLDER_PERMISSIONS]
 reason = "La carpeta privada da acceso a alguien más que su dueño, así que Fabrewk no la lee."
 next = "Deja la carpeta solo para su dueño (modo 0700)."
@@ -1019,10 +1023,11 @@ not-a-file = "{path} no es un archivo regular."
 not-utf8 = "{path} no es texto UTF-8."
 too-large = "{path} pesa más de 1 MiB."
 uncommitted = "{path} tiene cambios sin confirmar: confírmalos o apártalos primero."
+filtered = "{path} pasa por un filtro de Git, que assess no ejecuta, así que no se puede saber si tiene cambios."
 block-damaged = "{path} tiene las marcas de entrada de Fabrewk, pero no como un solo bloque."
 harness = "Aquí hay otro harness: {path}."
 effects = "Los ajustes de otras herramientas tienen efectos secundarios; van listados abajo."
-changes = "Hay archivos versionados con cambios sin confirmar."
+changes = "Hay archivos versionados que tienen, o pueden tener, cambios sin confirmar: cambios preparados, o un tamaño o una fecha distintos de los que registró el índice."
 no-licence = "No hay archivo de licencia en la raíz."
 key-absent = "No se encuentra el archivo de la llave."
 key-not-a-file = "El archivo de la llave no es un archivo regular."

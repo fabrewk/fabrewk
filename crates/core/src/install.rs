@@ -25,12 +25,15 @@ pub struct Installer {
     pub assess: fn(&Asked) -> Result<Assessed, Vec<Error>>,
 }
 
-/// Git in the working tree at `root` as the core runs it (no hook, no file-system monitor, objects as stored) and
-/// taking no optional lock, so that it writes nothing (REQ-INS-1): its exit status and standard output.
-pub fn git(root: &Path, args: &[&str]) -> Result<(Option<i32>, Vec<u8>), Error> {
+/// Git in the working tree at `root` as the core runs it (no hook, no file-system monitor, objects as stored), taking
+/// no optional lock and fetching no missing object, so that it writes nothing (REQ-INS-1, P10A-8), `input` on its
+/// standard input and `env` set: its exit status and standard output.
+pub fn git(root: &Path, args: &[&str], input: &[u8], env: &[(&str, &str)]) -> Result<(Option<i32>, Vec<u8>), Error> {
     let repo = crate::record::Repo { root: root.to_path_buf(), prefix: Default::default() };
     let args: Vec<&std::ffi::OsStr> = ["--no-optional-locks"].iter().chain(args).map(std::ffi::OsStr::new).collect();
-    let out = crate::record::git::run(crate::record::git::command(&repo, &args), b"")?;
+    let mut c = crate::record::git::command(&repo, &args);
+    c.env("GIT_NO_LAZY_FETCH", "1").envs(env.iter().copied());
+    let out = crate::record::git::run(c, input)?;
     Ok((out.status.code(), out.stdout))
 }
 

@@ -800,9 +800,8 @@ fn traced(fx: &Fx, args: &[&str]) -> String {
     let mut c = Command::new("strace");
     isolate(&mut c, &fx.home, None);
     c.args(["-f", "-qq", "-e", "trace=open,openat,openat2", "-o"]).arg(&trace).arg(env!("CARGO_BIN_EXE_fabrewk"));
-    let out = c.args(args).current_dir(&fx.root).output().expect("strace is needed");
-    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
-    std::fs::read_to_string(trace).unwrap()
+    c.args(args).current_dir(&fx.root).output().expect("strace is needed");
+    std::fs::read_to_string(trace).expect("strace wrote its trace")
 }
 
 #[test]
@@ -826,7 +825,8 @@ fn p10a_1_assess_runs_no_filter_git_would_run_on_a_changed_file() {
     let doc = fx.assess(&[]);
     assert_eq!(fx.snapshot(), before, "a filter ran");
     assert!(reasons(&doc).contains(&("changes".into(), false, String::new())), "{doc}");
-    assert_eq!(doc["plan"]["verdict"], "adopt");
+    // An entry file through a filter blocks with its own reason, the filter never run (D-100).
+    assert!(reasons(&doc).contains(&("filtered".into(), true, "AGENTS.md".into())), "{doc}");
 }
 
 #[test]
@@ -904,4 +904,101 @@ fn p10a_7_an_incomplete_plan_lists_its_files_as_far_as_its_answers_go() {
     assert_eq!(doc["apply"], serde_json::json!([]));
     assert!(!content(&doc, ".brewstillery/settings.toml").contains("[maintainers"));
     assert!(doc["plan"]["files"].as_array().unwrap().iter().all(|f| !f["path"].as_str().unwrap().contains("/ana/")));
+}
+
+#[test]
+fn p10a_8_assess_fetches_no_missing_object_of_a_partial_clone() {
+    let fx = product("p10a-8");
+    fx.git(&["config", "uploadpack.allowFilter", "true"]);
+    std::fs::write(fx.root.join("AGENTS.md"), "# Agents\n").unwrap();
+    std::fs::write(fx.root.join("NOTES"), "line one\nline two\nline three\nline four\n").unwrap();
+    fx.commit("agents");
+    let clone = fx.root.parent().unwrap().join("partial");
+    let url = format!("file://{}", fx.root.display());
+    fx.program("git", &["clone", "-q", "--filter=blob:none", "--no-checkout", &url, clone.to_str().unwrap()]);
+    let partial = Fx {
+        domain: clone.join(".brewstillery"),
+        root: clone.clone(),
+        home: fx.home.clone(),
+        keys: fx.keys.clone(),
+        path: None,
+    };
+    partial.git(&["config", "remote.origin.uploadpack", "touch lazy-fetch-ran; git-upload-pack"]);
+    // The index from `HEAD`'s trees alone, so that no blob of `HEAD` is local and the entry file is absent; then a
+    // staged rename, which a rename detection could tell only from the missing blob (Git fetched it, P10A-8).
+    partial.git(&["read-tree", "HEAD"]);
+    std::fs::write(clone.join("NOTES2"), "line one\nline two\nline three\nline 4\n").unwrap();
+    partial.git(&["add", "NOTES2"]);
+    partial.git(&["rm", "-q", "--cached", "NOTES"]);
+    let before = partial.snapshot();
+    let doc = partial.assess(&[]);
+    assert_eq!(partial.snapshot(), before, "a fetch wrote");
+    assert!(!clone.join("lazy-fetch-ran").exists());
+    assert!(reasons(&doc).contains(&("uncommitted".into(), true, "AGENTS.md".into())), "{doc}");
+    assert!(reasons(&doc).contains(&("changes".into(), false, String::new())), "{doc}");
+}
+
+#[test]
+fn p10a_9_an_include_of_the_private_folder_stops_assess_before_any_other_git() {
+    let fx = product("p10a-9");
+    let private = fx.home.join(".config/fabrewk");
+    std::fs::create_dir_all(&private).unwrap();
+    std::fs::write(private.join("secret.toml"), "[arbitrary]\nvalue = PRIVATE-MARKER\n").unwrap();
+    for (scope, value) in [
+        ("--local", private.join("secret.toml").to_str().unwrap().to_owned()),
+        ("--global", "~/.config/fabrewk/secret.toml".to_owned()),
+    ] {
+        fx.git(&["config", scope, "include.path", &value]);
+        let trace = traced(&fx, &["assess", "--alias", "ana", "--key", &fx.key(), "--publication", "published"]);
+        assert!(!trace.contains("secret.toml"), "{scope}: the private folder was opened");
+        refused(&fx, &["assess"], "PRIVATE_FOLDER_INCLUDED", 1, "en");
+        fx.git(&["config", scope, "--unset", "include.path"]);
+    }
+    fx.git(&["config", "includeIf.onbranch:main.path", "../../home/.config/fabrewk/secret.toml"]);
+    refused(&fx, &["assess"], "PRIVATE_FOLDER_INCLUDED", 1, "en");
+}
+
+#[test]
+fn p10a_10_no_tracked_file_over_1_mib_is_read() {
+    let fx = product("p10a-10");
+    let big = vec![b'x'; (1 << 20) + 1];
+    std::fs::write(fx.root.join("big.bin"), &big).unwrap();
+    fx.commit("big");
+    std::fs::write(fx.root.join("big.bin"), vec![b'y'; big.len()]).unwrap();
+    let trace = traced(&fx, &["assess", "--alias", "ana", "--key", &fx.key(), "--publication", "published"]);
+    assert!(!trace.contains("big.bin"), "a large file was opened");
+    assert!(reasons(&fx.assess(&[])).contains(&("changes".into(), false, String::new())));
+}
+
+#[test]
+fn p10a_11_an_entry_file_through_a_filter_blocks_with_its_own_reason_and_line_ends_are_converted() {
+    let fx = product("p10a-11");
+    std::fs::write(fx.root.join(".gitattributes"), "AGENTS.md filter=probe\nCLAUDE.md text eol=crlf\n").unwrap();
+    fx.git(&["config", "filter.probe.clean", "tr A-Z a-z"]);
+    std::fs::write(fx.root.join("AGENTS.md"), "UPPER\n").unwrap();
+    std::fs::write(fx.root.join("CLAUDE.md"), "@AGENTS.md\n").unwrap();
+    fx.commit("filtered");
+    // The checkout writes CLAUDE.md with CRLF; its index entry holds LF: no change.
+    std::fs::remove_file(fx.root.join("CLAUDE.md")).unwrap();
+    fx.git(&["checkout", "--", "CLAUDE.md"]);
+    assert_eq!(std::fs::read(fx.root.join("CLAUDE.md")).unwrap(), b"@AGENTS.md\r\n");
+    let doc = fx.assess(&[]);
+    let found = reasons(&doc);
+    assert!(found.contains(&("filtered".into(), true, "AGENTS.md".into())), "{doc}");
+    assert!(!found.iter().any(|r| r.2 == "CLAUDE.md"), "{doc}");
+}
+
+#[test]
+fn p10a_12_no_index_flag_hides_an_edit_of_an_entry_file() {
+    let fx = product("p10a-12");
+    std::fs::write(fx.root.join("AGENTS.md"), "original\n").unwrap();
+    fx.commit("agents");
+    for flag in ["--assume-unchanged", "--skip-worktree"] {
+        fx.git(&["update-index", flag, "AGENTS.md"]);
+        std::fs::write(fx.root.join("AGENTS.md"), "uncommitted\n").unwrap();
+        assert!(reasons(&fx.assess(&[])).contains(&("uncommitted".into(), true, "AGENTS.md".into())), "{flag}");
+        std::fs::write(fx.root.join("AGENTS.md"), "original\n").unwrap();
+        assert_eq!(fx.assess(&[])["plan"]["verdict"], "adopt", "{flag}");
+        fx.git(&["update-index", &flag.replace("--", "--no-"), "AGENTS.md"]);
+    }
 }

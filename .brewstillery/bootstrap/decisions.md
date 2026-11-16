@@ -4908,3 +4908,36 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   `onboard`; part 10b gives `apply` its moves, its refusals and its document.
 - Sources: chat of session 41; `STATUS.md` (next, part 10a); D-097 point 2; `plan.md` row 10a.
 - Supersedes: none.
+
+## D-100 — Part 10a: `assess` reads Git's state without `git status`; an include of the private folder stops it
+
+- Status: decided
+- Decided: 2026-11-16
+- Origin: maintainer XEL in session 41's chat, after Codex's second pass of part 10a (P10A-8 to P10A-12), answering
+  the integrator's two questions: "Sin git status (Recomendado)"; "Detener antes (Recomendado)".
+- Decision:
+  1. `assess` runs no `git status`, which runs filters, may fetch a partial clone's missing objects, reads tracked
+     files of any size and trusts the index's flags. `AGENTS.md` and `CLAUDE.md` are compared by Fabrewk: the index
+     and `HEAD` by object id, the working tree's bytes (at most 1 MiB) hashed by Git from standard input with the
+     path's attributes and no filter, so that `assume-unchanged` and `skip-worktree` hide no edit. One that goes
+     through a Git filter blocks with its own reason (`filtered`), since whether it holds changes cannot be told
+     without running the filter. Whether other tracked files have changes, a reason that informs, is told from the
+     index's staged changes against `HEAD` and from each tracked file's size and time against what the index
+     recorded, and is worded "have, or may have". Every Git `assess` runs fetches no missing object
+     (`GIT_NO_LAZY_FETCH`) and has every filter driver its configuration names turned off.
+  2. Before any other Git, `assess` reads each of Git's configuration files apart (the repository's, the person's,
+     the system's, and the `-c` values the environment carries), with a Git started outside any repository and with
+     no configuration of its own, since Git follows includes as soon as it starts in a repository; an include that
+     names a file of the private folder stops it with the new refusal `PRIVATE_FOLDER_INCLUDED`. An include inside an
+     included file is a declared residual.
+- Reason: REQ-INS-1 and point 3 of the opening's design (a closed list of what is read, no file over 1 MiB, nothing
+  written, not the private folder); P10A-8 to P10A-12, each reproduced by the integrator. The alternatives offered:
+  `git status` hardened (filters off, no fetch, no renames), reading point 3's limit as Fabrewk's own reads only and
+  keeping `assume-unchanged` and a filtered entry file's false change as residuals; dropping the informing reason;
+  for the include, a declared residual with no code.
+- Consequences: `crates/install/src/lib.rs`, `crates/core/src/install.rs` (the environment and the standard input of
+  `assess`'s Git), the code `PRIVATE_FOLDER_INCLUDED` (`crates/core/src/code.rs`, the catalogue, `assess`'s
+  declaration), `core-specification.md` (the amendment after point 11, the code in section 7's list and its row in
+  11.4).
+- Sources: chat of session 41; Codex's second report of part 10a; D-097, D-098.
+- Supersedes: none.

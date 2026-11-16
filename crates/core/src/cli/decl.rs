@@ -140,7 +140,7 @@ pub const COMMANDS: &[Command] = &[
             "help",
         ],
         moves: &[],
-        refusals: &[NotARepository, AliasInvalid, ToolFailed, ToolMissing],
+        refusals: &[NotARepository, AliasInvalid, PrivateFolderIncluded, ToolFailed, ToolMissing],
         schemas: &["fabrewk.assessment/1"],
     },
     // Declared so that the command `assess` prints is one that exists and parses; built in part 10b (D-099).
