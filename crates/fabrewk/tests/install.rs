@@ -1187,3 +1187,60 @@ fn p10a_34_a_repository_s_empty_signing_key_wins_over_the_global_one() {
         doc["plan"]["next"].as_array().unwrap().iter().filter_map(|n| n["command"].as_str()).collect();
     assert!(next.iter().any(|c| c.starts_with("git config user.signingkey")), "{next:?}");
 }
+
+#[test]
+fn p10a_35_a_link_in_the_git_directory_to_the_private_folder_stops_assess() {
+    let fx = product("p10a-35");
+    let private = fx.home.join(".config/fabrewk");
+    std::fs::create_dir_all(&private).unwrap();
+    std::fs::rename(fx.root.join(".git/index"), private.join("index")).unwrap();
+    std::os::unix::fs::symlink(private.join("index"), fx.root.join(".git/index")).unwrap();
+    let needle = private.join("index").to_str().unwrap().to_owned();
+    assert_eq!(opened_any(&fx, &[], &[&needle, "[\"git\""]), (1, false));
+    std::fs::remove_file(fx.root.join(".git/index")).unwrap();
+    std::fs::rename(private.join("index"), fx.root.join(".git/index")).unwrap();
+    std::fs::write(fx.root.join(".git/objects/info/alternates"), format!("{}\n", private.display())).unwrap();
+    refused(&fx, &["assess"], "PRIVATE_FOLDER_INCLUDED", 1, "en");
+}
+
+#[test]
+fn p10a_36_p10a_37_a_filter_driver_by_any_name_blocks_and_only_a_file_there_is() {
+    for driver in ["unspecified", "unset", "probe"] {
+        let fx = product(&format!("p10a-36-{driver}"));
+        std::fs::write(fx.root.join(".gitattributes"), format!("*.md filter={driver}\n")).unwrap();
+        fx.commit("attributes");
+        // No entry file yet: nothing to compare, nothing blocks (P10A-37).
+        assert_eq!(fx.assess(&[])["plan"]["verdict"], "adopt", "{driver}");
+        std::fs::write(fx.root.join("AGENTS.md"), "a\n").unwrap();
+        fx.commit("agents");
+        assert!(reasons(&fx.assess(&[])).contains(&("filtered".into(), true, "AGENTS.md".into())), "{driver}");
+    }
+}
+
+#[test]
+fn p10a_38_a_truncated_key_is_not_a_public_key() {
+    let fx = product("p10a-38");
+    let file = fx.keys.join("truncated.pub");
+    std::fs::write(&file, "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 invalid\n").unwrap();
+    let doc = fx
+        .run(&["assess", "--json", "--alias", "ana", "--key", file.to_str().unwrap(), "--publication", "published"])
+        .doc();
+    assert!(reasons(&doc).contains(&("key-not-public".into(), false, String::new())), "{doc}");
+    assert_eq!(doc["apply"], serde_json::json!([]));
+}
+
+#[test]
+fn p10a_39_a_later_global_file_s_empty_value_wins() {
+    let fx = product("p10a-39");
+    // With no `GIT_CONFIG_GLOBAL` (the fixture's is emptied), Git reads the XDG file, then `~/.gitconfig`.
+    let signs = || {
+        let args = ["assess", "--json", "--alias", "ana", "--key", &fx.key(), "--publication", "published"];
+        fx.run_env(&args, &[("GIT_CONFIG_GLOBAL", "")]).doc()["plan"]["git"]["signs"].clone()
+    };
+    std::fs::create_dir_all(fx.home.join(".config/git")).unwrap();
+    let xdg = format!("[gpg]\n\tformat = ssh\n[user]\n\tsigningkey = {}\n", fx.key());
+    std::fs::write(fx.home.join(".config/git/config"), xdg).unwrap();
+    assert_eq!(signs(), true);
+    std::fs::write(fx.home.join(".gitconfig"), "[user]\n\tsigningkey =\n").unwrap();
+    assert_eq!(signs(), false);
+}

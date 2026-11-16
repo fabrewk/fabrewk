@@ -224,6 +224,14 @@ fn person(root: &Path) -> Result<BTreeMap<&'static str, String>, Error> {
     if let Some(f) = [gitdir.clone(), gitdir.join("info/attributes")].into_iter().find(|f| inside(f)) {
         return Err(found(&f));
     }
+    // Any link in the Git directory that leads there (its index, P10A-35), and an alternate object store there.
+    if let Some(f) = linked(&gitdir, &inside) {
+        return Err(found(&f));
+    }
+    let alternates = std::fs::read_to_string(gitdir.join("objects/info/alternates")).unwrap_or_default();
+    if let Some(a) = alternates.lines().map(|a| gitdir.join("objects").join(a)).find(|a| inside(a)) {
+        return Err(found(&a));
+    }
     for file in [gitdir.join("config"), gitdir.join("config.worktree")] {
         if inside(&file) {
             return Err(found(&file));
@@ -256,9 +264,12 @@ fn person(root: &Path) -> Result<BTreeMap<&'static str, String>, Error> {
         for (key, kind) in
             [("user.signingkey", "--type=path"), ("gpg.format", "--no-type"), ("core.autocrlf", "--no-type")]
         {
-            let value = line(read(file, &[kind, "--get", key])?);
-            if !value.is_empty() {
-                out.insert(key, value);
+            // A later file's value wins, even empty (P10A-39).
+            let name = file.to_str().unwrap_or_default();
+            if let (Some(0), value) =
+                git(Path::new("/"), &["config", "--no-includes", "--file", name, kind, "--get", key], b"")?
+            {
+                out.insert(key, line(value));
             }
         }
     }
@@ -422,11 +433,43 @@ fn key(root: &Path, given: &str, r: &mut Reading) -> Result<String, &'static str
     }
     let bytes = std::fs::read(&path).map_err(|_| "key-absent")?;
     let text = std::str::from_utf8(&bytes).map_err(|_| "key-not-public")?.trim();
-    if text.contains('\n') || key_blob(text).is_none() {
+    if text.contains('\n') || !whole_key(text) {
         return Err("key-not-public");
     }
     r.inputs.insert("--key".into(), json!({"path": "--key", "kind": "file", "digest": sha256_hex(&bytes)}));
     Ok(text.to_owned())
+}
+
+/// Whether `text` is one whole public key: its blob's SSH strings are those of its type, an Ed25519 key of 32 bytes
+/// (P10A-38).
+fn whole_key(text: &str) -> bool {
+    let Some(mut blob) = key_blob(text) else { return false };
+    let mut strings = Vec::new();
+    while blob.len() >= 4 {
+        let n = u32::from_be_bytes([blob[0], blob[1], blob[2], blob[3]]) as usize;
+        strings.push(blob.get(4..4 + n).map_or(0, <[u8]>::len));
+        blob.drain(..(4 + n).min(blob.len()));
+    }
+    match text.split(' ').next() {
+        Some("ssh-ed25519") => strings == [11, 32],
+        Some("sk-ssh-ed25519@openssh.com") => strings.len() == 3 && strings[1] == 32,
+        _ => strings.len() >= 2 && strings[1..].iter().all(|n| *n > 0),
+    }
+}
+
+/// The first link under `dir`, at any depth, that leads where `inside` says; no link is followed.
+fn linked(dir: &Path, inside: &dyn Fn(&Path) -> bool) -> Option<PathBuf> {
+    for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+        let found = match entry.file_type() {
+            Ok(t) if t.is_symlink() => inside(&entry.path()).then(|| entry.path()),
+            Ok(t) if t.is_dir() => linked(&entry.path(), inside),
+            _ => None,
+        };
+        if found.is_some() {
+            return found;
+        }
+    }
+    None
 }
 
 /// `assess` (REQ-INS-1, REQ-INS-2): reads point 3's list, gives the verdict, the plan and its digest, and the `apply`
@@ -473,11 +516,13 @@ fn assessed(asked: &Asked) -> Result<(Value, String), Error> {
     let filemode = g.run(&["config", "--type=bool", "--get", "core.filemode"])?.1 != b"false\n";
     let committed =
         if head { g.ids(&["ls-tree", "-z", "HEAD", "--", "AGENTS.md", "CLAUDE.md"])? } else { BTreeMap::new() };
-    let attrs = g.ok(&["check-attr", "-z", "filter", "--", "AGENTS.md", "CLAUDE.md"])?;
+    // `--all` lists only the attributes set, so a driver named `unspecified` is not taken for no driver (P10A-36); one
+    // turned off (`-filter`) is listed too and blocks, as a driver named `unset` must.
+    let attrs = g.ok(&["check-attr", "-z", "--all", "--", "AGENTS.md", "CLAUDE.md"])?;
     let attrs: Vec<&[u8]> = attrs.split(|b| *b == 0).collect();
     let filtered: Vec<String> = attrs
         .chunks(3)
-        .filter(|c| c.len() == 3 && !matches!(c[2], b"unspecified" | b"unset"))
+        .filter(|c| c.len() == 3 && c[1] == b"filter")
         .map(|c| String::from_utf8_lossy(c[0]).into_owned())
         .collect();
     // The root's entries and the domain's, by name and kind.
@@ -516,7 +561,9 @@ fn assessed(asked: &Asked) -> Result<(Value, String), Error> {
             (Some(b), _) if std::str::from_utf8(b).is_err() => Some("not-utf8"),
             _ => None,
         };
-        let why = why.or_else(|| filtered.iter().any(|f| f == name).then_some("filtered"));
+        // Only a file there is, in the tree, the index or `HEAD`, has changes to tell (P10A-37).
+        let there = bytes.is_some() || index.contains_key(name) || committed.contains_key(name);
+        let why = why.or_else(|| (there && filtered.iter().any(|f| f == name)).then_some("filtered"));
         // The working tree's bytes hashed by Git from standard input, with the path's attributes and no filter, so that
         // no index flag hides an edit (P10A-12).
         // Its mode as Git would record it: the index's when Git ignores the executable bit (P10A-17).
