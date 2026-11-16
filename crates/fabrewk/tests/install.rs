@@ -1457,3 +1457,25 @@ fn p10a_58_p10a_59_the_exclude_file_is_the_git_directory_s_own() {
     std::fs::write(moved.join(".git/info/exclude"), "/.brewstillery/\n").unwrap();
     assert_eq!(file(&at.assess(&["--publication", "unpublished"]), ".git/info/exclude")["present"], true);
 }
+
+#[test]
+fn p10a_60_a_root_entry_of_any_name_is_read_by_its_bytes() {
+    use std::os::unix::ffi::OsStrExt;
+    let fx = product("p10a-60");
+    let at = |bytes: &[u8]| fx.root.join(std::ffi::OsStr::from_bytes(bytes));
+    std::fs::write(at(b"untracked-\xfe"), "x").unwrap();
+    let first = fx.assess(&[]);
+    let input =
+        |doc: &Value, path: &str| doc["plan"]["inputs"].as_array().unwrap().iter().find(|i| i["path"] == path).cloned();
+    assert_eq!(input(&first, "untracked-\\xfe").unwrap()["kind"], "file", "{first}");
+    std::fs::rename(at(b"untracked-\xfe"), at(b"untracked-\xff")).unwrap();
+    let second = fx.assess(&[]);
+    assert_ne!(second["digest"], first["digest"]);
+    assert_eq!(input(&second, "untracked-\\xff").unwrap()["kind"], "file");
+    // A licence named so is read.
+    std::fs::remove_file(fx.root.join("LICENSE")).unwrap();
+    std::fs::write(at(b"LICENSE-\xff"), "MIT\n").unwrap();
+    let doc = fx.assess(&[]);
+    assert!(input(&doc, "LICENSE-\\xff").unwrap()["digest"].is_string());
+    assert!(!reasons(&doc).iter().any(|r| r.0 == "no-licence"));
+}

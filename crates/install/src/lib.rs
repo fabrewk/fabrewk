@@ -62,11 +62,11 @@ fn refuse(code: Code, path: Option<&Path>, detail: impl Into<String>) -> Error {
 
 /// What the entry at `rel` under `base` is, no link followed on the way: `absent`, `file`, `directory`, `link` (the
 /// path or one of its directories is one), `other` or `unreadable`.
-fn kind(base: &Path, rel: &str) -> &'static str {
+fn kind(base: &Path, rel: impl AsRef<Path>) -> &'static str {
     let mut path = base.to_path_buf();
-    let parts: Vec<&str> = rel.split('/').collect();
+    let parts: Vec<_> = rel.as_ref().components().collect();
     for (i, part) in parts.iter().enumerate() {
-        path.push(part);
+        path.push(part.as_os_str());
         let last = i + 1 == parts.len();
         match std::fs::symlink_metadata(&path) {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return "absent",
@@ -91,8 +91,8 @@ impl Reading {
     /// Records `rel` under `base`, shown as `shown`, by kind, and gives a regular file's bytes, read when it holds at
     /// most 1 MiB; a larger one is recorded by its size only. In the repository no link is followed; in the home
     /// (`shown` as `~/…`), the person's own, a link to a regular file is read, as dotfiles often are links.
-    fn read(&mut self, base: &Path, rel: &str, shown: &str) -> Option<Vec<u8>> {
-        let mut entry = json!({"path": shown, "kind": kind(base, rel)});
+    fn read(&mut self, base: &Path, rel: impl AsRef<Path>, shown: &str) -> Option<Vec<u8>> {
+        let mut entry = json!({"path": shown, "kind": kind(base, &rel)});
         let path = base.join(rel);
         // Never a file of the private folder, by link or not (P10A-31, P10A-42): it is reported as such.
         if private(&path) {
@@ -117,16 +117,28 @@ impl Reading {
     }
 
     /// Records `rel` under `root` by kind alone, and a file over 1 MiB by its size too (P10A-19), unless it was read.
-    fn note(&mut self, root: &Path, rel: &str) -> &'static str {
-        let k = kind(root, rel);
-        let mut entry = json!({"path": rel, "kind": k});
+    fn note(&mut self, root: &Path, rel: impl AsRef<Path>, shown: &str) -> &'static str {
+        let k = kind(root, &rel);
+        let mut entry = json!({"path": shown, "kind": k});
         match std::fs::symlink_metadata(root.join(rel)).map(|m| m.len()) {
             Ok(n) if k == "file" && n > MIB => entry["bytes"] = n.into(),
             _ => {}
         }
-        self.inputs.entry(rel.to_owned()).or_insert(entry);
+        self.inputs.entry(shown.to_owned()).or_insert(entry);
         k
     }
+}
+
+/// A name as the plan shows it: its text, each byte that is not UTF-8 written `\xNN`, so that two names never show
+/// alike (P10A-60).
+fn shown(name: &std::ffi::OsStr) -> String {
+    use std::os::unix::ffi::OsStrExt;
+    let mut out = String::new();
+    for chunk in name.as_bytes().utf8_chunks() {
+        out += &chunk.valid().replace('\\', "\\\\");
+        out += &chunk.invalid().iter().map(|b| format!("\\x{b:02x}")).collect::<String>();
+    }
+    out
 }
 
 /// Whether `path`, as written or where it leads, lies in the private folder, which `assess` never reads (point 3).
@@ -399,20 +411,20 @@ fn data(dir: &Path, events: bool) -> (bool, bool) {
 
 /// The domain's top entries `assess` reads (point 3): all but `local/`, and but a `data/` that holds only what a killed
 /// `apply` leaves; none when the domain is not a directory. Gives them, and whether the record holds an event.
-fn domain(root: &Path) -> (Vec<String>, bool) {
+fn domain(root: &Path) -> (Vec<std::ffi::OsString>, bool) {
     let dir = root.join(DOMAIN);
     if kind(root, DOMAIN) != "directory" {
         return (Vec::new(), false);
     }
-    let (event, other) = match kind(root, &format!("{DOMAIN}/data")) {
+    let (event, other) = match kind(root, format!("{DOMAIN}/data")) {
         "directory" => data(&dir.join("data"), false),
         k => (false, k != "absent"),
     };
-    let mut names: Vec<String> = std::fs::read_dir(&dir)
+    let mut names: Vec<std::ffi::OsString> = std::fs::read_dir(&dir)
         .into_iter()
         .flatten()
         .flatten()
-        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .map(|e| e.file_name())
         .filter(|n| n != "local" && (n != "data" || other))
         .collect();
     names.sort();
@@ -545,18 +557,19 @@ fn assessed(asked: &Asked) -> Result<(Value, String), Error> {
     let domain_absent = kind(root, DOMAIN) == "directory" && domain_names.is_empty();
     let mut licence = false;
     for entry in std::fs::read_dir(root).map_err(|e| Error::Io { path: root.to_path_buf(), error: e })?.flatten() {
-        let name = entry.file_name().to_string_lossy().into_owned();
+        // Read by the name's bytes, shown so that no two names show alike (P10A-60).
+        let (os, name) = (entry.file_name(), shown(&entry.file_name()));
         let upper = name.to_ascii_uppercase();
         if ["LICENSE", "LICENCE", "COPYING"].iter().any(|l| upper.starts_with(l)) || upper == "UNLICENSE" {
-            r.read(root, &name, &name);
+            r.read(root, &os, &name);
             licence |= r.inputs[&name]["kind"] == "file";
         }
         if name != DOMAIN || !domain_absent {
-            r.note(root, &name);
+            r.note(root, &os, &name);
         }
     }
     for name in &domain_names {
-        r.note(root, &format!("{DOMAIN}/{name}"));
+        r.note(root, Path::new(DOMAIN).join(name), &format!("{DOMAIN}/{}", shown(name)));
     }
     if record {
         reasons.push(reason("record", true, None, None));
@@ -616,7 +629,7 @@ fn assessed(asked: &Asked) -> Result<(Value, String), Error> {
     }
     for h in HARNESSES {
         if kind(root, h) != "absent" {
-            r.note(root, h);
+            r.note(root, h, h);
             reasons.push(reason("harness", false, Some(h), None));
         }
     }
