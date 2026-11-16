@@ -1027,8 +1027,13 @@ fn secret(fx: &Fx) -> String {
     private.join("secret").to_str().unwrap().to_owned()
 }
 
-/// `assess` with complete answers and `env`, under `strace`: its exit status, and whether it opened `secret`.
+/// `assess` with complete answers and `env`, under `strace`: its exit status, and whether it opened `secret`; `strace`
+/// names the path opened, so a link to `secret` is named by `needles` too.
 fn opened(fx: &Fx, env: &[(&str, &str)], secret: &str) -> (i32, bool) {
+    opened_any(fx, env, &[secret])
+}
+
+fn opened_any(fx: &Fx, env: &[(&str, &str)], needles: &[&str]) -> (i32, bool) {
     let trace = fx.root.parent().unwrap().join("trace-env");
     let mut c = Command::new("strace");
     isolate(&mut c, &fx.home, None);
@@ -1039,7 +1044,7 @@ fn opened(fx: &Fx, env: &[(&str, &str)], secret: &str) -> (i32, bool) {
     let out = c.current_dir(&fx.root).output().expect("strace is needed");
     let text = std::fs::read_to_string(trace).unwrap_or_default();
     assert!(text.contains(&format!("execve(\"{}\"", env!("CARGO_BIN_EXE_fabrewk"))), "strace saw nothing");
-    (out.status.code().unwrap_or(-1), text.contains(secret))
+    (out.status.code().unwrap_or(-1), needles.iter().any(|n| text.contains(n)))
 }
 
 #[test]
@@ -1058,7 +1063,7 @@ fn p10a_9_the_repository_s_own_include_of_the_private_folder_stops_assess_before
     std::fs::copy(&config, &secret).unwrap();
     std::fs::remove_file(&config).unwrap();
     std::os::unix::fs::symlink(&secret, &config).unwrap();
-    assert_eq!(opened(&fx, &[], &secret), (1, false));
+    assert_eq!(opened_any(&fx, &[], &[&secret, "[\"git\""]), (1, false));
 }
 
 #[test]
@@ -1094,7 +1099,7 @@ fn p10a_14_p10a_22_to_p10a_27_the_person_s_git_configuration_makes_assess_neithe
         vec![("GIT_CONFIG_NOSYSTEM", "0"), ("GIT_CONFIG_SYSTEM", &include)],
         vec![("GIT_TRACE", trace2.to_str().unwrap()), ("GIT_TRACE2_EVENT", trace2.to_str().unwrap())],
     ] {
-        assert_eq!(opened(&fx, &env, &secret), (0, false), "{env:?}");
+        assert_eq!(opened_any(&fx, &env, &[&secret, ".config/git/attributes"]), (0, false), "{env:?}");
         assert_eq!(fx.snapshot(), before, "{env:?} wrote");
     }
     // A global configuration that is itself a file of the private folder, absolute or relative (P10A-24, P10A-25).
@@ -1143,4 +1148,42 @@ fn p10a_29_the_installation_s_commands_read_no_record_even_for_a_usage_error() {
         let trace = traced(&fx, args);
         assert!(!trace.contains("000001-0000000000000000.json"), "{args:?} opened an event");
     }
+}
+
+#[test]
+fn p10a_31_to_p10a_33_no_link_leads_assess_into_the_private_folder() {
+    let fx = product("p10a-31");
+    let secret = secret(&fx);
+    std::fs::write(&secret, "approval_policy = \"never\"\n").unwrap();
+    // A home's settings that are a link to the private folder are not read (P10A-31).
+    std::fs::create_dir_all(fx.home.join(".codex")).unwrap();
+    std::os::unix::fs::symlink(&secret, fx.home.join(".codex/config.toml")).unwrap();
+    assert_eq!(opened_any(&fx, &[], &[&secret, ".codex/config.toml"]), (0, false));
+    assert_eq!(fx.assess(&[])["plan"]["effects"], serde_json::json!([]));
+    // The repository's attributes file, a link to the private folder (P10A-32).
+    std::os::unix::fs::symlink(&secret, fx.root.join(".git/info/attributes")).unwrap();
+    // Refused before any Git runs.
+    assert_eq!(opened_any(&fx, &[], &[&secret, "info/attributes", "[\"git\""]), (1, false));
+    refused(&fx, &["assess"], "PRIVATE_FOLDER_INCLUDED", 1, "en");
+    std::fs::remove_file(fx.root.join(".git/info/attributes")).unwrap();
+    // A `.git` that is a link to a pointer in the private folder (P10A-33).
+    let metadata = fx.root.parent().unwrap().join("metadata");
+    std::fs::rename(fx.root.join(".git"), &metadata).unwrap();
+    std::fs::write(&secret, format!("gitdir: {}\n", metadata.display())).unwrap();
+    std::os::unix::fs::symlink(&secret, fx.root.join(".git")).unwrap();
+    assert_eq!(opened_any(&fx, &[], &[&secret, "[\"git\""]), (1, false));
+}
+
+#[test]
+fn p10a_34_a_repository_s_empty_signing_key_wins_over_the_global_one() {
+    let fx = product("p10a-34");
+    std::fs::write(fx.home.join(".gitconfig"), format!("[gpg]\n\tformat = ssh\n[user]\n\tsigningkey = {}\n", fx.key()))
+        .unwrap();
+    assert_eq!(fx.assess(&[])["plan"]["git"]["signs"], true);
+    fx.git(&["config", "user.signingkey", ""]);
+    let doc = fx.assess(&[]);
+    assert_eq!(doc["plan"]["git"]["signs"], false);
+    let next: Vec<&str> =
+        doc["plan"]["next"].as_array().unwrap().iter().filter_map(|n| n["command"].as_str()).collect();
+    assert!(next.iter().any(|c| c.starts_with("git config user.signingkey")), "{next:?}");
 }

@@ -92,7 +92,13 @@ impl Reading {
     fn read(&mut self, base: &Path, rel: &str, shown: &str) -> Option<Vec<u8>> {
         let mut entry = json!({"path": shown, "kind": kind(base, rel)});
         let path = base.join(rel);
-        let followed = shown.starts_with("~/") && std::fs::metadata(&path).is_ok_and(|m| m.is_file());
+        // Never to a file of the private folder (P10A-31).
+        let private = fabrewk_core::machine::private_folder(|k| std::env::var_os(k)).ok();
+        let resolved = path.canonicalize().ok();
+        let private = resolved
+            .zip(private)
+            .is_some_and(|(p, f)| p.starts_with(&f) || f.canonicalize().is_ok_and(|f| p.starts_with(f)));
+        let followed = shown.starts_with("~/") && !private && std::fs::metadata(&path).is_ok_and(|m| m.is_file());
         let mut out = None;
         if entry["kind"] == "file" || (entry["kind"] == "link" && followed) {
             match std::fs::metadata(&path).map(|m| m.len()) {
@@ -206,11 +212,18 @@ fn person(root: &Path) -> Result<BTreeMap<&'static str, String>, Error> {
         let name = file.to_str().unwrap_or_default();
         Ok(git(Path::new("/"), &[&["config", "--no-includes", "--file", name][..], args].concat(), b"")?.1)
     };
-    // The repository's Git directory: `.git`, or the one its `gitdir:` file names.
+    // The repository's Git directory: `.git`, or the one its `gitdir:` file names, which is read only once its place is
+    // known (P10A-33); then what of it Git opens by path: its configuration and its attributes file (P10A-32).
     let dot = root.join(".git");
+    if inside(&dot) {
+        return Err(found(&dot));
+    }
     let named =
         std::fs::read_to_string(&dot).ok().and_then(|t| t.strip_prefix("gitdir: ").map(|d| d.trim().to_owned()));
     let gitdir = named.map_or(dot, |d| root.join(d));
+    if let Some(f) = [gitdir.clone(), gitdir.join("info/attributes")].into_iter().find(|f| inside(f)) {
+        return Err(found(&f));
+    }
     for file in [gitdir.join("config"), gitdir.join("config.worktree")] {
         if inside(&file) {
             return Err(found(&file));
@@ -568,8 +581,11 @@ fn assessed(asked: &Asked) -> Result<(Value, String), Error> {
     });
     // The repository's value, else the person's global one (D-102).
     let setting = |key: &str, kind: &str| -> Result<String, Error> {
-        let local = line(g.run(&["config", kind, "--get", key])?.1);
-        Ok(if local.is_empty() { global.get(key).cloned().unwrap_or_default() } else { local })
+        // Present, even empty, the repository's value wins (P10A-34).
+        Ok(match g.run(&["config", kind, "--get", key])? {
+            (Some(0), local) => line(local),
+            _ => global.get(key).cloned().unwrap_or_default(),
+        })
     };
     let ssh = setting("gpg.format", "--no-type")? == "ssh";
     let named = setting("user.signingkey", "--type=path")?;
