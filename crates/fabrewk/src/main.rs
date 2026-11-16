@@ -1,6 +1,6 @@
 //! The `fabrewk` program: the core's command surface (REQ-CLI-1), wired to the built-in modules: on Linux the
 //! bubblewrap backend (part 9a); the tool adapters, Claude Code's (part 9c) and Codex's (part 9d), each with its
-//! programs, markers and residual risks (D-051).
+//! programs, markers and residual risks (D-051); the installer (part 10a).
 
 use fabrewk_core::adapter::Adapter;
 use fabrewk_core::confine::Backend;
@@ -18,6 +18,7 @@ const BACKEND: Option<&Backend> = None;
 const ADAPTERS: &[&Adapter] = &[&fabrewk_adapter_claude::ADAPTER, &fabrewk_adapter_codex::ADAPTER];
 
 fn main() -> ExitCode {
-    let status = fabrewk_core::cli::main(std::env::args_os().skip(1).collect(), ADAPTERS, BACKEND);
+    let wired = (ADAPTERS, BACKEND, &fabrewk_install::INSTALLER);
+    let status = fabrewk_core::cli::main(std::env::args_os().skip(1).collect(), wired);
     ExitCode::from(u8::try_from(status).unwrap_or(70))
 }

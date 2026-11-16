@@ -99,6 +99,7 @@ dependencies = [
  "fabrewk-adapter-codex",
  "fabrewk-confine-bwrap",
  "fabrewk-core",
+ "fabrewk-install",
  "serde_json",
 ]
 
@@ -137,6 +138,15 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "toml",
+]
+
+[[package]]
+name = "fabrewk-install"
+version = "0.0.0"
+dependencies = [
+ "fabrewk-core",
+ "serde_json",
  "toml",
 ]
 

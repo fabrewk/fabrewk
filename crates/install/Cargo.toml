@@ -1,0 +1,17 @@
+[package]
+name = "fabrewk-install"
+description = "Fabrewk's installation: what assess reads, the verdict, the plan and its digest"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+fabrewk-core = { path = "../core" }
+serde_json = "1"
+# Codex's settings are TOML; the crate is already the core's (D-036), with the same features.
+toml = { version = "1.2", default-features = false, features = ["std", "parse"] }

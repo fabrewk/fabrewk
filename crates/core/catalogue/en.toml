@@ -26,6 +26,10 @@ needed = "The command needs the option {word}."
 stage = "The identifier {word} is a stage's; this command takes a task's."
 task = "The identifier {word} is a task's; this command takes a stage's."
 next = "See what the command takes:"
+choice = "The value given is not one this option takes ({word})."
+tool = "There is no built-in tool by that name ({word})."
+lang = "There is no catalogue for that language ({word})."
+unbuilt = "The command {word} is declared but not built yet in this version: it reads and writes nothing."
 
 [internal]
 about = "Internal errors (exit 70): something failed that no refusal names"
@@ -57,6 +61,15 @@ widen = "Names a widening of authority this move makes, by its key path; give it
 seen = "The digest that status printed of what you read; if the subject changed since, the move is refused."
 then-run = "Starts the run in the same command, after the authorization."
 answer = "The JSON file with the integrator's answer; its format is below."
+mode = "adopt, for Fabrewk to administer the repository, or review, to only review it; by default, adopt."
+publication = "Whether the maintainers publish .brewstillery/: published (with the product), own-repository (a repository of its own) or unpublished."
+alias = "The first maestro's alias: lowercase letters and digits, words joined by a hyphen."
+key = "The file that holds the first maestro's one OpenSSH public key, the one Git signs with."
+tool = "A built-in tool to declare, by name; give it once for each."
+lang = "The project's canonical documentation language and the first maestro's language, as a language tag; by default, en."
+purpose = "The first alambique's answer: what the project must achieve, written as given."
+audience = "The first alambique's answer: for whom the project is, written as given."
+excluded = "The first alambique's answer: what the project leaves out, written as given."
 
 [command.status]
 about = "The command that shows the state"
@@ -71,6 +84,15 @@ arg = "One setting, by its key path: shows only its value and source."
 [command.check]
 about = "The command that verifies the repository"
 summary = "Verifies the settings, the policy, the record, the domain, the credentials and the private folder."
+
+[command.assess]
+about = "The command that assesses a repository before Fabrewk enters it"
+summary = "Assesses this repository, writing nothing: the verdict with its reasons, and the plan of what Fabrewk would write, with its digest."
+
+[command.apply]
+about = "The command that applies a plan assess printed"
+summary = "A maestro applies the plan assess printed, with the same options and their own words."
+arg = "The digest of the plan assess printed."
 
 [command.adopt]
 about = "The command that adopts the project file as the policy in force"
@@ -1119,3 +1141,99 @@ run = "fabrewk config"
 about = "An extension whose standard output holds a line that is not a valid request (REQ-EXT-3)"
 reason = "Every line an extension prints must be one valid request; one was not, so none of its requests was applied."
 next = "Correct the extension so that it prints only requests, and run it again; the detail names the line."
+
+[assess]
+about = "What assess prints: the verdict, its reasons, the side effects found, the plan's files, its digest and how to apply it"
+verdict = "Verdict: {verdict}"
+verdict-adopt = "adopt: Fabrewk can administer this repository."
+verdict-review = "review: Fabrewk can only review this repository."
+verdict-none = "none: Fabrewk does not enter this repository as it is."
+reasons = "Reasons"
+no-reasons = "None."
+blocks = "this blocks the plan"
+incomplete = "The plan is incomplete: applying it needs {names}."
+effects = "Side effects of other tools' settings, by file and key, never with their values"
+files = "What the plan writes"
+digest = "The plan's digest: {digest}"
+apply = "To apply it, a maestro runs this in their own terminal, with their own words:"
+cannot-none = "This plan cannot be applied while a reason above blocks it."
+cannot-review = "Review mode is not built yet, so this plan cannot be applied."
+cannot-incomplete = "This plan cannot be applied until it is complete."
+shell-fish = "In fish"
+shell-posix = "In a POSIX shell"
+words = "your words"
+
+[assess.reason]
+detached = "The head is detached: check out a branch first."
+operation = "A Git {detail} is in progress: finish it or abort it first."
+record = "A record is already here: Fabrewk is installed in this repository."
+present = "{path} is present, and the plan would create it."
+not-a-file = "{path} is not a regular file."
+not-utf8 = "{path} is not UTF-8 text."
+too-large = "{path} is over 1 MiB."
+uncommitted = "{path} has changes that are not committed: commit them or put them aside first."
+block-damaged = "{path} holds Fabrewk's entry markers, but not as one block."
+harness = "Another harness is here: {path}."
+effects = "Other tools' settings have side effects; they are listed below."
+changes = "Tracked files have changes that are not committed."
+no-licence = "There is no licence file at the root."
+key-absent = "The key file cannot be found."
+key-not-a-file = "The key file is not a regular file."
+key-too-large = "The key file is over 1 MiB."
+key-inside = "The key file lies in this repository or in a Fabrewk domain."
+key-not-public = "The key file does not hold one public key."
+settings-invalid = "The project file the plan would write is not valid: {detail}"
+
+[assess.effect]
+hooks = "runs commands of its own (hooks)"
+approvals = "approves tools in advance"
+sandbox = "turns a sandbox off"
+mcp = "connects MCP servers"
+updates = "is a setting of automatic updates"
+telemetry = "is a setting of telemetry or error reports"
+commits = "runs git commit or git push"
+unparsed = "cannot be read as settings, so what it holds cannot be told"
+
+[assess.action]
+create = "Creates {path}:"
+keep = "Keeps {path} as it is: it is the approved alambique of departure."
+block = "Writes Fabrewk's entry block in {path}:"
+exclude = "Adds the line /.brewstillery/ to {path}, so the product's repository ignores the domain."
+exclude-present = "Keeps the line /.brewstillery/ that {path} already holds."
+repository = "Makes .brewstillery/ a Git repository of its own, on the branch {branch}."
+view = "Generates {path} from the record."
+
+[install]
+about = "The files the installation writes: the first fermento's input, the entry block, and the next steps"
+fermento = """
+# Fermento of {alias}
+
+Write here, above the separator, what you want to add, remove or discuss in the project, as numbered points. The agents answer below the separator.
+
+"""
+entry = "This repository is administered by Fabrewk. An agent starts at .brewstillery/STATUS.md, which says the state of the work and what to read next."
+next-models = "The project file declares no model and no profile yet: a maestro adds them by editing it and adopting it again."
+
+[skeleton]
+about = "The first alambique, when the repository has none (REQ-INS-8): its opening, its sections and the line of an empty answer"
+opening = """
+This file is the project's alambique. Fabrewk names its parts after a distillery. Brewstillery, the distillery, is Fabrewk's domain in this repository: the folder .brewstillery/. There, each maestro prepares a fermento, a file of their own with what they want to add, remove or discuss. The fermentos are poured into the alambique, this file, to distil what the project must be. Only the maestros approve what enters it.
+"""
+purpose = "What the project must achieve"
+audience = "For whom"
+excluded = "What it leaves out"
+empty = "Not answered yet."
+
+[warning]
+about = "The publication warning, shown when the maintainers will not publish .brewstillery/ (drafted by Codex in part 10a; the maestro decides the final text)"
+title = "Record kept on one computer"
+text = """
+With `unpublished`, the record stays on this computer only.
+Other collaborators cannot see the record or continue the work.
+The maintainers accept these consequences at their own risk and responsibility.
+
+The first alternative is to publish `.brewstillery/` with the product (`published`).
+As a last resort, `.brewstillery/` can have its own repository (`own-repository`).
+
+The maintainers' answer is recorded in their own words.
+"""

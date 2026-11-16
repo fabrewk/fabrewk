@@ -70,8 +70,9 @@ fn req_cli_1_every_command_appears_in_help_completions_and_reference() {
         assert!(fish.contains(&format!("-a {} ", c.name)), "fish: {}", c.name);
         assert!(posix.contains(&format!("        {}) ", c.name)), "posix: {}", c.name);
     }
-    // Only the commands that exist (D-053 point 3): nothing of a later phase.
-    let later = "apply";
+    // Only the commands that exist (D-053 point 3): nothing of a later part; `apply` is declared in part 10a, so that
+    // the command `assess` prints exists (D-099), and `onboard` in part 10c.
+    let later = "onboard";
     assert!(COMMANDS.iter().all(|c| c.name != later), "{later}");
     assert!(!fish.contains(&format!("-a {later} ")) && !posix.contains(&format!(" {later})")), "{later}");
 }
@@ -100,6 +101,8 @@ fn req_cli_1_the_completions_run_in_their_shells() {
         "status",
         "config",
         "check",
+        "assess",
+        "apply",
         "adopt",
         "propose",
         "authorize",
@@ -134,6 +137,11 @@ fn req_cli_1_the_parser_accepts_exactly_the_declaration() {
         }
         if c.flags.contains(&"answer") {
             base.extend(["--answer", "a.json"]);
+        }
+        // `apply` needs the publication, the alias and the key (D-097 point 2).
+        let installing = ["--publication", "published", "--alias", "a", "--key", "k"];
+        if c.name == "apply" {
+            base.extend(installing);
         }
         let with = |more: &[&'static str]| [base.clone(), more.to_vec()].concat();
         let mut ok = vec![base.clone(), vec![c.name, "--help"]];
@@ -172,6 +180,13 @@ fn req_cli_1_the_parser_accepts_exactly_the_declaration() {
             bad.push(vec![c.name, "x-1"]);
             bad.push(vec![c.name, "x-1", "--answer"]);
         }
+        if c.name == "apply" {
+            for i in [0, 2, 4] {
+                let mut without = installing.to_vec();
+                without.drain(i..i + 2);
+                bad.push([&[c.name, "x-1"][..], &without].concat());
+            }
+        }
         if !c.flags.contains(&"run") {
             bad.push(with(&["--run"]));
         }
@@ -203,6 +218,24 @@ fn req_cli_1_the_parser_accepts_exactly_the_declaration() {
         &["adopt", "--say-lang"],
         &["adopt", "--widen"],
         &["adopt", "--widen", "--json"],
+    ] {
+        assert!(parse(bad).is_err(), "{bad:?}");
+    }
+    // The installation's answers (D-097 point 2): each once, but `--tool`; `--mode` and `--publication` from their
+    // lists; `--lang` a tag; a value may be empty, or start with `-` when attached.
+    let o = run(&["assess", "--tool", "codex", "--mode", "review", "--tool=claude", "--purpose=", "--excluded=-x"]);
+    assert_eq!(o.tools, ["codex", "claude"]);
+    let answers: Vec<(&str, &str)> = o.answers.iter().map(|(k, v)| (*k, v.as_str())).collect();
+    assert_eq!(answers, [("excluded", "-x"), ("mode", "review"), ("purpose", "")]);
+    for bad in [
+        &["assess", "--mode", "adopt", "--mode", "adopt"][..],
+        &["assess", "--mode", "administer"],
+        &["assess", "--publication", "public"],
+        &["assess", "--lang", "not a tag"],
+        &["assess", "--alias"],
+        &["assess", "--purpose", "-x"],
+        &["assess", "--say", "w"],
+        &["assess", "x"],
     ] {
         assert!(parse(bad).is_err(), "{bad:?}");
     }
@@ -441,7 +474,8 @@ fn printed() -> Vec<String> {
         let arg = if c.required { " x" } else { "" };
         let seen = if c.flags.contains(&"seen") { " --seen d" } else { "" };
         let answer = if c.flags.contains(&"answer") { " --answer a.json" } else { "" };
-        out.push(format!("fabrewk {}{arg}{seen}{answer}", c.name));
+        let installing = if c.name == "apply" { " --publication published --alias a --key k" } else { "" };
+        out.push(format!("fabrewk {}{arg}{seen}{answer}{installing}", c.name));
         out.push(format!("fabrewk {} --help", c.name));
     }
     out.extend(["fabrewk --help", "fabrewk --version"].map(str::to_owned));

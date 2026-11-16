@@ -4889,3 +4889,22 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   Each finding was checked against the code it cited before its correction; all were confirmed. No code was written,
   so no test or mutation run applied; the corrections are text.
 - No credential of the person's was read.
+
+## D-099 — Part 10a: `apply` declared now, answering a usage error until part 10b; `onboard` declared in part 10c
+
+- Status: decided
+- Decided: 2026-11-15
+- Origin: maintainer XEL in session 41's chat, answering the integrator's question when part 10a started (`STATUS.md`
+  left it to the part and the maestro): "apply ahora, onboard en 10c (Recomendado)".
+- Decision: part 10a declares `assess` and `apply` with every option D-097 point 2 gives them, so that the command
+  `assess` prints is one that exists, parses and passes the shells' checks (REQ-CLI-2, PD-38); until part 10b, `apply`
+  answers with the catalogue's usage error `usage.unbuilt` (exit 2), reading and writing nothing, and its declaration
+  lists no move and no refusal of its own. `onboard` is declared in part 10c, when it is built.
+- Reason: `AGENTS.md` (never name a command that does not exist); the catalogue's rule that every printed command is
+  one a test parses; help and the reference list only what answers. The alternatives offered: the three commands now,
+  `apply` and `onboard` both answering "not built"; `assess` alone, leaving the printed command to part 10b.
+- Consequences: `crates/core/src/cli/decl.rs`, `crates/core/src/cli/mod.rs`, the catalogue's `usage.unbuilt`, the
+  generated help, completions and reference; `crates/fabrewk/tests/surface.rs`'s guard on later commands names
+  `onboard`; part 10b gives `apply` its moves, its refusals and its document.
+- Sources: chat of session 41; `STATUS.md` (next, part 10a); D-097 point 2; `plan.md` row 10a.
+- Supersedes: none.

@@ -61,6 +61,56 @@ Documents with --json: `fabrewk.check/1`
 | C11 | The private folder gives access to its owner only. | `PRIVATE_FOLDER_PERMISSIONS` | effective |
 | C12 | Every maintainer directory has a fermento and is listed in the policy. | `MAINTAINER_UNLISTED`, `FERMENTO_MISSING` | effective |
 
+## `fabrewk assess [--mode <mode>] [--publication <mode>] [--alias <alias>] [--key <file>] [--tool <name>]… [--lang <tag>] [--purpose <text>] [--audience <text>] [--excluded <text>] [--json]`
+
+Assesses this repository, writing nothing: the verdict with its reasons, and the plan of what Fabrewk would write, with its digest.
+
+- `--mode <mode>`: adopt, for Fabrewk to administer the repository, or review, to only review it; by default, adopt.
+- `--publication <mode>`: Whether the maintainers publish .brewstillery/: published (with the product), own-repository (a repository of its own) or unpublished.
+- `--alias <alias>`: The first maestro's alias: lowercase letters and digits, words joined by a hyphen.
+- `--key <file>`: The file that holds the first maestro's one OpenSSH public key, the one Git signs with.
+- `--tool <name>`: A built-in tool to declare, by name; give it once for each.
+- `--lang <tag>`: The project's canonical documentation language and the first maestro's language, as a language tag; by default, en.
+- `--purpose <text>`: The first alambique's answer: what the project must achieve, written as given.
+- `--audience <text>`: The first alambique's answer: for whom the project is, written as given.
+- `--excluded <text>`: The first alambique's answer: what the project leaves out, written as given.
+- `--json`: Gives the output as one JSON document with a schema field.
+- `--help`: Shows this help.
+
+Moves it may cause: none.
+
+Documents with --json: `fabrewk.assessment/1`
+
+Refusals
+
+- `NOT_A_REPOSITORY`: This is not the root of the repository's main working tree.
+- `ALIAS_INVALID`: A name that is not a valid alias: lowercase letters, digits and single hyphens, starting with a letter, at most 32 characters, and not a reserved name.
+- `TOOL_FAILED`: An external tool failed; what it printed is kept as evidence, never shown here.
+- `TOOL_MISSING`: A tool this needs is not on this machine.
+
+## `fabrewk apply <plan> [--mode <mode>] --publication <mode> --alias <alias> --key <file> [--tool <name>]… [--lang <tag>] [--purpose <text>] [--audience <text>] [--excluded <text>] --say <words> [--say-lang <tag>] [--json]`
+
+A maestro applies the plan assess printed, with the same options and their own words.
+
+- `<plan>`: The digest of the plan assess printed.
+- `--mode <mode>`: adopt, for Fabrewk to administer the repository, or review, to only review it; by default, adopt.
+- `--publication <mode>`: Whether the maintainers publish .brewstillery/: published (with the product), own-repository (a repository of its own) or unpublished.
+- `--alias <alias>`: The first maestro's alias: lowercase letters and digits, words joined by a hyphen.
+- `--key <file>`: The file that holds the first maestro's one OpenSSH public key, the one Git signs with.
+- `--tool <name>`: A built-in tool to declare, by name; give it once for each.
+- `--lang <tag>`: The project's canonical documentation language and the first maestro's language, as a language tag; by default, en.
+- `--purpose <text>`: The first alambique's answer: what the project must achieve, written as given.
+- `--audience <text>`: The first alambique's answer: for whom the project is, written as given.
+- `--excluded <text>`: The first alambique's answer: what the project leaves out, written as given.
+- `--say <words>`: Your own words for this decision, kept verbatim and signed. Words copied from an example, such as “I agree.”, are refused.
+- `--say-lang <tag>`: The language tag of your words; by default, your languages.agentInteraction.
+- `--json`: Gives the output as one JSON document with a schema field.
+- `--help`: Shows this help.
+
+Moves it may cause: none.
+
+Documents with --json: `fabrewk.usage/1`
+
 ## `fabrewk adopt --say <words> [--say-lang <tag>] [--widen <key>]… [--json]`
 
 A maestro adopts the project file as the policy in force, naming every widening it makes.

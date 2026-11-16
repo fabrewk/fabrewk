@@ -40,6 +40,8 @@ pub const RINGS: &[Ring] = &[
     Ring { name: "confine-bwrap", kind: RingKind::Confinement, dirs: &["crates/confine-bwrap"] },
     Ring { name: "adapter-claude", kind: RingKind::ToolAdapter, dirs: &["crates/adapter-claude"] },
     Ring { name: "adapter-codex", kind: RingKind::ToolAdapter, dirs: &["crates/adapter-codex"] },
+    // Phase 10's installer, at its kind's frozen ceiling (D-097 point 2).
+    Ring { name: "install", kind: RingKind::Installer, dirs: &["crates/install"] },
 ];
 
 /// Direct runtime crates: those a ring crate depends on directly.

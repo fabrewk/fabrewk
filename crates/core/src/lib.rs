@@ -14,6 +14,7 @@ pub mod domain;
 pub mod fermento;
 pub mod gate;
 pub mod identity;
+pub mod install;
 pub mod machine;
 pub mod merge;
 pub mod record;

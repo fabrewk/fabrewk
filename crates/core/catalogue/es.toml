@@ -23,6 +23,10 @@ needed = "El comando necesita la opción {word}."
 stage = "El identificador {word} es de una etapa; este comando acepta el de una tarea."
 task = "El identificador {word} es de una tarea; este comando acepta el de una etapa."
 next = "Consulta qué acepta el comando:"
+choice = "El valor dado no es uno de los que acepta esta opción ({word})."
+tool = "No hay una herramienta integrada con ese nombre ({word})."
+lang = "No hay catálogo para ese idioma ({word})."
+unbuilt = "El comando {word} está declarado pero aún no está construido en esta versión: no lee ni escribe nada."
 
 [internal]
 io = "Fabrewk se detuvo por un error interno: no pudo leer ni escribir {path}. Este comando no escribe nada, así que nada cambió."
@@ -51,6 +55,15 @@ widen = "Nombra una ampliación de autoridad que hace este movimiento, por su ru
 seen = "El digest que status imprimió de lo que leíste; si el sujeto cambió desde entonces, el movimiento se niega."
 then-run = "Inicia la ejecución en el mismo comando, después de la autorización."
 answer = "El archivo JSON con la respuesta del integrador; su formato va abajo."
+mode = "adopt, para que Fabrewk administre el repositorio, o review, para solo revisarlo; por omisión, adopt."
+publication = "Si los mantenedores publican .brewstillery/: published (con el producto), own-repository (un repositorio propio) o unpublished."
+alias = "El alias del primer maestro: minúsculas y dígitos, palabras unidas por un guion."
+key = "El archivo con la única llave pública OpenSSH del primer maestro, la que usa Git para firmar."
+tool = "Una herramienta integrada que declarar, por su nombre; una vez por cada una."
+lang = "El idioma canónico de la documentación del proyecto y el del primer maestro, como etiqueta de idioma; por omisión, en."
+purpose = "La respuesta del primer alambique: qué debe lograr el proyecto, escrita tal cual."
+audience = "La respuesta del primer alambique: para quién es el proyecto, escrita tal cual."
+excluded = "La respuesta del primer alambique: qué deja fuera el proyecto, escrita tal cual."
 
 [command.status]
 summary = "Muestra la salud del registro, la política vigente y el estado de cada etapa y tarea."
@@ -62,6 +75,13 @@ arg = "Un solo ajuste, por su ruta de clave: muestra solo su valor y su origen."
 
 [command.check]
 summary = "Verifica los ajustes, la política, el registro, el dominio, las credenciales y la carpeta privada."
+
+[command.assess]
+summary = "Evalúa este repositorio sin escribir nada: el dictamen con sus razones y el plan de lo que Fabrewk escribiría, con su digest."
+
+[command.apply]
+summary = "Un maestro aplica el plan que imprimió assess, con las mismas opciones y sus propias palabras."
+arg = "El digest del plan que imprimió assess."
 
 [command.adopt]
 summary = "Un maestro adopta el archivo del proyecto como la política vigente, nombrando cada ampliación que hace."
@@ -969,3 +989,95 @@ run = "fabrewk config"
 [code.EXTENSION_OUTPUT_INVALID]
 reason = "Cada línea que imprime una extensión debe ser una solicitud válida; una no lo era, así que no se aplicó ninguna de sus solicitudes."
 next = "Corrige la extensión para que imprima solo solicitudes y vuelve a correrla; el detalle nombra la línea."
+
+[assess]
+verdict = "Dictamen: {verdict}"
+verdict-adopt = "adopt: Fabrewk puede administrar este repositorio."
+verdict-review = "review: Fabrewk solo puede revisar este repositorio."
+verdict-none = "none: Fabrewk no entra en este repositorio tal como está."
+reasons = "Razones"
+no-reasons = "Ninguna."
+blocks = "esto impide el plan"
+incomplete = "El plan está incompleto: aplicarlo necesita {names}."
+effects = "Efectos secundarios de los ajustes de otras herramientas, por archivo y clave, nunca con sus valores"
+files = "Lo que escribe el plan"
+digest = "El digest del plan: {digest}"
+apply = "Para aplicarlo, un maestro ejecuta esto en su propia terminal, con sus propias palabras:"
+cannot-none = "Este plan no se puede aplicar mientras una razón de arriba lo impida."
+cannot-review = "El modo de revisión aún no está construido, así que este plan no se puede aplicar."
+cannot-incomplete = "Este plan no se puede aplicar hasta que esté completo."
+shell-fish = "En fish"
+shell-posix = "En un shell POSIX"
+words = "tus palabras"
+
+[assess.reason]
+detached = "La cabeza está separada: primero cambia a una rama."
+operation = "Hay una operación de Git en curso ({detail}): primero termínala o abórtala."
+record = "Ya hay un registro aquí: Fabrewk está instalado en este repositorio."
+present = "{path} existe, y el plan lo crearía."
+not-a-file = "{path} no es un archivo regular."
+not-utf8 = "{path} no es texto UTF-8."
+too-large = "{path} pesa más de 1 MiB."
+uncommitted = "{path} tiene cambios sin confirmar: confírmalos o apártalos primero."
+block-damaged = "{path} tiene las marcas de entrada de Fabrewk, pero no como un solo bloque."
+harness = "Aquí hay otro harness: {path}."
+effects = "Los ajustes de otras herramientas tienen efectos secundarios; van listados abajo."
+changes = "Hay archivos versionados con cambios sin confirmar."
+no-licence = "No hay archivo de licencia en la raíz."
+key-absent = "No se encuentra el archivo de la llave."
+key-not-a-file = "El archivo de la llave no es un archivo regular."
+key-too-large = "El archivo de la llave pesa más de 1 MiB."
+key-inside = "El archivo de la llave está en este repositorio o en un dominio de Fabrewk."
+key-not-public = "El archivo de la llave no contiene una sola llave pública."
+settings-invalid = "El archivo del proyecto que escribiría el plan no es válido: {detail}"
+
+[assess.effect]
+hooks = "ejecuta comandos propios (hooks)"
+approvals = "aprueba herramientas por adelantado"
+sandbox = "apaga un sandbox"
+mcp = "conecta servidores MCP"
+updates = "es un ajuste de actualizaciones automáticas"
+telemetry = "es un ajuste de telemetría o de reportes de errores"
+commits = "ejecuta git commit o git push"
+unparsed = "no se puede leer como ajustes, así que no se sabe qué contiene"
+
+[assess.action]
+create = "Crea {path}:"
+keep = "Conserva {path} tal como está: es el alambique aprobado de partida."
+block = "Escribe el bloque de entrada de Fabrewk en {path}:"
+exclude = "Agrega la línea /.brewstillery/ a {path}, para que el repositorio del producto ignore el dominio."
+exclude-present = "Conserva la línea /.brewstillery/ que ya tiene {path}."
+repository = "Hace de .brewstillery/ un repositorio de Git propio, en la rama {branch}."
+view = "Genera {path} a partir del registro."
+
+[install]
+fermento = """
+# Fermento de {alias}
+
+Escribe aquí, arriba del separador, lo que quieres agregar, quitar o discutir en el proyecto, en puntos numerados. Los agentes responden debajo del separador.
+
+"""
+entry = "Este repositorio lo administra Fabrewk. Un agente empieza por .brewstillery/STATUS.md, que dice el estado del trabajo y qué leer después."
+next-models = "El archivo del proyecto aún no declara ningún modelo ni perfil: un maestro los agrega editándolo y adoptándolo de nuevo."
+
+[skeleton]
+opening = """
+Este archivo es el alambique del proyecto. Fabrewk nombra sus partes como las de una destilería. Brewstillery, la destilería, es el dominio de Fabrewk en este repositorio: la carpeta .brewstillery/. Ahí, cada maestro prepara un fermento, un archivo propio con lo que quiere agregar, quitar o discutir. Los fermentos se vierten en el alambique, este archivo, para destilar lo que el proyecto debe ser. Solo los maestros aprueban lo que entra en él.
+"""
+purpose = "Lo que el proyecto debe lograr"
+audience = "Para quién"
+excluded = "Lo que deja fuera"
+empty = "Sin respuesta todavía."
+
+[warning]
+title = "Registro en una sola computadora"
+text = """
+Con `unpublished`, el registro queda solo en esta computadora.
+Otros colaboradores no pueden ver el registro ni continuar el trabajo.
+Los mantenedores asumen estas consecuencias bajo su propio riesgo y responsabilidad.
+
+La primera alternativa es publicar `.brewstillery/` con el producto (`published`).
+Como último recurso, `.brewstillery/` puede tener su propio repositorio (`own-repository`).
+
+La respuesta de los mantenedores se registra con sus propias palabras.
+"""

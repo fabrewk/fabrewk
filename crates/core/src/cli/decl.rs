@@ -24,10 +24,37 @@ pub struct Command {
 
 const READ: &[&str] = &["json", "help"];
 
-/// The options that take a value, with the word their help shows for it (D-062); only `widen` may be given more than
-/// once. Every other option is a switch.
-pub const VALUES: [(&str, &str); 5] =
-    [("say", "words"), ("say-lang", "tag"), ("widen", "key"), ("seen", "digest"), ("answer", "file")];
+/// The options that take a value, with the word their help shows for it (D-062); only `widen` and `tool` may be given
+/// more than once. Every other option is a switch.
+pub const VALUES: &[(&str, &str)] = &[
+    ("say", "words"),
+    ("say-lang", "tag"),
+    ("widen", "key"),
+    ("seen", "digest"),
+    ("answer", "file"),
+    ("mode", "mode"),
+    ("publication", "mode"),
+    ("alias", "alias"),
+    ("key", "file"),
+    ("tool", "name"),
+    ("lang", "tag"),
+    ("purpose", "text"),
+    ("audience", "text"),
+    ("excluded", "text"),
+];
+
+/// The values an option takes when they are a closed list (D-097 point 2).
+const CHOICES: [(&str, &[&str]); 2] =
+    [("mode", &["adopt", "review"]), ("publication", &["published", "own-repository", "unpublished"])];
+
+/// The installation's answers, as `assess` and `apply` take them (D-097 point 2).
+const ANSWERS: &[&str] = &["mode", "publication", "alias", "key", "tool", "lang", "purpose", "audience", "excluded"];
+
+/// Whether `c` needs the option `f`: `--seen` and `--answer` wherever they are taken (D-062, D-068), and `apply`'s
+/// publication, alias and key (D-097 point 2); a missing `--say` is the command's refusal instead (REQ-TASK-4).
+fn needed(c: &Command, f: &str) -> bool {
+    matches!(f, "seen" | "answer") || (c.name == "apply" && matches!(f, "publication" | "alias" | "key"))
+}
 
 /// The refusals every write command may give before its own (part 7d3a): the record's, the lock's, the repository's,
 /// the domain's, the private folder's and the tools'.
@@ -94,6 +121,51 @@ pub const COMMANDS: &[Command] = &[
         moves: &[],
         refusals: &[],
         schemas: &["fabrewk.check/1"],
+    },
+    Command {
+        name: "assess",
+        arg: None,
+        required: false,
+        flags: &[
+            "mode",
+            "publication",
+            "alias",
+            "key",
+            "tool",
+            "lang",
+            "purpose",
+            "audience",
+            "excluded",
+            "json",
+            "help",
+        ],
+        moves: &[],
+        refusals: &[NotARepository, AliasInvalid, ToolFailed, ToolMissing],
+        schemas: &["fabrewk.assessment/1"],
+    },
+    // Declared so that the command `assess` prints is one that exists and parses; built in part 10b (D-099).
+    Command {
+        name: "apply",
+        arg: Some("plan"),
+        required: true,
+        flags: &[
+            "mode",
+            "publication",
+            "alias",
+            "key",
+            "tool",
+            "lang",
+            "purpose",
+            "audience",
+            "excluded",
+            "say",
+            "say-lang",
+            "json",
+            "help",
+        ],
+        moves: &[],
+        refusals: &[],
+        schemas: &["fabrewk.usage/1"],
     },
     Command {
         name: "adopt",
@@ -327,8 +399,9 @@ pub const SCHEMAS: [&str; 4] = ["fabrewk.refused/1", "fabrewk.usage/1", "fabrewk
 /// The exit statuses (REQ-CLI-3): 4 since part 9e, 10 since part 9h.
 pub const EXITS: [i32; 7] = [0, 1, 2, 3, 4, 10, 70];
 
-/// What the command line asks for.
+/// What the command line asks for; parsed once per process, so its size does not matter.
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum Parsed {
     Help(Option<&'static Command>),
     Version { json: bool },
@@ -348,6 +421,10 @@ pub struct Options {
     pub run: bool,
     /// The file of the integrator's answer (`sweep --answer`, REQ-FER-3).
     pub answer: Option<String>,
+    /// The installation's answers (`assess`, `apply`; D-097 point 2), as given: each value by its option's name, and
+    /// every `--tool` in the order given.
+    pub answers: std::collections::BTreeMap<&'static str, String>,
+    pub tools: Vec<String>,
 }
 
 /// A command line the declaration does not accept: the catalogue's message, the word at fault, and the command whose
@@ -412,9 +489,25 @@ pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Parsed, Usage> 
                     continue;
                 }
                 let value = value.into_string().map_err(|_| usage("usage.utf8", "", command))?;
+                if let Some((_, values)) = CHOICES.iter().find(|c| c.0 == f).filter(|c| !c.1.contains(&value.as_str()))
+                {
+                    return Err(usage("usage.choice", format!("{word}: {}", values.join(", ")), command));
+                }
                 let slot = match f.as_str() {
                     "widen" => {
                         options.widen.push(value);
+                        continue;
+                    }
+                    "tool" => {
+                        options.tools.push(value);
+                        continue;
+                    }
+                    "lang" if !crate::settings::is_tag(&value) => return Err(usage("usage.tag", value, command)),
+                    a if ANSWERS.contains(&a) => {
+                        let name = ANSWERS.iter().find(|n| **n == a).copied().unwrap_or_default();
+                        if options.answers.insert(name, value).is_some() {
+                            return Err(usage("usage.repeat", word, command));
+                        }
                         continue;
                     }
                     "seen" => &mut options.seen,
@@ -455,19 +548,24 @@ pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Parsed, Usage> 
         (Some(c), false, _) if c.required && arg.is_none() => {
             Err(usage("usage.argument", format!("<{}>", c.arg.unwrap_or_default()), Some(c)))
         }
-        // `--seen`, the digest of what the person read, is needed whenever a command takes it (D-062, D-068); a
-        // missing `--say` is the command's refusal instead (REQ-TASK-4).
-        (Some(c), false, _) if c.flags.contains(&"seen") && options.seen.is_none() => {
-            Err(usage("usage.needed", "--seen", Some(c)))
-        }
-        (Some(c), false, _) if c.flags.contains(&"answer") && options.answer.is_none() => {
-            Err(usage("usage.needed", "--answer", Some(c)))
+        (Some(c), false, _) if missing(c, &options).is_some() => {
+            Err(usage("usage.needed", format!("--{}", missing(c, &options).unwrap_or_default()), Some(c)))
         }
         (Some(command), false, _) => Ok(Parsed::Run { command, arg, json, options }),
         (None, true, true) => Err(usage("usage.flag", "--version", None)),
         (None, false, false) => Err(usage("usage.none", "", None)),
         (Some(c), true, true) => Err(usage("usage.flag", "--version", Some(c))),
     }
+}
+
+/// The first option `c` needs that `options` lacks.
+fn missing(c: &Command, options: &Options) -> Option<&'static str> {
+    let given = |f: &str| match f {
+        "seen" => options.seen.is_some(),
+        "answer" => options.answer.is_some(),
+        f => options.answers.contains_key(f),
+    };
+    c.flags.iter().copied().find(|f| needed(c, f) && !given(f))
 }
 
 /// A command's synopsis: `fabrewk status [<id>] [--json]`, `fabrewk adopt --say <words> [--widen <key>]… [--json]`.
@@ -480,8 +578,8 @@ pub fn synopsis(c: &Command) -> String {
     let mut out = format!("fabrewk {}{arg}", c.name);
     for f in c.flags.iter().filter(|f| **f != "help") {
         out += &match VALUES.iter().find(|v| v.0 == *f) {
-            Some((f @ ("say" | "seen" | "answer"), word)) => format!(" --{f} <{word}>"),
-            Some(("widen", word)) => format!(" [--widen <{word}>]…"),
+            Some((f, word)) if *f == "say" || needed(c, f) => format!(" --{f} <{word}>"),
+            Some((f @ ("widen" | "tool"), word)) => format!(" [--{f} <{word}>]…"),
             Some((f, word)) => format!(" [--{f} <{word}>]"),
             None => format!(" [--{f}]"),
         };

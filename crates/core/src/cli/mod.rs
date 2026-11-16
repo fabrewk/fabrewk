@@ -34,6 +34,7 @@ use crate::code::{Code, Error};
 use crate::confine::Backend;
 use crate::detect::Program;
 use crate::identity::{self, PolicyVerifier};
+use crate::install::{Asked, Installer};
 use crate::record::{Replay, replay};
 use crate::settings::{self, Level, Policy, Val};
 use serde_json::{Value, json};
@@ -96,13 +97,14 @@ pub(crate) struct Cx {
     markers: Vec<&'static str>,
     adapters: &'static [&'static Adapter],
     backend: Option<&'static Backend>,
+    installer: &'static Installer,
     /// Whether the command is one that writes, so that an internal error does not say that nothing changed.
     writes: bool,
 }
 
 impl Cx {
     fn new(root: PathBuf, wired: Wired) -> Cx {
-        let (adapters, backend) = wired;
+        let (adapters, backend, installer) = wired;
         let modules =
             adapters.iter().map(|a| a.program).chain(backend.map_or(&[][..], |b| b.programs).iter().copied()).collect();
         let markers = adapters.iter().flat_map(|a| a.markers).copied().collect();
@@ -111,7 +113,7 @@ impl Cx {
         let policy = record.as_ref().ok().and_then(|r| settings::in_force(r).ok().flatten());
         let person = policy.as_ref().and_then(|p| identity::person(&p.settings, &root));
         let lang = language(&domain, policy.as_ref(), person.as_deref());
-        Cx { root, domain, record, policy, person, lang, modules, markers, adapters, backend, writes: false }
+        Cx { root, domain, record, policy, person, lang, modules, markers, adapters, backend, installer, writes: false }
     }
 
     fn t(&self, key: &str, params: &[(&str, &str)]) -> String {
@@ -250,7 +252,7 @@ fn language(domain: &Path, policy: Option<&Policy>, person: Option<&str>) -> &'s
 }
 
 /// The first catalogue the tag's fallbacks reach.
-pub(crate) fn catalogue(tag: &str) -> &'static str {
+pub fn catalogue(tag: &str) -> &'static str {
     let tags = settings::fallbacks(tag);
     tags.iter().find_map(|t| CATALOGUES.iter().find(|(l, _)| l == t).map(|(l, _)| *l)).unwrap_or("en")
 }
@@ -268,13 +270,14 @@ fn version() -> Out {
     Out::new(doc, format!("fabrewk {}\n", crate::VERSION))
 }
 
-/// What the binary wires: the tool adapters (parts 9c and 9d) and the confinement backend, if this system has one.
-type Wired = (&'static [&'static Adapter], Option<&'static Backend>);
+/// What the binary wires: the tool adapters (parts 9c and 9d), the confinement backend, if this system has one, and the
+/// installer (part 10a).
+pub type Wired = (&'static [&'static Adapter], Option<&'static Backend>, &'static Installer);
 
-/// Runs the program with `args` (without its name) from the current directory and gives its exit status; `adapters`
-/// are the built-in tool adapters, whose programs are detected (D-051) and whose markers show a process runs inside an
-/// agent (REQ-SEC-7).
-pub fn main(args: Vec<OsString>, adapters: &'static [&'static Adapter], backend: Option<&'static Backend>) -> i32 {
+/// Runs the program with `args` (without its name) from the current directory and gives its exit status; the adapters
+/// `wired` are the built-in tool adapters, whose programs are detected (D-051) and whose markers show a process runs
+/// inside an agent (REQ-SEC-7).
+pub fn main(args: Vec<OsString>, wired: Wired) -> i32 {
     // `fabrewk <name> …` for a name no core command has is an extension's, with every word after it its own (REQ-EXT-1).
     let extension = ext::called(&args);
     let asked = extension.is_none() && args.iter().any(|a| a == "--json");
@@ -291,7 +294,11 @@ pub fn main(args: Vec<OsString>, adapters: &'static [&'static Adapter], backend:
         (Ok(Parsed::Version { .. }), _) => version(),
         (_, Err(_)) => internal("en", ".", writes),
         (parsed, Ok(root)) => {
-            let cx = Cx { writes, ..Cx::new(root, (adapters, backend)) };
+            let mut cx = Cx { writes, ..Cx::new(root, wired) };
+            // The installation's commands speak the language their answers name (D-097 point 2).
+            if let Ok(Parsed::Run { options, .. }) = &parsed {
+                cx.lang = options.answers.get("lang").map_or(cx.lang, |l| catalogue(l));
+            }
             let result = match (parsed, extension) {
                 (_, Some(name)) => ext::run(&cx, &name, &args[1..]),
                 (parsed, None) => match parsed {
@@ -300,6 +307,12 @@ pub fn main(args: Vec<OsString>, adapters: &'static [&'static Adapter], backend:
                     Ok(Parsed::Run { command, arg, options, .. }) => match command.name {
                         "status" => status::run(&cx, arg.as_deref()),
                         "config" => config::run(&cx, arg.as_deref()),
+                        "assess" => assess(&cx, command, &options),
+                        "apply" => Err(Failed::Usage(Usage {
+                            key: "usage.unbuilt",
+                            word: "apply".into(),
+                            command: Some(command),
+                        })),
                         "adopt" => adopt::run(&cx, &options),
                         "propose" => propose::run(&cx, arg.as_deref().unwrap_or_default()),
                         "authorize" => tasks::authorize(&cx, arg.as_deref().unwrap_or_default(), &options),
@@ -330,6 +343,31 @@ pub fn main(args: Vec<OsString>, adapters: &'static [&'static Adapter], backend:
         std::io::stdout().write_all(text.as_bytes())
     };
     out.exit
+}
+
+/// `assess` (D-097): the language and the tools the answers name, checked before the installer reads anything.
+fn assess(cx: &Cx, command: &'static Command, options: &Options) -> Result<Out, Failed> {
+    let tools: Vec<&str> = cx.adapters.iter().map(|a| a.program.executable).collect();
+    if let Some(t) = options.tools.iter().find(|t| !tools.contains(&t.as_str())) {
+        return Err(Failed::Usage(Usage {
+            key: "usage.tool",
+            word: format!("{t}: {}", tools.join(", ")),
+            command: Some(command),
+        }));
+    }
+    let lang = options.answers.get("lang").map_or("en", String::as_str);
+    if !CATALOGUES.iter().any(|(l, _)| lang.split('-').next().is_some_and(|p| p.eq_ignore_ascii_case(l))) {
+        let langs: Vec<&str> = CATALOGUES.iter().map(|c| c.0).collect();
+        return Err(Failed::Usage(Usage {
+            key: "usage.lang",
+            word: format!("{lang}: {}", langs.join(", ")),
+            command: Some(command),
+        }));
+    }
+    let home = std::env::var_os("HOME").map(PathBuf::from);
+    let asked = Asked { root: &cx.root, home: home.as_deref(), options, adapters: cx.adapters };
+    let (doc, text) = (cx.installer.assess)(&asked)?;
+    Ok(Out::new(doc, text))
 }
 
 /// The reference documentation in `lang` (D-055 point 3).

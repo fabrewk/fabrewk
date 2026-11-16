@@ -61,6 +61,56 @@ Documentos con --json: `fabrewk.check/1`
 | C11 | La carpeta privada da acceso solo a su dueño. | `PRIVATE_FOLDER_PERMISSIONS` | efectivo |
 | C12 | Cada directorio de mantenedor tiene un fermento y está listado en la política. | `MAINTAINER_UNLISTED`, `FERMENTO_MISSING` | efectivo |
 
+## `fabrewk assess [--mode <mode>] [--publication <mode>] [--alias <alias>] [--key <file>] [--tool <name>]… [--lang <tag>] [--purpose <text>] [--audience <text>] [--excluded <text>] [--json]`
+
+Evalúa este repositorio sin escribir nada: el dictamen con sus razones y el plan de lo que Fabrewk escribiría, con su digest.
+
+- `--mode <mode>`: adopt, para que Fabrewk administre el repositorio, o review, para solo revisarlo; por omisión, adopt.
+- `--publication <mode>`: Si los mantenedores publican .brewstillery/: published (con el producto), own-repository (un repositorio propio) o unpublished.
+- `--alias <alias>`: El alias del primer maestro: minúsculas y dígitos, palabras unidas por un guion.
+- `--key <file>`: El archivo con la única llave pública OpenSSH del primer maestro, la que usa Git para firmar.
+- `--tool <name>`: Una herramienta integrada que declarar, por su nombre; una vez por cada una.
+- `--lang <tag>`: El idioma canónico de la documentación del proyecto y el del primer maestro, como etiqueta de idioma; por omisión, en.
+- `--purpose <text>`: La respuesta del primer alambique: qué debe lograr el proyecto, escrita tal cual.
+- `--audience <text>`: La respuesta del primer alambique: para quién es el proyecto, escrita tal cual.
+- `--excluded <text>`: La respuesta del primer alambique: qué deja fuera el proyecto, escrita tal cual.
+- `--json`: Da la salida como un solo documento JSON con un campo schema.
+- `--help`: Muestra esta ayuda.
+
+Movimientos que puede causar: ninguno.
+
+Documentos con --json: `fabrewk.assessment/1`
+
+Rechazos
+
+- `NOT_A_REPOSITORY`: Esta no es la raíz del árbol de trabajo principal del repositorio.
+- `ALIAS_INVALID`: Un nombre que no es un alias válido: minúsculas, dígitos y guiones sueltos, empezando con una letra, de 32 caracteres a lo más, y que no sea un nombre reservado.
+- `TOOL_FAILED`: Una herramienta externa falló; lo que imprimió se guarda como evidencia y nunca se muestra aquí.
+- `TOOL_MISSING`: Una herramienta que esto necesita no está en este equipo.
+
+## `fabrewk apply <plan> [--mode <mode>] --publication <mode> --alias <alias> --key <file> [--tool <name>]… [--lang <tag>] [--purpose <text>] [--audience <text>] [--excluded <text>] --say <words> [--say-lang <tag>] [--json]`
+
+Un maestro aplica el plan que imprimió assess, con las mismas opciones y sus propias palabras.
+
+- `<plan>`: El digest del plan que imprimió assess.
+- `--mode <mode>`: adopt, para que Fabrewk administre el repositorio, o review, para solo revisarlo; por omisión, adopt.
+- `--publication <mode>`: Si los mantenedores publican .brewstillery/: published (con el producto), own-repository (un repositorio propio) o unpublished.
+- `--alias <alias>`: El alias del primer maestro: minúsculas y dígitos, palabras unidas por un guion.
+- `--key <file>`: El archivo con la única llave pública OpenSSH del primer maestro, la que usa Git para firmar.
+- `--tool <name>`: Una herramienta integrada que declarar, por su nombre; una vez por cada una.
+- `--lang <tag>`: El idioma canónico de la documentación del proyecto y el del primer maestro, como etiqueta de idioma; por omisión, en.
+- `--purpose <text>`: La respuesta del primer alambique: qué debe lograr el proyecto, escrita tal cual.
+- `--audience <text>`: La respuesta del primer alambique: para quién es el proyecto, escrita tal cual.
+- `--excluded <text>`: La respuesta del primer alambique: qué deja fuera el proyecto, escrita tal cual.
+- `--say <words>`: Tus propias palabras para esta decisión, guardadas tal cual y firmadas. Se rechazan las copiadas de un ejemplo, como «Estoy de acuerdo.».
+- `--say-lang <tag>`: La etiqueta de idioma de tus palabras; por omisión, tu languages.agentInteraction.
+- `--json`: Da la salida como un solo documento JSON con un campo schema.
+- `--help`: Muestra esta ayuda.
+
+Movimientos que puede causar: ninguno.
+
+Documentos con --json: `fabrewk.usage/1`
+
 ## `fabrewk adopt --say <words> [--say-lang <tag>] [--widen <key>]… [--json]`
 
 Un maestro adopta el archivo del proyecto como la política vigente, nombrando cada ampliación que hace.
