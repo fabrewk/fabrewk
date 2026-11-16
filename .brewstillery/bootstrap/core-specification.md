@@ -904,15 +904,19 @@ code. Where a point below and a sentence above differ, the point holds.
    it takes the plan from that event, checks that each target is either as the plan's inputs found it or as the plan
    writes it (`PLAN_CHANGED` otherwise, writing nothing), and writes only what is missing, the events included. The
    installation is complete once `installed` is recorded, `STATUS.md` and `RULES.md` are written (P10O-11), and, in a
-   mode that commits, the record commit holding `installed` is made and the person's index holds, for each path of
-   the receipt, that commit's entry (P10O-12). The same `apply` finishes each of these: it writes a missing view, makes
-   the missing commit, and brings a path's index entry to the commit's when the working file still has the receipt's
-   digest; a path whose working file differs is the person's edit, kept, and `apply` refuses naming it
-   (`PLAN_CHANGED`), since an index left behind would stage the installation's reversal. Completion is read only up to
-   the first event after `installed`: from then on the installation is complete for good, whatever the index later
-   holds. Until it is complete every other write command refuses (`INSTALLATION_INCOMPLETE`, new) and `check` reports
+   mode that commits, the record commit holding `installed` is made. Those are facts of the record, the domain's files
+   and the record branch, never of the person's index, so that no later edit, staged or committed, makes a complete
+   installation incomplete (P10O-15). The same `apply` finishes each of them: it writes a missing view and makes the
+   missing commit. The receipt's committed paths are, in `published`, every path of the receipt; in `own-repository`,
+   those under the domain, whose repository commits them, the product's entry files and its exclude file being left
+   as point 6 says; in `unpublished`, none (P10O-14). A record commit stopped after the branch moved and before the
+   person's index was brought to it (P10O-12) is repaired as REQ-REG-10 repairs the record's own files: the index
+   synchronization every write command already runs first (`sync_index`) also covers, while the tip is the commit that
+   holds `installed`, each committed path of its receipt whose index entry is still that commit's parent's (absent
+   where the parent had none), and brings it to the commit's; an entry that differs from the parent's is the person's,
+   staged after, and is kept (P10O-16). Until it is complete every other write command refuses (`INSTALLATION_INCOMPLETE`, new) and `check` reports
    it, so that no other command commits a part of it (P10O-6). Once it is complete, the same `apply` again says so,
-   writes nothing and exits 0;
+   writes nothing but that index synchronization, and exits 0;
    another plan meets point 4's record and is `VERDICT_NONE`. Section 12's "a second `apply` changing nothing" for
    REQ-DOM-6 is read so (P10O-1). Before `assessed` is written nothing is, but the lock under `local/` and what point
    3 reads as before (P10O-10). The crash suite runs over `apply`'s write points, the record commit's between the
