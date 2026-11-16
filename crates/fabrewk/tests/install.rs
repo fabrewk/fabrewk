@@ -1502,3 +1502,37 @@ fn p10a_59_p10a_61_a_git_directory_of_any_name_and_a_root_entry_named_as_an_opti
     let entry = second["plan"]["inputs"].as_array().unwrap().iter().find(|i| i["path"] == "--key").cloned();
     assert_eq!(entry.unwrap()["kind"], "directory");
 }
+
+#[test]
+fn p10a_62_p10a_63_a_branch_and_a_signing_key_of_any_name() {
+    use std::os::unix::ffi::OsStrExt;
+    // Two branches whose names differ only in a byte that is not UTF-8 make two plans (P10A-62).
+    let fx = product("p10a-62");
+    let rename = |name: &[u8]| {
+        let status = Command::new("git")
+            .args(["-C", fx.root.to_str().unwrap(), "branch", "-m"])
+            .arg(std::ffi::OsStr::from_bytes(name))
+            .env("GIT_CONFIG_NOSYSTEM", "1")
+            .env("GIT_CONFIG_GLOBAL", fx.home.join(".gitconfig"))
+            .status()
+            .unwrap();
+        assert!(status.success());
+    };
+    rename(b"topic-\xfe");
+    let first = fx.assess(&["--publication", "own-repository"]);
+    assert_eq!(first["plan"]["git"]["branch"], "topic-\\xfe");
+    rename(b"topic-\xff");
+    let second = fx.assess(&["--publication", "own-repository"]);
+    assert_ne!(first["digest"], second["digest"]);
+    assert_eq!(file(&second, ".brewstillery/.git")["branch"], "topic-\\xff");
+    // A signing key whose path ends with a line break (P10A-63).
+    let fx = product("p10a-63");
+    let private = fx.keys.join("key\n");
+    std::fs::rename(fx.keys.join("ana"), &private).unwrap();
+    let public = fx.keys.join("key\n.pub");
+    std::fs::rename(fx.keys.join("ana.pub"), &public).unwrap();
+    fx.git(&["config", "gpg.format", "ssh"]);
+    fx.git(&["config", "user.signingkey", private.to_str().unwrap()]);
+    let args = ["assess", "--json", "--alias", "ana", "--key", public.to_str().unwrap(), "--publication", "published"];
+    assert_eq!(fx.run(&args).doc()["plan"]["git"]["signs"], true);
+}

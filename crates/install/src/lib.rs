@@ -168,7 +168,7 @@ struct Git {
 }
 
 impl Git {
-    fn new(root: &Path, (gitdir, person): (PathBuf, BTreeMap<&str, String>)) -> Result<Git, Error> {
+    fn new(root: &Path, (gitdir, person): Person) -> Result<Git, Error> {
         let mut g = Git { root: root.to_path_buf(), gitdir, off: Vec::new() };
         // A Git directory Git does not take for one is no repository (P10A-55).
         if g.run(&["rev-parse", "--git-dir"])?.0 != Some(0) {
@@ -179,7 +179,7 @@ impl Git {
         if let Some(v) = person.get("core.autocrlf")
             && g.run(&["config", "--get", "core.autocrlf"])?.0 != Some(0)
         {
-            off.extend(["-c".to_owned(), format!("core.autocrlf={v}")]);
+            off.extend(["-c".to_owned(), format!("core.autocrlf={}", v.to_string_lossy())]);
         }
         for name in names.split(|b| *b == 0).filter_map(|n| std::str::from_utf8(n).ok()) {
             if let Some((driver, _)) = name.strip_prefix("filter.").and_then(|n| n.rsplit_once('.')) {
@@ -227,7 +227,7 @@ impl Git {
 /// person's global configuration lies there; and gives, from the person's global files, read each alone with no
 /// include followed, the three keys `assess` needs of them. An include inside an included file, and a key only an
 /// include of the global configuration sets, are declared residuals.
-type Person = (PathBuf, BTreeMap<&'static str, String>);
+type Person = (PathBuf, BTreeMap<&'static str, std::ffi::OsString>);
 
 fn person(root: &Path) -> Result<Person, Error> {
     use std::ffi::OsStr;
@@ -326,7 +326,7 @@ fn person(root: &Path) -> Result<Person, Error> {
         {
             // A later file's value wins, even empty (P10A-39).
             if let (Some(0), value) = read(file, &[kind, "--get", key])? {
-                out.insert(key, line(value));
+                out.insert(key, self::value(value));
             }
         }
     }
@@ -384,8 +384,18 @@ fn git_ok(root: &Path, ran: &(Option<i32>, Vec<u8>), args: &[&str]) -> Result<Ve
     }
 }
 
+/// Git's one-line answer: its bytes as they are, only the line's end dropped, so that a name's own line break or a byte
+/// that is not UTF-8 stays (P10A-62, P10A-63).
+fn value(mut bytes: Vec<u8>) -> std::ffi::OsString {
+    use std::os::unix::ffi::OsStringExt;
+    if bytes.last() == Some(&b'\n') {
+        bytes.pop();
+    }
+    std::ffi::OsString::from_vec(bytes)
+}
+
 fn line(bytes: Vec<u8>) -> String {
-    String::from_utf8_lossy(&bytes).trim_end_matches('\n').to_owned()
+    value(bytes).to_string_lossy().into_owned()
 }
 
 /// What `.brewstillery/data/` holds: whether an event (a file under `events/` that is neither a signature nor a
@@ -523,7 +533,8 @@ fn assessed(asked: &Asked) -> Result<(Value, String), Error> {
     let mut reasons = Vec::new();
     // Git's state.
     let branch = match g.run(&["symbolic-ref", "-q", "HEAD"])? {
-        (Some(0), b) => Some(line(b).strip_prefix("refs/heads/").map(str::to_owned).unwrap_or_default()),
+        // Shown as every name the plan holds, so that two branches never show alike (P10A-62).
+        (Some(0), b) => Some(shown(&value(b)).strip_prefix("refs/heads/").map(str::to_owned).unwrap_or_default()),
         (Some(1), _) => {
             reasons.push(reason("detached", true, None, None));
             None
@@ -656,10 +667,10 @@ fn assessed(asked: &Asked) -> Result<(Value, String), Error> {
         None
     });
     // The repository's value, else the person's global one (D-102).
-    let setting = |key: &str, kind: &str| -> Result<String, Error> {
+    let setting = |key: &str, kind: &str| -> Result<std::ffi::OsString, Error> {
         // Present, even empty, the repository's value wins (P10A-34).
         Ok(match g.run(&["config", kind, "--get", key])? {
-            (Some(0), local) => line(local),
+            (Some(0), local) => value(local),
             _ => global.get(key).cloned().unwrap_or_default(),
         })
     };
@@ -671,9 +682,11 @@ fn assessed(asked: &Asked) -> Result<(Value, String), Error> {
         // Git's key, by its literal or by its path, the file itself never opened (P10A-3): the `--key` file, or the
         // private key beside it.
         let same = |p: PathBuf| p.canonicalize().ok() == root.join(given).canonicalize().ok();
-        let held = match named.strip_prefix("key::") {
+        let mut public = named.clone();
+        public.push(".pub");
+        let held = match named.to_str().and_then(|n| n.strip_prefix("key::")) {
             Some(literal) => key_blob(literal.trim()) == key_blob(k),
-            None => !named.is_empty() && (same(root.join(&named)) || same(root.join(format!("{named}.pub")))),
+            None => !named.is_empty() && (same(root.join(&named)) || same(root.join(&public))),
         };
         signs = ssh && held;
         if !ssh {
