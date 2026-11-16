@@ -809,7 +809,8 @@ code. Where a point below and a sentence above differ, the point holds.
    the exact `apply` command its plan corresponds to, each value in single quotes. When no value holds a single
    quote or a backslash, that one command serves fish and a POSIX shell alike; otherwise two are printed, each named:
    for fish, with `\` written `\\` and `'` written `\'` inside the quotes; for a POSIX shell, with `'` written `'\''`
-   (fish reads a backslash inside single quotes, a POSIX shell does not; P10O-9).
+   (fish reads a backslash inside single quotes, a POSIX shell does not; P10O-9). Section 11.2 rule 9 and PD-38
+   check a command named for one shell in that shell alone (P10O-13).
 3. **What `assess` reads** (REQ-INS-1, a closed list the module declares). It runs at the top of the main working
    tree of a repository that is not bare (`NOT_A_REPOSITORY` otherwise, as REQ-DOM-7's check). It reads: Git's state
    (the checked-out branch or a detached head; an operation in progress, merge, rebase, cherry-pick, revert or bisect;
@@ -826,11 +827,15 @@ code. Where a point below and a sentence above differ, the point holds.
    directory) and, for a regular file, by content (P10O-7). Each side
    effect is reported by file and key path, with a count where it is a list, never with a value, which may hold a
    credential. A file over 1 MiB is reported by name and size and not read. `.brewstillery/local/` is never an input
-   (it is unversioned, and `apply`'s lock lives there). Nothing else: not the private folder, not the network, no
+   (it is unversioned, and `apply`'s lock lives there), and `.brewstillery/data/` is one only when it holds an event:
+   the root's entries and the domain's top entries are read without `local/` and without a `data/` that holds only
+   directories and signatures with no event beside them (what a killed `apply` leaves before its first event), and a
+   `.brewstillery/` left with no other entry reads as absent (P10O-10). Under the lock, the session removes those
+   leftovers as it removes any orphan signature. Nothing else: not the private folder, not the network, no
    cache, no file written.
 4. **The verdict** (REQ-INS-2). `none` when any of these holds, each a reason: a detached head; an operation in
-   progress; a record in `.brewstillery/data/` (Fabrewk is already there; point 7 says what `apply` does with its
-   own); a target of point 5 to `create` present in any form (a file, a link, a directory), the alambique excepted,
+   progress; a record in `.brewstillery/data/`, that is, at least one event (Fabrewk is already there; point 7 says
+   what `apply` does with its own); a target of point 5 to `create` present in any form (a file, a link, a directory), the alambique excepted,
    which is kept; `AGENTS.md` or `CLAUDE.md` present but not a regular file, not UTF-8, over 1 MiB (P10O-8), or with
    staged or unstaged changes, which the person commits or puts aside first (P10O-3). Otherwise the verdict is `--mode`'s, `adopt` or `review`. Another
    harness, side effects, changes in tracked files and a missing licence are reasons shown so that the maestro decides
@@ -898,12 +903,20 @@ code. Where a point below and a sentence above differ, the point holds.
    record holds an `assessed` with the given digest and the installation is not complete, `apply` does not reassess:
    it takes the plan from that event, checks that each target is either as the plan's inputs found it or as the plan
    writes it (`PLAN_CHANGED` otherwise, writing nothing), and writes only what is missing, the events included. The
-   installation is complete once `installed` is recorded and, in a mode that commits, committed; until then every
-   other write command refuses (`INSTALLATION_INCOMPLETE`, new) and `check` reports it, so that no other command
-   commits a part of it (P10O-6). Once it is complete, the same `apply` again says so, writes nothing and exits 0;
+   installation is complete once `installed` is recorded, `STATUS.md` and `RULES.md` are written (P10O-11), and, in a
+   mode that commits, the record commit holding `installed` is made and the person's index holds, for each path of
+   the receipt, that commit's entry (P10O-12). The same `apply` finishes each of these: it writes a missing view, makes
+   the missing commit, and brings a path's index entry to the commit's when the working file still has the receipt's
+   digest; a path whose working file differs is the person's edit, kept, and `apply` refuses naming it
+   (`PLAN_CHANGED`), since an index left behind would stage the installation's reversal. Completion is read only up to
+   the first event after `installed`: from then on the installation is complete for good, whatever the index later
+   holds. Until it is complete every other write command refuses (`INSTALLATION_INCOMPLETE`, new) and `check` reports
+   it, so that no other command commits a part of it (P10O-6). Once it is complete, the same `apply` again says so,
+   writes nothing and exits 0;
    another plan meets point 4's record and is `VERDICT_NONE`. Section 12's "a second `apply` changing nothing" for
-   REQ-DOM-6 is read so (P10O-1). Before `assessed` is written nothing is, but the lock under `local/`. The crash suite
-   runs over `apply`'s write points.
+   REQ-DOM-6 is read so (P10O-1). Before `assessed` is written nothing is, but the lock under `local/` and what point
+   3 reads as before (P10O-10). The crash suite runs over `apply`'s write points, the record commit's between the
+   branch's move and the index's update among them.
 8. **`onboard`** (REQ-INS-4). It opens the terminal itself (`/dev/tty`), since standard input is the script when it
    is piped into `sh`, and refuses when there is none (`TERMINAL_REQUIRED`: no controlling terminal; section 11.4's
    case is read so). It asks first the language (`en`, `es`), then, in that language: adopt or only review; whether
