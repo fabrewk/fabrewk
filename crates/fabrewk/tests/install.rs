@@ -1340,3 +1340,32 @@ fn p10a_47_to_p10a_49_no_discovery_any_encoding_and_the_branch_s_whole_name() {
     assert_eq!(doc["plan"]["git"]["branch"], "refs/heads/topic");
     assert_eq!(file(&doc, ".brewstillery/.git")["branch"], "refs/heads/topic");
 }
+
+#[test]
+fn p10a_50_p10a_51_a_bare_repository_is_refused_and_a_root_of_any_name_is_assessed() {
+    let fx = product("p10a-50");
+    fx.git(&["config", "core.bare", "true"]);
+    refused(&fx, &["assess"], "NOT_A_REPOSITORY", 1, "en");
+    fx.git(&["config", "core.bare", "false"]);
+    assert_eq!(fx.assess(&[])["plan"]["verdict"], "adopt");
+    // `git init --bare <root>/.git`.
+    let other = product("p10a-50-nested");
+    std::fs::remove_dir_all(other.root.join(".git")).unwrap();
+    other.program("git", &["init", "-q", "--bare", other.root.join(".git").to_str().unwrap()]);
+    refused(&other, &["assess"], "NOT_A_REPOSITORY", 1, "en");
+    // A root whose name ends with a line break, or is not UTF-8 (P10A-51).
+    use std::os::unix::ffi::OsStrExt;
+    for name in [&b"product-\n"[..], b"product-\xff"] {
+        let fx = product(&format!("p10a-51-{}", name.len()));
+        let moved = fx.root.parent().unwrap().join(std::ffi::OsStr::from_bytes(name));
+        std::fs::rename(&fx.root, &moved).unwrap();
+        let at = Fx {
+            domain: moved.join(".brewstillery"),
+            root: moved.clone(),
+            home: fx.home.clone(),
+            keys: fx.keys.clone(),
+            path: None,
+        };
+        assert_eq!(at.assess(&[])["plan"]["verdict"], "adopt", "{name:?}");
+    }
+}

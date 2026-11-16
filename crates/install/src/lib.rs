@@ -230,8 +230,9 @@ fn person(root: &Path) -> Result<Person, Error> {
         return Err(found(&dot));
     }
     // Only the top of a main working tree has its own `.git` there, a directory or a pointer to one that is no linked
-    // working tree's (with no `commondir`): anywhere else Git would find another repository and follow its
-    // configuration before refusing (P10A-45), so the place is refused before any Git.
+    // working tree's (with no `commondir`), not bare, its working tree not moved elsewhere: anywhere else Git would
+    // find another repository and follow its configuration before refusing (P10A-45), so the place is told from the
+    // files and refused before any Git, which is then given that Git directory and this working tree (P10A-47).
     let not = || refuse(Code::NotARepository, Some(root), "not the top of a repository's main working tree");
     let named =
         std::fs::read_to_string(&dot).ok().and_then(|t| t.strip_prefix("gitdir: ").map(|d| d.trim().to_owned()));
@@ -261,6 +262,10 @@ fn person(root: &Path) -> Result<Person, Error> {
             {
                 return Err(found(&target));
             }
+        }
+        // A bare repository has no working tree (P10A-50).
+        if read(&file, &["--type=bool", "--get", "core.bare"])? == (Some(0), b"true\n".to_vec()) {
+            return Err(not());
         }
         // A working tree moved elsewhere is not this one (P10A-46); relative, it is relative to the Git directory.
         if let (Some(0), v) = read(&file, &["--type=path", "--get", "core.worktree"])? {
@@ -350,25 +355,6 @@ fn git_ok(root: &Path, ran: &(Option<i32>, Vec<u8>), args: &[&str]) -> Result<Ve
 
 fn line(bytes: Vec<u8>) -> String {
     String::from_utf8_lossy(&bytes).trim_end_matches('\n').to_owned()
-}
-
-/// Refuses `NOT_A_REPOSITORY` unless `root` is the top of the main working tree of a repository that is not bare, as
-/// REQ-DOM-7's check does, with `assess`'s own Git (D-102).
-fn repository(g: &Git) -> Result<(), Error> {
-    let not =
-        || refuse(Code::NotARepository, Some(&g.root), "not the main working tree of a repository that is not bare");
-    if g.run(&["rev-parse", "--is-bare-repository"])? != (Some(0), b"false\n".to_vec()) {
-        return Err(not());
-    }
-    // A `core.worktree` that moves the working tree elsewhere is refused too (P10A-46).
-    let top = line(g.run(&["rev-parse", "--show-toplevel"])?.1);
-    if Path::new(&top).canonicalize().ok() != g.root.canonicalize().ok() {
-        return Err(not());
-    }
-    let (status, out) = g.run(&["worktree", "list", "--porcelain", "-z"])?;
-    let first = out.split(|b| *b == 0).next().and_then(|l| std::str::from_utf8(l).ok()?.strip_prefix("worktree "));
-    let same = first.and_then(|m| Path::new(m).canonicalize().ok()) == g.root.canonicalize().ok();
-    if status == Some(0) && same { Ok(()) } else { Err(not()) }
 }
 
 /// What `.brewstillery/data/` holds: whether an event (a file under `events/` that is neither a signature nor a
@@ -501,7 +487,6 @@ fn assessed(asked: &Asked) -> Result<(Value, String), Error> {
     }
     let (gitdir, global) = person(root)?;
     let g = Git::new(root, (gitdir, global.clone()))?;
-    repository(&g)?;
     let mut r = Reading::default();
     let mut reasons = Vec::new();
     // Git's state.
