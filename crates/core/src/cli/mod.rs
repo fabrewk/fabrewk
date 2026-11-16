@@ -296,7 +296,9 @@ pub fn main(args: Vec<OsString>, wired: Wired) -> i32 {
         (Ok(Parsed::Version { .. }), _) => version(),
         (_, Err(_)) => internal("en", ".", writes),
         (parsed, Ok(root)) => {
-            let reads = !matches!(&parsed, Ok(Parsed::Run { command, .. }) if command.name == "assess");
+            // The installation's commands read no record, even to give a usage error (P10A-4, P10A-29).
+            let word = args.iter().find(|a| !a.as_encoded_bytes().starts_with(b"-"));
+            let reads = !word.is_some_and(|w| w == "assess" || w == "apply");
             let mut cx = Cx { writes, ..Cx::new(root, wired, reads) };
             // The installation's commands speak the language their answers name (D-097 point 2).
             if let Ok(Parsed::Run { options, .. }) = &parsed {

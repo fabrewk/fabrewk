@@ -949,26 +949,6 @@ fn p10a_8_assess_fetches_no_missing_object_of_a_partial_clone() {
 }
 
 #[test]
-fn p10a_9_an_include_of_the_private_folder_stops_assess_before_any_other_git() {
-    let fx = product("p10a-9");
-    let private = fx.home.join(".config/fabrewk");
-    std::fs::create_dir_all(&private).unwrap();
-    std::fs::write(private.join("secret.toml"), "[arbitrary]\nvalue = PRIVATE-MARKER\n").unwrap();
-    for (scope, value) in [
-        ("--local", private.join("secret.toml").to_str().unwrap().to_owned()),
-        ("--global", "~/.config/fabrewk/secret.toml".to_owned()),
-    ] {
-        fx.git(&["config", scope, "include.path", &value]);
-        let trace = traced(&fx, &["assess", "--alias", "ana", "--key", &fx.key(), "--publication", "published"]);
-        assert!(!trace.contains("secret.toml"), "{scope}: the private folder was opened");
-        refused(&fx, &["assess"], "PRIVATE_FOLDER_INCLUDED", 1, "en");
-        fx.git(&["config", scope, "--unset", "include.path"]);
-    }
-    fx.git(&["config", "includeIf.onbranch:main.path", "../../home/.config/fabrewk/secret.toml"]);
-    refused(&fx, &["assess"], "PRIVATE_FOLDER_INCLUDED", 1, "en");
-}
-
-#[test]
 fn p10a_10_no_tracked_file_over_1_mib_is_read() {
     let fx = product("p10a-10");
     let big = vec![b'x'; (1 << 20) + 1];
@@ -1014,54 +994,6 @@ fn p10a_12_no_index_flag_hides_an_edit_of_an_entry_file() {
 }
 
 #[test]
-fn p10a_14_p10a_18_the_environment_s_git_values_are_read_as_git_reads_them() {
-    let fx = product("p10a-14");
-    let private = fx.home.join(".config/fabrewk");
-    std::fs::create_dir_all(&private).unwrap();
-    std::fs::write(private.join("secret"), "[user]\n\tname = PRIVATE\n").unwrap();
-    let secret = private.join("secret").to_str().unwrap().to_owned();
-    let key = fx.key();
-    let args = ["assess", "--json", "--alias", "ana", "--key", &key, "--publication", "published"];
-    let parameters = format!("'Include.path={secret}'");
-    let quoted = format!("'includeIf.onbranch:main'.'path'='{secret}'");
-    for env in [
-        vec![("GIT_CONFIG_PARAMETERS", parameters.as_str())],
-        vec![("GIT_CONFIG_PARAMETERS", quoted.as_str())],
-        vec![
-            ("GIT_CONFIG_COUNT", "1"),
-            ("GIT_CONFIG_KEY_0", "include.path"),
-            ("GIT_CONFIG_VALUE_0", "~/.config/fabrewk/secret"),
-        ],
-        vec![("GIT_CONFIG_COUNT", "1"), ("GIT_CONFIG_KEY_0", "core.attributesFile"), ("GIT_CONFIG_VALUE_0", &secret)],
-    ] {
-        let out = fx.run_env(&args, &env);
-        assert_eq!(out.status, 1, "{env:?}: {out:?}");
-        assert_eq!(out.doc()["refusals"][0]["code"], "PRIVATE_FOLDER_INCLUDED", "{env:?}");
-    }
-    // What includes no file of the private folder is no refusal (a relative include Git refuses from the command line).
-    let safe = format!("'include.path={}'", fx.root.parent().unwrap().join("safe.conf").display());
-    for env in [
-        vec![("GIT_CONFIG_PARAMETERS", "'user.name=include'")],
-        vec![("GIT_CONFIG_PARAMETERS", safe.as_str())],
-        vec![("GIT_CONFIG_COUNT", "1"), ("GIT_CONFIG_KEY_0", "user.name"), ("GIT_CONFIG_VALUE_0", &secret)],
-    ] {
-        assert_eq!(fx.run_env(&args, &env).status, 0, "{env:?}");
-    }
-}
-
-#[test]
-fn p10a_15_an_attributes_file_in_the_private_folder_stops_assess() {
-    let fx = product("p10a-15");
-    let private = fx.home.join(".config/fabrewk");
-    std::fs::create_dir_all(&private).unwrap();
-    std::fs::write(private.join("attributes"), "AGENTS.md filter=probe\n").unwrap();
-    fx.git(&["config", "core.attributesFile", "~/.config/fabrewk/attributes"]);
-    let trace = traced(&fx, &["assess", "--alias", "ana", "--key", &fx.key(), "--publication", "published"]);
-    assert!(!trace.contains("fabrewk/attributes"), "the private folder was opened");
-    refused(&fx, &["assess"], "PRIVATE_FOLDER_INCLUDED", 1, "en");
-}
-
-#[test]
 fn p10a_17_a_mode_change_of_an_entry_file_blocks() {
     let fx = product("p10a-17");
     std::fs::write(fx.root.join("AGENTS.md"), "# Agents\n").unwrap();
@@ -1085,4 +1017,130 @@ fn p10a_19_a_root_file_over_1_mib_is_reported_by_its_size() {
     let inputs = doc["plan"]["inputs"].as_array().unwrap();
     assert!(inputs.iter().any(|i| i["path"] == "big.bin" && i["bytes"] == (1 << 20) + 1), "{inputs:?}");
     assert!(inputs.iter().all(|i| i["path"] != "README.md" || i.get("bytes").is_none()));
+}
+
+/// A private folder holding `secret`, a valid Git configuration.
+fn secret(fx: &Fx) -> String {
+    let private = fx.home.join(".config/fabrewk");
+    std::fs::create_dir_all(&private).unwrap();
+    std::fs::write(private.join("secret"), "[user]\n\tname = PRIVATE\n").unwrap();
+    private.join("secret").to_str().unwrap().to_owned()
+}
+
+/// `assess` with complete answers and `env`, under `strace`: its exit status, and whether it opened `secret`.
+fn opened(fx: &Fx, env: &[(&str, &str)], secret: &str) -> (i32, bool) {
+    let trace = fx.root.parent().unwrap().join("trace-env");
+    let mut c = Command::new("strace");
+    isolate(&mut c, &fx.home, None);
+    c.args(["-f", "-qq", "-e", "trace=execve,open,openat,openat2", "-o"])
+        .arg(&trace)
+        .arg(env!("CARGO_BIN_EXE_fabrewk"));
+    c.args(["assess", "--alias", "ana", "--key", &fx.key(), "--publication", "published"]).envs(env.iter().copied());
+    let out = c.current_dir(&fx.root).output().expect("strace is needed");
+    let text = std::fs::read_to_string(trace).unwrap_or_default();
+    assert!(text.contains(&format!("execve(\"{}\"", env!("CARGO_BIN_EXE_fabrewk"))), "strace saw nothing");
+    (out.status.code().unwrap_or(-1), text.contains(secret))
+}
+
+#[test]
+fn p10a_9_the_repository_s_own_include_of_the_private_folder_stops_assess_before_any_other_git() {
+    let fx = product("p10a-9");
+    let secret = secret(&fx);
+    fx.git(&["config", "include.path", &secret]);
+    assert_eq!(opened(&fx, &[], &secret), (1, false));
+    refused(&fx, &["assess"], "PRIVATE_FOLDER_INCLUDED", 1, "en");
+    fx.git(&["config", "--unset", "include.path"]);
+    fx.git(&["config", "includeIf.onbranch:main.path", "../../home/.config/fabrewk/secret"]);
+    refused(&fx, &["assess"], "PRIVATE_FOLDER_INCLUDED", 1, "en");
+    // A repository whose configuration is a link to a file of the private folder.
+    fx.git(&["config", "--unset", "includeIf.onbranch:main.path"]);
+    let config = fx.root.join(".git/config");
+    std::fs::copy(&config, &secret).unwrap();
+    std::fs::remove_file(&config).unwrap();
+    std::os::unix::fs::symlink(&secret, &config).unwrap();
+    assert_eq!(opened(&fx, &[], &secret), (1, false));
+}
+
+#[test]
+fn p10a_14_p10a_22_to_p10a_27_the_person_s_git_configuration_makes_assess_neither_write_nor_open_private_files() {
+    let fx = product("p10a-22");
+    let secret = secret(&fx);
+    let include = fx.root.parent().unwrap().join("includes-secret");
+    std::fs::write(&include, format!("[include]\n\tpath = {secret}\n")).unwrap();
+    let include = include.to_str().unwrap().to_owned();
+    // The global configuration: an include of the private folder, a trace Git would write (P10A-22).
+    let trace2 = fx.root.join(".git/assess-trace.json");
+    std::fs::write(
+        fx.home.join(".gitconfig"),
+        format!("[include]\n\tpath = {secret}\n[trace2]\n\teventTarget = {}\n", trace2.display()),
+    )
+    .unwrap();
+    // The default attributes file, a link to the private folder (P10A-27).
+    std::fs::create_dir_all(fx.home.join(".config/git")).unwrap();
+    std::os::unix::fs::symlink(&secret, fx.home.join(".config/git/attributes")).unwrap();
+    let before = fx.snapshot();
+    let parameters = format!("'Include.path={secret}'");
+    let tricky = format!("'includeIf.onbranch:ma=in.path'='{secret}'");
+    for env in [
+        vec![],
+        vec![("GIT_CONFIG_PARAMETERS", parameters.as_str())],
+        vec![("GIT_CONFIG_PARAMETERS", tricky.as_str())],
+        vec![
+            ("GIT_CONFIG_COUNT", "1"),
+            ("GIT_CONFIG_KEY_0", "include.path"),
+            ("GIT_CONFIG_VALUE_0", "~/.config/fabrewk/secret"),
+        ],
+        vec![("GIT_CONFIG_COUNT", "1"), ("GIT_CONFIG_KEY_0", "core.attributesFile"), ("GIT_CONFIG_VALUE_0", &secret)],
+        vec![("GIT_CONFIG_NOSYSTEM", "0"), ("GIT_CONFIG_SYSTEM", &include)],
+        vec![("GIT_TRACE", trace2.to_str().unwrap()), ("GIT_TRACE2_EVENT", trace2.to_str().unwrap())],
+    ] {
+        assert_eq!(opened(&fx, &env, &secret), (0, false), "{env:?}");
+        assert_eq!(fx.snapshot(), before, "{env:?} wrote");
+    }
+    // A global configuration that is itself a file of the private folder, absolute or relative (P10A-24, P10A-25).
+    let relative = "../home/.config/fabrewk/secret".to_owned();
+    for global in [secret.as_str(), relative.as_str()] {
+        assert_eq!(opened(&fx, &[("GIT_CONFIG_GLOBAL", global)], &secret), (1, false), "{global}");
+    }
+    // The repository's attributes file, a file of the private folder, is not one Git of assess reads (P10A-15).
+    fx.git(&["config", "core.attributesFile", &secret]);
+    assert_eq!(opened(&fx, &[], &secret), (0, false));
+}
+
+#[test]
+fn p10a_22_the_person_s_global_signing_settings_are_read_without_their_includes() {
+    let fx = product("p10a-22-global");
+    std::fs::write(fx.home.join(".gitconfig"), format!("[gpg]\n\tformat = ssh\n[user]\n\tsigningkey = {}\n", fx.key()))
+        .unwrap();
+    assert_eq!(fx.assess(&[])["plan"]["git"]["signs"], true);
+    // The repository's own value wins.
+    fx.git(&["config", "gpg.format", "openpgp"]);
+    assert_eq!(fx.assess(&[])["plan"]["git"]["signs"], false);
+}
+
+#[test]
+fn p10a_28_only_the_owner_s_executable_bit_is_a_mode() {
+    let fx = product("p10a-28");
+    std::fs::write(fx.root.join("AGENTS.md"), "# Agents\n").unwrap();
+    fx.commit("agents");
+    use std::os::unix::fs::PermissionsExt;
+    for mode in [0o654, 0o645] {
+        std::fs::set_permissions(fx.root.join("AGENTS.md"), std::fs::Permissions::from_mode(mode)).unwrap();
+        assert_eq!(fx.assess(&[])["plan"]["verdict"], "adopt", "{mode:o}");
+    }
+}
+
+#[test]
+fn p10a_29_the_installation_s_commands_read_no_record_even_for_a_usage_error() {
+    let fx = product("p10a-29");
+    std::fs::create_dir_all(fx.domain.join("data/events/project")).unwrap();
+    std::fs::write(fx.domain.join("data/events/project/000001-0000000000000000.json"), "{}").unwrap();
+    for args in [
+        &["apply", "d", "--alias", "ana", "--key", "k", "--publication", "published", "--say", "w"][..],
+        &["assess", "--mode", "wrong"],
+        &["--json", "assess", "--lang", "fr"],
+    ] {
+        let trace = traced(&fx, args);
+        assert!(!trace.contains("000001-0000000000000000.json"), "{args:?} opened an event");
+    }
 }

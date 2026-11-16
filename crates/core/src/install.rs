@@ -25,19 +25,22 @@ pub struct Installer {
     pub assess: fn(&Asked) -> Result<Assessed, Vec<Error>>,
 }
 
-/// Git in the working tree at `root` as the core runs it (no hook, no file-system monitor, objects as stored), taking
-/// no optional lock and fetching no missing object, so that it writes nothing (REQ-INS-1, P10A-8), `input` on its
-/// standard input and `env` set: its exit status and standard output.
-pub fn git(root: &Path, args: &[&str], input: &[u8], env: &[(&str, &str)]) -> Result<(Option<i32>, Vec<u8>), Error> {
+/// Git in the working tree at `root` as `assess` runs it (REQ-INS-1, D-102): the core's way (no hook, no file-system
+/// monitor, objects as stored), taking no optional lock, fetching no missing object, with only the repository's own
+/// configuration (no global or system file, no `-c` value or trace the environment carries) and no attributes file,
+/// so that the person's Git configuration makes it neither write nor open anything: its exit status and standard
+/// output, `input` on its standard input.
+pub fn git(root: &Path, args: &[&str], input: &[u8]) -> Result<(Option<i32>, Vec<u8>), Error> {
     let repo = crate::record::Repo { root: root.to_path_buf(), prefix: Default::default() };
-    let args: Vec<&std::ffi::OsStr> = ["--no-optional-locks"].iter().chain(args).map(std::ffi::OsStr::new).collect();
+    let own = ["--no-optional-locks", "-c", "core.attributesFile=/dev/null"];
+    let args: Vec<&std::ffi::OsStr> = own.iter().chain(args).map(std::ffi::OsStr::new).collect();
     let mut c = crate::record::git::command(&repo, &args);
-    c.env("GIT_NO_LAZY_FETCH", "1").envs(env.iter().copied());
+    for (k, _) in std::env::vars_os() {
+        if k.to_str().is_none_or(|k| k.starts_with("GIT_TRACE") || k.starts_with("GIT_CONFIG")) {
+            c.env_remove(k);
+        }
+    }
+    c.envs([("GIT_NO_LAZY_FETCH", "1"), ("GIT_CONFIG_GLOBAL", "/dev/null"), ("GIT_CONFIG_NOSYSTEM", "1")]);
     let out = crate::record::git::run(c, input)?;
     Ok((out.status.code(), out.stdout))
-}
-
-/// Refuses `NOT_A_REPOSITORY` unless `root` is the top of a repository's main working tree, as REQ-DOM-7's check does.
-pub fn main_worktree(root: &Path) -> Result<(), Error> {
-    crate::record::check_main_worktree(&crate::record::Repo { root: root.to_path_buf(), prefix: Default::default() })
 }

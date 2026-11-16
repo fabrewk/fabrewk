@@ -4958,3 +4958,27 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Consequences: `core-specification.md`, the amendment of part 10a; Codex's fourth pass reads P10A-16 so.
 - Sources: chat of session 41; Codex's third report of part 10a; D-100.
 - Supersedes: none.
+
+## D-102 — Part 10a: every Git `assess` runs is isolated, with only the repository's own configuration
+
+- Status: decided
+- Decided: 2026-11-16
+- Origin: maintainer XEL in session 41's chat, after Codex's fourth pass of part 10a (P10A-22 to P10A-29; confirmed
+  blocking 5, 5, 4, 8 over the four passes), choosing among the integrator's alternatives: "Git aislado
+  (Recomendado)".
+- Decision: every Git `assess` runs has only the repository's own configuration: no global or system file
+  (`GIT_CONFIG_GLOBAL=/dev/null`, `GIT_CONFIG_NOSYSTEM=1`), no `GIT_CONFIG_*` or `GIT_TRACE*` value of the environment,
+  and `core.attributesFile=/dev/null`; the core's contract runs it so (`crates/core/src/install.rs`), and the checks of
+  the main working tree and of the branch use it too. Before any Git in the repository, its configuration files are
+  refused (`PRIVATE_FOLDER_INCLUDED`) when they lie in the private folder or include a file of it, and the person's
+  global files when they lie there; from the global files, each read alone with no include followed, `assess` takes
+  only `user.signingkey`, `gpg.format` and `core.autocrlf`, the repository's own value winning. Declared residuals: an
+  include nested in the repository's configuration; a setting only an include of the global configuration holds, and
+  a global attribute, which can make `assess` see a change that is not one, never hide one.
+- Reason: the person's Git configuration offered ever new ways to write (a trace) or to open the private folder
+  (P10A-22 to P10A-27); closing each did not converge. The alternatives offered: keep the checks and declare the rest
+  residual; pause the part.
+- Consequences: `crates/core/src/install.rs`, `crates/install/src/lib.rs` and its tests; `core-specification.md`, the
+  amendment of part 10a; D-100 point 2's scan of the global, system and environment's includes is replaced.
+- Sources: chat of session 41; Codex's fourth report of part 10a; D-100, D-101.
+- Supersedes: D-100 point 2 for the global and system files and the environment.

@@ -972,7 +972,15 @@ changes and from each tracked file's size and time against what the index record
 The check of the private folder covers every file Git's configuration names that Git opens while `assess` runs, its
 includes and its attributes file (`core.attributesFile`), in each file and in the `-c` values of the environment
 (P10A-14, P10A-15). Point 3's limit of 1 MiB is on the files `assess` reads for their content; what Git reads to
-answer about its own state (its index, objects, configuration and attributes) is Git's state (D-101).
+answer about its own state (its index, objects, configuration and attributes) is Git's state (D-101). After Codex's
+fourth pass (P10A-22 to P10A-27) every Git `assess` runs is isolated (D-102): only the repository's own
+configuration, no global or system file, no `-c` value or trace the environment carries, no attributes file; that
+replaces the checks of the global, system and environment's includes and attributes above. Before any Git in the
+repository, the repository's configuration files are refused when they lie in the private folder or include a file
+of it, and the person's global files when they lie there; from those global files, each read alone with no include
+followed, `assess` takes only `user.signingkey`, `gpg.format` and `core.autocrlf`, the repository's own value
+winning. A setting only an include of the global configuration holds, and a global attribute, are not seen: a
+declared residual, which can make `assess` see a change that is not one, never hide one.
 
 ### SEC: confinement, credentials and controls
 

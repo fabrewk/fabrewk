@@ -8,8 +8,8 @@ mod effects;
 mod files;
 
 use fabrewk_core::cli::{catalogue, say};
-use fabrewk_core::install::{Asked, Installer, git, main_worktree};
-use fabrewk_core::record::{Repo, encode, record_branch, sha256_hex};
+use fabrewk_core::install::{Asked, Installer, git};
+use fabrewk_core::record::{encode, sha256_hex};
 use fabrewk_core::settings::{Level, is_alias, key_blob};
 use fabrewk_core::{Code, Error};
 use serde_json::{Value, json};
@@ -133,18 +133,23 @@ fn reason(key: &str, blocks: bool, path: Option<&str>, detail: Option<&str>) -> 
     r
 }
 
-/// Git as `assess` runs it: the core's way, and with every filter driver the configuration names turned off, so that
-/// no clean or process filter runs when Git reads a changed file (P10A-1): a driver with no command passes the bytes
-/// through, and one not required fails nothing.
+/// Git as `assess` runs it: isolated as the core's contract runs it (D-102), with every filter driver the repository's
+/// configuration names turned off, so that no clean or process filter runs when Git reads a changed file (P10A-1),
+/// and with the person's `core.autocrlf` when the repository sets none, so that line ends convert as their Git does.
 struct Git {
     root: PathBuf,
     off: Vec<String>,
 }
 
 impl Git {
-    fn new(root: &Path) -> Result<Git, Error> {
-        let (_, names) = git(root, &["config", "--name-only", "-z", "--get-regexp", r"^filter\."], b"", &[])?;
+    fn new(root: &Path, person: &BTreeMap<&str, String>) -> Result<Git, Error> {
+        let (_, names) = git(root, &["config", "--name-only", "-z", "--get-regexp", r"^filter\."], b"")?;
         let mut off = Vec::new();
+        if let Some(v) = person.get("core.autocrlf")
+            && git(root, &["config", "--get", "core.autocrlf"], b"")?.0 != Some(0)
+        {
+            off.extend(["-c".to_owned(), format!("core.autocrlf={v}")]);
+        }
         for name in names.split(|b| *b == 0).filter_map(|n| std::str::from_utf8(n).ok()) {
             if let Some((driver, _)) = name.strip_prefix("filter.").and_then(|n| n.rsplit_once('.')) {
                 for k in ["clean=", "smudge=", "process=", "required=false"] {
@@ -160,12 +165,7 @@ impl Git {
     }
 
     fn with(&self, args: &[&str], input: &[u8]) -> Result<(Option<i32>, Vec<u8>), Error> {
-        git(
-            &self.root,
-            &self.off.iter().map(String::as_str).chain(args.iter().copied()).collect::<Vec<_>>(),
-            input,
-            &[],
-        )
+        git(&self.root, &self.off.iter().map(String::as_str).chain(args.iter().copied()).collect::<Vec<_>>(), input)
     }
 
     /// Git's output, or `TOOL_FAILED` naming the command and its exit status; Git's text never reaches the words.
@@ -189,97 +189,67 @@ impl Git {
     }
 }
 
-/// Refuses `PRIVATE_FOLDER_INCLUDED` when Git's configuration includes a file of the private folder, which every Git
-/// run in the repository would open (D-100). Git loads its configuration, includes followed, as soon as it starts in a
-/// repository, so each file is read apart, by a Git started outside any repository with no configuration of its own,
-/// before any other Git: the repository's, the person's and the system's, and the `-c` values the environment carries.
-/// An include inside an included file is not seen: a declared residual.
-fn includes(root: &Path) -> Result<(), Error> {
+/// Before any Git in the repository (D-100, D-102): refuses `PRIVATE_FOLDER_INCLUDED` when the repository's own
+/// configuration, which `assess`'s Git reads, lies in the private folder or includes a file of it, and when the
+/// person's global configuration lies there; and gives, from the person's global files, read each alone with no
+/// include followed, the three keys `assess` needs of them. An include inside an included file, and a key only an
+/// include of the global configuration sets, are declared residuals.
+fn person(root: &Path) -> Result<BTreeMap<&'static str, String>, Error> {
     let var = |k: &str| std::env::var_os(k).filter(|v| !v.is_empty()).map(PathBuf::from);
-    let Ok(private) = fabrewk_core::machine::private_folder(|k| std::env::var_os(k)) else { return Ok(()) };
+    let private = fabrewk_core::machine::private_folder(|k| std::env::var_os(k)).ok();
     let inside = |p: &Path| {
         let p = p.canonicalize().unwrap_or_else(|_| p.to_path_buf());
-        p.starts_with(&private) || private.canonicalize().is_ok_and(|f| p.starts_with(f))
+        private.as_ref().is_some_and(|f| p.starts_with(f) || f.canonicalize().is_ok_and(|f| p.starts_with(f)))
     };
-    let found = |p: &Path| refuse(Code::PrivateFolderIncluded, Some(p), "a file Git's configuration names");
+    let found = |p: &Path| refuse(Code::PrivateFolderIncluded, Some(p), "a file Git's configuration is in or names");
+    let read = |file: &Path, args: &[&str]| -> Result<Vec<u8>, Error> {
+        let name = file.to_str().unwrap_or_default();
+        Ok(git(Path::new("/"), &[&["config", "--no-includes", "--file", name][..], args].concat(), b"")?.1)
+    };
     // The repository's Git directory: `.git`, or the one its `gitdir:` file names.
     let dot = root.join(".git");
-    let gitdir = match std::fs::read_to_string(&dot)
-        .ok()
-        .and_then(|t| t.strip_prefix("gitdir: ").map(|d| d.trim().to_owned()))
-    {
-        Some(d) => root.join(d),
-        None => dot,
-    };
-    let home = var("HOME");
-    let xdg = var("XDG_CONFIG_HOME").or_else(|| home.as_ref().map(|h| h.join(".config")));
-    let mut files = vec![gitdir.join("config"), gitdir.join("config.worktree")];
-    match var("GIT_CONFIG_GLOBAL") {
-        Some(g) => files.push(g),
-        None => files
-            .extend(xdg.map(|x| x.join("git/config")).into_iter().chain(home.as_ref().map(|h| h.join(".gitconfig")))),
-    }
-    if var("GIT_CONFIG_NOSYSTEM").is_none() {
-        files.push(var("GIT_CONFIG_SYSTEM").unwrap_or_else(|| PathBuf::from("/etc/gitconfig")));
-    }
-    let alone = [
-        ("GIT_CONFIG_GLOBAL", "/dev/null"),
-        ("GIT_CONFIG_NOSYSTEM", "1"),
-        ("GIT_CONFIG_COUNT", "0"),
-        ("GIT_CONFIG_PARAMETERS", ""),
-    ];
-    // The keys whose files Git opens while `assess` runs: its includes and its attributes file (P10A-15). A relative
-    // include is relative to the file that names it; a relative attributes file, to the working tree.
-    let regexp = r"^(include(if\..*)?\.path|core\.attributesfile)$";
-    let at = |base: &Path, key: &str, value: &str| {
-        let value = match (value.strip_prefix("~/"), &home) {
-            (Some(rest), Some(h)) => h.join(rest),
-            _ => PathBuf::from(value),
-        };
-        if key.ends_with("attributesfile") { root.join(value) } else { base.join(value) }
-    };
-    for file in files.iter().filter(|f| f.is_file()) {
-        let Some(name) = file.to_str() else { continue };
-        let args = ["config", "--no-includes", "--file", name, "--type=path", "-z", "--get-regexp", regexp];
-        let (_, out) = git(Path::new("/"), &args, b"", &alone)?;
+    let named =
+        std::fs::read_to_string(&dot).ok().and_then(|t| t.strip_prefix("gitdir: ").map(|d| d.trim().to_owned()));
+    let gitdir = named.map_or(dot, |d| root.join(d));
+    for file in [gitdir.join("config"), gitdir.join("config.worktree")] {
+        if inside(&file) {
+            return Err(found(&file));
+        }
+        let out = read(&file, &["--type=path", "-z", "--get-regexp", r"^include(if\..*)?\.path$"])?;
+        // A relative include is relative to the file that names it.
         for entry in out.split(|b| *b == 0).filter_map(|e| std::str::from_utf8(e).ok()) {
-            if let Some((key, value)) = entry.split_once('\n')
-                && inside(&at(file.parent().unwrap_or(root), key, value))
+            if let Some((_, value)) = entry.split_once('\n')
+                && inside(&file.parent().unwrap_or(root).join(value))
             {
-                return Err(found(&at(file.parent().unwrap_or(root), key, value)));
+                return Err(found(&file.parent().unwrap_or(root).join(value)));
             }
         }
     }
-    // The `-c` values Git takes from the environment, read as Git reads them (P10A-14, P10A-18): the counted pairs,
-    // and `GIT_CONFIG_PARAMETERS`, words in single quotes, `'\''` a quote, each `key=value`.
-    let n: usize = std::env::var("GIT_CONFIG_COUNT").ok().and_then(|n| n.parse().ok()).unwrap_or(0);
-    let mut pairs: Vec<(String, String)> = (0..n)
-        .filter_map(|i| {
-            Some((
-                std::env::var(format!("GIT_CONFIG_KEY_{i}")).ok()?,
-                std::env::var(format!("GIT_CONFIG_VALUE_{i}")).ok()?,
-            ))
-        })
-        .collect();
-    let (mut word, mut quoted, mut words) = (String::new(), false, Vec::new());
-    for c in std::env::var("GIT_CONFIG_PARAMETERS").unwrap_or_default().chars() {
-        match c {
-            '\'' => quoted = !quoted,
-            '\\' if !quoted => {}
-            c if c.is_whitespace() && !quoted => words.extend((!word.is_empty()).then(|| std::mem::take(&mut word))),
-            c => word.push(c),
+    // The person's global files as their Git finds them, a relative `GIT_CONFIG_GLOBAL` from here (P10A-25); the
+    // later one wins.
+    let home = var("HOME");
+    let files: Vec<PathBuf> = match var("GIT_CONFIG_GLOBAL") {
+        Some(g) => vec![root.join(g)],
+        None => {
+            let xdg = var("XDG_CONFIG_HOME").or_else(|| home.as_ref().map(|h| h.join(".config")));
+            xdg.map(|x| x.join("git/config")).into_iter().chain(home.map(|h| h.join(".gitconfig"))).collect()
+        }
+    };
+    let mut out = BTreeMap::new();
+    for file in files.iter().filter(|f| f.is_file()) {
+        if inside(file) {
+            return Err(found(file));
+        }
+        for (key, kind) in
+            [("user.signingkey", "--type=path"), ("gpg.format", "--no-type"), ("core.autocrlf", "--no-type")]
+        {
+            let value = line(read(file, &[kind, "--get", key])?);
+            if !value.is_empty() {
+                out.insert(key, value);
+            }
         }
     }
-    words.extend((!word.is_empty()).then_some(word));
-    pairs.extend(words.iter().filter_map(|w| w.split_once('=')).map(|(k, v)| (k.to_owned(), v.to_owned())));
-    let key = |k: &str| {
-        let k = k.to_ascii_lowercase();
-        k == "core.attributesfile" || k == "include.path" || (k.starts_with("includeif.") && k.ends_with(".path"))
-    };
-    match pairs.iter().map(|(k, v)| (k, at(root, &k.to_ascii_lowercase(), v))).find(|(k, v)| key(k) && inside(v)) {
-        Some((_, v)) => Err(found(&v)),
-        None => Ok(()),
-    }
+    Ok(out)
 }
 
 /// Whether tracked files have, or may have, changes (D-100): staged changes, the index against `HEAD` by object id, or
@@ -337,13 +307,18 @@ fn line(bytes: Vec<u8>) -> String {
     String::from_utf8_lossy(&bytes).trim_end_matches('\n').to_owned()
 }
 
-/// Refuses `NOT_A_REPOSITORY` unless `root` is the top of the main working tree of a repository that is not bare.
-fn repository(root: &Path) -> Result<(), Error> {
-    let bare = git(root, &["rev-parse", "--is-bare-repository"], b"", &[])?;
-    if bare != (Some(0), b"false\n".to_vec()) {
-        return Err(refuse(Code::NotARepository, Some(root), "not the working tree of a repository that is not bare"));
+/// Refuses `NOT_A_REPOSITORY` unless `root` is the top of the main working tree of a repository that is not bare, as
+/// REQ-DOM-7's check does, with `assess`'s own Git (D-102).
+fn repository(g: &Git) -> Result<(), Error> {
+    let not =
+        || refuse(Code::NotARepository, Some(&g.root), "not the main working tree of a repository that is not bare");
+    if g.run(&["rev-parse", "--is-bare-repository"])? != (Some(0), b"false\n".to_vec()) {
+        return Err(not());
     }
-    main_worktree(root)
+    let (status, out) = g.run(&["worktree", "list", "--porcelain", "-z"])?;
+    let first = out.split(|b| *b == 0).next().and_then(|l| std::str::from_utf8(l).ok()?.strip_prefix("worktree "));
+    let same = first.and_then(|m| Path::new(m).canonicalize().ok()) == g.root.canonicalize().ok();
+    if status == Some(0) && same { Ok(()) } else { Err(not()) }
 }
 
 /// What `.brewstillery/data/` holds: whether an event (a file under `events/` that is neither a signature nor a
@@ -458,20 +433,19 @@ fn assessed(asked: &Asked) -> Result<(Value, String), Error> {
     if let Some(alias) = alias.filter(|x| !is_alias(x)) {
         return Err(refuse(Code::AliasInvalid, None, format!("{alias:?} is not an alias, or is a reserved name")));
     }
-    includes(root)?;
-    repository(root)?;
-    let g = Git::new(root)?;
+    let global = person(root)?;
+    let g = Git::new(root, &global)?;
+    repository(&g)?;
     let mut r = Reading::default();
     let mut reasons = Vec::new();
     // Git's state.
-    let repo = Repo { root: root.to_path_buf(), prefix: PathBuf::new() };
-    let branch = match record_branch(&repo) {
-        Ok(b) => Some(b.trim_start_matches("refs/heads/").to_owned()),
-        Err(e) if e.code() == Some(Code::HeadDetached) => {
+    let branch = match g.run(&["symbolic-ref", "-q", "HEAD"])? {
+        (Some(0), b) => Some(line(b).trim_start_matches("refs/heads/").to_owned()),
+        (Some(1), _) => {
             reasons.push(reason("detached", true, None, None));
             None
         }
-        Err(e) => return Err(e),
+        other => return git_ok(root, &other, &["symbolic-ref", "HEAD"]).map(|_| unreachable!()),
     };
     let gitdir = PathBuf::from(line(g.ok(&["rev-parse", "--path-format=absolute", "--git-dir"])?));
     if let Some((_, op)) = OPERATIONS.iter().find(|(f, _)| std::fs::symlink_metadata(gitdir.join(f)).is_ok()) {
@@ -536,7 +510,7 @@ fn assessed(asked: &Asked) -> Result<(Value, String), Error> {
         let indexed = index.get(name).cloned().flatten();
         let mode = match (filemode, std::fs::symlink_metadata(root.join(name))) {
             (true, Ok(m)) => {
-                if std::os::unix::fs::PermissionsExt::mode(&m.permissions()) & 0o111 != 0 {
+                if std::os::unix::fs::PermissionsExt::mode(&m.permissions()) & 0o100 != 0 {
                     "100755"
                 } else {
                     "100644"
@@ -592,9 +566,13 @@ fn assessed(asked: &Asked) -> Result<(Value, String), Error> {
         reasons.push(reason(why, false, None, None));
         None
     });
-    let ssh = g.run(&["config", "--get", "gpg.format"])? == (Some(0), b"ssh\n".to_vec());
-    let named = g.run(&["config", "--type=path", "--get", "user.signingkey"])?.1;
-    let named = String::from_utf8_lossy(&named).trim_end_matches('\n').to_owned();
+    // The repository's value, else the person's global one (D-102).
+    let setting = |key: &str, kind: &str| -> Result<String, Error> {
+        let local = line(g.run(&["config", kind, "--get", key])?.1);
+        Ok(if local.is_empty() { global.get(key).cloned().unwrap_or_default() } else { local })
+    };
+    let ssh = setting("gpg.format", "--no-type")? == "ssh";
+    let named = setting("user.signingkey", "--type=path")?;
     let mut next = Vec::new();
     let mut signs = false;
     if let (Some(given), Some(k)) = (a("key"), &key) {
