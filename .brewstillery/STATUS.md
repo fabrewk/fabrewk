@@ -7,7 +7,7 @@ view generated from that registry. Technical files are in English by default (D-
 
 **Phases 0 to 7 are closed (D-037, D-040, D-070). Phase 7 (the first code) was split into parts 7a, 7b, 7c1, 7c2a,
 7c2b, 7d1, 7d2, 7s, 7d3a and 7d3b (D-041, D-047, D-048, D-050, D-053, D-059, D-062), the last the task commands
-(D-068, D-069, R-034); phase 8, the core's part 2, was split into 8a, 8b and 8c (D-072) and all three are closed, and so is the phase (D-077); phase 9 (confinement, the adapters and the run) was cut into parts 9a to 9i (D-075, D-076), all accepted, and it is closed (D-096); phase 10, installation, is next.** The repository holds the first code at its root: a
+(D-068, D-069, R-034); phase 8, the core's part 2, was split into 8a, 8b and 8c (D-072) and all three are closed, and so is the phase (D-077); phase 9 (confinement, the adapters and the run) was cut into parts 9a to 9i (D-075, D-076), all accepted, and it is closed (D-096); phase 10, installation, opened with its cut into parts 10a to 10d, Codex's review of its design and the maestro's approval (D-097, D-098, R-049); part 10a is next.** The repository holds the first code at its root: a
 Cargo workspace with one crate per ring (`crates/core`, `crates/fabrewk`, the binary, which runs the core's command
 surface, `crates/confine-bwrap`, the confinement backend for Linux, `crates/adapter-claude`, Claude Code's adapter, and `crates/adapter-codex`, Codex's) and the size counter `tools/budget`, the licence files, `deny.toml` and a root `.gitignore` with `/target`.
 The record is built in `crates/core/src/record/`, the settings in `crates/core/src/settings/`, identity in
@@ -16,7 +16,7 @@ domain's layout in `domain.rs`, the transition table in `table.rs`, the payloads
 credential scan in `scan.rs`, the fermento in `fermento.rs`, the alambique and the rules in `alambique.rs`, the cell's contract and its runner in `confine.rs`, the attempt's copy, its change set and the candidate in `candidate.rs`, the tool adapter's contract in `adapter.rs`, the checks, the identities and the rounds' measure in `gate.rs`, the run in `crates/core/src/cli/run.rs`, the integration in `merge.rs` and `crates/core/src/cli/accept.rs`, the extensions' runner in `crates/core/src/cli/ext.rs`, and the command surface in `crates/core/src/cli/` with its catalogue in
 `crates/core/catalogue/` (`en`, `es`); `fabrewk status`, `fabrewk config` and `fabrewk check` read, and `fabrewk
 adopt`, `fabrewk propose`, `fabrewk authorize`, `fabrewk reject`, `fabrewk sweep`, `fabrewk discard`, `fabrewk approve`, `fabrewk close`, `fabrewk run` (round after round of the builder, the checks and the reviewer, to a verified task or a halt) and `fabrewk accept` (an acceptance and its integration) write, and `fabrewk <name>` runs a permitted extension confined and applies its requests, through one
-write path in `crates/core/src/cli/write.rs`. The skills the maestro approved are in `.brewstillery/skills/`, listed in `AGENTS.md`. The core counts 11,632 of 12,000 lines, the backend 318 of 400, Claude Code's adapter 269 of 600 and Codex's 319 of 600, formatted at width 120 (D-049, D-054, D-074, D-075). No `data/` exists in this
+write path in `crates/core/src/cli/write.rs`. The skills the maestro approved are in `.brewstillery/skills/`, listed in `AGENTS.md`. The core counts 11,632 of 12,500 lines (D-097), the backend 318 of 400, Claude Code's adapter 269 of 600 and Codex's 319 of 600, formatted at width 120 (D-049, D-054, D-074, D-075). No `data/` exists in this
 repository, whose project file still holds bootstrap keys, so `fabrewk check` here reports them. The domain is
 `.brewstillery/`, hidden (D-032).
 
@@ -483,25 +483,39 @@ repository, is imported into the single registry at production and then stays re
   acceptance criterion by criterion is `confinement-design.md` section 8; D-071's comparison is in R-048 (no clear gain
   from Fable 5.2; phase 10 stays on the plan's models). Six interpretations the maestro may want to read are in R-048.
   `verify-part` no longer runs the watcher of idle `pasta` (D-096). No credential of the person's was read.
-- **Next: phase 10, installation (plan, row 10).** The script and the guided prompt reaching the same command; the
-  assessment without writing (D-006); the administer and review modes; the warning for not publishing `.brewstillery/`.
-  Inputs: plan row 10 and the rows of section 1 that name phase 10 (6.17, 6.27's warning text, 6.45's manuals);
-  `core-specification.md` section 13, "Phase 10" (INS, DOM-1, DOM-6, SEC-6, BUD-5's release notices; F-1 from a real
-  `apply`), and its open item 9 (the publication warning's text, AD-7). Acceptance: in a disposable repository nothing
-  is written before confirmation; the three verdicts exercised; the warning shown and recorded. The maestro decides
-  the final warning text and publishing on GitHub (an external action). As phases 7 to 9, it may open with its cut
-  into parts (D-019).
-- **Start prompt:** `Eres el integrador de Fabrewk; fase 10: la instalación (el script y el prompt guiado, la
-  evaluación sin escribir, los modos administrar y revisar, el aviso de no publicar .brewstillery/); empieza por
+- **Phase 10 opened (session 40, R-049, D-097, D-098).** Cut into four parts (D-019): 10a `assess` and the plan; 10b
+  `apply`; 10c `onboard`, the first alambique's questions and the publication warning; 10d the script, the signed
+  release, the README and the manuals, and the phase's acceptance. The installation's code is a built-in module in its
+  own ring, as AD-5 decided: `crates/install`, kind `Installer`, 1,200 lines; the core's ceiling is 12,500. `apply`
+  takes the same options as `assess`, bound by the plan's digest. The product's files go at the root: `install.sh`,
+  `README.md`, `README.es-MX.md`, and the manuals in `docs/en/` and `docs/es-MX/`. The design the four parts build is
+  "Installation, as phase 10's opening fixed it (D-097)" in `core-specification.md`, after the new REQ-INS-8 (the
+  first alambique, D-066): what `assess` reads and never prints (no value of another tool's settings), the verdict's
+  blockers, the plan as canonical JSON, `apply`'s order (`assessed` and `publication-decided` first, then the files,
+  then the other three events), the core's installation entry to the write path, the events before the first adoption
+  verified against the plan's project file, an interrupted `apply` finished by the same command
+  (`INSTALLATION_INCOMPLETE` for every other writer), the index staged before the branch moves, quoting for fish and
+  for a POSIX shell. Codex reviewed it five times (confirmed blocking 9, 3, 3, 2, 0): P10O-1 to P10O-18 corrected; the
+  maestro approved the text. No code yet.
+- **Next: part 10a, `assess` and the plan (plan, "Phase 10").** Create `crates/install` and add the ring `install` to
+  `RINGS` in `tools/budget/src/budget.rs` (decided, D-097); the core's contract for the module, wired by
+  `crates/fabrewk/src/main.rs` as the adapters are; the declaration of `assess`, `apply` and `onboard` (`apply` and
+  `onboard` refuse as not built until 10b and 10c, or are declared there: the part decides with the maestro);
+  `assess`'s reading (point 3), the verdict (point 4), the plan and its digest (point 5), the first alambique's text
+  (REQ-INS-8), the warning's text drafted by Codex (point 9), the `apply` command printed for fish and a POSIX shell
+  (point 2). Acceptance: REQ-INS-1's and REQ-INS-2's criteria, `assess` in a read-only cell with no network giving the
+  plan it gives unconfined, each listed side effect reported, the three verdicts reached, `NOT_A_REPOSITORY`,
+  `ALIAS_INVALID`; as 7a (clean clone, mutation, Codex's review).
+- **Start prompt:** `Eres el integrador de Fabrewk; parte 10a: assess y el plan (el anillo install, la lectura sin
+  escribir, el dictamen, el plan y su digest, el primer alambique, el texto del aviso); empieza por
   .brewstillery/STATUS.md`. Model and effort: Claude Code on Opus 5.5 (`claude-opus-5-5`), effort high; Codex GPT-6.1
-  Sol, effort high, reviews and writes the human texts (plan row 10). Read the skills `verify-part` and `codex-review`
-  before the checks and the review, and `differential-review` before a pass. The run's and the extensions' tests and
-  the backend's and the adapters' launch tests run real cells and need `bwrap`, `pasta`, `socat`, `python3` and the
-  network; Codex's sandbox cannot run them nor bind sockets, which is no finding. This machine's memory and the
-  mutation run's parameters are in `verify-part`; the crash suite over F-1 takes about six minutes and is skipped per
-  mutant (`-- -- --skip the_crash_suite_over_f_1`), run whole in the clean clone. When waiting for Codex, wait on the
-  launching command itself. Codex's prompt asks it not to read `.brewstillery/skills/` and to report each finding as
-  an input, an expected result and an actual one.
+  Sol, effort high, reviews and drafts the warning's text (plan row 10). Read the skills `verify-part` and
+  `codex-review` before the checks and the review, `differential-review` before a pass, and `sharp-edges` for
+  `assess`'s options and what it prints. The suites run with the rustup toolchain (`verify-part`); the run's and the
+  extensions' tests and the backend's and the adapters' launch tests need `bwrap`, `pasta`, `socat`, `python3` and the
+  network, which Codex's sandbox lacks, which is no finding. When waiting for Codex, wait on the launching command
+  itself. Codex's prompt asks it not to read `.brewstillery/skills/` and to report each finding as an input, an
+  expected result and an actual one.
 
 Carried without blocking, with destinations, in D-013. A phase that does not pass is corrected and retried; it
 never ends the project (D-003).

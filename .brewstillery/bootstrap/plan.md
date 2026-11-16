@@ -15,7 +15,7 @@ integrator, with Codex checking its fidelity against the archived original (D-03
 in session 11: AD-4, AD-5 and AD-7 rewritten and AD-12 to AD-15 added for what D-032 still needed; Codex accepted the
 file at its second pass (R-018). The maintainer decided AD-4 to AD-15 as recommended (D-036), and Codex re-checked
 the decided file (R-019). Phase 5 is closed (D-037). Phase 6 is split into parts 6a and 6b, and the size budget is frozen at phase 7's start (D-038, section "Parts"). Codex
-accepted both parts at its fifth pass (R-021); the maestro approved the text and phase 6 is closed (D-040). Phase 7 is split into parts 7a to 7d (D-041, section "Parts"); every part was accepted and phase 7 is closed (D-070). Phase 8 was split into 8a, 8b and 8c (D-072); all were accepted and phase 8 is closed (D-077). Phase 9 opened with its design and its cut into 9a to 9i (D-075, D-076, section "Parts"); all were accepted and phase 9 is closed (D-096). Phase 10 opened with its cut into 10a to 10d, the installer's ring and the core's ceiling at 12,500 (D-097, section "Parts").
+accepted both parts at its fifth pass (R-021); the maestro approved the text and phase 6 is closed (D-040). Phase 7 is split into parts 7a to 7d (D-041, section "Parts"); every part was accepted and phase 7 is closed (D-070). Phase 8 was split into 8a, 8b and 8c (D-072); all were accepted and phase 8 is closed (D-077). Phase 9 opened with its design and its cut into 9a to 9i (D-075, D-076, section "Parts"); all were accepted and phase 9 is closed (D-096). Phase 10 opened with its cut into 10a to 10d, the installer's ring and the core's ceiling at 12,500 (D-097, section "Parts"); Codex accepted the opening at its fifth pass and the maestro approved it (R-049, D-098).
 
 **Rule for every phase (alambique 6.48, D-003).** A phase that does not pass is corrected and retried; it never
 ends the project. Before each retry the progress measure is fixed (proposed: confirmed blocking findings, and
@@ -122,7 +122,7 @@ counted lines, measured again at each part. The permission and the budget to run
 **Phase 10 (D-097).** Split where its inputs separate. The installation's code is the ring `install`
 (`crates/install`, AD-5's 1,200 lines); the core's ceiling is 12,500, measured again at each part. Every part runs on
 Opus 5.5, effort high, and delivers code, so Codex (GPT-6.1 Sol), effort high, reviews each, and writes the human
-texts (plan row 10). Codex reviews the opening's amendments to `core-specification.md` before any code. The design all
+texts (plan row 10). Codex reviewed the opening's amendments to `core-specification.md` before any code and accepted them at its fifth pass, confirmed blocking 9, 3, 3, 2, 0 (R-049); the maestro approved them (D-098). The design all
 four build is "Installation, as phase 10's opening fixed it" in `core-specification.md`, after REQ-INS-8; its points
 are cited below by number.
 

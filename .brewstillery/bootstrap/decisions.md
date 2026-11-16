@@ -4829,3 +4829,63 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Sources: chat of session 40; `plan.md` row 10; AD-5, AD-7; D-006, D-014, D-019, D-036, D-066, D-075, D-086;
   `core-specification.md` REQ-INS-1 to REQ-INS-7, REQ-BUD-1, REQ-BUD-2, section 9 item 9, section 13.
 - Supersedes: D-086 point 1 for the core's ceiling.
+
+## D-098 — Phase 10's opening approved
+
+- Status: decided
+- Decided: 2026-11-15
+- Origin: maintainer XEL in session 40's chat, after Codex accepted the opening at its fifth pass: "Apruebo el texto
+  (Recomendado)"; on what follows, "Cerrar la sesión (Recomendado)".
+- Decision: the amendments of phase 10's opening to `core-specification.md` are approved as Codex accepted them
+  (commit `a394ea8`): REQ-INS-8 (the first alambique, D-066); the paragraph "Installation, as phase 10's opening fixed
+  it (D-097)", points 1 to 11; section 1's rows, REQ-BUD-2, section 5's synopses, section 11.4's
+  `INSTALLATION_INCOMPLETE` and `TERMINAL_REQUIRED`, section 12's REQ-INS-8 row and section 13's phase 10. Among them,
+  shown to the maestro before the approval: the first project file declares no model and no profile, which a later
+  `adopt` adds; an `AGENTS.md` or `CLAUDE.md` with changes not committed is a blocker (`none`); in `own-repository`
+  and `unpublished` the entry files are left uncommitted in the product; the script supports Linux on ARM64 alone; the
+  new code `INSTALLATION_INCOMPLETE`. Part 10a starts in the next session.
+- Reason: the plan's rule for every phase; D-075's precedent (a phase's opening reviewed before any code, then
+  approved).
+- Consequences: `plan.md`, `STATUS.md`; R-049.
+- Sources: chat of session 40; R-049; D-097.
+- Supersedes: none.
+
+## R-049 — Session 40, phase 10's opening
+
+- Status: recorded
+- Date: 2026-11-15
+- Who: integrator Claude Code, `claude-opus-5-5`; reviewer Codex (`codex-cli 0.166.0`, `gpt-6.1-sol`, effort high,
+  `codex exec -s workspace-write` in a memory-capped scope, from `target/review-10-opening/`, a disposable clone with
+  no network, removed after).
+- Read: `STATUS.md`; `plan.md`; `core-specification.md` sections 1, 2 (DOM, INS, SEC-6, BUD), 3, 4, 5, 9, 11.4, 11.5,
+  12 and 13; `architecture-decisions.md` AD-5 and AD-7; `ALAMBIQUE.md` sections 1 and 2 and 6.17, 6.27, 6.45, 6.46;
+  `xel/fermento.md` (no pending point); D-066, D-086, D-095, D-096, R-032, R-048; the code of `cli/write.rs`,
+  `cli/adopt.rs`, `cli/decl.rs`, `cli/mod.rs`, `record/event.rs`, `record/store.rs`, `record/git.rs`, `identity.rs`,
+  `settings/keys.rs`, `settings/policy.rs`, `adapter.rs`, `crates/fabrewk/src/main.rs`,
+  `crates/fabrewk/tests/common/mod.rs`, `tools/budget/`.
+- Found at the start: nothing of the installation exists (`assess`, `apply` and `onboard` are not declared; the
+  project events are written by a test helper, `policy-adopted` before `publication-decided`); the core counted 11,632
+  of 12,000. The integrator first asked the ceiling as if the installation were the core's; it then found AD-5's ring
+  for the installer and the assessment (1,200, `RingKind::Installer`, declared in `tools/budget` and unused), said so,
+  and asked again (D-097).
+- Delivered: D-097 and D-098; the opening's amendments to `core-specification.md`; phase 10's parts in `plan.md`; the
+  core's ceiling at 12,500 in `tools/budget/src/budget.rs` and its two tests (the suite green with the rustup
+  toolchain; with Fedora's `cargo` three tests fail as `verify-part` says they do).
+- Codex's passes, each over the commit named, confirmed blocking findings by count:
+  1. `ad48c13`: 9 (P10O-1 to P10O-9): resuming an interrupted `apply` changed the plan; `installed` signed against
+     section 3; the published commit of an entry file losing staged edits; the write path needing a record; events
+     before the first adoption not verifiable; other writers released before the installation was whole; the first
+     maestro's nested files not read; an entry file over 1 MiB with no plan; single quotes not preserving a backslash
+     in fish (reproduced by the integrator with `fish --no-config` and `dash`). Corrected in `19f2d45`.
+  2. `19f2d45`: 3 (P10O-10 to P10O-12), and P10O-13 not blocking: leftovers before the first event; `unpublished`
+     complete before its views; a record commit stopped before the index update. Corrected in `83a9baa`.
+  3. `83a9baa`: 3 (P10O-14 to P10O-16), all from the previous correction, which had put the person's index in the
+     completion: `own-repository` never complete, a committed settings edit revoking completion, a staged edit lost.
+     Corrected in `4ffd9d4`, completion becoming facts of the record, the views and the record commit.
+  4. `4ffd9d4`: 2 (P10O-17, P10O-18): an index repair after the branch moved cannot tell a stale entry from a staged
+     one. Corrected in `a394ea8`: the receipt's committed paths staged before the branch moves, only where the index
+     carries no staged change, never touched after.
+  5. `a394ea8`: 0, accept; every earlier finding confirmed closed; Codex ran 84 quoting checks in fish and `dash`.
+  Each finding was checked against the code it cited before its correction; all were confirmed. No code was written,
+  so no test or mutation run applied; the corrections are text.
+- No credential of the person's was read.
