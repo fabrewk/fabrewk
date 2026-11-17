@@ -5022,3 +5022,87 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Consequences: Codex's nineteenth prompt; R-050.
 - Sources: chat of session 41; Codex's eighteenth report of part 10a; D-084, D-088.
 - Supersedes: none.
+
+## R-050 — Session 41, part 10a: `assess` and its plan (paused before Codex's narrow final pass)
+
+- Status: recorded
+- Date: 2026-11-16
+- Who: integrator Claude Code, `claude-opus-5-5`; reviewer Codex (`codex-cli 0.166.0`, `gpt-6.1-sol`, effort high,
+  `codex exec -s workspace-write` in a memory-capped scope, from `target/review-10a/`, a disposable clone with no
+  network), which also drafted the publication warning's text (from `target/review-10a-warning/`, removed after).
+- Read: `STATUS.md`; `plan.md`; `core-specification.md` REQ-INS-1 to REQ-INS-8, REQ-DOM-1 to REQ-DOM-7, REQ-REG-12,
+  section 5, 11.2, 11.4, 12 (INS) and "Installation, as phase 10's opening fixed it" points 1 to 11;
+  `architecture-decisions.md` AD-7; `ALAMBIQUE.md` 6.27 and section 2's line on publishing `.brewstillery/`;
+  `xel/fermento.md` (no pending point); `settings.toml` (project and `xel`'s); D-097, D-098, R-049; the skills
+  `verify-part`, `codex-review`, `differential-review` and `sharp-edges`; the code of `cli/mod.rs`, `cli/decl.rs`,
+  `cli/text.rs`, `cli/ext.rs`, `code.rs`, `adapter.rs`, `identity.rs`, `machine.rs`, `fermento.rs`, `alambique.rs`,
+  `settings/mod.rs`, `settings/lang.rs`, `record/mod.rs`, `record/git.rs`, `record/canon.rs`, `record/replay.rs`,
+  `crates/fabrewk/src/main.rs`, `crates/fabrewk/tests/common/mod.rs`, `crates/fabrewk/tests/surface.rs`,
+  `crates/adapter-claude/src/lib.rs`, `tools/budget/`, and both catalogues.
+- Delivered: the ring `install` (`crates/install`, kind `Installer`, added to `RINGS` as D-097 decided) and the core's
+  contract for it (`crates/core/src/install.rs`: `Asked`, `Installer`, and the installer's isolated Git);
+  `fabrewk assess`, declared with D-097 point 2's options, its language and tools checked by the core, its reading,
+  verdict, plan (`fabrewk.plan/1`) with every file's action and exact content, the first alambique (REQ-INS-8), its
+  digest over the canonical bytes, and the `apply` command for fish and a POSIX shell (`fabrewk.assessment/1`);
+  `fabrewk apply`, declared and answering `usage.unbuilt` until part 10b (D-099); the publication warning's text,
+  drafted by Codex and kept as drafted in both catalogues (the maestro decides the final text in part 10c); the new
+  code `PRIVATE_FOLDER_INCLUDED`; the specification's amendment "Amended in part 10a (D-100)" after point 11, the
+  code in section 7 and its row in 11.4; D-099 to D-104. Tests: `crates/fabrewk/tests/install.rs` (51 tests),
+  `crates/install/tests/install.rs` (the contract without the binary), unit tests of the side effects and the files.
+- Measured: the core 11,796 of 12,500 at `bacf4df` (+164 from 11,632); the ring `install` 972 of 1,200, so 228 lines remain for
+  parts 10b and 10c, against the opening's projection of about 950 for the whole module: a figure the maestro may
+  want to weigh before part 10b (no change made; a change of the ceiling is the maestro's, `AGENTS.md` "Code").
+  Release binary 3,543,432 bytes; direct runtime crates 5; crates in the release build 31.
+- Codex's passes, each over the commit named, confirmed blocking findings by count (non-blocking in brackets):
+  1. `4a6ae1c`: 5 [2] (P10A-1 to P10A-7): Git's filters run by `git status`; a `data/` link walked; the file Git's
+     signing key names opened; the record replayed before `assess`; a tag in capitals reaching `en`.
+  2. `80c567f`: 5 [1] (P10A-8 to P10A-13): a partial clone's lazy fetch; an include of the private folder; tracked
+     files over 1 MiB read; a filtered entry file a false change; `assume-unchanged` hiding an edit. The maestro
+     decided D-100 (no `git status`; an include of the private folder refused).
+  3. `5198c07`: 4 [4] (P10A-14 to P10A-21): the environment's `-c` values; `core.attributesFile`; Git's own reads
+     over 1 MiB (D-101); an entry file's mode change.
+  4. `37d67a6`: 8 [1] (P10A-22 to P10A-30): the person's Git configuration writing a trace or opening the private
+     folder by ever new ways. The maestro chose among alternatives D-102 (every Git of `assess` isolated).
+  5. `90295e5`: 3 [1] (P10A-31 to P10A-34). 6. `5586031`: 3 [2] (P10A-35 to P10A-39). 7. `8d80546`: 4 [1]
+     (P10A-40 to P10A-44); two retries without progress, the maestro chose D-103 (what lies inside the Git directory
+     is the person's own state, a declared residual).
+  8. `5edf9c2`: 2 (P10A-45, P10A-46). 9. `6187af2`: 3 (P10A-47 to P10A-49; Git given its directory and working tree).
+  10. `187a261`: 2 (P10A-50, P10A-51). 11. `0dc6280`: 3 [1] (P10A-52 to P10A-55). 12. `fd20a6d`: 2 (P10A-56,
+  P10A-57). 13. `4d992f7`: 2 (P10A-58, P10A-59). 14. `53f6a9b`: 1 (P10A-60). 15. `2810b2e`: 2 (P10A-59's rest,
+  P10A-61). 16. `e55a069` (run again after the machine restarted; the cut run was not counted): 1 [1] (P10A-62,
+  P10A-63). 17. `63c598e`: 1 [1] (P10A-64, P10A-65). 18. `6d36c4a`: 3 (P10A-66 to P10A-68); two retries without
+  progress, the maestro chose D-104 (a narrow final pass).
+  19. `bacf4df`: not run: Codex's usage limit, until 2026-11-18 10:29. The part is paused there (the plan's rule for
+  an exhausted budget), on the maestro's choice to pause after the clean clone and the mutation.
+  Every finding was checked against the code before its correction; all were confirmed; each correction has a test
+  that failed on the earlier code, but P10A-7's (an interpretation's wording) and P10A-18's.
+- Declared, with the maestro's decisions: P10A-30 (the core's `NOT_A_REPOSITORY` and `ALIAS_INVALID` name no command
+  as their next step); an entry file turned off from filters (`-filter`) blocks as `filtered` (P10A-36's correction);
+  the residuals of D-100 to D-103.
+- Interpretations the maestro may want to read: the plan's answers are the options as given, `--mode` and `--lang`
+  defaulted, the tools sorted; the key recorded as the option it is, by its digest, only when `ssh-keygen -l` reads it
+  as one public key; a plan whose verdict is `none` or `review` holds no file and no `apply` command, an incomplete one
+  its files as far as its answers go; each value of the printed command written `--option='value'`; `--lang` must reach
+  a catalogue by its primary subtag; names that are not UTF-8 are shown with `\xNN`, and the first alambique's title
+  writes a control character as `\u{…}`; side effects inform and never block; the views and, in `own-repository`,
+  `.brewstillery/.git` are targets to create.
+- Verified (`verify-part`), clean clone of `bacf4df`: 680 tests; the crash suite over F-1, `faults` 39 and `crash` 3
+  green; musl release build, `budget check`, both clippy runs, fmt and `cargo deny` clean; `--version --json` lists no
+  feature.
+- Mutation (`cargo mutants` over `git diff 768b9a2`, in a 2 GB scope, `-j 2`): the installer's 431 mutants (61
+  unviable), first with the binary's `install` suite alone, which needed the ring a test target of its own
+  (`crates/install/tests/install.rs`, `c90572e`): 311 caught, 59 missed; with the ring's unit tests too, 44 missed. The
+  tests they asked for (`4550357`): unit tests of `kind`, `Reading::note`, `data`, `render` and of three side effects;
+  integration tests of a tree with no change (a submodule's entry among the files, a staged change, a repository with
+  no commit), the 1 MiB bound for a root file and for the `--key` file, an include of a private folder not yet made,
+  the plan's items each in the case that tells it, and an entry file through a filter only in the tree or only in the
+  index. Then 369 caught and one equivalent: `files.rs` `b < e` as `b <= e`, since no line is both markers. The core
+  and the binary, 61 mutants: 55 caught, 5 unviable, and one missed, the extension's inner context's `writes: true`,
+  which nothing reads (only the command's own context words an error): the field was dropped (`4550357`), the core
+  then 11,795 lines (+163).
+- Verified again, clean clone of `4550357`: 691 tests; the crash suite over F-1, `faults` 39 and `crash` 3 green; musl
+  release build, `budget check` (core 11,795 of 12,500; install 972 of 1,200; binary 3,543,432 bytes; 5 direct
+  runtime crates; 31 in the release build), both clippy runs, fmt and `cargo deny` clean; `--version --json` lists no
+  feature. Codex's narrow pass is to cover `4550357` too: its prompt's scope is `6d36c4a..HEAD`, its clone brought to
+  the closing commit first.
+- No credential of the person's was read; every assessment ran in fixtures with their own home and private folder.
