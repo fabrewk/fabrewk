@@ -5004,3 +5004,21 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   catalogue's `key-inside`.
 - Sources: chat of session 41; Codex's seventh report of part 10a; D-100 to D-102.
 - Supersedes: none.
+
+## D-104 — Part 10a: a narrow final pass of Codex
+
+- Status: decided
+- Decided: 2026-11-16
+- Origin: maintainer XEL in session 41's chat, after Codex's eighteenth pass of part 10a (P10A-66 to P10A-68; two
+  consecutive retries without progress, confirmed blocking 1, 1, 3 over the last three passes, so the integrator gave
+  alternatives as the plan's rule for every phase asks), choosing "Pasada estrecha final (Recomendado)".
+- Decision: the integrator corrects P10A-66 to P10A-68, and Codex's next pass is narrow, as D-084 and D-088 had it:
+  it confirms each finding P10A-1 to P10A-68 closed, declared or decided, and looks for new findings only within the
+  corrections of that last round (`git diff 6d36c4a..HEAD`). On its `accept` the part closes with the clean clone,
+  the mutation run and the record.
+- Reason: the plan's rule for every phase; eighteen passes in which each full pass found the next edge case of the
+  same reading (Git's state and the file names it gives), every one corrected. The alternatives offered: full passes
+  until an accept; pausing the part.
+- Consequences: Codex's nineteenth prompt; R-050.
+- Sources: chat of session 41; Codex's eighteenth report of part 10a; D-084, D-088.
+- Supersedes: none.

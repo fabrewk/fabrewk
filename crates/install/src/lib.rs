@@ -85,6 +85,8 @@ fn kind(base: &Path, rel: impl AsRef<Path>) -> &'static str {
 #[derive(Default)]
 struct Reading {
     inputs: BTreeMap<String, Value>,
+    /// The person's home, where alone a link to a regular file is read (P10A-66).
+    home: Option<PathBuf>,
 }
 
 impl Reading {
@@ -98,7 +100,7 @@ impl Reading {
         if private(&path) {
             entry["kind"] = "private".into();
         }
-        let followed = shown.starts_with("~/") && std::fs::metadata(&path).is_ok_and(|m| m.is_file());
+        let followed = self.home.as_deref() == Some(base) && std::fs::metadata(&path).is_ok_and(|m| m.is_file());
         let mut out = None;
         if entry["kind"] == "file" || (entry["kind"] == "link" && followed) {
             match std::fs::metadata(&path).map(|m| m.len()) {
@@ -401,13 +403,16 @@ fn line(bytes: Vec<u8>) -> String {
 /// What `.brewstillery/data/` holds: whether an event (a file under `events/` that is neither a signature nor a
 /// record's temporary file), and whether anything but directories, signatures and such temporary files, which is what
 /// a killed `apply` leaves before its first event (P10O-10).
-fn data(dir: &Path, events: bool) -> (bool, bool) {
+fn data(dir: &Path, events: bool) -> Result<(bool, bool), Error> {
     let mut out = (false, false);
-    for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+    // A directory that cannot be read is no proof of leftovers alone: it is an error (P10A-67).
+    let io = |e| Error::Io { path: dir.to_path_buf(), error: e };
+    for entry in std::fs::read_dir(dir).map_err(io)? {
+        let entry = entry.map_err(io)?;
         let (path, name) = (entry.path(), entry.file_name().to_string_lossy().into_owned());
         // No link is followed, nor is one an event (P10A-2).
         let inner = match entry.file_type() {
-            Ok(t) if t.is_dir() => data(&path, events || (dir.ends_with("data") && name == "events")),
+            Ok(t) if t.is_dir() => data(&path, events || (dir.ends_with("data") && name == "events"))?,
             Ok(t) if t.is_file() => {
                 let leftover = name.ends_with(".sig") || (name.starts_with('.') && name.ends_with(".tmp"));
                 (!leftover && events, !leftover)
@@ -416,29 +421,25 @@ fn data(dir: &Path, events: bool) -> (bool, bool) {
         };
         out = (out.0 || inner.0, out.1 || inner.1);
     }
-    out
+    Ok(out)
 }
 
 /// The domain's top entries `assess` reads (point 3): all but `local/`, and but a `data/` that holds only what a killed
 /// `apply` leaves; none when the domain is not a directory. Gives them, and whether the record holds an event.
-fn domain(root: &Path) -> (Vec<std::ffi::OsString>, bool) {
+fn domain(root: &Path) -> Result<(Vec<std::ffi::OsString>, bool), Error> {
     let dir = root.join(DOMAIN);
     if kind(root, DOMAIN) != "directory" {
-        return (Vec::new(), false);
+        return Ok((Vec::new(), false));
     }
     let (event, other) = match kind(root, format!("{DOMAIN}/data")) {
-        "directory" => data(&dir.join("data"), false),
+        "directory" => data(&dir.join("data"), false)?,
         k => (false, k != "absent"),
     };
-    let mut names: Vec<std::ffi::OsString> = std::fs::read_dir(&dir)
-        .into_iter()
-        .flatten()
-        .flatten()
-        .map(|e| e.file_name())
-        .filter(|n| n != "local" && (n != "data" || other))
-        .collect();
+    let entries = std::fs::read_dir(&dir).map_err(|e| Error::Io { path: dir.clone(), error: e })?;
+    let mut names: Vec<std::ffi::OsString> =
+        entries.flatten().map(|e| e.file_name()).filter(|n| n != "local" && (n != "data" || other)).collect();
     names.sort();
-    (names, event)
+    Ok((names, event))
 }
 
 /// The answers, as the plan holds them: each option given, the defaults of `--mode` and `--lang`, the tools sorted.
@@ -529,7 +530,7 @@ fn assessed(asked: &Asked) -> Result<(Value, String), Error> {
     }
     let (gitdir, global) = person(root)?;
     let g = Git::new(root, (gitdir, global.clone()))?;
-    let mut r = Reading::default();
+    let mut r = Reading { home: home.map(Path::to_path_buf), ..Reading::default() };
     let mut reasons = Vec::new();
     // Git's state.
     let branch = match g.run(&["symbolic-ref", "-q", "HEAD"])? {
@@ -568,7 +569,7 @@ fn assessed(asked: &Asked) -> Result<(Value, String), Error> {
         .map(|c| String::from_utf8_lossy(c[0]).into_owned())
         .collect();
     // The root's entries and the domain's, by name and kind.
-    let (domain_names, record) = domain(root);
+    let (domain_names, record) = domain(root)?;
     let domain_absent = kind(root, DOMAIN) == "directory" && domain_names.is_empty();
     let mut licence = false;
     for entry in std::fs::read_dir(root).map_err(|e| Error::Io { path: root.to_path_buf(), error: e })?.flatten() {

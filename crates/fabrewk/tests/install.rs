@@ -1560,3 +1560,45 @@ fn p10a_64_p10a_65_a_head_that_names_no_branch_and_a_project_of_any_name() {
     let doc = at.assess(&[]);
     assert!(content(&doc, ".brewstillery/ALAMBIQUE.md").starts_with("# product-\\xfe\n"));
 }
+
+#[test]
+fn p10a_66_to_p10a_68_a_tilde_directory_an_unreadable_record_and_a_name_of_lines() {
+    // A directory named `~` in the repository is no home: a link there is not read (P10A-66).
+    let fx = product("p10a-66");
+    let tilde = fx.root.join("~/metadata");
+    std::fs::create_dir_all(fx.root.join("~")).unwrap();
+    std::fs::rename(fx.root.join(".git"), &tilde).unwrap();
+    std::fs::write(fx.root.join(".git"), "gitdir: ~/metadata\n").unwrap();
+    let outside = fx.root.parent().unwrap().join("outside");
+    std::fs::write(&outside, "EXTERNAL\n").unwrap();
+    std::fs::remove_file(tilde.join("info/exclude")).unwrap();
+    std::os::unix::fs::symlink(&outside, tilde.join("info/exclude")).unwrap();
+    let doc = fx.assess(&["--publication", "unpublished"]);
+    let input =
+        doc["plan"]["inputs"].as_array().unwrap().iter().find(|i| i["path"] == "~/metadata/info/exclude").cloned();
+    assert_eq!(input.unwrap().get("digest"), None, "{doc}");
+    // A record that cannot be read is no absent one (P10A-67).
+    let fx = product("p10a-67");
+    std::fs::create_dir_all(fx.domain.join("data/events/project")).unwrap();
+    std::fs::write(fx.domain.join("data/events/project/000001.json"), "{}").unwrap();
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::set_permissions(fx.domain.join("data/events/project"), std::fs::Permissions::from_mode(0o000)).unwrap();
+    let out = fx.run(&["assess", "--json", "--alias", "ana", "--key", &fx.key(), "--publication", "published"]);
+    std::fs::set_permissions(fx.domain.join("data/events/project"), std::fs::Permissions::from_mode(0o755)).unwrap();
+    assert_ne!(out.status, 0, "{out:?}");
+    assert!(!out.stdout.contains("fabrewk apply"));
+    // A directory's name of several lines is one title line, and the sections stay the alambique's (P10A-68).
+    let fx = product("p10a-68");
+    let moved = fx.root.parent().unwrap().join("product\n```\n## 1. Injected");
+    std::fs::rename(&fx.root, &moved).unwrap();
+    let at = Fx {
+        domain: moved.join(".brewstillery"),
+        root: moved.clone(),
+        home: fx.home.clone(),
+        keys: fx.keys.clone(),
+        path: None,
+    };
+    let alambique = content(&at.assess(&[]), ".brewstillery/ALAMBIQUE.md");
+    assert!(alambique.starts_with("# product\\u{a}```\\u{a}## 1. Injected\n"), "{alambique}");
+    assert_eq!(alambique.matches("\n## 1. ").count(), 1);
+}

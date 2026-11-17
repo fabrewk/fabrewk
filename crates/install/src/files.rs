@@ -68,7 +68,11 @@ pub fn fermento(alias: &str, lang: &str) -> String {
 /// holding the answer exactly as given, or the catalogue's placeholder line when it is empty.
 pub fn alambique(name: &str, lang: &str, answers: [Option<&str>; 3]) -> String {
     let t = |k: &str| say(lang, &format!("skeleton.{k}"), &[]);
-    let mut out = format!("# {name}\n\n{}\n", t("opening").trim_end());
+    // The title stays one line: a control character of the name, a line break among them, is written `\u{…}`, so that
+    // no name opens a fence or a section of its own (P10A-68).
+    let title: String =
+        name.chars().map(|c| if c.is_control() { format!("\\u{{{:x}}}", c as u32) } else { c.to_string() }).collect();
+    let mut out = format!("# {title}\n\n{}\n", t("opening").trim_end());
     for (n, (section, answer)) in ["purpose", "audience", "excluded"].iter().zip(answers).enumerate() {
         let answer = answer.filter(|a| !a.is_empty()).map_or_else(|| t("empty"), str::to_owned);
         out += &format!("\n## {}. {}\n\n{answer}\n", n + 1, t(section));
