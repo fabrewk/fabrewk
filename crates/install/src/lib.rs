@@ -916,3 +916,130 @@ fn shell_line(lang: &str, v: &Value, text: &str) -> String {
     let command = v["command"].as_str().unwrap_or(text);
     format!("{label}  {command}\n")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// An empty directory of its own for each test.
+    fn dir(name: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("fabrewk-install-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    #[test]
+    fn an_entry_is_told_by_its_kind_no_link_followed() {
+        use std::os::unix::fs::PermissionsExt;
+        let d = dir("kind");
+        std::fs::write(d.join("f"), "x").unwrap();
+        std::fs::create_dir(d.join("sub")).unwrap();
+        std::fs::create_dir(d.join("shut")).unwrap();
+        std::os::unix::fs::symlink(d.join("sub"), d.join("l")).unwrap();
+        let _socket = std::os::unix::net::UnixListener::bind(d.join("s")).unwrap();
+        std::fs::set_permissions(d.join("shut"), std::fs::Permissions::from_mode(0o000)).unwrap();
+        let found: Vec<_> =
+            ["f", "sub", "l", "l/x", "s", "none", "f/x", "none/x", "shut/x"].map(|p| kind(&d, p)).into();
+        std::fs::set_permissions(d.join("shut"), std::fs::Permissions::from_mode(0o755)).unwrap();
+        let expected = ["file", "directory", "link", "link", "other", "absent", "absent", "absent", "unreadable"];
+        assert_eq!(found, expected);
+    }
+
+    #[test]
+    fn a_file_of_exactly_1_mib_is_noted_without_its_size_and_a_larger_one_with_it() {
+        let d = dir("note");
+        std::fs::write(d.join("a"), vec![b'a'; MIB as usize]).unwrap();
+        std::fs::write(d.join("b"), vec![b'b'; MIB as usize + 1]).unwrap();
+        let mut r = Reading::default();
+        assert_eq!((r.note(&d, "a", "a"), r.note(&d, "b", "b")), ("file", "file"));
+        assert_eq!(r.inputs["a"], json!({"path": "a", "kind": "file"}));
+        assert_eq!(r.inputs["b"], json!({"path": "b", "kind": "file", "bytes": MIB + 1}));
+    }
+
+    #[test]
+    fn the_record_s_directory_tells_an_event_from_what_a_killed_apply_leaves() {
+        let d = dir("data");
+        let top = d.join("data");
+        let tell = |files: &[&str]| {
+            let _ = std::fs::remove_dir_all(&top);
+            std::fs::create_dir_all(top.join("events")).unwrap();
+            for f in files {
+                let path = top.join(f);
+                std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+                std::fs::write(path, "x").unwrap();
+            }
+            data(&top, false).unwrap()
+        };
+        assert_eq!(tell(&[]), (false, false));
+        assert_eq!(tell(&["events/p/a.sig", "events/p/.a.tmp"]), (false, false));
+        assert_eq!(tell(&["events/p/.a.tmp", "events/p/a.json", "events/p/b.sig"]), (true, true));
+        // A temporary file is one a write leaves, its name starting with a dot.
+        assert_eq!(tell(&["events/p/a.tmp"]), (true, true));
+        // Outside `events/`, a file is a leftover and no event.
+        assert_eq!(tell(&["other/a.json"]), (false, true));
+        assert_eq!(tell(&["other/events/a.json"]), (false, true));
+        std::os::unix::fs::symlink(&d, top.join("events/link")).unwrap();
+        assert_eq!(data(&top, false).unwrap(), (false, true));
+    }
+
+    #[test]
+    fn the_plan_reads_as_its_reasons_files_steps_and_whether_it_can_be_applied() {
+        let plan = json!({
+            "verdict": "none",
+            "reasons": [
+                {"reason": "no-licence", "blocks": false},
+                {"reason": "not-a-file", "blocks": true, "path": "AGENTS.md"},
+            ],
+            "incomplete": [],
+            "effects": [],
+            "files": [
+                {"path": "a.md", "action": "create", "content": "one\ntwo\n"},
+                {"path": "AGENTS.md", "action": "block", "lines": "begin\nend\n", "present": false},
+                {"path": "b.md", "action": "keep", "content": "never shown\n"},
+            ],
+            "next": [],
+        });
+        let t = |k: &str, p: &[(&str, &str)]| say("en", &format!("assess.{k}"), p);
+        let text = render("en", &plan, "abc", &[]);
+        let blocks = format!(" ({})", t("blocks", &[]));
+        assert!(text.contains(&format!("  - {}\n", t("reason.no-licence", &[("path", ""), ("detail", "")]))));
+        assert!(
+            text.contains(&format!("{}{blocks}\n", t("reason.not-a-file", &[("path", "AGENTS.md"), ("detail", "")])))
+        );
+        assert_eq!(text.matches(&blocks).count(), 1, "{text}");
+        assert!(text.contains("      one\n      two\n") && text.contains("      begin\n      end\n"), "{text}");
+        assert!(!text.contains("never shown"), "{text}");
+        for (absent, key) in
+            [("effects", "assess.effects"), ("next", "ui.next-steps"), ("reasons", "assess.no-reasons")]
+        {
+            assert!(!text.contains(&say("en", key, &[])), "{absent}: {text}");
+        }
+        assert!(text.ends_with(&format!("{}\n", t("cannot-none", &[]))), "{text}");
+        // A plan that writes nothing has no heading for it.
+        let mut empty = plan.clone();
+        empty["files"] = json!([]);
+        assert!(!render("en", &empty, "abc", &[]).contains(&t("files", &[])));
+        assert!(text.contains(&t("files", &[])), "{text}");
+        // With effects, next steps and no reason, each has its heading.
+        let mut more = plan.clone();
+        more["verdict"] = "review".into();
+        more["reasons"] = json!([]);
+        more["effects"] = json!([{"file": "f", "key": "hooks", "kind": "hooks", "count": 2}]);
+        more["next"] = json!([{"text": "do it"}]);
+        let text = render("en", &more, "abc", &[]);
+        for key in ["assess.effects", "ui.next-steps", "assess.no-reasons"] {
+            assert!(text.contains(&say("en", key, &[])), "{key}: {text}");
+        }
+        assert!(text.contains("  do it\n") && text.contains("  f hooks: ") && text.contains(" (2)\n"), "{text}");
+        assert!(text.ends_with(&format!("{}\n", t("cannot-review", &[]))), "{text}");
+        // A plan that can be applied ends with its command.
+        more["verdict"] = "adopt".into();
+        let text = render("en", &more, "abc", &[json!({"shell": "any", "command": "fabrewk apply abc"})]);
+        assert!(text.ends_with(&format!("{}\n  fabrewk apply abc\n", t("apply", &[]))), "{text}");
+        more["incomplete"] = json!(["key"]);
+        let text = render("en", &more, "abc", &[]);
+        assert!(text.contains(&t("incomplete", &[("names", "--key")])), "{text}");
+        assert!(text.ends_with(&format!("{}\n", t("cannot-incomplete", &[]))), "{text}");
+    }
+}

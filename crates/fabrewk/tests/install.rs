@@ -1602,3 +1602,123 @@ fn p10a_66_to_p10a_68_a_tilde_directory_an_unreadable_record_and_a_name_of_lines
     assert!(alambique.starts_with("# product\\u{a}```\\u{a}## 1. Injected\n"), "{alambique}");
     assert_eq!(alambique.matches("\n## 1. ").count(), 1);
 }
+
+/// The plan's inputs, by path.
+fn input(doc: &Value, path: &str) -> Option<Value> {
+    doc["plan"]["inputs"].as_array().unwrap().iter().find(|i| i["path"] == path).cloned()
+}
+
+/// What the mutation of part 10a found unproven: a tree with no change has none to tell, whatever its entries; a
+/// change only staged, or of a file before the first commit, is one.
+#[test]
+fn req_ins_2_a_tree_with_no_change_tells_none() {
+    let changes = |fx: &Fx| reasons(&fx.assess(&[])).iter().any(|r| r.0 == "changes");
+    let fx = product("ins-2-clean");
+    assert!(!changes(&fx), "{}", fx.assess(&[]));
+    // A submodule's entry, after a file's in the index, is no change (it has no file to compare).
+    let head = fx.git(&["rev-parse", "HEAD"]);
+    std::fs::create_dir(fx.root.join("zsub")).unwrap();
+    fx.git(&["update-index", "--add", "--cacheinfo", &format!("160000,{head},zsub")]);
+    fx.git(&["commit", "-q", "-m", "submodule"]);
+    assert!(!changes(&fx), "{}", fx.assess(&[]));
+    // A change staged with the file's size and time kept is one.
+    std::fs::write(fx.root.join("README.md"), "PRODUCT\n").unwrap();
+    fx.git(&["add", "README.md"]);
+    fx.git(&["update-index", "--refresh"]);
+    assert!(changes(&fx));
+    // Before the first commit, a file staged is a change, and nothing staged is none.
+    let base = tmp("ins-2-unborn-changes");
+    let (root, home, keys) = (base.join("fresh"), base.join("home"), base.join("keys"));
+    for d in [&root, &home, &keys] {
+        std::fs::create_dir_all(d).unwrap();
+    }
+    let fresh = Fx { domain: root.join(".brewstillery"), root, home, keys, path: None };
+    fresh.program(
+        "ssh-keygen",
+        &["-q", "-t", "ed25519", "-N", "", "-C", "ana", "-f", fresh.keys.join("ana").to_str().unwrap()],
+    );
+    fresh.git(&["init", "-q", "-b", "main"]);
+    assert!(!changes(&fresh));
+    std::fs::write(fresh.root.join("README.md"), "x\n").unwrap();
+    fresh.git(&["add", "README.md"]);
+    assert!(changes(&fresh));
+}
+
+/// Sizes at the 1 MiB bound: a file of exactly 1 MiB is read; one byte more is not.
+#[test]
+fn req_ins_1_a_file_of_exactly_1_mib_is_read_and_one_byte_more_is_not() {
+    let fx = product("ins-1-mib");
+    std::fs::write(fx.root.join("LICENSE"), vec![b'x'; 1 << 20]).unwrap();
+    let doc = fx.assess(&[]);
+    let licence = input(&doc, "LICENSE").unwrap();
+    assert!(licence.get("digest").is_some() && licence.get("bytes").is_none(), "{licence}");
+    std::fs::write(fx.root.join("LICENSE"), vec![b'x'; (1 << 20) + 1]).unwrap();
+    let licence = input(&fx.assess(&[]), "LICENSE").unwrap();
+    assert!(licence.get("digest").is_none() && licence["bytes"] == (1 << 20) + 1, "{licence}");
+    // The `--key` file: up to 1 MiB it is read, and more is too large.
+    let key = fx.keys.join("big.pub");
+    for (size, why) in [(1 << 20, "key-not-public"), ((1 << 20) + 1, "key-too-large")] {
+        std::fs::write(&key, vec![b'x'; size]).unwrap();
+        let args = ["assess", "--json", "--alias", "ana", "--key", key.to_str().unwrap(), "--publication", "published"];
+        let doc = fx.run(&args).doc();
+        assert!(reasons(&doc).contains(&(why.into(), false, String::new())), "{size}: {doc}");
+    }
+}
+
+/// An include that names a file of a private folder that does not exist yet is refused all the same.
+#[test]
+fn p10a_9_an_include_of_a_private_folder_not_yet_made_is_refused() {
+    let fx = product("p10a-9-unmade");
+    let none = fx.home.join(".config/fabrewk/none");
+    fx.git(&["config", "include.path", none.to_str().unwrap()]);
+    refused(&fx, &["assess"], "PRIVATE_FOLDER_INCLUDED", 1, "en");
+}
+
+/// The plan's items each in the case that tells them apart.
+#[test]
+fn req_ins_2_each_item_of_the_plan_in_the_case_that_tells_it() {
+    let fx = product("ins-2-items");
+    // A reason that informs leaves the plan applicable.
+    std::fs::remove_file(fx.root.join("LICENSE")).unwrap();
+    fx.commit("no licence");
+    let doc = fx.assess(&[]);
+    assert!(reasons(&doc).contains(&("no-licence".into(), false, String::new())), "{doc}");
+    assert_ne!(doc["apply"], serde_json::json!([]), "{doc}");
+    // Git's signing key naming another file is not the maestro's.
+    fx.git(&["config", "gpg.format", "ssh"]);
+    fx.git(&["config", "user.signingkey", fx.root.join("README.md").to_str().unwrap()]);
+    let doc = fx.assess(&[]);
+    assert_eq!(doc["plan"]["git"]["signs"], false, "{doc}");
+    let next: Vec<&str> =
+        doc["plan"]["next"].as_array().unwrap().iter().filter_map(|n| n["command"].as_str()).collect();
+    assert_eq!(next, [format!("git config user.signingkey '{}'", fx.key())], "{doc}");
+    // In `own-repository`, only the domain's repository names a branch; a view names none.
+    let doc = fx.assess(&["--publication", "own-repository"]);
+    let files = doc["plan"]["files"].as_array().unwrap();
+    let views: Vec<&Value> = files.iter().filter(|f| f["action"] == "view").collect();
+    assert!(!views.is_empty() && views.iter().all(|f| f.get("branch").is_none()), "{doc}");
+    // A domain that is a file is an entry of the root; an alambique that is a directory is no file to keep.
+    std::fs::write(fx.root.join(".brewstillery"), "x\n").unwrap();
+    assert_eq!(input(&fx.assess(&[]), ".brewstillery").unwrap()["kind"], "file");
+    std::fs::remove_file(fx.root.join(".brewstillery")).unwrap();
+    std::fs::create_dir_all(fx.domain.join("ALAMBIQUE.md")).unwrap();
+    let doc = fx.assess(&[]);
+    assert_eq!(input(&doc, ".brewstillery").unwrap()["kind"], "directory", "{doc}");
+    assert!(reasons(&doc).contains(&("not-a-file".into(), true, ".brewstillery/ALAMBIQUE.md".into())), "{doc}");
+    assert!(files.iter().any(|f| f["path"] == ".brewstillery/ALAMBIQUE.md"));
+    assert!(doc["plan"]["files"].as_array().unwrap().iter().all(|f| f["path"] != ".brewstillery/ALAMBIQUE.md"));
+}
+
+/// An entry file Git has not yet seen, through a filter, blocks as one there is.
+#[test]
+fn p10a_37_an_entry_file_only_in_the_tree_through_a_filter_blocks() {
+    let fx = product("p10a-37-untracked");
+    std::fs::write(fx.root.join(".gitattributes"), "*.md filter=probe\n").unwrap();
+    fx.commit("attributes");
+    std::fs::write(fx.root.join("AGENTS.md"), "a\n").unwrap();
+    assert!(reasons(&fx.assess(&[])).contains(&("filtered".into(), true, "AGENTS.md".into())));
+    // Only in the index, neither in the tree nor in `HEAD`, it is there too.
+    fx.git(&["add", "AGENTS.md"]);
+    std::fs::remove_file(fx.root.join("AGENTS.md")).unwrap();
+    assert!(reasons(&fx.assess(&[])).contains(&("filtered".into(), true, "AGENTS.md".into())));
+}

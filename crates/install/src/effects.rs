@@ -219,6 +219,17 @@ mod tests {
             "approval_policy": "on-request", "enableAllProjectMcpServers": false}"#;
         assert_eq!(kinds("f", quiet, false), vec![]);
         assert_eq!(kinds("f", "sandbox_mode = \"workspace-write\"\n", true), vec![]);
+        // A word `commit` with no `git` before it, and words of a list that are not all strings, are no command.
+        let quiet = r#"{"hooks": {"Stop": [{"command": "echo commit; echo push"}]}, "notify": ["git", 1, "commit"]}"#;
+        assert!(kinds("f", quiet, false).iter().all(|k| k.1 != "commits"), "{:?}", kinds("f", quiet, false));
+    }
+
+    #[test]
+    fn every_rule_reads_every_file_a_toml_boolean_too() {
+        assert_eq!(
+            kinds("f", "[sandbox]\nenabled = false\n", true),
+            vec![("sandbox.enabled".to_owned(), "sandbox".to_owned(), Value::Null)]
+        );
         for (text, toml) in [("{", false), ("{\"a\": 1, \"a\": 2}", false), ("= x", true), ("\u{0}", false)] {
             assert_eq!(kinds("f", text, toml), vec![(String::new(), "unparsed".to_owned(), Value::Null)], "{text}");
         }
