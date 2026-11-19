@@ -85,22 +85,21 @@ fn kind(base: &Path, rel: impl AsRef<Path>) -> &'static str {
 #[derive(Default)]
 struct Reading {
     inputs: BTreeMap<String, Value>,
-    /// The person's home, where alone a link to a regular file is read (P10A-66).
-    home: Option<PathBuf>,
 }
 
 impl Reading {
     /// Records `rel` under `base`, shown as `shown`, by kind, and gives a regular file's bytes, read when it holds at
     /// most 1 MiB; a larger one is recorded by its size only. In the repository no link is followed; in the home
-    /// (`shown` as `~/…`), the person's own, a link to a regular file is read, as dotfiles often are links.
-    fn read(&mut self, base: &Path, rel: impl AsRef<Path>, shown: &str) -> Option<Vec<u8>> {
+    /// (`home`, said by the caller, never told from `base` or `shown`: P10A-66, P10A-69), the person's own, a link to
+    /// a regular file is read, as dotfiles often are links.
+    fn read(&mut self, base: &Path, rel: impl AsRef<Path>, shown: &str, home: bool) -> Option<Vec<u8>> {
         let mut entry = json!({"path": shown, "kind": kind(base, &rel)});
         let path = base.join(rel);
         // Never a file of the private folder, by link or not (P10A-31, P10A-42): it is reported as such.
         if private(&path) {
             entry["kind"] = "private".into();
         }
-        let followed = self.home.as_deref() == Some(base) && std::fs::metadata(&path).is_ok_and(|m| m.is_file());
+        let followed = home && std::fs::metadata(&path).is_ok_and(|m| m.is_file());
         let mut out = None;
         if entry["kind"] == "file" || (entry["kind"] == "link" && followed) {
             match std::fs::metadata(&path).map(|m| m.len()) {
@@ -530,7 +529,7 @@ fn assessed(asked: &Asked) -> Result<(Value, String), Error> {
     }
     let (gitdir, global) = person(root)?;
     let g = Git::new(root, (gitdir, global.clone()))?;
-    let mut r = Reading { home: home.map(Path::to_path_buf), ..Reading::default() };
+    let mut r = Reading::default();
     let mut reasons = Vec::new();
     // Git's state.
     let branch = match g.run(&["symbolic-ref", "-q", "HEAD"])? {
@@ -577,7 +576,7 @@ fn assessed(asked: &Asked) -> Result<(Value, String), Error> {
         let (os, name) = (entry.file_name(), shown(&entry.file_name()));
         let upper = name.to_ascii_uppercase();
         if ["LICENSE", "LICENCE", "COPYING"].iter().any(|l| upper.starts_with(l)) || upper == "UNLICENSE" {
-            r.read(root, &os, &name);
+            r.read(root, &os, &name, false);
             licence |= r.inputs[&name]["kind"] == "file";
         }
         if name != DOMAIN || !domain_absent {
@@ -596,7 +595,7 @@ fn assessed(asked: &Asked) -> Result<(Value, String), Error> {
     // The entry files (point 4).
     let mut entries = BTreeMap::new();
     for name in ENTRIES {
-        let bytes = r.read(root, name, name);
+        let bytes = r.read(root, name, name, false);
         let k = r.inputs[name]["kind"].as_str().unwrap_or_default().to_owned();
         let why = match (&bytes, k.as_str()) {
             (_, "absent") => None,
@@ -653,10 +652,10 @@ fn assessed(asked: &Asked) -> Result<(Value, String), Error> {
     let mut effects = Vec::new();
     let sources = SETTINGS
         .iter()
-        .map(|s| (root, *s, s.to_string()))
-        .chain(home.into_iter().flat_map(|h| HOME_SETTINGS.iter().map(move |s| (h, *s, format!("~/{s}")))));
-    for (base, rel, shown) in sources.collect::<Vec<_>>() {
-        if let Some(bytes) = r.read(base, rel, &shown) {
+        .map(|s| (root, *s, s.to_string(), false))
+        .chain(home.into_iter().flat_map(|h| HOME_SETTINGS.iter().map(move |s| (h, *s, format!("~/{s}"), true))));
+    for (base, rel, shown, in_home) in sources.collect::<Vec<_>>() {
+        if let Some(bytes) = r.read(base, rel, &shown, in_home) {
             effects.extend(effects::scan(&shown, &bytes, rel.ends_with(".toml")));
         } else if r.inputs[&shown]["kind"] == "absent" {
             r.inputs.remove(&shown);
@@ -727,7 +726,7 @@ fn assessed(asked: &Asked) -> Result<(Value, String), Error> {
             create.push((format!("{DOMAIN}/{alias}/fermento.md"), Some(files::fermento(alias, lang))));
         }
         let alambique = format!("{DOMAIN}/ALAMBIQUE.md");
-        match r.read(root, &alambique, &alambique) {
+        match r.read(root, &alambique, &alambique, false) {
             Some(bytes) => files.push(json!({"path": alambique, "action": "keep", "digest": sha256_hex(&bytes)})),
             None if r.inputs[&alambique]["kind"] == "absent" => {
                 let answered = [a("purpose"), a("audience"), a("excluded")];
@@ -753,7 +752,7 @@ fn assessed(asked: &Asked) -> Result<(Value, String), Error> {
             }
         }
         for (path, content) in create {
-            r.read(root, &path, &path);
+            r.read(root, &path, &path, false);
             if r.inputs[&path]["kind"] != "absent" {
                 reasons.push(reason("present", true, Some(&path), None));
             }
@@ -787,7 +786,7 @@ fn assessed(asked: &Asked) -> Result<(Value, String), Error> {
             let exclude = dir.join("info/exclude");
             let exclude = shown(exclude.strip_prefix(root).unwrap_or(&exclude).as_os_str());
             let present = r
-                .read(dir, "info/exclude", &exclude)
+                .read(dir, "info/exclude", &exclude, false)
                 .is_some_and(|b| b.split(|c| *c == b'\n').any(|l| l == b"/.brewstillery/"));
             if !matches!(r.inputs[&exclude]["kind"].as_str(), Some("absent" | "file")) {
                 reasons.push(reason("not-a-file", true, Some(&exclude), None));

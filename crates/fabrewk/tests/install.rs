@@ -1562,6 +1562,25 @@ fn p10a_64_p10a_65_a_head_that_names_no_branch_and_a_project_of_any_name() {
 }
 
 #[test]
+fn p10a_69_a_home_that_is_the_repository_makes_none_of_its_links_read() {
+    let fx = product("p10a-69");
+    let outside = fx.root.parent().unwrap().join("outside");
+    std::fs::write(&outside, "EXTERNAL MATERIAL\n").unwrap();
+    std::fs::remove_file(fx.root.join("LICENSE")).unwrap();
+    std::os::unix::fs::symlink(&outside, fx.root.join("LICENSE")).unwrap();
+    let at = Fx {
+        home: fx.root.clone(),
+        domain: fx.domain.clone(),
+        root: fx.root.clone(),
+        keys: fx.keys.clone(),
+        path: None,
+    };
+    let doc = at.assess(&["--publication", "unpublished"]);
+    let input = doc["plan"]["inputs"].as_array().unwrap().iter().find(|i| i["path"] == "LICENSE").cloned().unwrap();
+    assert_eq!((input["kind"].as_str(), input.get("digest")), (Some("link"), None), "{doc}");
+}
+
+#[test]
 fn p10a_66_to_p10a_68_a_tilde_directory_an_unreadable_record_and_a_name_of_lines() {
     // A directory named `~` in the repository is no home: a link there is not read (P10A-66).
     let fx = product("p10a-66");
