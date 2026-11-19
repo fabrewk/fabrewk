@@ -5106,3 +5106,44 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   feature. Codex's narrow pass is to cover `4550357` too: its prompt's scope is `6d36c4a..HEAD`, its clone brought to
   the closing commit first.
 - No credential of the person's was read; every assessment ran in fixtures with their own home and private folder.
+
+## R-051 — Session 42, part 10a's closing: Codex's narrow final passes
+
+- Status: recorded
+- Date: 2026-11-19
+- Who: integrator Claude Code, `claude-opus-5-5`; reviewer Codex (`codex-cli 0.166.0`, `gpt-6.1-sol`, effort high,
+  `codex exec -s workspace-write` in a scope of 3 GB, from `target/review-10a/`, its clone brought to each commit
+  reviewed, with no network).
+- Start: HEAD `32b0002`, tree clean.
+- Read: `STATUS.md`, `AGENTS.md`, this file (D-104, R-050), `plan.md` (row 10, "Phase 10"); the skills `codex-review`
+  and `verify-part`; Codex's nineteenth prompt; `crates/install/src/lib.rs` (`Reading` and its callers) and
+  `crates/fabrewk/tests/install.rs` (P10A-66's test and the fixture). No credential of the person's was read.
+- Codex's passes, narrow as D-104 fixes them:
+  19. `32b0002` (the earlier attempt, cut by the usage limit, kept as `pass-19-cut` and not counted): reject, 1
+      confirmed blocking (P10A-69). P10A-1 to P10A-68 each confirmed closed, declared or decided, with Codex's own
+      reproductions. P10A-69: with `HOME` the repository's root, or its Git directory, a link of the repository (a
+      `LICENSE` leading outside it; `info/exclude`) was read and its digest put in the plan, since P10A-66's
+      correction told a home source by its base being the home. Checked against the code before its correction:
+      `Reading::read` compared `base` with the home. Corrected (`7d5839c`): each caller says whether its source is
+      the home's, and only the home's settings sources say so; the field `Reading::home` dropped. Its test,
+      `p10a_69_a_home_that_is_the_repository_makes_none_of_its_links_read`, failed on `32b0002` (the digest of the
+      link's target in the input) and passes.
+  20. `7d5839c`, over `32b0002..7d5839c`: accept, no finding. P10A-69 closed in both of its cases; Codex probed 27
+      scenarios: both home settings sources through a link to a file and to a directory, a private, an oversized and
+      a broken target, a path that is both a repository and a home source, the digest repeated, the fixtures unchanged.
+- Mutation over `32b0002..7d5839c` (`cargo mutants --package fabrewk-install --test-package fabrewk-install
+  --test-package fabrewk`, in a 2 GB scope, `ulimit -v 1600000`, `-j 1 --jobserver-tasks 2 --timeout 400`): 9 mutants,
+  9 caught by the binary's `install` suite, none missed, no timeout, no new equivalent. The part's one declared
+  equivalent stays R-050's (`files.rs` `b < e` as `b <= e`).
+- Verified (`verify-part`), clean clone of `7d5839c`, every step in a user scope of 2 GB with two build jobs: 692
+  tests passed, 11 ignored; the crash suite over F-1 (1), `faults` 39 and `crash` 3 green; musl release build,
+  `budget check` (the core 11,795 of 12,500; the installer 971 of 1,200; the backend 318 of 400; Claude Code's adapter
+  269 of 600; Codex's 319 of 600; 5 direct runtime crates; 31 in the release build; the binary 3,543,432 bytes), both
+  clippy runs, fmt and `cargo deny` clean; `--version --json` lists no feature. No idle `pasta` before or after.
+- Measured: the installer −1 line; 229 remain for parts 10b and 10c, R-050's figure for the maestro to weigh still
+  standing.
+- Part 10a is closed: REQ-INS-1's and REQ-INS-2's criteria, the three verdicts, `NOT_A_REPOSITORY`, `ALIAS_INVALID`,
+  the first alambique's text in the plan and the `apply` command for fish and a POSIX shell, by the tests of R-050
+  and this entry. Twenty passes, confirmed blocking 5, 5, 4, 8, 3, 3, 4, 2, 3, 2, 3, 2, 2, 1, 2, 1, 1, 3, 1, 0. Every
+  finding was checked against the code before its correction, and all were confirmed. The review directory, the
+  clean clone and the mutation's output were removed after this entry.

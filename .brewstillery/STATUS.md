@@ -7,7 +7,7 @@ view generated from that registry. Technical files are in English by default (D-
 
 **Phases 0 to 7 are closed (D-037, D-040, D-070). Phase 7 (the first code) was split into parts 7a, 7b, 7c1, 7c2a,
 7c2b, 7d1, 7d2, 7s, 7d3a and 7d3b (D-041, D-047, D-048, D-050, D-053, D-059, D-062), the last the task commands
-(D-068, D-069, R-034); phase 8, the core's part 2, was split into 8a, 8b and 8c (D-072) and all three are closed, and so is the phase (D-077); phase 9 (confinement, the adapters and the run) was cut into parts 9a to 9i (D-075, D-076), all accepted, and it is closed (D-096); phase 10, installation, opened with its cut into parts 10a to 10d, Codex's review of its design and the maestro's approval (D-097, D-098, R-049); part 10a is built and reviewed by Codex eighteen times, and paused before its narrow final pass, Codex's usage limit reached (D-099 to D-104, R-050).** The repository holds the first code at its root: a
+(D-068, D-069, R-034); phase 8, the core's part 2, was split into 8a, 8b and 8c (D-072) and all three are closed, and so is the phase (D-077); phase 9 (confinement, the adapters and the run) was cut into parts 9a to 9i (D-075, D-076), all accepted, and it is closed (D-096); phase 10, installation, opened with its cut into parts 10a to 10d, Codex's review of its design and the maestro's approval (D-097, D-098, R-049); part 10a, `assess` and its plan, is accepted, at Codex's twentieth pass (D-099 to D-104, R-050, R-051).** The repository holds the first code at its root: a
 Cargo workspace with one crate per ring (`crates/core`, `crates/fabrewk`, the binary, which runs the core's command
 surface, `crates/confine-bwrap`, the confinement backend for Linux, `crates/adapter-claude`, Claude Code's adapter, `crates/adapter-codex`, Codex's, and `crates/install`, the installation) and the size counter `tools/budget`, the licence files, `deny.toml` and a root `.gitignore` with `/target`.
 The record is built in `crates/core/src/record/`, the settings in `crates/core/src/settings/`, identity in
@@ -16,7 +16,7 @@ domain's layout in `domain.rs`, the transition table in `table.rs`, the payloads
 credential scan in `scan.rs`, the fermento in `fermento.rs`, the alambique and the rules in `alambique.rs`, the cell's contract and its runner in `confine.rs`, the attempt's copy, its change set and the candidate in `candidate.rs`, the tool adapter's contract in `adapter.rs`, the checks, the identities and the rounds' measure in `gate.rs`, the run in `crates/core/src/cli/run.rs`, the integration in `merge.rs` and `crates/core/src/cli/accept.rs`, the extensions' runner in `crates/core/src/cli/ext.rs`, and the command surface in `crates/core/src/cli/` with its catalogue in
 `crates/core/catalogue/` (`en`, `es`); `fabrewk status`, `fabrewk config`, `fabrewk check` and `fabrewk assess` (the installation's reading, verdict and plan, through the installer's contract in `crates/core/src/install.rs`) read, `fabrewk apply` is declared and answers a usage error until part 10b, and `fabrewk
 adopt`, `fabrewk propose`, `fabrewk authorize`, `fabrewk reject`, `fabrewk sweep`, `fabrewk discard`, `fabrewk approve`, `fabrewk close`, `fabrewk run` (round after round of the builder, the checks and the reviewer, to a verified task or a halt) and `fabrewk accept` (an acceptance and its integration) write, and `fabrewk <name>` runs a permitted extension confined and applies its requests, through one
-write path in `crates/core/src/cli/write.rs`. The skills the maestro approved are in `.brewstillery/skills/`, listed in `AGENTS.md`. The core counts 11,795 of 12,500 lines (D-097), the installer 972 of 1,200, the backend 318 of 400, Claude Code's adapter 269 of 600 and Codex's 319 of 600, formatted at width 120 (D-049, D-054, D-074, D-075). No `data/` exists in this
+write path in `crates/core/src/cli/write.rs`. The skills the maestro approved are in `.brewstillery/skills/`, listed in `AGENTS.md`. The core counts 11,795 of 12,500 lines (D-097), the installer 971 of 1,200, the backend 318 of 400, Claude Code's adapter 269 of 600 and Codex's 319 of 600, formatted at width 120 (D-049, D-054, D-074, D-075). No `data/` exists in this
 repository, whose project file still holds bootstrap keys, so `fabrewk check` here reports them. The domain is
 `.brewstillery/`, hidden (D-032).
 
@@ -516,19 +516,27 @@ repository, is imported into the single registry at production and then stays re
   F-1, `faults` 39 and `crash` 3 green, musl build, `budget check`, clippy, fmt and `cargo deny` clean. Measured: the
   core +163; the installer 972 of 1,200, so 228 lines remain for parts 10b and 10c, against the opening's projection
   of about 950 for the whole module (R-050). No credential of the person's was read.
-- **Next: part 10a's closing.** Once Codex's usage returns (2026-11-18 10:29), run its narrow nineteenth pass as D-104
-  fixes it, with the prompt kept in `target/review-10a/prompt-19.md` (the review directory is kept, its reports
-  `report-1.md` to `report-18.md` beside it), its clone `repo/` first brought to the closing commit
-  (`git -C target/review-10a/repo pull -q --ff-only`): confirm P10A-1 to P10A-68 closed and look for new findings only
-  within `git diff 6d36c4a..HEAD`, which holds the mutation's tests too. On `accept`, close the part: the clean clone
-  again if any code changed, the mutation of what changed, plan row 10a done, R-050's closing, then remove
-  `target/review-10a/`. On a blocking finding in that scope: correct it with its test and run the narrow pass again.
-  Then part 10b, `apply` (plan, "Phase 10").
-- **Start prompt:** `Eres el integrador de Fabrewk; cierre de la parte 10a: la pasada estrecha final de Codex (D-104),
-  y con su accept, el cierre de la parte; empieza por .brewstillery/STATUS.md`. Model and effort: Claude Code on Opus
-  5.5 (`claude-opus-5-5`), effort high; Codex GPT-6.1 Sol, effort high (plan row 10). Read the skills `codex-review`
-  and `verify-part` first. When waiting for Codex, wait on the launching command itself; Codex's prompt asks it not to
-  read `.brewstillery/skills/` and to report each finding as an input, an expected result and an actual one.
+- **Part 10a closed (session 42, R-051).** Codex's narrow passes (D-104): the nineteenth, over `32b0002`, confirmed
+  P10A-1 to P10A-68 closed, declared or decided and found P10A-69 (a home that is the repository's root or its Git
+  directory made a link of the repository read, since P10A-66's correction told a home source by its base); corrected
+  in `7d5839c`, each caller of `Reading::read` saying whether its source is the home's, with its test. The twentieth,
+  over that correction: accept. Mutation of the correction: 9 mutants, all caught. Clean clone of `7d5839c`: 692
+  tests, the crash suite over F-1, `faults` 39 and `crash` 3 green, musl build, `budget check`, clippy, fmt and
+  `cargo deny` clean. The installer 971 of 1,200: 229 lines remain for parts 10b and 10c, against the opening's
+  projection of about 950 for the whole module, a figure the maestro may want to weigh before 10b (R-050; a change of
+  the ceiling is the maestro's). No credential of the person's was read.
+- **Next: part 10b, `apply`** (plan, "Phase 10", row 10b): the reassessment bound by the plan's digest, the files, the
+  five events in point 6's order, the receipt, the entry blocks, the exclude line and the domain's repository, the
+  commit by mode, the interrupted `apply` finished by the same command; F-1 and F-2 from a real `apply`; the refusals
+  `PLAN_CHANGED`, `VERDICT_NONE`, `MODE_NOT_AVAILABLE`, `INSTALLATION_INCOMPLETE`, `AGENT_ENVIRONMENT` and
+  `ROLE_FORBIDDEN` at `apply`, and the crash suite over `apply`. It starts from "Installation, as phase 10's opening
+  fixed it (D-097)" in `core-specification.md`, points 6 and 7, and the amendment of part 10a after point 11.
+- **Start prompt:** `Eres el integrador de Fabrewk; parte 10b: fabrewk apply, la reevaluación ligada al digest del
+  plan, los archivos, los cinco eventos, el recibo y el apply interrumpido; empieza por .brewstillery/STATUS.md`.
+  Model and effort: Claude Code on Opus 5.5 (`claude-opus-5-5`), effort high; Codex GPT-6.1 Sol, effort high (plan row
+  10). Read the skills `verify-part`, `codex-review`, `differential-review` and `sharp-edges` first. When waiting for
+  Codex, wait on the launching command itself; Codex's prompt asks it not to read `.brewstillery/skills/`, to report
+  each finding as an input, an expected result and an actual one, and to write its report in English.
 
 Carried without blocking, with destinations, in D-013. A phase that does not pass is corrected and retried; it
 never ends the project (D-003).
