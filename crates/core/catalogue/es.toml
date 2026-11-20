@@ -82,6 +82,9 @@ summary = "Evalúa este repositorio sin escribir nada: el dictamen con sus razon
 summary = "Un maestro aplica el plan que imprimió assess, con las mismas opciones y sus propias palabras."
 arg = "El digest del plan que imprimió assess."
 
+[command.onboard]
+summary = "Hace en la terminal las preguntas de la instalación, muestra el plan y lo aplica con el sí explícito de la persona y sus propias palabras."
+
 [command.adopt]
 summary = "Un maestro adopta el archivo del proyecto como la política vigente, nombrando cada ampliación que hace."
 
@@ -795,6 +798,11 @@ run = "fabrewk status"
 reason = "Los campos de una etapa o de una tarea no son válidos."
 next = "Corrige el campo indicado."
 
+[code.TERMINAL_REQUIRED]
+reason = "No hay una terminal donde hacer las preguntas, así que onboard no pregunta nada ni escribe nada."
+next = "Córrelo en una terminal, o toma la ruta del agente: assess con las respuestas como opciones, que no escribe nada:"
+run = "fabrewk assess"
+
 [code.TOOL_FAILED]
 reason = "Una herramienta externa falló; lo que imprimió se guarda como evidencia y nunca se muestra aquí."
 next = "Repara lo indicado y corre el comando de nuevo."
@@ -1110,3 +1118,20 @@ Como último recurso, `.brewstillery/` puede tener su propio repositorio (`own-r
 
 La respuesta de los mantenedores se registra con sus propias palabras.
 """
+
+[onboard]
+language = "Idioma de las preguntas"
+mode = "¿Adoptar este repositorio, o solo revisarlo?"
+publication = "¿Los mantenedores publicarán .brewstillery/ con el producto?"
+exits = "¿Lo dejas sin publicar, o tomas una de las salidas?"
+alias = "Tu alias como primer maestro:"
+key = "El archivo de la clave pública con la que firmas:"
+sign = "Git aún no firma con esa clave. Estos comandos lo configuran; Fabrewk no corre ninguno:"
+tools = "Las herramientas a declarar, separadas por espacios; vacío para ninguna"
+purpose = "¿Qué debe lograr el proyecto? (vacío para responder después)"
+audience = "¿Para quién? (vacío para responder después)"
+excluded = "¿Qué deja fuera? (vacío para responder después)"
+confirm = "¿Aplicar este plan? Solo sí lo aplica:"
+yes = "sí si"
+words = "Tus propias palabras, que se registran con la decisión:"
+stopped = "No se aplicó nada."

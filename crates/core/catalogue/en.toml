@@ -93,6 +93,10 @@ about = "The command that applies a plan assess printed"
 summary = "A maestro applies the plan assess printed, with the same options and their own words."
 arg = "The digest of the plan assess printed."
 
+[command.onboard]
+about = "The guided interview of the installation"
+summary = "Asks the installation's questions on the terminal, shows the plan, and applies it on the person's explicit yes and their own words."
+
 [command.adopt]
 about = "The command that adopts the project file as the policy in force"
 summary = "A maestro adopts the project file as the policy in force, naming every widening it makes."
@@ -915,6 +919,12 @@ about = "A stage or task whose fields are not valid"
 reason = "A stage's or a task's fields are not valid."
 next = "Correct the field named."
 
+[code.TERMINAL_REQUIRED]
+about = "An onboard with no terminal to ask on (REQ-INS-4)"
+reason = "There is no terminal to ask the questions on, so onboard asks nothing and writes nothing."
+next = "Run it in a terminal, or take the agent's route: assess with the answers as options, which writes nothing:"
+run = "fabrewk assess"
+
 [code.TOOL_FAILED]
 about = "An external tool failed"
 reason = "An external tool failed; what it printed is kept as evidence, never shown here."
@@ -1260,7 +1270,7 @@ excluded = "What it leaves out"
 empty = "Not answered yet."
 
 [warning]
-about = "The publication warning, shown when the maintainers will not publish .brewstillery/ (drafted by Codex in part 10a; the maestro decides the final text)"
+about = "The publication warning, shown when the maintainers will not publish .brewstillery/ (drafted by Codex in part 10a, made final by the maestro, D-107)"
 title = "Record kept on one computer"
 text = """
 With `unpublished`, the record stays on this computer only.
@@ -1272,3 +1282,21 @@ As a last resort, `.brewstillery/` can have its own repository (`own-repository`
 
 The maintainers' answer is recorded in their own words.
 """
+
+[onboard]
+about = "onboard's interview: the questions it asks on the terminal, and what it says when it applies nothing"
+language = "Language for the questions"
+mode = "Adopt this repository, or only review it?"
+publication = "Will the maintainers publish .brewstillery/ with the product?"
+exits = "Keep it unpublished, or take one of the exits?"
+alias = "Your alias as the first maestro:"
+key = "The file of the public key you sign with:"
+sign = "Git does not sign with that key yet. These commands set it up; Fabrewk runs none of them:"
+tools = "The tools to declare, separated by spaces; empty for none"
+purpose = "What must the project achieve? (empty to answer later)"
+audience = "For whom? (empty to answer later)"
+excluded = "What does it leave out? (empty to answer later)"
+confirm = "Apply this plan? Only yes applies it:"
+yes = "yes"
+words = "Your own words, recorded with the decision:"
+stopped = "Nothing was applied."

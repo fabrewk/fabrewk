@@ -70,11 +70,6 @@ fn req_cli_1_every_command_appears_in_help_completions_and_reference() {
         assert!(fish.contains(&format!("-a {} ", c.name)), "fish: {}", c.name);
         assert!(posix.contains(&format!("        {}) ", c.name)), "posix: {}", c.name);
     }
-    // Only the commands that exist (D-053 point 3): nothing of a later part; `apply` is declared in part 10a, so that
-    // the command `assess` prints exists (D-099), and `onboard` in part 10c.
-    let later = "onboard";
-    assert!(COMMANDS.iter().all(|c| c.name != later), "{later}");
-    assert!(!fish.contains(&format!("-a {later} ")) && !posix.contains(&format!(" {later})")), "{later}");
 }
 
 #[test]
@@ -103,6 +98,7 @@ fn req_cli_1_the_completions_run_in_their_shells() {
         "check",
         "assess",
         "apply",
+        "onboard",
         "adopt",
         "propose",
         "authorize",
@@ -120,6 +116,7 @@ fn req_cli_1_the_completions_run_in_their_shells() {
     assert_eq!(complete("fabrewk authorize --s", 2), ["--seen", "--say", "--say-lang"]);
     assert_eq!(complete("fabrewk adopt --w", 2), ["--widen"]);
     assert_eq!(complete("fabrewk check --", 2), ["--json", "--help"]);
+    assert_eq!(complete("fabrewk onboard --", 2), ["--help"]);
     assert!(complete("fabrewk config limits.", 2).contains(&"limits.rounds".to_owned()));
     // In fish, the file completes the commands.
     let script = format!("source '{}'; complete -C 'fabrewk ch'", fish.display());

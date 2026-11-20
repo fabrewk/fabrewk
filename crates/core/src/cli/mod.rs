@@ -27,7 +27,7 @@ pub use decl::{
     flag_key, help, parse, posix, refusals, synopsis, writes,
 };
 pub(crate) use tasks::verbatim;
-pub use text::{CATALOGUES, get, messages, say};
+pub use text::{CATALOGUES, get, messages, printable, say};
 pub use write::EXTENSION_MARKER;
 
 use crate::adapter::Adapter;
@@ -35,7 +35,7 @@ use crate::code::{Code, Error};
 use crate::confine::Backend;
 use crate::detect::Program;
 use crate::identity::{self, PolicyVerifier};
-use crate::install::{Asked, Installer};
+use crate::install::{Asked, Installer, Interview};
 use crate::record::{Replay, replay};
 use crate::settings::{self, Level, Policy, Val};
 use serde_json::{Value, json};
@@ -299,15 +299,28 @@ pub fn main(args: Vec<OsString>, wired: Wired) -> i32 {
         (parsed, Ok(root)) => {
             // The installation's commands read no record, even to give a usage error (P10A-4, P10A-29).
             let word = args.iter().find(|a| !a.as_encoded_bytes().starts_with(b"-"));
-            let reads = !word.is_some_and(|w| w == "assess" || w == "apply");
+            let reads = !word.is_some_and(|w| ["assess", "apply", "onboard"].iter().any(|c| w == *c));
             let mut cx = Cx { writes, ..Cx::new(root, wired, reads) };
+            let mut parsed = parsed;
+            // `onboard` asks; the person's yes is `apply`, run in this process with their answers (D-097 point 8).
+            let mut asked = None;
+            if let Ok(Parsed::Run { command, arg, options, .. }) = &mut parsed
+                && command.name == "onboard"
+            {
+                asked = Some(onboard(&cx, options));
+                if let (Some(Ok(Some(digest))), Some(apply)) = (&asked, COMMANDS.iter().find(|c| c.name == "apply")) {
+                    (*command, *arg) = (apply, Some(digest.clone()));
+                }
+            }
             // The installation's commands speak the language their answers name (D-097 point 2).
             if let Ok(Parsed::Run { options, .. }) = &parsed {
                 cx.lang = options.answers.get("lang").map_or(cx.lang, |l| catalogue(&l.to_ascii_lowercase()));
             }
-            let result = match (parsed, extension) {
-                (_, Some(name)) => ext::run(&cx, &name, &args[1..]),
-                (parsed, None) => match parsed {
+            let result = match (parsed, extension, asked) {
+                (_, _, Some(Err(errors))) => Err(Failed::Refused(errors)),
+                (_, _, Some(Ok(None))) => Ok(Out::new(Value::Null, String::new())),
+                (_, Some(name), _) => ext::run(&cx, &name, &args[1..]),
+                (parsed, None, _) => match parsed {
                     Err(u) => Err(Failed::Usage(u)),
                     Ok(Parsed::Help(c)) => Ok(Out::new(Value::Null, decl::help(cx.lang, c))),
                     Ok(Parsed::Run { command, arg, options, .. }) => match command.name {
@@ -354,6 +367,23 @@ fn assess(cx: &Cx, command: &'static Command, options: &Options) -> Result<Out, 
     let asked = Asked { root: &cx.root, home: home.as_deref(), options, adapters: cx.adapters };
     let (doc, text) = (cx.installer.assess)(&asked)?;
     Ok(Out::new(doc, text))
+}
+
+/// `onboard` (REQ-INS-4, D-097 point 8): refused inside an agent, and where no terminal can be opened; it opens the
+/// terminal itself, since standard input is the script when the script is piped into `sh`. The installer's interview
+/// then fills `options` and gives the plan's digest on the person's yes.
+fn onboard(cx: &Cx, options: &mut Options) -> Result<Option<String>, Vec<Error>> {
+    write::not_an_agent(cx).map_err(|e| vec![e])?;
+    let path = Path::new("/dev/tty");
+    let tty = std::fs::OpenOptions::new().read(true).write(true).open(path);
+    let why = "/dev/tty cannot be opened: there is no controlling terminal";
+    let tty = tty.map_err(|_| vec![crate::code::refuse(Code::TerminalRequired, None, why)])?;
+    let reader = tty.try_clone().map_err(|e| vec![Error::Io { path: path.into(), error: e }])?;
+    let home = std::env::var_os("HOME").map(PathBuf::from);
+    let (tty_in, mut tty_out) = (&mut std::io::BufReader::new(reader), &tty);
+    let mut i =
+        Interview { root: &cx.root, home: home.as_deref(), adapters: cx.adapters, tty: tty_in, out: &mut tty_out };
+    (cx.installer.interview)(&mut i, options)
 }
 
 /// The tools and the language the installation's answers name, `assess`'s and `apply`'s alike (D-097 point 2).

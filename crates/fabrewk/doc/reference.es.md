@@ -149,6 +149,51 @@ Rechazos
 - `TOOL_FAILED`: Una herramienta externa falló; lo que imprimió se guarda como evidencia y nunca se muestra aquí.
 - `TOOL_MISSING`: Una herramienta que esto necesita no está en este equipo.
 
+## `fabrewk onboard`
+
+Hace en la terminal las preguntas de la instalación, muestra el plan y lo aplica con el sí explícito de la persona y sus propias palabras.
+
+- `--help`: Muestra esta ayuda.
+
+Movimientos que puede causar: `assessed` (repositorio evaluado), `publication-decided` (publicación decidida), `policy-adopted` (política adoptada), `alambique-baseline` (base del alambique), `installed` (instalado).
+
+Documentos con --json: 
+
+Rechazos
+
+- `TERMINAL_REQUIRED`: No hay una terminal donde hacer las preguntas, así que onboard no pregunta nada ni escribe nada.
+- `AGENT_ENVIRONMENT`: Esto corre dentro de un agente o una extensión, cuyos marcadores están en el entorno, y solo una persona hace este movimiento. El control es cooperativo: un proceso puede limpiar su entorno.
+- `NOT_A_REPOSITORY`: Esta no es la raíz del árbol de trabajo principal del repositorio.
+- `ALIAS_INVALID`: Un nombre que no es un alias válido: minúsculas, dígitos y guiones sueltos, empezando con una letra, de 32 caracteres a lo más, y que no sea un nombre reservado.
+- `PRIVATE_FOLDER_INCLUDED`: La configuración de Git nombra un archivo de la carpeta privada de Fabrewk, un include o su archivo de atributos, que Git abriría: assess se detiene antes de ejecutar cualquier otro Git.
+- `PLAN_CHANGED`: El plan que assess da ahora, con estas opciones, no es el nombrado, o cambió un archivo que el plan escribe: aplicarlo escribiría sobre lo que no viste.
+- `ROLE_FORBIDDEN`: La llave que firma este movimiento no tiene en la política ningún rol que pueda hacerlo.
+- `WORDS_COPIED`: Las palabras dadas son el ejemplo que imprime la ayuda, no las tuyas.
+- `DOMAIN_NOT_IGNORED`: El repositorio del producto no ignora .brewstillery/, así que un commit ahí lo publicaría.
+- `RECORD_ABSENT`: Aquí no hay registro.
+- `INSTALLATION_INCOMPLETE`: Aquí empezó un apply que no terminó, así que ningún otro comando puede escribir hasta que termine.
+- `POLICY_ABSENT`: No hay una política adoptada, así que no hay configuración efectiva ni mantenedores.
+- `RECORD_BROKEN`: El registro está roto: sus archivos no forman una sola cadena sin cortes.
+- `RECORD_DIGEST_MISMATCH`: El contenido de un archivo de evento no es el que su nombre registra.
+- `RECORD_NONCANONICAL`: Un archivo de evento no está en forma canónica, así que no se puede confiar en su resumen.
+- `RECORD_FORK`: Dos eventos ocupan el mismo lugar de un flujo: dos clones escribieron ahí.
+- `RECORD_TRANSITION_INVALID`: Un evento está donde la tabla de transiciones no lo permite.
+- `ATTEMPT_ENDED`: El registro termina un intento que no está abierto.
+- `RECORD_SIGNATURE_INVALID`: El evento de una persona no está firmado con la llave y el rol que la política da a quien firma.
+- `RECORD_VERSION_UNKNOWN`: Un evento no es de un esquema que esta versión de Fabrewk conozca.
+- `RECORD_ID_COLLISION`: Dos etapas o dos tareas recibieron el mismo identificador.
+- `RECORD_ROLLBACK`: El registro perdió eventos que tenía antes: un retroceso.
+- `MARK_INVALID`: La marca del registro de este equipo (local/cache/heads.json) está dañada o nombra un evento que el registro no tiene en ese lugar.
+- `CHECK_UNKNOWN`: Una verificación no pudo correr, así que su resultado es desconocido, y un resultado desconocido nunca es un pase.
+- `HEAD_DETACHED`: El head de Git no nombra ninguna rama, así que no hay rama del registro.
+- `PRIVATE_FOLDER_PERMISSIONS`: La carpeta privada da acceso a alguien más que su dueño, así que Fabrewk no la lee.
+- `SETTINGS_INVALID`: Un archivo de ajustes no se lee o no valida.
+- `LOCK_HELD`: Otro comando de Fabrewk tiene el candado del registro de este repositorio, u otra tarea está en ejecución: un escritor y una ejecución a la vez.
+- `RECORD_HEAD_MOVED`: Algo escribió en el registro sin su candado mientras corría este comando; este comando no escribió nada.
+- `RECORD_COMMIT_RACE`: La rama se movió mientras Fabrewk confirmaba el registro; sus eventos están escritos pero no confirmados.
+- `TOOL_FAILED`: Una herramienta externa falló; lo que imprimió se guarda como evidencia y nunca se muestra aquí.
+- `TOOL_MISSING`: Una herramienta que esto necesita no está en este equipo.
+
 ## `fabrewk adopt --say <words> [--say-lang <tag>] [--widen <key>]… [--json]`
 
 Un maestro adopta el archivo del proyecto como la política vigente, nombrando cada ampliación que hace.

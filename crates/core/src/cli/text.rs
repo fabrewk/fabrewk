@@ -49,7 +49,7 @@ pub(super) fn escape(c: char) -> String {
 
 /// A human output as it reaches the terminal: every hidden character but the line break written as an escape, so that
 /// no text the record holds, in whatever field, can hide or reorder what follows it (P7D3B-4).
-pub(super) fn printable(text: &str) -> String {
+pub fn printable(text: &str) -> String {
     text.chars().map(|c| if c != '\n' && hidden(c) { escape(c) } else { c.to_string() }).collect()
 }
 

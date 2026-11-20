@@ -179,6 +179,26 @@ pub const COMMANDS: &[Command] = &[
         ],
         schemas: &["fabrewk.applied/1"],
     },
+    // Built in part 10c (D-097 point 8): it asks, assesses, and on the person's yes is `apply`, in the same process.
+    Command {
+        name: "onboard",
+        arg: None,
+        required: false,
+        flags: &["help"],
+        moves: &["assessed", "publication-decided", "policy-adopted", "alambique-baseline", "installed"],
+        refusals: &[
+            TerminalRequired,
+            AgentEnvironment,
+            NotARepository,
+            AliasInvalid,
+            PrivateFolderIncluded,
+            PlanChanged,
+            RoleForbidden,
+            WordsCopied,
+            DomainNotIgnored,
+        ],
+        schemas: &[],
+    },
     Command {
         name: "adopt",
         arg: None,

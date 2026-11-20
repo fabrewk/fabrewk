@@ -5299,3 +5299,19 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   criteria at `apply`, the refusals of the row and the crash suite over `apply`, by `crates/fabrewk/tests/apply.rs`,
   `faults.rs`, `crash.rs` and the core's `record.rs` and `identity.rs`. The review directory, the clean clone and the
   mutation's output are removed after this entry.
+
+## D-107 — Part 10c: the publication warning's final text is Codex's draft
+
+- Status: decided
+- Decided: 2026-11-20
+- Origin: maintainer XEL in session 44's chat, answering the integrator's question when part 10c started (plan row
+  10c: the maestro's decision on the warning's final text), shown the Spanish text in full: "Borrador como final
+  (Recomendado)".
+- Decision: the text of the catalogue's `[warning]` table, drafted by Codex in part 10a (R-050), is final in `en` and
+  `es`, unchanged. The interpretations of part 10c are the specification's "Amended in part 10c (D-107)".
+- Reason: D-097 point 9 and plan row 10 (the maestro decides the warning's final text). The alternatives offered: the
+  maestro's own text; a second draft by Codex with the interview's questions.
+- Consequences: `crates/core/catalogue/en.toml` and `es.toml` (`[warning]`'s description); `core-specification.md`
+  (the amendment after point 11).
+- Sources: chat of session 44; R-050; D-097 point 9.
+- Supersedes: none.

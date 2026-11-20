@@ -6,6 +6,7 @@
 
 mod effects;
 mod files;
+mod onboard;
 
 use fabrewk_core::cli::{catalogue, say};
 use fabrewk_core::install::{Asked, Installer, git};
@@ -17,7 +18,8 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 /// The installer, as the binary wires it.
-pub const INSTALLER: Installer = Installer { assess, answers: |asked| json!(answers(asked)) };
+pub const INSTALLER: Installer =
+    Installer { assess, answers: |asked| json!(answers(asked)), interview: onboard::interview };
 
 /// The domain's directory.
 const DOMAIN: &str = ".brewstillery";

@@ -19,13 +19,29 @@ pub struct Asked<'a> {
 /// What `assess` gives: its document (`fabrewk.assessment/1`) and its human text, in the language the answers name.
 pub type Assessed = (Value, String);
 
+/// What `onboard`'s interview is given (D-097 point 8; part 10c): where, the person's home, the built-in tool adapters,
+/// and the terminal it reads the answers from and writes its questions to.
+pub struct Interview<'a> {
+    pub root: &'a Path,
+    pub home: Option<&'a Path>,
+    pub adapters: &'a [&'a Adapter],
+    pub tty: &'a mut dyn std::io::BufRead,
+    pub out: &'a mut dyn std::io::Write,
+}
+
 /// The installer, as the binary wires it.
 pub struct Installer {
     /// `assess` (REQ-INS-1, REQ-INS-2); it writes nothing.
     pub assess: fn(&Asked) -> Result<Assessed, Vec<Error>>,
     /// The answers as a plan holds them, which `apply` compares with a recorded plan's when it finishes it (P10B-7).
     pub answers: fn(&Asked) -> Value,
+    /// `onboard`'s interview (REQ-INS-4): it fills `apply`'s options with the answers, as they come, and gives the
+    /// plan's digest once the person said yes and gave their words; none when it stopped, having said so.
+    pub interview: fn(&mut Interview, &mut crate::cli::Options) -> Interviewed,
 }
+
+/// What the interview gives: the plan's digest on the person's yes, none when it stopped, or its refusals.
+pub type Interviewed = Result<Option<String>, Vec<Error>>;
 
 /// Git in the working tree at `root` as `assess` runs it (REQ-INS-1, D-102): the core's way (no hook, no file-system
 /// monitor, objects as stored), taking no optional lock, fetching no missing object, with only the repository's own

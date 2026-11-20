@@ -1018,6 +1018,31 @@ again no file already as the plan writes it; whether an `apply` is complete is r
 and the record branch, so that the person's own commit of what a stopped `apply` left does not complete it, and a Git
 failure in that reading refuses; a record that does not replay is refused with its own code, never reassessed.
 
+**Amended in part 10c (D-107).** How `onboard` is built, point 8 read so. It refuses inside an agent
+(`AGENT_ENVIRONMENT`) before it opens the terminal, then opens `/dev/tty` for reading and writing and asks there; the
+questions, the warning and the plan go to the terminal, and `apply`'s report or a refusal goes, as for every command,
+to standard output or standard error. It takes no `--json` (point 2), so `TERMINAL_REQUIRED`'s test asserts the code
+in the human output alone (PD-35 read so). The first question, the language, is asked in every catalogue's words; its
+answer is a tag as `--lang` takes it (`es-MX` reaches `es`), and it is `--lang`'s answer. An assessment with the
+answers so far runs right after it, so that `assess`'s refusals (`NOT_A_REPOSITORY`, `PRIVATE_FOLDER_INCLUDED`) end
+the interview before another question, in the language chosen; another runs after the key, whose plan gives Git's
+commands to sign with that key when Git does not, shown and never run; the last runs after the last question, and its
+text (`assess`'s, its `apply` command included) is the plan shown whole and its digest the one a yes applies. A
+question that lists its choices (the mode; the publication and, after the warning, its exits, the same three modes;
+the tools, any of them, separated by spaces or commas) takes only them, trimmed and in any case; the alias, the key,
+the yes and the words need an answer; the tools (empty: none) and REQ-INS-8's three questions (empty: the placeholder
+line) take an empty one, each other answer kept as given: point 8's "an empty one, at any question" is read as at a
+question that needs an answer, since REQ-INS-8 gives an empty answer its placeholder. Any other answer, a needed
+answer empty, a line that is not UTF-8, or the end of input, applies nothing, says so on the terminal and exits 0;
+nothing is asked again. A key's path that starts with `~/` is read from the home, as a shell reads it. The yes is the
+catalogue's word in the language chosen, trimmed and in any case (`yes`; `sí` or `si`); another catalogue's is no
+yes. A plan `apply` could not apply (a verdict `none` or `review`, a plan incomplete) is shown and no yes is asked. A
+yes and the words make the command `apply`, with the plan's digest and those answers, run by the same dispatch in the
+same process (`--say` the words, no `--say-lang`, so the plan's `--lang`): it reassesses as point 6 says, so that a
+repository changed between the plan shown and the yes is `PLAN_CHANGED` with nothing written. The publication
+warning's text is Codex's draft of part 10a, made final by the maestro (D-107); the interview's questions are
+Codex's, as point 11 says.
+
 ### SEC: confinement, credentials and controls
 
 - **REQ-SEC-1.** On Linux every agent and check runs under bubblewrap: system read-only, an empty home, only the tool's

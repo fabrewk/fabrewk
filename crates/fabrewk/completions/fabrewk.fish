@@ -38,6 +38,8 @@ complete -c fabrewk -n '__fish_seen_subcommand_from apply' -l say -r -d 'Your ow
 complete -c fabrewk -n '__fish_seen_subcommand_from apply' -l say-lang -r -d 'The language tag of your words; by default, your languages.agentInteraction.'
 complete -c fabrewk -n '__fish_seen_subcommand_from apply' -l json -d 'Gives the output as one JSON document with a schema field.'
 complete -c fabrewk -n '__fish_seen_subcommand_from apply' -l help -d 'Shows this help.'
+complete -c fabrewk -n __fish_use_subcommand -a onboard -d 'Asks the installation'\''s questions on the terminal, shows the plan, and applies it on the person'\''s explicit yes and their own words.'
+complete -c fabrewk -n '__fish_seen_subcommand_from onboard' -l help -d 'Shows this help.'
 complete -c fabrewk -n __fish_use_subcommand -a adopt -d 'A maestro adopts the project file as the policy in force, naming every widening it makes.'
 complete -c fabrewk -n '__fish_seen_subcommand_from adopt' -l say -r -d 'Your own words for this decision, kept verbatim and signed. Words copied from an example, such as “I agree.”, are refused.'
 complete -c fabrewk -n '__fish_seen_subcommand_from adopt' -l say-lang -r -d 'The language tag of your words; by default, your languages.agentInteraction.'

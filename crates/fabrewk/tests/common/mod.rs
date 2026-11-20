@@ -718,3 +718,29 @@ pub fn accepting(fx: &Fx, id: &str) -> String {
     let doc = fx.run(&["status", id, "--json"]).doc();
     doc["accepting"]["digest"].as_str().unwrap_or_else(|| panic!("nothing to accept: {doc}")).to_owned()
 }
+
+/// A product repository with one commit, a licence, the maestro `ana`'s key and Git signing with it.
+pub fn product(name: &str) -> Fx {
+    let base = tmp(name);
+    let (root, home, keys) = (base.join("product"), base.join("home"), base.join("keys"));
+    for d in [&root, &home, &keys] {
+        std::fs::create_dir_all(d).unwrap();
+    }
+    let fx = Fx { domain: root.join(".brewstillery"), root, home, keys, path: None };
+    for who in ["ana", "stranger"] {
+        let key = fx.keys.join(who);
+        fx.program("ssh-keygen", &["-q", "-t", "ed25519", "-N", "", "-C", who, "-f", key.to_str().unwrap()]);
+    }
+    std::fs::write(fx.root.join("README.md"), "product\n").unwrap();
+    std::fs::write(fx.root.join("LICENSE"), "MIT\n").unwrap();
+    fx.git(&["init", "-q", "-b", "main"]);
+    for (k, v) in [("user.name", "Fixture"), ("user.email", "fixture@example.invalid"), ("commit.gpgsign", "false")] {
+        fx.git(&["config", k, v]);
+    }
+    fx.git(&["config", "user.signingkey", fx.keys.join("ana.pub").to_str().unwrap()]);
+    fx.git(&["config", "gpg.format", "ssh"]);
+    // The person's own identity, which a repository `apply` makes for the domain takes.
+    std::fs::write(fx.home.join(".gitconfig"), "[user]\n\tname = Ana\n\temail = ana@example.invalid\n").unwrap();
+    fx.commit("product");
+    fx
+}

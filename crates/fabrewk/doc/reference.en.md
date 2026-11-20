@@ -149,6 +149,51 @@ Refusals
 - `TOOL_FAILED`: An external tool failed; what it printed is kept as evidence, never shown here.
 - `TOOL_MISSING`: A tool this needs is not on this machine.
 
+## `fabrewk onboard`
+
+Asks the installation's questions on the terminal, shows the plan, and applies it on the person's explicit yes and their own words.
+
+- `--help`: Shows this help.
+
+Moves it may cause: `assessed` (repository assessed), `publication-decided` (publication decided), `policy-adopted` (policy adopted), `alambique-baseline` (alambique's baseline), `installed` (installed).
+
+Documents with --json: 
+
+Refusals
+
+- `TERMINAL_REQUIRED`: There is no terminal to ask the questions on, so onboard asks nothing and writes nothing.
+- `AGENT_ENVIRONMENT`: This runs inside an agent or an extension, whose markers are in the environment, and only a person makes this move. The check is cooperative: a process can clear its environment.
+- `NOT_A_REPOSITORY`: This is not the root of the repository's main working tree.
+- `ALIAS_INVALID`: A name that is not a valid alias: lowercase letters, digits and single hyphens, starting with a letter, at most 32 characters, and not a reserved name.
+- `PRIVATE_FOLDER_INCLUDED`: Git's configuration names a file of Fabrewk's private folder, an include or its attributes file, which Git would open: assess stops before running any other Git.
+- `PLAN_CHANGED`: The plan assess gives now, with these options, is not the one named, or a file the plan writes changed since: applying it would write over what you did not see.
+- `ROLE_FORBIDDEN`: The key signing this move holds no role in the policy that may make it.
+- `WORDS_COPIED`: The words given are the example that help prints, not your own.
+- `DOMAIN_NOT_IGNORED`: The product's repository does not ignore .brewstillery/, so a commit there would publish it.
+- `RECORD_ABSENT`: There is no record here.
+- `INSTALLATION_INCOMPLETE`: An apply began here and did not finish, so no other command may write until it does.
+- `POLICY_ABSENT`: No policy is adopted, so there is no effective configuration and no maintainer.
+- `RECORD_BROKEN`: The record is broken: its files are not one unbroken chain.
+- `RECORD_DIGEST_MISMATCH`: An event file's content is not the one its name records.
+- `RECORD_NONCANONICAL`: An event file is not in canonical form, so its digest cannot be trusted.
+- `RECORD_FORK`: Two events stand at the same place of one stream: two clones wrote there.
+- `RECORD_TRANSITION_INVALID`: An event stands where the transition table does not allow it.
+- `ATTEMPT_ENDED`: The record ends an attempt that is not open.
+- `RECORD_SIGNATURE_INVALID`: A person's event is not signed by the key and role the policy gives its signer.
+- `RECORD_VERSION_UNKNOWN`: An event is not of a schema this version of Fabrewk knows.
+- `RECORD_ID_COLLISION`: Two stages or two tasks were given the same identifier.
+- `RECORD_ROLLBACK`: The record lost events it held before: a rollback.
+- `MARK_INVALID`: This machine's mark of the record (local/cache/heads.json) is damaged or names an event the record does not hold there.
+- `CHECK_UNKNOWN`: A verification could not run, so its result is unknown, and an unknown result is never a pass.
+- `HEAD_DETACHED`: Git's head names no branch, so there is no record branch.
+- `PRIVATE_FOLDER_PERMISSIONS`: The private folder gives access to someone other than its owner, so Fabrewk does not read it.
+- `SETTINGS_INVALID`: A settings file does not read or validate.
+- `LOCK_HELD`: Another Fabrewk command holds the lock of this repository's record, or another task is running: one writer and one run at a time.
+- `RECORD_HEAD_MOVED`: Something wrote in the record without its lock while this command ran; this command wrote nothing.
+- `RECORD_COMMIT_RACE`: The branch moved while Fabrewk committed the record; its events are written but not committed.
+- `TOOL_FAILED`: An external tool failed; what it printed is kept as evidence, never shown here.
+- `TOOL_MISSING`: A tool this needs is not on this machine.
+
 ## `fabrewk adopt --say <words> [--say-lang <tag>] [--widen <key>]… [--json]`
 
 A maestro adopts the project file as the policy in force, naming every widening it makes.
