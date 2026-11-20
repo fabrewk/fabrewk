@@ -145,9 +145,10 @@ impl Scratch {
     }
 }
 
-/// Ends, through `backend`, what a killed run left beside each cell under `local/tmp/` (D-092).
+/// Ends, through `backend`, what a killed run left beside each cell under `local/tmp/` (D-092); a `local/tmp/` reached
+/// through a link is not walked, since it leads out of the domain, and the session refuses it after (P10B-12).
 pub fn end_idle(backend: Option<&Backend>, domain: &Path) {
-    let Some(backend) = backend else { return };
+    let Some(backend) = backend.filter(|_| crate::code::unlinked(domain, "local/tmp")) else { return };
     for dir in fs::read_dir(domain.join("local/tmp")).into_iter().flatten().flatten() {
         (backend.idle)(&dir.path());
     }

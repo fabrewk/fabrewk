@@ -373,3 +373,20 @@ fn a_git_directory_apart_from_its_working_tree_is_refused_with_nothing_written()
     refused(&fx, &words.iter().map(String::as_str).collect::<Vec<_>>(), "NOT_A_REPOSITORY", 1, "en");
     assert_eq!(fs::read(gitdir.join("info/exclude")).unwrap(), exclude);
 }
+
+/// P10B-12: what a stopped cell left is looked for only in the domain's own temporary directory: one reached through a
+/// link is not walked, so no file of the person's outside it is read or removed, and `apply` refuses (`RECORD_BROKEN`).
+#[test]
+fn p10b_12_a_linked_temporary_directory_is_not_walked_for_a_stopped_cell() {
+    let fx = product("apply-idle-link");
+    let outside = fx.root.parent().unwrap().join("outside");
+    fs::create_dir_all(outside.join("cell")).unwrap();
+    fs::write(outside.join("cell/beside"), "0 0 0 0 /unused/pasta\n").unwrap();
+    fs::create_dir_all(fx.domain.join("local")).unwrap();
+    std::os::unix::fs::symlink(&outside, fx.domain.join("local/tmp")).unwrap();
+    let opts = options(&fx, "unpublished", &[]);
+    let ran = apply(&fx, &digest(&fx, &opts), &opts);
+    assert_eq!(ran.status, 1, "{ran:?}");
+    assert_eq!(ran.doc()["refusals"][0]["code"], "RECORD_BROKEN", "{ran:?}");
+    assert_eq!(fs::read_to_string(outside.join("cell/beside")).unwrap(), "0 0 0 0 /unused/pasta\n");
+}
