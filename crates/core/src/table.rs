@@ -149,17 +149,25 @@ pub fn validate(record: &Replay) -> Result<(), Vec<Error>> {
 }
 
 /// The `project` stream's order (section 4, "Project"; part 10b): `apply` opens it with `assessed`,
-/// `publication-decided`, `policy-adopted` and `installed`, in that order, and neither `assessed` nor `installed` stands
+/// `publication-decided`, `policy-adopted` and `installed`, in that order, each bound to the plan `assessed` holds (its
+/// publication mode, its project file, its digest; P10B-8, P10B-9), and neither `assessed` nor `installed` stands
 /// anywhere else; an installation stopped before its end holds a prefix of that opening.
 fn project(record: &Replay) -> Option<Error> {
     const OPENING: [&str; 4] = ["assessed", "publication-decided", "policy-adopted", "installed"];
     let events = record.streams.get("project").map(Vec::as_slice).unwrap_or_default();
-    let opened = events.first().is_some_and(|e| e.kind == "assessed");
-    let out = events.iter().enumerate().find(|(i, e)| match OPENING.get(*i).filter(|_| opened) {
-        Some(kind) => e.kind != *kind,
+    let opened = events.first().filter(|e| e.kind == "assessed").map(|e| &e.value["payload"]);
+    let planned = opened.and_then(|p| crate::identity::planned_policy(&p["plan"]));
+    let bound = |i: usize, p: &Value| match (i, opened) {
+        (1, Some(a)) => p["mode"] == a["plan"]["answers"]["publication"],
+        (2, Some(_)) => planned.is_some_and(|t| p["digest"] == crate::record::sha256_hex(t.as_bytes()).as_str()),
+        (3, Some(a)) => p["plan"] == a["digest"],
+        _ => true,
+    };
+    let out = events.iter().enumerate().find(|(i, e)| match OPENING.get(*i).filter(|_| opened.is_some()) {
+        Some(kind) => e.kind != *kind || !bound(*i, &e.value["payload"]),
         None => matches!(e.kind.as_str(), "assessed" | "installed"),
     });
-    out.map(|(_, e)| invalid(e, "the project stream opens with apply's events, in their order, and holds them once"))
+    out.map(|(_, e)| invalid(e, "the project stream opens with apply's events, in their order, bound to its plan"))
 }
 
 /// The state of every stage and task stream after its events, held to the table as [`validate`] holds them.

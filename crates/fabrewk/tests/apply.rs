@@ -335,3 +335,41 @@ fn p10b_1_a_file_at_a_temporary_name_beside_a_target_is_kept() {
     }
     assert!(fs::read_to_string(fx.root.join(".git/info/exclude")).unwrap().contains("/.brewstillery/\n"));
 }
+
+/// P10B-4: the domain's unversioned area reached through a link is not followed: `apply` refuses before writing, and
+/// nothing outside the repository changes.
+#[test]
+fn p10b_4_a_link_at_the_unversioned_area_s_temporary_directory_is_not_followed() {
+    let fx = product("apply-tmp-link");
+    let outside = fx.root.parent().unwrap().join("outside");
+    fs::create_dir_all(&outside).unwrap();
+    fs::write(outside.join(".AGENTS.md.tmp"), "mine\n").unwrap();
+    fs::create_dir_all(fx.domain.join("local")).unwrap();
+    std::os::unix::fs::symlink(&outside, fx.domain.join("local/tmp")).unwrap();
+    let opts = options(&fx, "unpublished", &[]);
+    let ran = apply(&fx, &digest(&fx, &opts), &opts);
+    assert_eq!(ran.status, 1, "{ran:?}");
+    assert_eq!(ran.doc()["refusals"][0]["code"], "RECORD_BROKEN", "{ran:?}");
+    let names: Vec<_> = fs::read_dir(&outside).unwrap().map(|e| e.unwrap().file_name()).collect();
+    assert_eq!(names, [".AGENTS.md.tmp"]);
+    assert_eq!(fs::read_to_string(outside.join(".AGENTS.md.tmp")).unwrap(), "mine\n");
+    assert!(!fx.domain.join("data").exists() && !fx.root.join("AGENTS.md").exists());
+}
+
+/// P10B-5 and P10B-6 read so: a repository whose Git directory lies outside its working tree (`.git` a `gitdir:`
+/// file) gets a plan from `assess`, and `apply`, as every write command since part 7b, refuses it at the main working
+/// tree's check (`NOT_A_REPOSITORY`, `git worktree list` naming the Git directory), before the lock and with nothing
+/// written, the exclude file of that Git directory included.
+#[test]
+fn a_git_directory_apart_from_its_working_tree_is_refused_with_nothing_written() {
+    let fx = product("apply-gitdir-apart");
+    let gitdir = fx.root.parent().unwrap().join("gitdir");
+    fs::rename(fx.root.join(".git"), &gitdir).unwrap();
+    fs::write(fx.root.join(".git"), format!("gitdir: {}\n", gitdir.display())).unwrap();
+    let opts = options(&fx, "unpublished", &[]);
+    let exclude = fs::read(gitdir.join("info/exclude")).unwrap();
+    let words: Vec<String> =
+        ["apply".to_owned(), digest(&fx, &opts)].into_iter().chain(opts).chain(["--say".into(), SAY.into()]).collect();
+    refused(&fx, &words.iter().map(String::as_str).collect::<Vec<_>>(), "NOT_A_REPOSITORY", 1, "en");
+    assert_eq!(fs::read(gitdir.join("info/exclude")).unwrap(), exclude);
+}

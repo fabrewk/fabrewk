@@ -5168,3 +5168,23 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   `core-specification.md` (section 6's C2, section 7's list, the amendment after point 11); the tests.
 - Sources: chat of session 43; R-050, R-051; D-097.
 - Supersedes: none.
+
+## D-106 — Part 10b: Codex's review reads only, after three passes its provider stopped
+
+- Status: decided
+- Decided: 2026-11-19
+- Origin: maintainer XEL in session 43's chat, choosing among the integrator's alternatives after three consecutive
+  passes of Codex were stopped by its provider before a report ("This content was flagged for possible cybersecurity
+  risk"; the third also "Selected model is at capacity"): "Pasada solo de lectura (Recomendado)".
+- Decision: Codex's passes of part 10b, on the same model and effort (GPT-6.1 Sol, high), read the diff, the code, the
+  tests and the specification and run nothing: no suite, no binary, no script. The integrator gives it the suites'
+  results on the commit it reviews, and reproduces each finding before its correction, as every pass. The leads the
+  three stopped passes left before their cut, P10B-1 to P10B-3, were each reproduced by a test that failed before its
+  correction; the stopped passes are not counted.
+- Reason: the plan's rule for every phase (two retries without progress give the maestro alternatives); the third
+  pass was stopped while reading the code and running the suites, whose output is full of the domain's words
+  (credentials, keys, confinement). The alternatives offered: the same full prompt later; another Codex model;
+  pausing the part.
+- Consequences: Codex's fourth prompt of part 10b and later ones; R-052.
+- Sources: chat of session 43; `target/review-10b/pass-1.jsonl` to `pass-3.jsonl` (removed after the part).
+- Supersedes: none.

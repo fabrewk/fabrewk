@@ -268,9 +268,9 @@ pub fn project_payload(kind: &str) -> Value {
             json!({"content": PROJECT, "digest": sha256_hex(PROJECT.as_bytes()), "heads": {}, "widened": []})
         }
         "publication-decided" => json!({"mode": "published", "warningShown": false}),
-        // An empty plan and its digest (part 10b), and the receipt that cites it.
-        "assessed" => json!({"plan": {}, "digest": PLAN}),
-        "installed" => json!({"plan": PLAN, "files": []}),
+        // A plan that creates [`PROJECT`] in `published` (part 10b), and the receipt that cites it.
+        "assessed" => assessed(planned()),
+        "installed" => json!({"plan": assessed(planned())["digest"], "files": []}),
         _ => json!({}),
     }
 }
@@ -281,8 +281,13 @@ pub fn assessed(plan: Value) -> Value {
     json!({"plan": plan, "digest": digest})
 }
 
-/// The digest of an empty plan, `{}` and a newline.
-pub const PLAN: &str = "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356";
+/// The plan the fixtures' `assessed` holds: it creates [`PROJECT`] in `published`.
+pub fn planned() -> Value {
+    json!({
+        "answers": {"publication": "published"},
+        "files": [{"path": ".brewstillery/settings.toml", "action": "create", "content": PROJECT}],
+    })
+}
 
 /// An event of Fabrewk's kind that holds any payload, `n` among its words: an extension's note in `ext-x`.
 pub fn note(n: Value) -> Draft {

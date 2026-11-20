@@ -91,7 +91,10 @@ fn req_reg_4_apply_cites_the_first_adoption() {
     let adoption = settings::adopt(&f.domain, None, &[], None).unwrap();
     // The plan `apply` records creates the project file; before the first adoption its events are verified against
     // that file (P10O-5): a citation of another digest cites no adopted policy.
-    let plan = json!({"files": [{"path": ".brewstillery/settings.toml", "action": "create", "content": text}]});
+    let plan = json!({
+        "answers": {"publication": "published"},
+        "files": [{"path": ".brewstillery/settings.toml", "action": "create", "content": text}],
+    });
     let planned = assessed(plan);
     let mut s = begin_with(&f, None, &PolicyVerifier).unwrap();
     let mut head: Option<fabrewk_core::record::Head> = None;

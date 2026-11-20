@@ -1509,3 +1509,29 @@ fn p10b_2_a_view_made_before_the_lock_is_not_overwritten() {
     assert_eq!(fs::read_to_string(fx.domain.join("STATUS.md")).unwrap(), "mine\n");
     assert!(!fx.domain.join("data").exists());
 }
+
+/// P10B-7: a stopped `apply` is finished only with the options its plan was made from: another option, with the same
+/// digest, is `PLAN_CHANGED`, with nothing written.
+#[test]
+fn p10b_7_a_resumed_apply_with_another_option_is_refused() {
+    let (fx, options) = Fx::installable("apply-resume-options", "published", None);
+    let mut n = 1;
+    let digest = loop {
+        let ran = fx.apply(&options, &[("FABREWK_FAULT_ABORT_AT", &n.to_string())]);
+        assert_eq!(ran.status, -1, "{n}: {ran:?}");
+        if fx.events("project").len() == 2 {
+            break fx.events("project")[0]["payload"]["digest"].as_str().unwrap().to_owned();
+        }
+        let _ = std::fs::remove_dir_all(&fx.domain);
+        n += 1;
+    };
+    let other: Vec<String> =
+        options.iter().map(|o| if o == "published" { "unpublished".into() } else { o.clone() }).collect();
+    assert_ne!(other, options);
+    let before = fx.snapshot();
+    let ran = fx.apply_digest(&digest, &other, &[]);
+    assert_eq!(ran.status, 1, "{ran:?}");
+    assert_eq!(ran.doc()["refusals"][0]["code"], "PLAN_CHANGED", "{ran:?}");
+    assert_eq!(fx.snapshot(), before);
+    assert_eq!(fx.apply_digest(&digest, &options, &[]).status, 0);
+}

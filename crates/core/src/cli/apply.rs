@@ -26,8 +26,14 @@ pub(super) fn run(cx: &Cx, command: &'static Command, digest: &str, options: &Op
     write::not_an_agent(cx)?;
     super::answers(cx, command, options)?;
     let record = recorded(cx)?;
+    let home = std::env::var_os("HOME").map(PathBuf::from);
+    let asked = crate::install::Asked { root: &cx.root, home: home.as_deref(), options, adapters: cx.adapters };
     let plan = match record.as_ref().and_then(held) {
-        // An `apply` of this plan began: it is finished from the plan it recorded, never reassessed (point 7).
+        // An `apply` of this plan began: it is finished from the plan it recorded, never reassessed, and only with the
+        // options that plan was made from (point 7, D-097 decision 3; P10B-7).
+        Some((d, plan)) if d == digest && plan["answers"] != (cx.installer.answers)(&asked) => {
+            return Err(changed("an option differs from those the recorded plan was made from").into());
+        }
         Some((d, plan)) if d == digest => {
             match write::installation(&cx.domain, record.as_ref().unwrap_or(&Default::default())) {
                 Ok(()) => return Ok(out(cx, digest, None)),
@@ -36,11 +42,10 @@ pub(super) fn run(cx: &Cx, command: &'static Command, digest: &str, options: &Op
             }
         }
         _ => {
-            let home = std::env::var_os("HOME").map(PathBuf::from);
-            let asked = crate::install::Asked { root: &cx.root, home: home.as_deref(), options, adapters: cx.adapters };
             let (doc, _) = (cx.installer.assess)(&asked)?;
             if doc["digest"] != digest {
-                return Err(changed("the plan assess gives now, with these options, has another digest").into());
+                let now = doc["digest"].as_str().unwrap_or_default();
+                return Err(changed(&format!("the plan assess gives now, with these options, is {now}")).into());
             }
             match doc["plan"]["verdict"].as_str() {
                 Some("none") => return Err(refuse(Code::VerdictNone, None, "a reason of the plan blocks it").into()),
@@ -93,8 +98,9 @@ fn targets(root: &Path, plan: &Value, record: Option<&Replay>) -> Result<(), Err
         let path = root.join(rel);
         let meta = fs::symlink_metadata(&path);
         let absent = meta.as_ref().is_err_and(|e| e.kind() == std::io::ErrorKind::NotFound);
-        // The exclude file of a Git directory outside the working tree is named by its absolute path.
-        let plain = Path::new(rel).is_absolute() || crate::code::unlinked(root, rel);
+        // A Git directory outside the working tree, whose exclude file the plan names absolutely, never reaches here:
+        // the main working tree's check refuses it first (`NOT_A_REPOSITORY`).
+        let plain = crate::code::unlinked(root, rel);
         let bytes = meta.as_ref().is_ok_and(|m| m.is_file() && plain).then(|| fs::read(&path).ok()).flatten();
         let now = bytes.as_deref().map(sha256_hex);
         let input = inputs.iter().find(|i| i["path"] == rel);
@@ -153,6 +159,12 @@ fn install(
     }
     let folder = cx.folder()?;
     let machine = crate::machine::machine_file(&folder)?;
+    // The unversioned area's temporary directory, where every file `apply` writes is first made, is not followed
+    // through a link to a place outside the domain (P10B-4), as its lock is not.
+    if !crate::code::unlinked(&cx.domain, "local/tmp") {
+        let why = "the unversioned area is reached through a link; it is not followed";
+        return Err(refuse(Code::RecordBroken, Some(&cx.domain.join("local/tmp")), why).into());
+    }
     // What a failed Git prints is kept from here on, once nothing that refuses before the lock is left (D-083).
     record::git::keep_in(&cx.domain);
     crate::confine::end_idle(cx.backend, &cx.domain);

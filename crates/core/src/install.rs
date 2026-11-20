@@ -23,6 +23,8 @@ pub type Assessed = (Value, String);
 pub struct Installer {
     /// `assess` (REQ-INS-1, REQ-INS-2); it writes nothing.
     pub assess: fn(&Asked) -> Result<Assessed, Vec<Error>>,
+    /// The answers as a plan holds them, which `apply` compares with a recorded plan's when it finishes it (P10B-7).
+    pub answers: fn(&Asked) -> Value,
 }
 
 /// Git in the working tree at `root` as `assess` runs it (REQ-INS-1, D-102): the core's way (no hook, no file-system

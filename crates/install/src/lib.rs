@@ -17,7 +17,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 /// The installer, as the binary wires it.
-pub const INSTALLER: Installer = Installer { assess };
+pub const INSTALLER: Installer = Installer { assess, answers: |asked| json!(answers(asked)) };
 
 /// The domain's directory.
 const DOMAIN: &str = ".brewstillery";

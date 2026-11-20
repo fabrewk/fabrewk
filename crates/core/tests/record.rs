@@ -1244,3 +1244,62 @@ fn req_reg_2_an_observed_model_may_be_any_string() {
     s.finish(&f.verifier(), &[]).unwrap();
     assert_eq!(ok_replay(&f).streams["fermento-xel"][0].value["actor"]["modelObserved"], json!(""));
 }
+
+/// The `project` stream's order and its bindings to the plan `assessed` holds (section 4 "Project", D-105; P10B-8 to
+/// P10B-10): opened by `assessed`, its next three events are `publication-decided` with the plan's mode,
+/// `policy-adopted` with the plan's project file, and `installed` naming the plan's digest; `assessed` and `installed`
+/// stand nowhere else. Each record below is canonical and signed, so only this guard refuses it.
+#[test]
+fn the_project_stream_opens_with_apply_s_events_bound_to_its_plan() {
+    let f = Fixture::new("project-order", false);
+    let plan = json!({
+        "answers": {"publication": "published"},
+        "files": [{"path": ".brewstillery/settings.toml", "action": "create", "content": PROJECT}],
+    });
+    let opened = assessed(plan.clone());
+    let other = "[project]\nname = \"other\"\n";
+    let events = |list: &[(&str, Value)]| {
+        let _ = std::fs::remove_dir_all(f.stream_dir("project"));
+        let mut prev: Option<String> = None;
+        for (i, (kind, payload)) in list.iter().enumerate() {
+            let draft = match *kind {
+                "installed" => fabrewk(kind, payload.clone()),
+                _ => person(kind, "Lo decido.", payload.clone()),
+            };
+            let signer = (*kind != "installed").then(|| f.signer());
+            let path = f.forge("project", i as u64 + 1, prev.as_deref(), &draft, signer.as_ref());
+            prev = Some(sha256_hex(&std::fs::read(path).unwrap()));
+        }
+        let r = replay(&f.domain, &f.verifier());
+        r.err().map(|e| e.iter().map(|e| e.code().unwrap()).collect::<Vec<_>>()).unwrap_or_default()
+    };
+    let decided = |mode: &str| json!({"mode": mode, "warningShown": false});
+    let adopted =
+        |text: &str| json!({"content": text, "digest": sha256_hex(text.as_bytes()), "heads": {}, "widened": []});
+    let receipt = |plan: &Value| json!({"plan": plan, "files": []});
+    let whole = vec![
+        ("assessed", opened.clone()),
+        ("publication-decided", decided("published")),
+        ("policy-adopted", adopted(PROJECT)),
+        ("installed", receipt(&opened["digest"])),
+    ];
+    assert_eq!(events(&whole), []);
+    assert_eq!(events(&whole[..2]), [], "a prefix: an installation not complete");
+    let invalid = [Code::RecordTransitionInvalid];
+    let with = |i: usize, e: (&'static str, Value)| {
+        let mut list = whole.clone();
+        list[i] = e;
+        list
+    };
+    for (what, list) in [
+        ("a receipt naming another plan", with(3, ("installed", receipt(&json!("0".repeat(64)))))),
+        ("another project file adopted", with(2, ("policy-adopted", adopted(other)))),
+        ("another mode decided", with(1, ("publication-decided", decided("unpublished")))),
+        ("adopted before decided", with(1, ("policy-adopted", adopted(PROJECT)))),
+        ("no assessed first", vec![("policy-adopted", adopted(PROJECT)), ("installed", receipt(&opened["digest"]))]),
+        ("assessed twice", [whole.clone(), vec![("assessed", opened.clone())]].concat()),
+        ("installed twice", [whole.clone(), vec![("installed", receipt(&opened["digest"]))]].concat()),
+    ] {
+        assert_eq!(events(&list), invalid, "{what}");
+    }
+}
