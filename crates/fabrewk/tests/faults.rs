@@ -1535,3 +1535,35 @@ fn p10b_7_a_resumed_apply_with_another_option_is_refused() {
     assert_eq!(fx.snapshot(), before);
     assert_eq!(fx.apply_digest(&digest, &options, &[]).status, 0);
 }
+
+/// P10B-11: a link made at the unversioned area's temporary directory between the start and the lock is not followed:
+/// the session refuses it (`RECORD_BROKEN`) before it removes any leftover there, and nothing outside changes.
+#[test]
+fn p10b_11_a_link_made_at_the_temporary_directory_before_the_lock_is_not_followed() {
+    let (fx, options) = Fx::installable("apply-tmp-link-race", "unpublished", None);
+    let outside = fx.root.parent().unwrap().join("outside");
+    fs::create_dir_all(&outside).unwrap();
+    for name in ["record-index", ".AGENTS.md.tmp"] {
+        fs::write(outside.join(name), "mine\n").unwrap();
+    }
+    let assessed =
+        fx.run(&[&["assess", "--json"][..], &options.iter().map(String::as_str).collect::<Vec<_>>()].concat());
+    let digest = assessed.doc()["digest"].as_str().unwrap().to_owned();
+    let dir = fx.root.parent().unwrap().join("pause");
+    fs::create_dir_all(&dir).unwrap();
+    let args: Vec<&str> = ["apply", &digest]
+        .into_iter()
+        .chain(options.iter().map(String::as_str))
+        .chain(["--say", "Lo decido.", "--json"])
+        .collect();
+    let child = paused(&fx, &args, "before-lock", &dir);
+    std::os::unix::fs::symlink(&outside, fx.domain.join("local/tmp")).unwrap();
+    let ran = resume(child, "before-lock", &dir);
+    assert_eq!(ran.status, 1, "{ran:?}");
+    assert_eq!(ran.doc()["refusals"][0]["code"], "RECORD_BROKEN", "{ran:?}");
+    for name in ["record-index", ".AGENTS.md.tmp"] {
+        assert_eq!(fs::read_to_string(outside.join(name)).unwrap(), "mine\n", "{name}");
+    }
+    assert_eq!(fs::read_dir(&outside).unwrap().count(), 2);
+    assert!(!fx.domain.join("data").exists());
+}

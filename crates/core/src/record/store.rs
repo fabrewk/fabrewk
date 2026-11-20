@@ -102,6 +102,12 @@ impl Session {
             }
             Err(fs::TryLockError::Error(e)) => return Err(io_at(&path)(e)),
         }
+        // The temporary directory is checked once the lock is held, before anything in it is removed or written: one
+        // reached through a link leads out of the domain (P10B-11).
+        if !unlinked(domain, "local/tmp") {
+            let why = "the unversioned area is reached through a link; it is not followed";
+            return Err(refuse(Code::RecordBroken, Some(&local.join("tmp")), why));
+        }
         // The record commit's temporary index and the lock Git keeps beside it while writing it (P7B-1).
         let mut leftovers = vec![local.join("tmp/record-index"), local.join("tmp/record-index.lock")];
         leftovers.retain(|p| p.is_file());

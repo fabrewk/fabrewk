@@ -159,12 +159,6 @@ fn install(
     }
     let folder = cx.folder()?;
     let machine = crate::machine::machine_file(&folder)?;
-    // The unversioned area's temporary directory, where every file `apply` writes is first made, is not followed
-    // through a link to a place outside the domain (P10B-4), as its lock is not.
-    if !crate::code::unlinked(&cx.domain, "local/tmp") {
-        let why = "the unversioned area is reached through a link; it is not followed";
-        return Err(refuse(Code::RecordBroken, Some(&cx.domain.join("local/tmp")), why).into());
-    }
     // What a failed Git prints is kept from here on, once nothing that refuses before the lock is left (D-083).
     record::git::keep_in(&cx.domain);
     crate::confine::end_idle(cx.backend, &cx.domain);
