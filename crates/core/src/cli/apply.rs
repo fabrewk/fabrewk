@@ -86,7 +86,7 @@ fn held(record: &Replay) -> Option<(&str, &Value)> {
 
 /// Each target of the plan as its inputs found it or as the plan writes it (point 7): `PLAN_CHANGED` otherwise, so
 /// that `apply` never overwrites a file it did not write. A path reached through a link is neither.
-fn targets(root: &Path, plan: &Value) -> Result<(), Error> {
+fn targets(root: &Path, plan: &Value, record: Option<&Replay>) -> Result<(), Error> {
     let inputs = plan["inputs"].as_array().map(Vec::as_slice).unwrap_or_default();
     for f in plan["files"].as_array().into_iter().flatten() {
         let rel = f["path"].as_str().unwrap_or_default();
@@ -108,7 +108,15 @@ fn targets(root: &Path, plan: &Value) -> Result<(), Error> {
                 found || bytes.is_some_and(|b| b.split(|c| *c == b'\n').any(|l| l == b"/.brewstillery/"))
             }
             Some("repository") => absent || meta.is_ok_and(|m| m.is_dir()),
-            _ => true,
+            // A view is absent, or what the record as it stands gives, which an earlier `apply` wrote (P10B-2).
+            _ => {
+                let named = |e: &Error| match e {
+                    Error::Refused { path: p, .. } => p.as_deref() == Some(path.as_path()),
+                    Error::Io { path: p, .. } => p == &path,
+                };
+                let fresh = |r| !crate::view::stale(&root.join(".brewstillery"), r).iter().any(named);
+                absent || record.is_some_and(fresh)
+            }
         };
         // No path of the plan passes through a link, which would take a write out of the repository.
         if !ok || !plain {
@@ -160,7 +168,7 @@ fn install(
     let present: Vec<(String, String)> =
         record.iter().flat_map(|r| r.streams.values().flatten()).map(|e| (e.stream.clone(), e.kind.clone())).collect();
     let has = |stream: &str, kind: &str| present.iter().any(|(s, k)| s == stream && k == kind);
-    targets(&cx.root, plan)?;
+    targets(&cx.root, plan, record.as_ref())?;
     // Every person's event missing is made and signed before anything is written.
     let (instance, pending) = crate::machine::prepare_instance(&folder)?;
     let alambique = plan["files"].as_array().into_iter().flatten().find(|f| f["path"] == ".brewstillery/ALAMBIQUE.md");
@@ -232,7 +240,7 @@ fn install(
                     fs::create_dir_all(dir).map_err(crate::code::io_at(dir))?;
                     // An entry file keeps its permissions (REQ-DOM-6: nothing outside the block changes).
                     let kept = fs::metadata(&path).ok().map(|m| m.permissions());
-                    record::write_atomic(&path, content.as_bytes())?;
+                    record::write_atomic_via(&path, content.as_bytes(), &cx.domain.join("local/tmp"))?;
                     if let Some(p) = kept {
                         fs::set_permissions(&path, p).map_err(crate::code::io_at(&path))?;
                     }

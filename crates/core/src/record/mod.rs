@@ -34,4 +34,4 @@ pub(crate) use git::{
     staged,
 };
 pub(crate) use sign::sign_with;
-pub(crate) use store::write_atomic;
+pub(crate) use store::{write_atomic, write_atomic_via};

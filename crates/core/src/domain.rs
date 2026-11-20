@@ -3,7 +3,7 @@
 //! in the modes that must not publish it. Every check here only reads; nothing is ever deleted.
 
 use crate::code::{Code, Error, io_at, refuse};
-use crate::record::{self, Publication, Replay, Repo, write_atomic};
+use crate::record::{self, Publication, Replay, Repo, write_atomic_via};
 use crate::settings::{RESERVED, is_alias};
 use std::ffi::OsStr;
 use std::fs;
@@ -114,5 +114,6 @@ pub fn exclude_domain(domain: &Path) -> Result<bool, Error> {
     text.extend_from_slice(format!("{EXCLUDE}\n").as_bytes());
     let dir = path.parent().unwrap_or(domain);
     fs::create_dir_all(dir).map_err(io_at(dir))?;
-    write_atomic(&path, &text).map(|()| true)
+    // Its temporary file in the domain's unversioned area: the Git directory is the person's (P10B-1).
+    write_atomic_via(&path, &text, &domain.join("local/tmp")).map(|()| true)
 }

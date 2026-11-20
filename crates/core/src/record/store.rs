@@ -419,9 +419,16 @@ fn create_dir(dir: &Path) -> Result<(), Error> {
 /// Writes `bytes` to `path` whole or not at all: a temporary name starting with `.` in the same directory, synced,
 /// renamed, and the directory synced (REQ-REG-5).
 pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), Error> {
+    write_atomic_via(path, bytes, path.parent().unwrap_or(Path::new(".")))
+}
+
+/// [`write_atomic`] with the temporary file in `via`, on the same file system: for a file outside the domain, whose
+/// directory may hold a file of the person's at the temporary name (P10B-1).
+pub(crate) fn write_atomic_via(path: &Path, bytes: &[u8], via: &Path) -> Result<(), Error> {
     let dir = path.parent().unwrap_or(Path::new("."));
     let name = path.file_name().map(|n| n.to_string_lossy()).unwrap_or_default();
-    let tmp = dir.join(format!(".{name}.tmp"));
+    fs::create_dir_all(via).map_err(io_at(via))?;
+    let tmp = via.join(format!(".{name}.tmp"));
     fault::point();
     // Whatever stands at the temporary name, a link included, is removed, not followed, and the file is created anew
     // (`O_EXCL`): the write never leaves the directory (P8C-1).

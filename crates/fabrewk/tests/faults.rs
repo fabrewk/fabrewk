@@ -1485,3 +1485,27 @@ fn a_resumed_apply_writes_through_no_link() {
     assert_eq!(fx.apply_digest(&digest, &options, &[]).status, 0);
     assert_eq!(fx.run(&["check"]).status, 0);
 }
+
+/// P10B-2: a view made by someone between the reassessment and the lock is not overwritten: `PLAN_CHANGED`, and the
+/// file is kept.
+#[test]
+fn p10b_2_a_view_made_before_the_lock_is_not_overwritten() {
+    let (fx, options) = Fx::installable("apply-view-race", "published", None);
+    let assessed =
+        fx.run(&[&["assess", "--json"][..], &options.iter().map(String::as_str).collect::<Vec<_>>()].concat());
+    let digest = assessed.doc()["digest"].as_str().unwrap().to_owned();
+    let dir = fx.root.parent().unwrap().join("pause");
+    fs::create_dir_all(&dir).unwrap();
+    let args: Vec<&str> = ["apply", &digest]
+        .into_iter()
+        .chain(options.iter().map(String::as_str))
+        .chain(["--say", "Lo decido.", "--json"])
+        .collect();
+    let child = paused(&fx, &args, "before-lock", &dir);
+    fs::write(fx.domain.join("STATUS.md"), "mine\n").unwrap();
+    let ran = resume(child, "before-lock", &dir);
+    assert_eq!(ran.status, 1, "{ran:?}");
+    assert_eq!(ran.doc()["refusals"][0]["code"], "PLAN_CHANGED", "{ran:?}");
+    assert_eq!(fs::read_to_string(fx.domain.join("STATUS.md")).unwrap(), "mine\n");
+    assert!(!fx.domain.join("data").exists());
+}

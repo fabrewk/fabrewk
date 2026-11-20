@@ -317,3 +317,21 @@ fn own_repository_needs_an_identity_git_names_outside_the_product_before_anythin
     let e = refused(&fx, &words.iter().map(String::as_str).collect::<Vec<_>>(), "TOOL_FAILED", 1, "en");
     assert!(e["detail"].as_str().unwrap().contains("GIT_AUTHOR_IDENT"), "{e}");
 }
+
+/// P10B-1: no file that stands where `apply` would put a temporary one, beside an entry file or the exclude file, is
+/// removed or changed: outside the domain `apply` writes its temporary files in the domain's unversioned area.
+#[test]
+fn p10b_1_a_file_at_a_temporary_name_beside_a_target_is_kept() {
+    let fx = product("apply-tmp-names");
+    let mine = [".AGENTS.md.tmp", ".CLAUDE.md.tmp", ".git/info/.exclude.tmp"];
+    for (i, name) in mine.iter().enumerate() {
+        fs::write(fx.root.join(name), format!("mine {i}\n")).unwrap();
+    }
+    let opts = options(&fx, "unpublished", &[]);
+    let ran = apply(&fx, &digest(&fx, &opts), &opts);
+    assert_eq!(ran.status, 0, "{ran:?}");
+    for (i, name) in mine.iter().enumerate() {
+        assert_eq!(fs::read_to_string(fx.root.join(name)).unwrap(), format!("mine {i}\n"), "{name}");
+    }
+    assert!(fs::read_to_string(fx.root.join(".git/info/exclude")).unwrap().contains("/.brewstillery/\n"));
+}
