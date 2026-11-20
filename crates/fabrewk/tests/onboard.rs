@@ -35,13 +35,13 @@ sys.exit(os.waitstatus_to_exitcode(status))
 "#;
 
 /// `onboard` on a pseudo-terminal, each of `lines` typed and ended, with `env` added.
-fn onboard_env(fx: &Fx, lines: &[&str], env: &[(&str, &str)]) -> Ran {
+fn onboard_env(fx: &Fx, lines: &[&str], env: &[(&str, &std::ffi::OsStr)]) -> Ran {
     let typed: String = lines.iter().map(|l| format!("{l}\n")).collect();
     onboard_typed(fx, &typed, env)
 }
 
 /// `onboard` on a pseudo-terminal, `typed` typed as it is, then the end of input.
-fn onboard_typed(fx: &Fx, typed: &str, env: &[(&str, &str)]) -> Ran {
+fn onboard_typed(fx: &Fx, typed: &str, env: &[(&str, &std::ffi::OsStr)]) -> Ran {
     let mut c = Command::new("python3");
     isolate(&mut c, &fx.home, None);
     c.envs(env.iter().copied()).current_dir(&fx.root).args([
@@ -264,7 +264,7 @@ fn terminal_required_without_a_controlling_terminal_and_agent_environment_before
     let usage = fx.run(&["onboard", "--json"]);
     assert_eq!((usage.status, usage.doc()["schema"].clone()), (2, json!("fabrewk.usage/1")), "{usage:?}");
     // Inside an agent, with a terminal, nothing is asked.
-    let ran = onboard_env(&fx, &["en"], &[("CLAUDECODE", "1")]);
+    let ran = onboard_env(&fx, &["en"], &[("CLAUDECODE", std::ffi::OsStr::new("1"))]);
     // The terminal echoes what is typed; nothing else comes before the refusal.
     assert!(ran.stdout.starts_with("en\nAGENT_ENVIRONMENT: "), "{ran:?}");
     for lang in ["en", "es"] {
@@ -412,4 +412,32 @@ fn p10c_9_10_input_ended_inside_an_answer_applies_nothing_and_help_takes_no_json
         let usage = fx.run(args);
         assert_eq!((usage.status, usage.doc()["schema"].clone()), (2, json!("fabrewk.usage/1")), "{args:?}");
     }
+}
+
+#[test]
+fn p10c_12_a_home_that_is_not_utf_8_is_not_read_for_another() {
+    use std::os::unix::ffi::OsStringExt;
+    let fx = product("onboard-home");
+    let k = key(&fx);
+    // The home's name ends in a byte that is not UTF-8; a directory beside it ends in the character that replaces it.
+    let mut name = fx.home.clone().into_os_string().into_vec();
+    name.push(0xff);
+    let home = std::path::PathBuf::from(std::ffi::OsString::from_vec(name));
+    let lossy = std::path::PathBuf::from(home.to_string_lossy().into_owned());
+    for (dir, from) in [(&home, fx.keys.join("stranger.pub")), (&lossy, std::path::PathBuf::from(&k))] {
+        std::fs::create_dir_all(dir).unwrap();
+        std::fs::copy(from, dir.join("ana.pub")).unwrap();
+    }
+    fx.git(&["config", "user.signingkey", lossy.join("ana.pub").to_str().unwrap()]);
+    let before = fx.snapshot();
+    let ran = onboard_env(
+        &fx,
+        &["en", "adopt", "published", "ana", "~/ana.pub", "", "", "", "", "yes", "Mine."],
+        &[("HOME", home.as_os_str())],
+    );
+    // The answer is kept as given, which names no key here: no yes is asked, and nothing is written.
+    assert_eq!(ran.status, 0, "{ran:?}");
+    assert!(!ran.stdout.contains(&say("en", "onboard.confirm", &[])), "{}", ran.stdout);
+    assert!(!ran.stdout.contains(lossy.to_str().unwrap()), "{}", ran.stdout);
+    assert_eq!(fx.snapshot(), before);
 }

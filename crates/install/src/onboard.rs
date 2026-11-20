@@ -84,9 +84,10 @@ fn asked(i: &mut Interview, o: &mut Options) -> Result<Option<String>, Error> {
     o.answers.insert("alias", alias);
     let Some(key) = needed(i, &q("key"))? else { return stop(i, lang) };
     // A path from the home, as a shell would read it.
-    let key = match (key.strip_prefix("~/"), i.home) {
-        // The home, then the rest, so that `~//x` names `$HOME//x`, as in a shell (P10C-7).
-        (Some(rest), Some(home)) => format!("{}/{rest}", home.to_string_lossy()),
+    // The home, then the rest, so that `~//x` names `$HOME//x`, as in a shell (P10C-7); a home that is not UTF-8,
+    // which no answer can hold, is not read for another: the answer is then kept as given (P10C-12).
+    let key = match (key.strip_prefix("~/"), i.home.and_then(std::path::Path::to_str)) {
+        (Some(rest), Some(home)) => format!("{home}/{rest}"),
         _ => key,
     };
     o.answers.insert("key", key);

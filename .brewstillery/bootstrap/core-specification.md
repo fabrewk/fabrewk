@@ -1037,7 +1037,7 @@ to a question with no choices (the alias, the key, the words, REQ-INS-8's three)
 as the same option is on the agent's route, so that `assess` and `apply` judge it there (P10C-1, P10C-2): an alias
 with spaces is `ALIAS_INVALID`, words of spaces alone `WORDS_MISSING`. Any other answer, a needed
 answer empty, a line that is not UTF-8, or the end of input, applies nothing, says so on the terminal and exits 0;
-nothing is asked again. A key's path that starts with `~/` is read from the home, as a shell reads it: the home, `/`, then the rest, so that `~//x` is the home's `/x` (P10C-7). The yes is the
+nothing is asked again. A key's path that starts with `~/` is read from the home, as a shell reads it: the home, `/`, then the rest, so that `~//x` is the home's `/x` (P10C-7); a home that is not UTF-8, which no answer can hold, is not read as another path, and the answer is kept as given (P10C-12). The yes is the
 catalogue's word in the language chosen, trimmed and in any case (`yes`; `sí` or `si`); another catalogue's is no
 yes. A plan `apply` could not apply (a verdict `none` or `review`, a plan incomplete) is shown and no yes is asked. A
 yes and the words make the command `apply`, with the plan's digest and those answers, run by the same dispatch in the
