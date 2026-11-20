@@ -5188,3 +5188,114 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Consequences: Codex's fourth prompt of part 10b and later ones; R-052.
 - Sources: chat of session 43; `target/review-10b/pass-1.jsonl` to `pass-3.jsonl` (removed after the part).
 - Supersedes: none.
+
+## R-052 — Session 43, part 10b: `apply`
+
+- Status: recorded
+- Date: 2026-11-19 to 2026-11-20
+- Who: integrator Claude Code, `claude-opus-5-5`; reviewer Codex (`codex-cli 0.166.0`, `gpt-6.1-sol`, effort high,
+  `codex exec -s workspace-write` in a scope of 3 GB, from `target/review-10b/`, a disposable clone with no network,
+  brought to each commit reviewed).
+- Start: HEAD `fb8eb01`, tree clean.
+- Read: `STATUS.md`, `AGENTS.md`, `plan.md` (row 10, "Phase 10"), `core-specification.md` (DOM, INS, section 3,
+  section 4 "Project", section 6, section 7, 11.2, 11.4, 11.5, 12, and "Installation, as phase 10's opening fixed it"
+  with the amendment of part 10a), D-097 to D-104, R-049 to R-051; the skills `verify-part`, `codex-review`,
+  `differential-review` and `sharp-edges`; the code of `cli/mod.rs`, `cli/write.rs`, `cli/adopt.rs`, `cli/check.rs`,
+  `cli/decl.rs`, `install.rs`, `identity.rs`, `table.rs`, `domain.rs`, `alambique.rs`, `fermento.rs`, `view.rs`,
+  `record/event.rs`, `record/replay.rs`, `record/store.rs`, `record/git.rs`, `crates/install/src/lib.rs` and
+  `files.rs`, and the tests' fixtures (`crates/fabrewk/tests/common/`, `crates/core/tests/common/`), `flows.rs`,
+  `crash.rs`. No credential of the person's was read.
+- Decided: D-105 (the ceilings kept, `apply`'s writing in the core) and D-106 (Codex's review reads only).
+- Delivered: `fabrewk apply` (`crates/core/src/cli/apply.rs`, new; its declaration with five moves, its refusals and
+  `fabrewk.applied/1`): AGENT_ENVIRONMENT first; the reassessment bound by the digest (`PLAN_CHANGED`, which names the
+  digest `assess` gives now), `VERDICT_NONE`, `MODE_NOT_AVAILABLE`; the project file the plan creates
+  (`SETTINGS_INVALID`), Git's key the plan's (`ROLE_FORBIDDEN`), the words; under the lock, the targets as found or as
+  written; `assessed` and `publication-decided`, the plan's files, the entry blocks, the domain's repository and the
+  exclude line, `policy-adopted`, `alambique-baseline`, `installed` with the receipt, the views and the record commit
+  by mode, the receipt's committed paths (and the alambique kept) staged before the branch moves where the index
+  carries no staged change; an interrupted `apply` finished by the same command from the plan its `assessed` holds,
+  with the same options; `INSTALLATION_INCOMPLETE` (new) for every other write command and in `check` (C2); the
+  events before the first adoption verified against the plan's project file; the `project` stream's order and its
+  bindings to the plan on replay; `assessed`'s and `installed`'s payloads; the new codes `PLAN_CHANGED`,
+  `VERDICT_NONE`, `MODE_NOT_AVAILABLE`, `INSTALLATION_INCOMPLETE`. F-1 and F-2 start from a real `apply` (the
+  fixture `Fx::applied`); the crash suite runs over `apply` in the three modes and the same `apply` finishes each stop;
+  `crates/fabrewk/tests/apply.rs` (new). The record's tests' generic Fabrewk event moved to an extension's note.
+  `core-specification.md`: section 6's C2, section 7's list, "Amended in part 10b (D-105)" after point 11.
+- Codex's passes, confirmed blocking findings by pass counted from the fourth (D-106): 4, 1, 1, 0.
+  1. Passes 1 to 3 (`b83ddb9`, `05ef225`, `db6a48f`), full prompts, each stopped by Codex's provider before a report
+     ("This content was flagged for possible cybersecurity risk"; the third also "Selected model is at capacity"); not
+     counted. Their leads, each reproduced by a test that failed before its correction: P10B-1 (`apply`'s temporary
+     file beside an entry file or the exclude file overwrote a file of the person's at that name; now in
+     `local/tmp/`, `05ef225`); P10B-2 (a view made by someone between the reassessment and the lock was overwritten;
+     a view present is a target only when it is what the record as it stands gives, path by path, `05ef225`); P10B-3
+     (an entry file's permissions, given after the rename, lost at a stop between the two; now given to the temporary
+     file before it, `db6a48f`).
+  2. Pass 4 (`db6a48f`, reads only, D-106): reject, 4 confirmed blocking (P10B-4, P10B-7, P10B-8, P10B-9), corrected
+     in `71aa61c`. P10B-4: `local/tmp/` made a link led a write command's temporary files and its removal of
+     leftovers outside the domain; the session refuses it (`RECORD_BROKEN`) and `apply` checks it with every target.
+     P10B-7: a resumed `apply` took other options than its plan's silently; it compares them with the plan's answers
+     (`PLAN_CHANGED`), through the installer's new `answers`. P10B-8: once an adoption existed, the opening events were
+     verified against it, not against the plan; the opening is bound to the plan on replay (`table.rs`: the mode, the
+     adopted project file and the receipt's plan). P10B-9: a receipt naming another plan replayed; refused
+     (`RECORD_TRANSITION_INVALID`). Not confirmed: P10B-5 (an exclude file named absolutely, outside the working tree)
+     and P10B-6 (a Git directory on another file system): a repository whose Git directory lies apart from its working
+     tree is refused by the main working tree's check (`NOT_A_REPOSITORY`) before any write, as for every write
+     command since part 7b; a test fixes it, and the specification declares it a limitation. P10B-10, not blocking (the
+     project stream's order had no test that required its refusal): the replay test of the opening's order and
+     bindings.
+  3. Pass 5 (`71aa61c`): reject, 1 confirmed blocking, P10B-11: a link made at `local/tmp/` between the start and the
+     lock went past the check before the lock; the session checks it once the lock is held, before it removes any
+     leftover (`5ecac75`).
+  4. Pass 6 (`5ecac75`): reject, 1 confirmed blocking, P10B-12: with the check before the lock removed, the ending of
+     idle cells walked a linked `local/tmp/` and removed a file of the person's outside the domain before the session
+     refused; `end_idle` walks no linked `local/tmp/` (`78c06e5`).
+  5. Pass 7 (`78c06e5`): accept, no finding; P10B-1 to P10B-12 closed or declared.
+  Every finding was checked against the code before its correction; each new test failed without it. The integrator
+  gave each read-only pass the suites' results on the commit it reviewed.
+- Mutation over `fb8eb01..HEAD` (`cargo mutants --package fabrewk-core --package fabrewk --package fabrewk-install
+  --test-workspace true --baseline skip --features fabrewk-core/fault-injection --in-diff`, in a 2 GB scope with
+  `ulimit -v 1600000`; the baseline skipped, since cargo-mutants builds it for the mutated packages alone and the
+  selection of tests below names the binary's; that selection was run green by hand on the tree first):
+  1. Over `78c06e5`, `-j 2 --timeout 300`: 193 mutants, 139 caught, 30 unviable, 23 missed, 1 timeout. The missed:
+     the resumed `apply`'s target checks (`targets`: a file made, changed or made unreadable after the stop, the
+     exclude file without the line, a file where the domain's repository goes), the binding of a resumed `apply` to
+     its digest, a record that does not replay taken for none, a file written again at resumption, `left` in
+     `published`, the completion read from a person's own commit, `assessed`'s and `installed`'s payloads, a forged
+     stream beside the project's before the first adoption, the index staging of an entry file the person changed,
+     two guards that could be written without the mutated operator, and `end_idle`, caught by
+     `run.rs::d_092_a_cell_still_ending_keeps_its_directories_until_its_helper_is_ended`, outside the selection
+     (checked by hand, no `pasta` left). Corrected in `6337762`: the tests named in its message, the link check
+     first in `targets`, and `write::pending`, so that `apply` matches no refusal's code (a Git failure under the lock
+     now refuses instead of going on).
+  2. Over `6337762`, `--iterate -j 2 --timeout 400`, `run` added to the selection: 104 mutants, 87 caught, 15
+     unviable, 1 missed, 1 timeout. The missed: `apply`'s default for the words' language, which
+     `languages.agentInteraction` already gives (from the plan's project file, its canonical language, and from the
+     maestro's own file); the default dropped (`847e3e7`), so no equivalent is declared.
+  3. Over `847e3e7`, `--iterate -j 1 --timeout 400`: 63 mutants, 45 caught, 17 unviable, 1 timeout, none missed. The
+     timeout, `write.rs` `held` as `Ok(None)`, timed out alone too: the `faults` tests that pause a command at a write
+     point wait for a pause the mutant never reaches, a loop caught by the timeout.
+  None missed, none equivalent.
+- Verified (`verify-part`), clean clone of `e2eecc7`, every step in a user scope of 2 GB with two build jobs: 707
+  tests passed, 11 ignored; with `fault-injection`, the binary's `crash` 2 (the crash suite over F-1 and over
+  `apply`), `faults` 47 and the core's `crash` 3 green; the musl release build, `budget check` (the core 12,255 of
+  12,500; the installer 971 of 1,200; the backend 318 of 400; Claude Code's adapter 269 of 600; Codex's 319 of 600;
+  5 direct runtime crates; 31 in the release build; the binary 3,674,504 bytes), both clippy runs, fmt and `cargo
+  deny` clean; `--version --json` lists no feature. No idle `pasta` before or after.
+- Measured: the core 12,255 of 12,500 (+460 over the part; 245 lines left for parts 10c and 10d); the installer 971
+  of 1,200, unchanged (D-105), its 229 lines left for part 10c's interview.
+- Interpretations the maestro may want to read (each in the specification's "Amended in part 10b (D-105)"):
+  1. A resumed `apply` writes only what is missing: a file already as the plan writes it is not written again.
+  2. The completion of an `apply` is read from the record, the views and the record branch: a person's own commit of
+     what a stopped `apply` left does not complete it.
+  3. In `published`, a change the person staged in an entry file after a stop is kept in the index, and the commit
+     holds the plan's content: the index then shows the person's change against the new tip.
+  4. A repository whose Git directory lies apart from its working tree is refused by `apply` (`NOT_A_REPOSITORY`),
+     although `assess` gives it a plan: a declared limitation.
+  5. The mutation run judged each mutant with the suites the diff reaches (the core's unit tests, `record`,
+     `identity`, `domain`, `settings`, `apply`, `faults`, the crash suite over `apply`, `writing`, `install`, `flows`,
+     `tasks`, and from the second run `run`), without the crash suite over F-1 (about 390 s a mutant), as R-048
+     interpretation 6; the clean clone runs everything.
+- Part 10b is closed: REQ-INS-3's, REQ-INS-8's (the baseline), REQ-DOM-1's, REQ-DOM-4's, REQ-DOM-6's and REQ-DOM-7's
+  criteria at `apply`, the refusals of the row and the crash suite over `apply`, by `crates/fabrewk/tests/apply.rs`,
+  `faults.rs`, `crash.rs` and the core's `record.rs` and `identity.rs`. The review directory, the clean clone and the
+  mutation's output are removed after this entry.
