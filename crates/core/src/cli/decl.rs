@@ -574,11 +574,12 @@ pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Parsed, Usage> 
         }
     }
     match (command, help, version) {
+        // `--json` given before the command is still that command's option, or none, help asked or not (P10C-8,
+        // P10C-10).
+        (Some(c), _, _) if json && !c.flags.contains(&"json") => Err(usage("usage.flag", "--json", Some(c))),
         (_, true, false) => Ok(Parsed::Help(command)),
         (None, false, false) if json => Err(usage("usage.flag", "--json", None)),
         (None, false, true) => Ok(Parsed::Version { json }),
-        // `--json` given before the command is still that command's option, or none (P10C-8).
-        (Some(c), false, _) if json && !c.flags.contains(&"json") => Err(usage("usage.flag", "--json", Some(c))),
         (Some(c), false, _) if c.required && arg.is_none() => {
             Err(usage("usage.argument", format!("<{}>", c.arg.unwrap_or_default()), Some(c)))
         }

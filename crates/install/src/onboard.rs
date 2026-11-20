@@ -19,8 +19,8 @@ fn put(i: &mut Interview, text: &str) -> Result<(), Error> {
     i.out.write_all(printable(text).as_bytes()).and_then(|()| i.out.flush()).map_err(io)
 }
 
-/// Asks `question` and gives the line answered without its end; `None` at the end of input, or for a line that is not
-/// UTF-8, which no choice is.
+/// Asks `question` and gives the line answered without its end; `None` at the end of input, even inside the line, or
+/// for a line that is not UTF-8, which no choice is.
 fn ask(i: &mut Interview, question: &str) -> Result<Option<String>, Error> {
     put(i, &format!("{question} "))?;
     let mut line = String::new();
@@ -28,8 +28,9 @@ fn ask(i: &mut Interview, question: &str) -> Result<Option<String>, Error> {
         Ok(0) => Ok(None),
         Err(e) if e.kind() == std::io::ErrorKind::InvalidData => Ok(None),
         Err(e) => Err(io(e)),
-        // Only the line's end is not the answer: a carriage return typed literally is (P10C-5).
-        Ok(_) => Ok(Some(line.strip_suffix('\n').unwrap_or(&line).to_owned())),
+        // Only the line's end is not the answer: a carriage return typed literally is (P10C-5); a line the end of
+        // input cut before its end is no answer (P10C-9).
+        Ok(_) => Ok(line.strip_suffix('\n').map(str::to_owned)),
     }
 }
 

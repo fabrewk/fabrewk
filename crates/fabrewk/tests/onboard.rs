@@ -36,6 +36,12 @@ sys.exit(os.waitstatus_to_exitcode(status))
 
 /// `onboard` on a pseudo-terminal, each of `lines` typed and ended, with `env` added.
 fn onboard_env(fx: &Fx, lines: &[&str], env: &[(&str, &str)]) -> Ran {
+    let typed: String = lines.iter().map(|l| format!("{l}\n")).collect();
+    onboard_typed(fx, &typed, env)
+}
+
+/// `onboard` on a pseudo-terminal, `typed` typed as it is, then the end of input.
+fn onboard_typed(fx: &Fx, typed: &str, env: &[(&str, &str)]) -> Ran {
     let mut c = Command::new("python3");
     isolate(&mut c, &fx.home, None);
     c.envs(env.iter().copied()).current_dir(&fx.root).args([
@@ -46,7 +52,6 @@ fn onboard_env(fx: &Fx, lines: &[&str], env: &[(&str, &str)]) -> Ran {
         "onboard",
     ]);
     let mut child = c.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().unwrap();
-    let typed: String = lines.iter().map(|l| format!("{l}\n")).collect();
     child.stdin.take().unwrap().write_all(typed.as_bytes()).unwrap();
     let out = child.wait_with_output().unwrap();
     let stdout = String::from_utf8_lossy(&out.stdout).replace("\r\n", "\n");
@@ -329,4 +334,82 @@ fn p10c_5_to_8_a_line_s_characters_tools_trimmed_a_shell_s_tilde_and_no_json_bef
     assert_eq!(ran.status, 0, "{ran:?}");
     let answers = &fx.events("project")[0]["payload"]["plan"]["answers"];
     assert_eq!((answers["tool"].clone(), answers["purpose"].clone()), (json!(["claude"]), json!("Purpose\r")));
+}
+
+/// As [`DRIVE`], in stages: each `[typed, until]` is typed, then the terminal is read until it shows `until`, and the
+/// digest of every file under the directories named is taken there; the first digest is taken before the start.
+const STAGED: &str = r#"
+import hashlib, json, os, pty, sys
+given = json.loads(sys.stdin.read())
+def tree():
+    h = hashlib.sha256()
+    for top in given["dirs"]:
+        for d, dirs, files in sorted(os.walk(top)):
+            dirs.sort()
+            for f in sorted(files):
+                p = os.path.join(d, f)
+                h.update(p.encode() + b"\0")
+                h.update(os.readlink(p).encode() if os.path.islink(p) else open(p, "rb").read())
+    return h.hexdigest()
+digests = [tree()]
+pid, fd = pty.fork()
+if pid == 0:
+    os.execv(sys.argv[1], sys.argv[1:])
+out = b""
+for typed, until in given["stages"]:
+    os.write(fd, typed.encode())
+    while until is not None and until.encode() not in out:
+        out += os.read(fd, 65536)
+    if until is not None:
+        digests.append(tree())
+os.write(fd, b"\x04")
+while True:
+    try:
+        chunk = os.read(fd, 65536)
+    except OSError:
+        break
+    if not chunk:
+        break
+    out += chunk
+_, status = os.waitpid(pid, 0)
+print(json.dumps({"digests": digests, "after": tree(), "status": os.waitstatus_to_exitcode(status)}))
+"#;
+
+#[test]
+fn p10c_11_nothing_is_written_while_the_yes_and_the_words_are_awaited() {
+    let fx = product("onboard-staged");
+    let k = key(&fx);
+    let (confirm, words) = (say("es", "onboard.confirm", &[]), say("es", "onboard.words", &[]));
+    let first = format!("es\nadopt\npublished\nana\n{k}\n\n\n\n\n");
+    let stages = json!([[first, confirm], ["sí\n", words], ["Lo aplico.\n", null]]);
+    let given = json!({"dirs": [fx.root, fx.home], "stages": stages});
+    let mut c = Command::new("python3");
+    isolate(&mut c, &fx.home, None);
+    c.current_dir(&fx.root).args(["-I", "-c", STAGED, env!("CARGO_BIN_EXE_fabrewk"), "onboard"]);
+    let mut child = c.stdin(Stdio::piped()).stdout(Stdio::piped()).spawn().unwrap();
+    child.stdin.take().unwrap().write_all(given.to_string().as_bytes()).unwrap();
+    let out = child.wait_with_output().unwrap();
+    let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let d = &doc["digests"];
+    // Unchanged while the plan waits for the yes, and while the yes waits for the words; written after them.
+    assert!(d[0].is_string() && d[1] == d[0] && d[2] == d[0], "{doc}");
+    assert!(doc["status"] == 0 && doc["after"] != d[0], "{doc}");
+    assert_eq!(fx.events("project").len(), 4);
+}
+
+#[test]
+fn p10c_9_10_input_ended_inside_an_answer_applies_nothing_and_help_takes_no_json_before_it() {
+    let fx = product("onboard-partial");
+    let k = key(&fx);
+    let before = fx.snapshot();
+    // The words typed without their line's end, then the end of input: two of them, the first releasing the text.
+    let typed = format!("en\nadopt\npublished\nana\n{k}\n\n\n\n\nyes\nMine.\x04");
+    let ran = onboard_typed(&fx, &typed, &[]);
+    assert_eq!(ran.status, 0, "{ran:?}");
+    assert!(ran.stdout.trim_end().ends_with(&say("en", "onboard.stopped", &[])), "{}", ran.stdout);
+    assert_eq!(fx.snapshot(), before);
+    for args in [&["--json", "onboard", "--help"][..], &["onboard", "--json", "--help"]] {
+        let usage = fx.run(args);
+        assert_eq!((usage.status, usage.doc()["schema"].clone()), (2, json!("fabrewk.usage/1")), "{args:?}");
+    }
 }
