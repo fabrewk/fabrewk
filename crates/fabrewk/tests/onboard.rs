@@ -127,6 +127,8 @@ fn req_ins_4_onboard_reaches_the_digest_assess_gives_with_the_same_answers() {
     let ran = onboard(&fx, &["en", "adopt", "published", "ana", &k, "", "", "", "", "yes", "Mine."]);
     assert_eq!(ran.status, 0, "{ran:?}");
     assert_eq!(fx.events("project")[0]["payload"]["digest"], json!(expected));
+    // Git signs with the key named: no command to set it up is shown.
+    assert!(!ran.stdout.contains(&say("en", "onboard.sign", &[])), "{}", ran.stdout);
 }
 
 #[test]
@@ -450,4 +452,26 @@ fn p10c_13_the_plan_shown_holds_every_character_the_alambique_will() {
     assert_eq!(ran.status, 0, "{ran:?}");
     // In the alambique's lines, as the plan shows its content, the carriage return is shown, not lost.
     assert!(ran.stdout.contains("\n      Purpose\\u000d\n"), "{}", ran.stdout);
+}
+
+#[test]
+fn a_language_without_a_catalogue_or_no_tag_and_a_line_that_is_not_utf_8_ask_nothing_more() {
+    let fx = product("onboard-language");
+    let before = fx.snapshot();
+    for bad in ["fr", "en-", "e"] {
+        let ran = onboard(&fx, &[bad, "adopt"]);
+        assert_eq!(ran.status, 0, "{bad}: {ran:?}");
+        assert!(!ran.stdout.contains(&say("en", "onboard.mode", &[])), "{bad}: {}", ran.stdout);
+    }
+    let mut c = Command::new("python3");
+    isolate(&mut c, &fx.home, None);
+    c.current_dir(&fx.root).args(["-I", "-c", DRIVE, env!("CARGO_BIN_EXE_fabrewk"), "onboard"]);
+    let mut child = c.stdin(Stdio::piped()).stdout(Stdio::piped()).spawn().unwrap();
+    child.stdin.take().unwrap().write_all(b"en\nadopt\n\xff\n").unwrap();
+    let out = child.wait_with_output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout).replace("\r\n", "\n");
+    assert_eq!(out.status.code(), Some(0), "{text}");
+    assert!(text.trim_end().ends_with(&say("en", "onboard.stopped", &[])), "{text}");
+    assert!(!text.contains(&say("en", "onboard.alias", &[])), "{text}");
+    assert_eq!(fx.snapshot(), before);
 }
