@@ -38,9 +38,9 @@ fn choose(i: &mut Interview, question: &str, choices: &[&str]) -> Result<Option<
     Ok(answer.map(|a| a.trim().to_lowercase()).filter(|a| choices.contains(&a.as_str())))
 }
 
-/// Asks `question` where an answer is needed: an empty one is none.
+/// Asks `question` where an answer is needed: an empty one is none; any other is kept as given (P10C-1).
 fn needed(i: &mut Interview, question: &str) -> Result<Option<String>, Error> {
-    Ok(ask(i, question)?.filter(|a| !a.trim().is_empty()))
+    Ok(ask(i, question)?.filter(|a| !a.is_empty()))
 }
 
 /// The assessment with the answers so far: the document and text `assess` gives with them as its options.
@@ -79,12 +79,12 @@ fn asked(i: &mut Interview, o: &mut Options) -> Result<Option<String>, Error> {
     let Some(publication) = publication else { return stop(i, lang) };
     o.answers.insert("publication", publication);
     let Some(alias) = needed(i, &q("alias"))? else { return stop(i, lang) };
-    o.answers.insert("alias", alias.trim().to_owned());
+    o.answers.insert("alias", alias);
     let Some(key) = needed(i, &q("key"))? else { return stop(i, lang) };
     // A path from the home, as a shell would read it.
-    let key = match (key.trim().strip_prefix("~/"), i.home) {
+    let key = match (key.strip_prefix("~/"), i.home) {
         (Some(rest), Some(home)) => home.join(rest).to_string_lossy().into_owned(),
-        _ => key.trim().to_owned(),
+        _ => key,
     };
     o.answers.insert("key", key);
     // Git's commands to sign with that key, when Git does not: shown, never run.
@@ -97,7 +97,8 @@ fn asked(i: &mut Interview, o: &mut Options) -> Result<Option<String>, Error> {
     }
     let names: Vec<&str> = i.adapters.iter().map(|a| a.program.executable).collect();
     let Some(tools) = ask(i, &format!("{} ({})", q("tools"), names.join(", ")))? else { return stop(i, lang) };
-    for t in tools.split([' ', ',']).filter(|t| !t.is_empty()) {
+    // Choices in any case (P10C-3).
+    for t in tools.to_lowercase().split([' ', ',']).filter(|t| !t.is_empty()) {
         if !names.contains(&t) {
             return stop(i, lang);
         }
@@ -107,7 +108,7 @@ fn asked(i: &mut Interview, o: &mut Options) -> Result<Option<String>, Error> {
     if super::kind(i.root, ".brewstillery/ALAMBIQUE.md") == "absent" {
         for k in ["purpose", "audience", "excluded"] {
             let Some(answer) = ask(i, &q(k))? else { return stop(i, lang) };
-            if !answer.trim().is_empty() {
+            if !answer.is_empty() {
                 o.answers.insert(k, answer);
             }
         }

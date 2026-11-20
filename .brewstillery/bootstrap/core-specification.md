@@ -1029,10 +1029,13 @@ the interview before another question, in the language chosen; another runs afte
 commands to sign with that key when Git does not, shown and never run; the last runs after the last question, and its
 text (`assess`'s, its `apply` command included) is the plan shown whole and its digest the one a yes applies. A
 question that lists its choices (the mode; the publication and, after the warning, its exits, the same three modes;
-the tools, any of them, separated by spaces or commas) takes only them, trimmed and in any case; the alias, the key,
-the yes and the words need an answer; the tools (empty: none) and REQ-INS-8's three questions (empty: the placeholder
-line) take an empty one, each other answer kept as given: point 8's "an empty one, at any question" is read as at a
-question that needs an answer, since REQ-INS-8 gives an empty answer its placeholder. Any other answer, a needed
+the tools, any of them, separated by spaces or commas) takes only them, trimmed and in any case (P10C-3); the alias,
+the key, the yes and the words need an answer; the tools (empty: none) and REQ-INS-8's three questions (empty: the
+placeholder line) take an empty one: point 8's "an empty one, at any question" is read as at a question that needs an
+answer, since REQ-INS-8 gives an empty answer its placeholder. An empty answer is the empty line; every other answer
+to a question with no choices (the alias, the key, the words, REQ-INS-8's three) is kept as given, spaces included,
+as the same option is on the agent's route, so that `assess` and `apply` judge it there (P10C-1, P10C-2): an alias
+with spaces is `ALIAS_INVALID`, words of spaces alone `WORDS_MISSING`. Any other answer, a needed
 answer empty, a line that is not UTF-8, or the end of input, applies nothing, says so on the terminal and exits 0;
 nothing is asked again. A key's path that starts with `~/` is read from the home, as a shell reads it. The yes is the
 catalogue's word in the language chosen, trimmed and in any case (`yes`; `sí` or `si`); another catalogue's is no

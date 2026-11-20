@@ -143,7 +143,6 @@ fn req_ins_4_no_yes_no_words_or_the_end_of_input_applies_nothing() {
         vec!["en".into(), "administer".into()],
         vec!["en".into(), "adopt".into(), "public".into()],
         vec!["en".into(), "adopt".into(), "unpublished".into(), "".into()],
-        vec!["en".into(), "adopt".into(), "published".into(), " ".into()],
         vec!["en".into(), "adopt".into(), "published".into(), "ana".into(), "".into()],
         vec!["en".into(), "adopt".into(), "published".into(), "ana".into(), k.clone(), "cursor".into()],
         to(&[]),
@@ -155,7 +154,6 @@ fn req_ins_4_no_yes_no_words_or_the_end_of_input_applies_nothing() {
         to(&["sí"]),
         to(&["yes"]),
         to(&["yes", ""]),
-        to(&["yes", "   "]),
     ];
     for lines in &cases {
         let lines: Vec<&str> = lines.iter().map(String::as_str).collect();
@@ -262,6 +260,47 @@ fn terminal_required_without_a_controlling_terminal_and_agent_environment_before
     assert_eq!((usage.status, usage.doc()["schema"].clone()), (2, json!("fabrewk.usage/1")), "{usage:?}");
     // Inside an agent, with a terminal, nothing is asked.
     let ran = onboard_env(&fx, &["en"], &[("CLAUDECODE", "1")]);
-    assert!(ran.stdout.contains("AGENT_ENVIRONMENT") && !ran.stdout.contains(&say("en", "onboard.mode", &[])));
+    // The terminal echoes what is typed; nothing else comes before the refusal.
+    assert!(ran.stdout.starts_with("en\nAGENT_ENVIRONMENT: "), "{ran:?}");
+    for lang in ["en", "es"] {
+        assert!(!ran.stdout.contains(&say(lang, "onboard.language", &[])), "{ran:?}");
+    }
     assert_eq!((ran.status, fx.snapshot() == before), (1, true), "{ran:?}");
+}
+
+#[test]
+fn p10c_1_to_3_answers_are_kept_as_given_and_choices_are_taken_in_any_case() {
+    let fx = product("onboard-given");
+    let k = key(&fx);
+    let before = fx.snapshot();
+    // An alias with spaces is the answer given, which `assess` refuses as it refuses `--alias ' ana '` (P10C-1).
+    let ran = onboard(&fx, &["en", "adopt", "published", " ana ", &k, "", "", "", "", "yes", "Mine."]);
+    assert_eq!(ran.status, 1, "{ran:?}");
+    assert!(ran.stdout.contains("ALIAS_INVALID: "), "{}", ran.stdout);
+    assert_eq!(fx.snapshot(), before);
+    // Words of spaces alone are words given, which `apply` refuses (`WORDS_MISSING`), with nothing written.
+    let ran = onboard(&fx, &["en", "adopt", "published", "ana", &k, "", "", "", "", "yes", "   "]);
+    assert!(ran.status == 1 && ran.stdout.contains("WORDS_MISSING: "), "{ran:?}");
+    assert_eq!(fx.snapshot(), before);
+    // A key's file name ending in a space is the path given (P10C-1): the plan shown is `assess`'s with that path.
+    let spaced = format!("{k} ");
+    std::fs::copy(&k, &spaced).unwrap();
+    let base = ["--publication", "published", "--alias", "ana", "--lang", "en"];
+    let expected = digest(&fx, &[&base[..], &["--key", &spaced]].concat());
+    let ran = onboard(&fx, &["en", "adopt", "published", "ana", &spaced, "", "", "", "", "no"]);
+    assert!(ran.status == 0 && ran.stdout.contains(&expected), "{ran:?}");
+    assert_eq!(fx.snapshot(), before);
+    // The tools in any case (P10C-3); an answer of spaces alone kept as given in the alambique (P10C-2); the plan
+    // applied is the one `assess` gives with the same answers as options.
+    let more = ["--key", &k, "--tool", "claude", "--tool", "codex", "--purpose", "   ", "--audience", "Us"];
+    let expected = digest(&fx, &[&base[..], &more].concat());
+    let lines = ["en", "ADOPT", " Published ", "ana", &k, "CLAUDE, Codex", "   ", "Us", "", "YES", "Mine."];
+    let ran = onboard(&fx, &lines);
+    assert_eq!(ran.status, 0, "{ran:?}");
+    let assessed = &fx.events("project")[0]["payload"];
+    assert_eq!(assessed["digest"], json!(expected));
+    assert_eq!(assessed["plan"]["answers"]["tool"], json!(["claude", "codex"]));
+    assert_eq!(assessed["plan"]["answers"]["purpose"], json!("   "));
+    let alambique = std::fs::read_to_string(fx.domain.join("ALAMBIQUE.md")).unwrap();
+    assert!(alambique.contains("\n   \n"), "{alambique}");
 }
