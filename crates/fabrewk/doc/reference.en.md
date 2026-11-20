@@ -49,7 +49,7 @@ Documents with --json: `fabrewk.check/1`
 | | Verifies | Codes | Control |
 | --- | --- | --- | --- |
 | C1 | The settings files read and validate, and each maintainer's file holds only personal keys. | `SETTINGS_INVALID`, `SETTINGS_KEY_NOT_PERSONAL`, `ALIAS_MISMATCH` | effective |
-| C2 | A policy is adopted, and the project file equals it or its change is pending. | `POLICY_ABSENT`, `POLICY_PENDING` | effective |
+| C2 | A policy is adopted, and the project file equals it or its change is pending. | `POLICY_ABSENT`, `POLICY_PENDING`, `INSTALLATION_INCOMPLETE` | effective |
 | C3 | The record replays: versions, digests, canonical form, chains, forks, transitions, signatures, identifiers. | `RECORD_VERSION_UNKNOWN`, `RECORD_BROKEN`, `RECORD_DIGEST_MISMATCH`, `RECORD_NONCANONICAL`, `RECORD_FORK`, `RECORD_TRANSITION_INVALID`, `ATTEMPT_ENDED`, `RECORD_SIGNATURE_INVALID`, `RECORD_ID_COLLISION` | effective |
 | C4 | The record is present and has not rolled back: effective where Git's history is walked, cooperative on one machine. | `RECORD_ABSENT`, `RECORD_ROLLBACK`, `MARK_INVALID` | effective |
 | C5 | STATUS.md and RULES.md are what a fresh generation from the record gives. | `VIEW_STALE` | effective |
@@ -108,9 +108,46 @@ A maestro applies the plan assess printed, with the same options and their own w
 - `--json`: Gives the output as one JSON document with a schema field.
 - `--help`: Shows this help.
 
-Moves it may cause: none.
+Moves it may cause: `assessed` (repository assessed), `publication-decided` (publication decided), `policy-adopted` (policy adopted), `alambique-baseline` (alambique's baseline), `installed` (installed).
 
-Documents with --json: `fabrewk.usage/1`
+Documents with --json: `fabrewk.applied/1`
+
+Refusals
+
+- `AGENT_ENVIRONMENT`: This runs inside an agent or an extension, whose markers are in the environment, and only a person makes this move. The check is cooperative: a process can clear its environment.
+- `PLAN_CHANGED`: The plan assess gives now, with these options, is not the one named, or a file the plan writes changed since: applying it would write over what you did not see.
+- `VERDICT_NONE`: The plan's verdict is none: a reason it gives blocks it.
+- `MODE_NOT_AVAILABLE`: Review mode is not built yet, so a plan for it cannot be applied.
+- `ROLE_FORBIDDEN`: The key signing this move holds no role in the policy that may make it.
+- `WORDS_MISSING`: A person's move needs your own words, given with --say: not empty, and valid UTF-8 text.
+- `WORDS_COPIED`: The words given are the example that help prints, not your own.
+- `ALIAS_INVALID`: A name that is not a valid alias: lowercase letters, digits and single hyphens, starting with a letter, at most 32 characters, and not a reserved name.
+- `PRIVATE_FOLDER_INCLUDED`: Git's configuration names a file of Fabrewk's private folder, an include or its attributes file, which Git would open: assess stops before running any other Git.
+- `DOMAIN_NOT_IGNORED`: The product's repository does not ignore .brewstillery/, so a commit there would publish it.
+- `RECORD_ABSENT`: There is no record here.
+- `INSTALLATION_INCOMPLETE`: An apply began here and did not finish, so no other command may write until it does.
+- `POLICY_ABSENT`: No policy is adopted, so there is no effective configuration and no maintainer.
+- `RECORD_BROKEN`: The record is broken: its files are not one unbroken chain.
+- `RECORD_DIGEST_MISMATCH`: An event file's content is not the one its name records.
+- `RECORD_NONCANONICAL`: An event file is not in canonical form, so its digest cannot be trusted.
+- `RECORD_FORK`: Two events stand at the same place of one stream: two clones wrote there.
+- `RECORD_TRANSITION_INVALID`: An event stands where the transition table does not allow it.
+- `ATTEMPT_ENDED`: The record ends an attempt that is not open.
+- `RECORD_SIGNATURE_INVALID`: A person's event is not signed by the key and role the policy gives its signer.
+- `RECORD_VERSION_UNKNOWN`: An event is not of a schema this version of Fabrewk knows.
+- `RECORD_ID_COLLISION`: Two stages or two tasks were given the same identifier.
+- `RECORD_ROLLBACK`: The record lost events it held before: a rollback.
+- `MARK_INVALID`: This machine's mark of the record (local/cache/heads.json) is damaged or names an event the record does not hold there.
+- `CHECK_UNKNOWN`: A verification could not run, so its result is unknown, and an unknown result is never a pass.
+- `NOT_A_REPOSITORY`: This is not the root of the repository's main working tree.
+- `HEAD_DETACHED`: Git's head names no branch, so there is no record branch.
+- `PRIVATE_FOLDER_PERMISSIONS`: The private folder gives access to someone other than its owner, so Fabrewk does not read it.
+- `SETTINGS_INVALID`: A settings file does not read or validate.
+- `LOCK_HELD`: Another Fabrewk command holds the lock of this repository's record, or another task is running: one writer and one run at a time.
+- `RECORD_HEAD_MOVED`: Something wrote in the record without its lock while this command ran; this command wrote nothing.
+- `RECORD_COMMIT_RACE`: The branch moved while Fabrewk committed the record; its events are written but not committed.
+- `TOOL_FAILED`: An external tool failed; what it printed is kept as evidence, never shown here.
+- `TOOL_MISSING`: A tool this needs is not on this machine.
 
 ## `fabrewk adopt --say <words> [--say-lang <tag>] [--widen <key>]… [--json]`
 
@@ -139,6 +176,7 @@ Refusals
 - `POLICY_UNCOMMITTED`: The project file is not as committed at the record branch's head.
 - `WIDENING_UNNAMED`: A change widens authority without being named.
 - `RECORD_ABSENT`: There is no record here.
+- `INSTALLATION_INCOMPLETE`: An apply began here and did not finish, so no other command may write until it does.
 - `POLICY_ABSENT`: No policy is adopted, so there is no effective configuration and no maintainer.
 - `RECORD_BROKEN`: The record is broken: its files are not one unbroken chain.
 - `RECORD_DIGEST_MISMATCH`: An event file's content is not the one its name records.
@@ -221,6 +259,7 @@ Refusals
 - `PROTECTED_PATH_WILDCARD`: A wildcard among the allowed files matches a protected path or name.
 - `CHECK_DUPLICATE`: One check has two different definitions.
 - `RECORD_ABSENT`: There is no record here.
+- `INSTALLATION_INCOMPLETE`: An apply began here and did not finish, so no other command may write until it does.
 - `POLICY_ABSENT`: No policy is adopted, so there is no effective configuration and no maintainer.
 - `RECORD_BROKEN`: The record is broken: its files are not one unbroken chain.
 - `RECORD_DIGEST_MISMATCH`: An event file's content is not the one its name records.
@@ -280,6 +319,7 @@ Refusals
 - `LOCK_HELD`: Another Fabrewk command holds the lock of this repository's record, or another task is running: one writer and one run at a time.
 - `ALAMBIQUE_UNAPPROVED`: The alambique is not the text a maestro last approved: it changed by hand, or it was never approved.
 - `RECORD_ABSENT`: There is no record here.
+- `INSTALLATION_INCOMPLETE`: An apply began here and did not finish, so no other command may write until it does.
 - `POLICY_ABSENT`: No policy is adopted, so there is no effective configuration and no maintainer.
 - `RECORD_BROKEN`: The record is broken: its files are not one unbroken chain.
 - `RECORD_DIGEST_MISMATCH`: An event file's content is not the one its name records.
@@ -334,6 +374,7 @@ Refusals
 - `BASE_MOVED`: The product at the record branch's head is not the one the task's base, or the last of its dependencies' integrations, left.
 - `WORKTREE_DIRTY`: A file the integration would write holds, in the working tree or the index, neither the base's content nor the candidate's: an edit of the person's, which is never overwritten.
 - `RECORD_ABSENT`: There is no record here.
+- `INSTALLATION_INCOMPLETE`: An apply began here and did not finish, so no other command may write until it does.
 - `POLICY_ABSENT`: No policy is adopted, so there is no effective configuration and no maintainer.
 - `RECORD_BROKEN`: The record is broken: its files are not one unbroken chain.
 - `RECORD_DIGEST_MISMATCH`: An event file's content is not the one its name records.
@@ -381,6 +422,7 @@ Refusals
 - `WORDS_COPIED`: The words given are the example that help prints, not your own.
 - `MERGE_IN_PROGRESS`: The task's current candidate is accepted, and its integration may be halfway done.
 - `RECORD_ABSENT`: There is no record here.
+- `INSTALLATION_INCOMPLETE`: An apply began here and did not finish, so no other command may write until it does.
 - `POLICY_ABSENT`: No policy is adopted, so there is no effective configuration and no maintainer.
 - `RECORD_BROKEN`: The record is broken: its files are not one unbroken chain.
 - `RECORD_DIGEST_MISMATCH`: An event file's content is not the one its name records.
@@ -436,6 +478,7 @@ Refusals
 - `PROVIDER_MISSING`: review.differentProvider is require, and the review profile's provider is the builder's, or its tool is absent.
 - `CHECK_DUPLICATE`: One check has two different definitions.
 - `RECORD_ABSENT`: There is no record here.
+- `INSTALLATION_INCOMPLETE`: An apply began here and did not finish, so no other command may write until it does.
 - `POLICY_ABSENT`: No policy is adopted, so there is no effective configuration and no maintainer.
 - `RECORD_BROKEN`: The record is broken: its files are not one unbroken chain.
 - `RECORD_DIGEST_MISMATCH`: An event file's content is not the one its name records.
@@ -515,6 +558,7 @@ Refusals
 - `INPUT_UNCOMMITTED`: The fermento's input differs from the committed one, and the sweep's commit would carry your edit.
 - `INPUT_CHANGED`: The fermento's input changed while the sweep ran.
 - `RECORD_ABSENT`: There is no record here.
+- `INSTALLATION_INCOMPLETE`: An apply began here and did not finish, so no other command may write until it does.
 - `POLICY_ABSENT`: No policy is adopted, so there is no effective configuration and no maintainer.
 - `RECORD_BROKEN`: The record is broken: its files are not one unbroken chain.
 - `RECORD_DIGEST_MISMATCH`: An event file's content is not the one its name records.
@@ -562,6 +606,7 @@ Refusals
 - `WORDS_MISSING`: A person's move needs your own words, given with --say: not empty, and valid UTF-8 text.
 - `WORDS_COPIED`: The words given are the example that help prints, not your own.
 - `RECORD_ABSENT`: There is no record here.
+- `INSTALLATION_INCOMPLETE`: An apply began here and did not finish, so no other command may write until it does.
 - `POLICY_ABSENT`: No policy is adopted, so there is no effective configuration and no maintainer.
 - `RECORD_BROKEN`: The record is broken: its files are not one unbroken chain.
 - `RECORD_DIGEST_MISMATCH`: An event file's content is not the one its name records.
@@ -614,6 +659,7 @@ Refusals
 - `ALAMBIQUE_MISSING`: There is no ALAMBIQUE.md, or it is not a regular file reached without a link, or it is not valid text.
 - `UNIT_AMBIGUOUS`: A unit of the edit is found twice or not at all in the alambique, or two units overlap, or a rule it removes does not exist.
 - `RECORD_ABSENT`: There is no record here.
+- `INSTALLATION_INCOMPLETE`: An apply began here and did not finish, so no other command may write until it does.
 - `POLICY_ABSENT`: No policy is adopted, so there is no effective configuration and no maintainer.
 - `RECORD_BROKEN`: The record is broken: its files are not one unbroken chain.
 - `RECORD_DIGEST_MISMATCH`: An event file's content is not the one its name records.
@@ -664,6 +710,7 @@ Refusals
 - `ALAMBIQUE_UNAPPROVED`: The alambique is not the text a maestro last approved: it changed by hand, or it was never approved.
 - `RECORD_UNCOMMITTED`: Some of the record's files are not committed on the record branch.
 - `RECORD_ABSENT`: There is no record here.
+- `INSTALLATION_INCOMPLETE`: An apply began here and did not finish, so no other command may write until it does.
 - `POLICY_ABSENT`: No policy is adopted, so there is no effective configuration and no maintainer.
 - `RECORD_BROKEN`: The record is broken: its files are not one unbroken chain.
 - `RECORD_DIGEST_MISMATCH`: An event file's content is not the one its name records.

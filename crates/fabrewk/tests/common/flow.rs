@@ -119,13 +119,10 @@ pub fn kinds(fx: &Fx, id: &str) -> Vec<String> {
 }
 
 /// A fake builder's and reviewer's fixture in `mode`, with an approved alambique, ready for F-1.
+/// Installed by a real `apply` (part 10b), the alambique [`DOC`] kept as its baseline.
 pub fn fixture(name: &str, mode: &str) -> Fx {
-    let fx = Fx::builder(name, mode, &format!("{BUILDS}{SUCCESS}"));
+    let fx = Fx::applied(name, mode, Some(DOC)).tooled(&format!("{BUILDS}{SUCCESS}"));
     fx.reviewer(Some(&reviewer()));
-    fx.alambique(DOC, mode);
-    if mode == "own-repository" {
-        own(&fx);
-    }
     fx
 }
 

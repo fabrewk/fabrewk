@@ -1423,3 +1423,65 @@ fn p9g_20_a_refusal_after_a_recovery_names_what_it_went_on_from() {
     assert_eq!(e["code"], "WORDS_MISSING", "{e}");
     assert!(e["detail"].as_str().unwrap().contains("before it, git update-ref"), "{e}");
 }
+
+/// `INSTALLATION_INCOMPLETE` (D-097 point 7; 11.4): an `apply` stopped once `assessed` is written and before
+/// `installed`; every other write command refuses it with nothing written, `check` reports it, and the same `apply`,
+/// run again, finishes it, after which they work.
+#[test]
+fn refusal_installation_incomplete() {
+    let (fx, options) = Fx::installable("installation-incomplete", "published", None);
+    let mut n = 1;
+    let digest = loop {
+        let base = fx.root.parent().unwrap();
+        let ran = fx.apply(&options, &[("FABREWK_FAULT_ABORT_AT", &n.to_string())]);
+        assert_eq!(ran.status, -1, "{n}: {ran:?}");
+        let kinds: Vec<_> = fx.events("project").iter().map(|e| e["kind"].clone()).collect();
+        if kinds.len() == 2 {
+            break fx.events("project")[0]["payload"]["digest"].as_str().unwrap().to_owned();
+        }
+        // Back to before it, as a person who never ran it.
+        let _ = std::fs::remove_dir_all(&fx.domain);
+        assert!(base.exists());
+        n += 1;
+    };
+    let plan = flow::plan(&fx);
+    refused(&fx, &["propose", &plan], "INSTALLATION_INCOMPLETE", 1, "en");
+    refused(&fx, &["adopt", "--say", "Lo decido."], "INSTALLATION_INCOMPLETE", 1, "en");
+    let doc = fx.run(&["check", "--json"]).doc();
+    let found: Vec<&Value> =
+        doc["findings"].as_array().unwrap().iter().filter(|f| f["code"] == "INSTALLATION_INCOMPLETE").collect();
+    assert_eq!(found.len(), 1, "{doc}");
+    assert_eq!(found[0]["check"], "C2", "{doc}");
+    let again = fx.apply_digest(&digest, &options, &[]);
+    assert_eq!(again.status, 0, "{again:?}");
+    assert_eq!(fx.run(&["check"]).status, 0);
+    assert_eq!(fx.run(&["propose", &plan]).status, 0);
+}
+
+/// An `apply` stopped after its first two events finishes from its plan, never reassessed; a directory of the plan
+/// made a link meanwhile is refused (`PLAN_CHANGED`) and nothing is written through it (part 10b).
+#[test]
+fn a_resumed_apply_writes_through_no_link() {
+    let (fx, options) = Fx::installable("apply-resume-link", "published", None);
+    let mut n = 1;
+    let digest = loop {
+        let ran = fx.apply(&options, &[("FABREWK_FAULT_ABORT_AT", &n.to_string())]);
+        assert_eq!(ran.status, -1, "{n}: {ran:?}");
+        if fx.events("project").len() == 2 {
+            break fx.events("project")[0]["payload"]["digest"].as_str().unwrap().to_owned();
+        }
+        let _ = std::fs::remove_dir_all(&fx.domain);
+        n += 1;
+    };
+    assert!(!fx.domain.join("xel").exists());
+    let outside = fx.root.parent().unwrap().join("outside");
+    fs::create_dir(&outside).unwrap();
+    std::os::unix::fs::symlink(&outside, fx.domain.join("xel")).unwrap();
+    let ran = fx.apply_digest(&digest, &options, &[]);
+    assert_eq!(ran.status, 1, "{ran:?}");
+    assert_eq!(ran.doc()["refusals"][0]["code"], "PLAN_CHANGED", "{ran:?}");
+    assert_eq!(fs::read_dir(&outside).unwrap().count(), 0);
+    fs::remove_file(fx.domain.join("xel")).unwrap();
+    assert_eq!(fx.apply_digest(&digest, &options, &[]).status, 0);
+    assert_eq!(fx.run(&["check"]).status, 0);
+}

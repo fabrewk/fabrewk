@@ -5147,3 +5147,24 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   and this entry. Twenty passes, confirmed blocking 5, 5, 4, 8, 3, 3, 4, 2, 3, 2, 3, 2, 2, 1, 2, 1, 1, 3, 1, 0. Every
   finding was checked against the code before its correction, and all were confirmed. The review directory, the
   clean clone and the mutation's output were removed after this entry.
+
+## D-105 — Part 10b: the ceilings kept, `apply`'s writing in the core, measured at the part's end
+
+- Status: decided
+- Decided: 2026-11-19
+- Origin: maintainer XEL in session 43's chat, answering the integrator's question when part 10b started (R-050 and
+  R-051 left the installer's figure for the maestro to weigh before 10b): "Techos igual, medir (Recomendado)".
+- Decision: no ceiling changes. `apply`'s execution (the reassessment's binding, the events, the plan's files, the
+  entry blocks, the exclude line, the domain's repository, the record commit by mode, the interrupted `apply` and
+  `INSTALLATION_INCOMPLETE`) is the core's, through the write path, since the plan already holds every file's exact
+  content; the installer only reassesses, and keeps its 229 lines for part 10c's interview. If the core passes 12,500,
+  the integrator stops and brings the measured figure before going on. The interpretations of the part are the
+  specification's "Amended in part 10b (D-105)".
+- Reason: D-097 point 1 (the core keeps the record and the write path; the module the plan and its contents); AD-5's
+  rings; the measure (the core 11,795 of 12,500, the installer 971 of 1,200, R-051). The alternatives offered: the
+  installer's ceiling at 1,600 with the plan's files written there; the core's at 13,000.
+- Consequences: `crates/core/src/cli/apply.rs` (new), `cli/write.rs`, `cli/check.rs`, `cli/decl.rs`, `cli/mod.rs`,
+  `code.rs`, `identity.rs`, `table.rs`, `record/event.rs`, `record/git.rs`, `record/store.rs`, both catalogues;
+  `core-specification.md` (section 6's C2, section 7's list, the amendment after point 11); the tests.
+- Sources: chat of session 43; R-050, R-051; D-097.
+- Supersedes: none.

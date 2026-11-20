@@ -321,7 +321,13 @@ fn req_dom_5_write_commands_rebuild_the_cache_and_reading_ones_leave_it_absent()
         let write = |words: &str| {
             let mut s = begin(&f, f.repo());
             let head = s.head("project").unwrap();
-            s.append("project", head.as_ref(), &person("assessed", words, json!({})), Some(&f.signer())).unwrap();
+            s.append(
+                "project",
+                head.as_ref(),
+                &person("publication-decided", words, project_payload("publication-decided")),
+                Some(&f.signer()),
+            )
+            .unwrap();
             s.finish(&f.verifier(), &[]).unwrap();
             identity::write_allowed_signers(&f.domain, &p.settings).unwrap();
             let mut d = detect::detect(&f.domain, &eff, &[], path.as_deref());

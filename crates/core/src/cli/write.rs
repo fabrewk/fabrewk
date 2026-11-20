@@ -25,8 +25,10 @@ pub(super) struct State {
     pub mode: Publication,
 }
 
-/// The policy in force (`POLICY_ABSENT` with none) and the publication mode `apply` records with it.
+/// The policy in force (`POLICY_ABSENT` with none) and the publication mode `apply` records with it, once the
+/// installation is complete.
 pub(super) fn state(cx: &Cx, record: &Replay) -> Result<State, Failed> {
+    installation(&cx.domain, record)?;
     let policy = settings::in_force(record)?;
     let policy = policy.ok_or_else(|| refuse(Code::PolicyAbsent, Some(&cx.domain), "no policy is adopted"))?;
     let mode = domain::publication(record);
@@ -34,6 +36,33 @@ pub(super) fn state(cx: &Cx, record: &Replay) -> Result<State, Failed> {
         refuse(Code::RecordBroken, Some(&cx.domain), "the project stream records no publication mode")
     })?;
     Ok(State { policy, mode })
+}
+
+/// Refuses `INSTALLATION_INCOMPLETE` while an `apply` is not complete (D-097 point 7, P10O-6): the record it opened with
+/// `assessed` holds no `installed`, or, in `unpublished`, a view is not written, or, in a mode that commits, the record
+/// branch's tip lacks `installed`. Facts of the record, the views and the branch, never of the index (P10O-15). A
+/// record no `apply` opened is no installation.
+pub(super) fn installation(domain: &std::path::Path, record: &Replay) -> Result<(), Error> {
+    let project = record.streams.get("project").map(Vec::as_slice).unwrap_or_default();
+    if project.first().is_none_or(|e| e.kind != "assessed") {
+        return Ok(());
+    }
+    let incomplete = |why: &str| Err(refuse(Code::InstallationIncomplete, Some(domain), why.to_owned()));
+    let Some(installed) = project.iter().find(|e| e.kind == "installed") else {
+        return incomplete("the record holds no installed event");
+    };
+    match domain::publication(record).and_then(|m| Repo::for_domain(domain, m)) {
+        Some(repo) if crate::record::uncommitted(&repo)?.contains(&installed.path) => {
+            incomplete("the record commit holding the installed event is not made")
+        }
+        None if ["STATUS.md", "RULES.md"]
+            .iter()
+            .any(|v| !std::fs::symlink_metadata(domain.join(v)).is_ok_and(|m| m.is_file())) =>
+        {
+            incomplete("the views are not written")
+        }
+        _ => Ok(()),
+    }
 }
 
 /// Refuses a person's move where the environment shows an agent's or an extension's marker (`AGENT_ENVIRONMENT`): a
@@ -456,19 +485,29 @@ fn held<T>(
     }
     views.extend(view::write(&cx.domain, &record).map_err(late_view)?);
     let commit = session.finish_held(&PolicyVerifier, &views)?;
+    caches(cx, session, machine.as_ref(), &used)?;
+    Ok(Some((planned.out, Written { events: written, commit, ran, recovered: Vec::new() })))
+}
+
+/// The caches a write command keeps, from the policy in force once it wrote, under the lock (REQ-ID-2, REQ-SET-8).
+pub(super) fn caches(
+    cx: &Cx,
+    session: &Session,
+    machine: Option<&settings::Settings>,
+    used: &[(Space, String)],
+) -> Result<(), Failed> {
     crate::record::fault::pause("before-caches");
-    // The caches a write command keeps, from the policy in force once it wrote, under the lock (REQ-ID-2, REQ-SET-8).
     let after = session.record().ok_or_else(|| refuse(Code::RecordAbsent, Some(&cx.domain), "no event"))?;
     let policy = settings::in_force(after)?.ok_or_else(|| refuse(Code::PolicyAbsent, Some(&cx.domain), "none"))?;
     identity::write_allowed_signers(&cx.domain, &policy.settings)?;
-    let eff = settings::effective(&policy, None, machine.as_ref(), &[], &[])?;
+    let eff = settings::effective(&policy, None, machine, &[], &[])?;
     let mut detection = detect::detect(&cx.domain, &eff, &cx.modules, std::env::var_os("PATH").as_deref());
     // Every write command ran both: Git for the mode's checks or the commit, `ssh-keygen` for the machine key.
     detection.used(Space::Program, "ssh-keygen");
     detection.used(Space::Program, "git");
-    for (space, name) in &used {
+    for (space, name) in used {
         detection.used(*space, name);
     }
     detection.keep(&cx.domain)?;
-    Ok(Some((planned.out, Written { events: written, commit, ran, recovered: Vec::new() })))
+    Ok(())
 }

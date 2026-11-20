@@ -89,17 +89,36 @@ fn req_reg_4_apply_cites_the_first_adoption() {
     fs::write(f.domain.join("settings.toml"), &text).unwrap();
     let digest = sha256_hex(text.as_bytes());
     let adoption = settings::adopt(&f.domain, None, &[], None).unwrap();
+    // The plan `apply` records creates the project file; before the first adoption its events are verified against
+    // that file (P10O-5): a citation of another digest cites no adopted policy.
+    let plan = json!({"files": [{"path": ".brewstillery/settings.toml", "action": "create", "content": text}]});
+    let planned = assessed(plan);
     let mut s = begin_with(&f, None, &PolicyVerifier).unwrap();
-    let mut head = None;
+    let mut head: Option<fabrewk_core::record::Head> = None;
     for (kind, payload) in [
-        ("assessed", json!({})),
+        ("assessed", planned.clone()),
         ("publication-decided", project_payload("publication-decided")),
         ("policy-adopted", adoption.payload(&s.seal().unwrap())),
     ] {
         let draft = moved(kind, "xel", "maestro", &digest, payload);
+        if kind != "assessed" {
+            s.finish(&PolicyVerifier, &[]).unwrap();
+            assert_eq!(ok(&f).streams["project"].len(), if kind == "policy-adopted" { 2 } else { 1 });
+            if kind == "publication-decided" {
+                let other = moved(kind, "xel", "maestro", &"0".repeat(64), project_payload(kind));
+                let path = f.forge("project", 2, Some(&head.as_ref().unwrap().digest), &other, Some(&f.signer()));
+                let got =
+                    replay(&f.domain, &PolicyVerifier).err().map(|e| e.iter().map(|e| e.code()).collect::<Vec<_>>());
+                assert_eq!(got, Some(vec![Some(Code::RecordSignatureInvalid)]));
+                fs::remove_file(sig(&path)).unwrap();
+                fs::remove_file(&path).unwrap();
+            }
+            s = begin_with(&f, None, &PolicyVerifier).unwrap();
+        }
         head = Some(s.append("project", head.as_ref(), &draft, Some(&f.signer())).unwrap());
     }
-    s.append("project", head.as_ref(), &fabrewk("installed", json!({})), None).unwrap();
+    let receipt = json!({"plan": planned["digest"], "files": []});
+    s.append("project", head.as_ref(), &fabrewk("installed", receipt), None).unwrap();
     let baseline = moved("alambique-baseline", "xel", "maestro", &digest, json!({"digest": digest}));
     s.append("alambique", None, &baseline, Some(&f.signer())).unwrap();
     s.finish(&PolicyVerifier, &[]).unwrap();
@@ -423,11 +442,11 @@ fn req_reg_12_the_first_write_makes_the_machine_key() {
         // An event records it as its instance.
         let f = Fixture::new("instance", false);
         let mut s = begin(&f, None);
-        let mut draft = fabrewk("installed", json!({}));
+        let mut draft = note(json!({}));
         draft.instance = fp.clone();
-        s.append("project", None, &draft, None).unwrap();
+        s.append("ext-x", None, &draft, None).unwrap();
         s.finish(&f.verifier(), &[]).unwrap();
-        assert_eq!(replay(&f.domain, &f.verifier()).unwrap().streams["project"][0].value["instance"], json!(fp));
+        assert_eq!(replay(&f.domain, &f.verifier()).unwrap().streams["ext-x"][0].value["instance"], json!(fp));
         // The fingerprint is the private key's, whatever the public file beside it says (P7C2A-2).
         fs::write(folder.join("instance.pub"), "not a key\n").unwrap();
         assert_eq!(machine::instance(&folder).unwrap().as_deref(), Some(fp.as_str()));

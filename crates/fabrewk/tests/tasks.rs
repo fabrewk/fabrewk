@@ -797,15 +797,16 @@ fn the_records_refusals_through_the_task_commands() {
         refused(&fx, &args, "RECORD_ABSENT", 1, "en");
     }
     let mut s = Session::begin(&fx.domain, None, &PolicyVerifier).unwrap();
+    // An extension's note: a record that replays and adopts no policy, and that no `apply` opened.
     let draft = |kind: &str, payload: Value| Draft {
         kind: kind.into(),
-        actor: json!({"kind": "fabrewk"}),
+        actor: json!({"kind": "extension", "name": "x", "digest": "0".repeat(64)}),
         policy: "0".repeat(64),
         instance: "SHA256:fixture".into(),
         say: None,
         payload,
     };
-    s.append("project", None, &draft("installed", json!({})), None).unwrap();
+    s.append("ext-x", None, &draft("extension-note", json!({"text": "A note."})), None).unwrap();
     s.finish(&PolicyVerifier, &[]).unwrap();
     for args in commands("t-00000000") {
         refused(&fx, &args, "POLICY_ABSENT", 1, "en");

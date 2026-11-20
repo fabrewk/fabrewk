@@ -246,3 +246,96 @@ fn the_crash_suite_over_f_1() {
         }
     }
 }
+
+/// The crash suite over `apply` (D-097 point 7; part 10b): in each mode, the binary is stopped at every write point of
+/// `apply`, the record commit's between the branch's move and the index's update among them. After each stop: the
+/// record replays or is refused by codes; `check` reports by codes; every other write command refuses with a code,
+/// `INSTALLATION_INCOMPLETE` once `assessed` is written and the installation is not complete; and the same `apply`, run
+/// again, finishes it: `check` then passes, the project stream holds `apply`'s four events once, and in the modes that
+/// commit the record branch holds every file of the domain as it is on disk.
+#[test]
+fn the_crash_suite_over_apply() {
+    std::thread::scope(|s| {
+        for mode in ["published", "own-repository", "unpublished"] {
+            s.spawn(move || {
+                let (fx, options) = Fx::installable(&format!("crash-apply-{mode}"), mode, None);
+                let base = fx.root.parent().unwrap().to_path_buf();
+                let snapshot = base.with_file_name(format!("{}-before", base.file_name().unwrap().to_str().unwrap()));
+                copy(&base, &snapshot);
+                let assessed = fx.run(
+                    &[&["assess", "--json"][..], &options.iter().map(String::as_str).collect::<Vec<_>>()].concat(),
+                );
+                let digest = assessed.doc()["digest"].as_str().unwrap().to_owned();
+                let mut n = 1;
+                loop {
+                    restore(&snapshot, &base);
+                    let what = format!("apply in {mode} stopped at point {n}");
+                    let ran = fx.apply_digest(&digest, &options, &[("FABREWK_FAULT_ABORT_AT", &n.to_string())]);
+                    if ran.status != -1 {
+                        assert_eq!(ran.status, 0, "{what}: {ran:?}");
+                        break;
+                    }
+                    let first = replay(&fx.domain, &PolicyVerifier);
+                    if let Err(errors) = &first {
+                        assert!(errors.iter().all(|e| e.code().is_some()), "{what}: {errors:?}");
+                    }
+                    let ran = fx.run(&["check", "--json"]);
+                    assert!(matches!(ran.status, 0 | 3), "{what}: {ran:?}");
+                    coded(&ran, "findings", &what);
+                    let ran = fx.run(&["discard", "p-00000000", "--say", "Descártala.", "--json"]);
+                    assert_eq!(ran.status, 1, "{what}: {ran:?}");
+                    coded(&ran, "refusals", &what);
+                    let opened = fx.events("project").first().is_some_and(|e| e["kind"] == "assessed");
+                    let complete =
+                        fx.events("project").iter().any(|e| e["kind"] == "installed") && fx.run(&["check"]).status == 0;
+                    if opened && !complete {
+                        assert_eq!(ran.doc()["refusals"][0]["code"], "INSTALLATION_INCOMPLETE", "{what}: {ran:?}");
+                    }
+                    // The same apply finishes it.
+                    let again = fx.apply_digest(&digest, &options, &[]);
+                    assert_eq!(again.status, 0, "{what}: {again:?}");
+                    let check = fx.run(&["check"]);
+                    assert_eq!(check.status, 0, "{what}: {check:?}");
+                    let kinds: Vec<Value> = fx.events("project").iter().map(|e| e["kind"].clone()).collect();
+                    assert_eq!(kinds, ["assessed", "publication-decided", "policy-adopted", "installed"], "{what}");
+                    let repo = match mode {
+                        "published" => Some(fx.root.clone()),
+                        "own-repository" => Some(fx.domain.clone()),
+                        _ => None,
+                    };
+                    if let Some(repo) = repo {
+                        // Every file of the domain is committed at the branch's tip with its bytes on disk, the
+                        // person's index aside: a stop after the branch moved leaves the record's own entries to the
+                        // next write command (`sync_index`), as for every write command.
+                        let at = ["-C", repo.to_str().unwrap()];
+                        let mut files = Vec::new();
+                        domain_files(&fx.domain, &mut files);
+                        for f in files {
+                            let rel = f.strip_prefix(&repo).unwrap().to_str().unwrap().to_owned();
+                            let held = fx.git(&[&at[..], &["rev-parse", &format!("HEAD:{rel}")]].concat());
+                            let disk = fx.git(&[&at[..], &["hash-object", "--no-filters", "--", &rel]].concat());
+                            assert_eq!(held, disk, "{what}: {rel}");
+                        }
+                    }
+                    n += 1;
+                }
+                eprintln!("apply in {mode}: {} write points stopped at", n - 1);
+                assert!(n > 10, "{mode}: {n}");
+                open(&snapshot);
+                std::fs::remove_dir_all(&snapshot).unwrap();
+            });
+        }
+    });
+}
+
+/// Every file under the domain but its unversioned area and its own Git directory.
+fn domain_files(dir: &Path, out: &mut Vec<PathBuf>) {
+    for entry in std::fs::read_dir(dir).unwrap().flatten() {
+        let (path, name) = (entry.path(), entry.file_name());
+        match entry.file_type().unwrap().is_dir() {
+            true if name != "local" && name != ".git" => domain_files(&path, out),
+            true => {}
+            false => out.push(path),
+        }
+    }
+}

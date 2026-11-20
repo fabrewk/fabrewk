@@ -829,15 +829,16 @@ fn the_records_refusals_through_a_write_command() {
     refused(&fx, &["propose", &name], "RECORD_ABSENT", 1, "en");
     // A record with no policy adopted.
     let mut s = Session::begin(&fx.domain, None, &fabrewk_core::identity::PolicyVerifier).unwrap();
-    let installed = Draft {
-        kind: "installed".into(),
-        actor: json!({"kind": "fabrewk"}),
+    // An extension's note: a record that replays and adopts no policy, and that no `apply` opened.
+    let note = Draft {
+        kind: "extension-note".into(),
+        actor: json!({"kind": "extension", "name": "x", "digest": "0".repeat(64)}),
         policy: "0".repeat(64),
         instance: "SHA256:fixture".into(),
         say: None,
-        payload: json!({}),
+        payload: json!({"text": "A note."}),
     };
-    s.append("project", None, &installed, None).unwrap();
+    s.append("ext-x", None, &note, None).unwrap();
     s.finish(&fabrewk_core::identity::PolicyVerifier, &[]).unwrap();
     refused(&fx, &["propose", &name], "POLICY_ABSENT", 1, "en");
     refused(&fx, &["adopt", "--say", SAY], "POLICY_ABSENT", 1, "en");

@@ -26,7 +26,6 @@ next = "Consulta qué acepta el comando:"
 choice = "El valor dado no es uno de los que acepta esta opción ({word})."
 tool = "No hay una herramienta integrada con ese nombre ({word})."
 lang = "No hay catálogo para ese idioma ({word})."
-unbuilt = "El comando {word} está declarado pero aún no está construido en esta versión: no lee ni escribe nada."
 
 [internal]
 io = "Fabrewk se detuvo por un error interno: no pudo leer ni escribir {path}. Este comando no escribe nada, así que nada cambió."
@@ -218,6 +217,11 @@ event = "Se registró el evento {seq} del flujo {stream}."
 commit = "Se confirmó el registro: {commit}."
 uncommitted = "El registro no se confirma: el modo de publicación no confirma nada."
 recovered = "Git falló y el comando siguió: {detail}"
+
+[apply]
+done = "Se aplicó el plan {digest}: Fabrewk administra este repositorio."
+already = "El plan {digest} ya está aplicado: no se escribió nada."
+left = "Quedaron sin confirmar en el árbol de trabajo del producto, para que los confirmes si quieres: {path}. Estos comandos de Git los confirman:"
 
 [reference]
 title = "fabrewk: referencia de comandos"
@@ -624,6 +628,25 @@ run = "fabrewk status"
 reason = "El proceso que corría el intento de la tarea ya no corre, así que su resultado es desconocido; el intento cuenta como gastado, y reintentar gasta un despacho."
 next = "La tarea espera a una persona: un maestro la autoriza otra vez o la rechaza."
 run = "fabrewk status"
+
+[code.PLAN_CHANGED]
+reason = "El plan que assess da ahora, con estas opciones, no es el nombrado, o cambió un archivo que el plan escribe: aplicarlo escribiría sobre lo que no viste."
+next = "Evalúa otra vez con las mismas opciones, lee el plan y aplica el digest que imprime:"
+run = "fabrewk assess"
+
+[code.VERDICT_NONE]
+reason = "El veredicto del plan es none: lo bloquea una de las razones que da."
+next = "Resuelve las razones que bloquean y evalúa otra vez:"
+run = "fabrewk assess"
+
+[code.MODE_NOT_AVAILABLE]
+reason = "El modo de revisión aún no está construido, así que un plan para él no se puede aplicar."
+next = "Evalúa para administrar:"
+run = "fabrewk assess --mode adopt"
+
+[code.INSTALLATION_INCOMPLETE]
+reason = "Aquí empezó un apply que no terminó, así que ningún otro comando puede escribir hasta que termine."
+next = "Ejecuta otra vez el mismo apply, con el mismo digest y las mismas opciones: termina lo que falta."
 
 [code.POLICY_ABSENT]
 reason = "No hay una política adoptada, así que no hay configuración efectiva ni mantenedores."

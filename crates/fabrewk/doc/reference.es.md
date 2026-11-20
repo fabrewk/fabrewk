@@ -49,7 +49,7 @@ Documentos con --json: `fabrewk.check/1`
 | | Verifica | Códigos | Control |
 | --- | --- | --- | --- |
 | C1 | Los archivos de ajustes se leen y validan, y el de cada mantenedor tiene solo claves personales. | `SETTINGS_INVALID`, `SETTINGS_KEY_NOT_PERSONAL`, `ALIAS_MISMATCH` | efectivo |
-| C2 | Hay una política adoptada, y el archivo del proyecto es igual a ella o su cambio está pendiente. | `POLICY_ABSENT`, `POLICY_PENDING` | efectivo |
+| C2 | Hay una política adoptada, y el archivo del proyecto es igual a ella o su cambio está pendiente. | `POLICY_ABSENT`, `POLICY_PENDING`, `INSTALLATION_INCOMPLETE` | efectivo |
 | C3 | El registro se reproduce: versiones, resúmenes, forma canónica, cadenas, bifurcaciones, transiciones, firmas, identificadores. | `RECORD_VERSION_UNKNOWN`, `RECORD_BROKEN`, `RECORD_DIGEST_MISMATCH`, `RECORD_NONCANONICAL`, `RECORD_FORK`, `RECORD_TRANSITION_INVALID`, `ATTEMPT_ENDED`, `RECORD_SIGNATURE_INVALID`, `RECORD_ID_COLLISION` | efectivo |
 | C4 | El registro existe y no ha retrocedido: efectivo donde se recorre la historia de Git, cooperativo en un solo equipo. | `RECORD_ABSENT`, `RECORD_ROLLBACK`, `MARK_INVALID` | efectivo |
 | C5 | STATUS.md y RULES.md son lo que da una generación nueva a partir del registro. | `VIEW_STALE` | efectivo |
@@ -108,9 +108,46 @@ Un maestro aplica el plan que imprimió assess, con las mismas opciones y sus pr
 - `--json`: Da la salida como un solo documento JSON con un campo schema.
 - `--help`: Muestra esta ayuda.
 
-Movimientos que puede causar: ninguno.
+Movimientos que puede causar: `assessed` (repositorio evaluado), `publication-decided` (publicación decidida), `policy-adopted` (política adoptada), `alambique-baseline` (base del alambique), `installed` (instalado).
 
-Documentos con --json: `fabrewk.usage/1`
+Documentos con --json: `fabrewk.applied/1`
+
+Rechazos
+
+- `AGENT_ENVIRONMENT`: Esto corre dentro de un agente o una extensión, cuyos marcadores están en el entorno, y solo una persona hace este movimiento. El control es cooperativo: un proceso puede limpiar su entorno.
+- `PLAN_CHANGED`: El plan que assess da ahora, con estas opciones, no es el nombrado, o cambió un archivo que el plan escribe: aplicarlo escribiría sobre lo que no viste.
+- `VERDICT_NONE`: El veredicto del plan es none: lo bloquea una de las razones que da.
+- `MODE_NOT_AVAILABLE`: El modo de revisión aún no está construido, así que un plan para él no se puede aplicar.
+- `ROLE_FORBIDDEN`: La llave que firma este movimiento no tiene en la política ningún rol que pueda hacerlo.
+- `WORDS_MISSING`: Un movimiento de persona necesita tus propias palabras, dadas con --say: no vacías y en texto UTF-8 válido.
+- `WORDS_COPIED`: Las palabras dadas son el ejemplo que imprime la ayuda, no las tuyas.
+- `ALIAS_INVALID`: Un nombre que no es un alias válido: minúsculas, dígitos y guiones sueltos, empezando con una letra, de 32 caracteres a lo más, y que no sea un nombre reservado.
+- `PRIVATE_FOLDER_INCLUDED`: La configuración de Git nombra un archivo de la carpeta privada de Fabrewk, un include o su archivo de atributos, que Git abriría: assess se detiene antes de ejecutar cualquier otro Git.
+- `DOMAIN_NOT_IGNORED`: El repositorio del producto no ignora .brewstillery/, así que un commit ahí lo publicaría.
+- `RECORD_ABSENT`: Aquí no hay registro.
+- `INSTALLATION_INCOMPLETE`: Aquí empezó un apply que no terminó, así que ningún otro comando puede escribir hasta que termine.
+- `POLICY_ABSENT`: No hay una política adoptada, así que no hay configuración efectiva ni mantenedores.
+- `RECORD_BROKEN`: El registro está roto: sus archivos no forman una sola cadena sin cortes.
+- `RECORD_DIGEST_MISMATCH`: El contenido de un archivo de evento no es el que su nombre registra.
+- `RECORD_NONCANONICAL`: Un archivo de evento no está en forma canónica, así que no se puede confiar en su resumen.
+- `RECORD_FORK`: Dos eventos ocupan el mismo lugar de un flujo: dos clones escribieron ahí.
+- `RECORD_TRANSITION_INVALID`: Un evento está donde la tabla de transiciones no lo permite.
+- `ATTEMPT_ENDED`: El registro termina un intento que no está abierto.
+- `RECORD_SIGNATURE_INVALID`: El evento de una persona no está firmado con la llave y el rol que la política da a quien firma.
+- `RECORD_VERSION_UNKNOWN`: Un evento no es de un esquema que esta versión de Fabrewk conozca.
+- `RECORD_ID_COLLISION`: Dos etapas o dos tareas recibieron el mismo identificador.
+- `RECORD_ROLLBACK`: El registro perdió eventos que tenía antes: un retroceso.
+- `MARK_INVALID`: La marca del registro de este equipo (local/cache/heads.json) está dañada o nombra un evento que el registro no tiene en ese lugar.
+- `CHECK_UNKNOWN`: Una verificación no pudo correr, así que su resultado es desconocido, y un resultado desconocido nunca es un pase.
+- `NOT_A_REPOSITORY`: Esta no es la raíz del árbol de trabajo principal del repositorio.
+- `HEAD_DETACHED`: El head de Git no nombra ninguna rama, así que no hay rama del registro.
+- `PRIVATE_FOLDER_PERMISSIONS`: La carpeta privada da acceso a alguien más que su dueño, así que Fabrewk no la lee.
+- `SETTINGS_INVALID`: Un archivo de ajustes no se lee o no valida.
+- `LOCK_HELD`: Otro comando de Fabrewk tiene el candado del registro de este repositorio, u otra tarea está en ejecución: un escritor y una ejecución a la vez.
+- `RECORD_HEAD_MOVED`: Algo escribió en el registro sin su candado mientras corría este comando; este comando no escribió nada.
+- `RECORD_COMMIT_RACE`: La rama se movió mientras Fabrewk confirmaba el registro; sus eventos están escritos pero no confirmados.
+- `TOOL_FAILED`: Una herramienta externa falló; lo que imprimió se guarda como evidencia y nunca se muestra aquí.
+- `TOOL_MISSING`: Una herramienta que esto necesita no está en este equipo.
 
 ## `fabrewk adopt --say <words> [--say-lang <tag>] [--widen <key>]… [--json]`
 
@@ -139,6 +176,7 @@ Rechazos
 - `POLICY_UNCOMMITTED`: El archivo del proyecto no está como se confirmó en el head de la rama del registro.
 - `WIDENING_UNNAMED`: Un cambio amplía la autoridad sin nombrarse.
 - `RECORD_ABSENT`: Aquí no hay registro.
+- `INSTALLATION_INCOMPLETE`: Aquí empezó un apply que no terminó, así que ningún otro comando puede escribir hasta que termine.
 - `POLICY_ABSENT`: No hay una política adoptada, así que no hay configuración efectiva ni mantenedores.
 - `RECORD_BROKEN`: El registro está roto: sus archivos no forman una sola cadena sin cortes.
 - `RECORD_DIGEST_MISMATCH`: El contenido de un archivo de evento no es el que su nombre registra.
@@ -221,6 +259,7 @@ Rechazos
 - `PROTECTED_PATH_WILDCARD`: Un comodín entre los archivos permitidos coincide con una ruta o un nombre protegidos.
 - `CHECK_DUPLICATE`: Una comprobación tiene dos definiciones distintas.
 - `RECORD_ABSENT`: Aquí no hay registro.
+- `INSTALLATION_INCOMPLETE`: Aquí empezó un apply que no terminó, así que ningún otro comando puede escribir hasta que termine.
 - `POLICY_ABSENT`: No hay una política adoptada, así que no hay configuración efectiva ni mantenedores.
 - `RECORD_BROKEN`: El registro está roto: sus archivos no forman una sola cadena sin cortes.
 - `RECORD_DIGEST_MISMATCH`: El contenido de un archivo de evento no es el que su nombre registra.
@@ -280,6 +319,7 @@ Rechazos
 - `LOCK_HELD`: Otro comando de Fabrewk tiene el candado del registro de este repositorio, u otra tarea está en ejecución: un escritor y una ejecución a la vez.
 - `ALAMBIQUE_UNAPPROVED`: El alambique no es el texto que un maestro aprobó por última vez: cambió a mano, o nunca se aprobó.
 - `RECORD_ABSENT`: Aquí no hay registro.
+- `INSTALLATION_INCOMPLETE`: Aquí empezó un apply que no terminó, así que ningún otro comando puede escribir hasta que termine.
 - `POLICY_ABSENT`: No hay una política adoptada, así que no hay configuración efectiva ni mantenedores.
 - `RECORD_BROKEN`: El registro está roto: sus archivos no forman una sola cadena sin cortes.
 - `RECORD_DIGEST_MISMATCH`: El contenido de un archivo de evento no es el que su nombre registra.
@@ -334,6 +374,7 @@ Rechazos
 - `BASE_MOVED`: El producto en la punta de la rama del registro no es el que dejaron la base de la tarea o la última integración de sus dependencias.
 - `WORKTREE_DIRTY`: Un archivo que la integración escribiría no tiene, en el árbol de trabajo ni en el índice, ni el contenido de la base ni el del candidato: una edición de la persona, que nunca se sobrescribe.
 - `RECORD_ABSENT`: Aquí no hay registro.
+- `INSTALLATION_INCOMPLETE`: Aquí empezó un apply que no terminó, así que ningún otro comando puede escribir hasta que termine.
 - `POLICY_ABSENT`: No hay una política adoptada, así que no hay configuración efectiva ni mantenedores.
 - `RECORD_BROKEN`: El registro está roto: sus archivos no forman una sola cadena sin cortes.
 - `RECORD_DIGEST_MISMATCH`: El contenido de un archivo de evento no es el que su nombre registra.
@@ -381,6 +422,7 @@ Rechazos
 - `WORDS_COPIED`: Las palabras dadas son el ejemplo que imprime la ayuda, no las tuyas.
 - `MERGE_IN_PROGRESS`: El candidato actual de la tarea está aceptado, y su integración puede estar a medias.
 - `RECORD_ABSENT`: Aquí no hay registro.
+- `INSTALLATION_INCOMPLETE`: Aquí empezó un apply que no terminó, así que ningún otro comando puede escribir hasta que termine.
 - `POLICY_ABSENT`: No hay una política adoptada, así que no hay configuración efectiva ni mantenedores.
 - `RECORD_BROKEN`: El registro está roto: sus archivos no forman una sola cadena sin cortes.
 - `RECORD_DIGEST_MISMATCH`: El contenido de un archivo de evento no es el que su nombre registra.
@@ -436,6 +478,7 @@ Rechazos
 - `PROVIDER_MISSING`: review.differentProvider es require, y el proveedor del perfil de revisión es el del constructor, o su herramienta no está.
 - `CHECK_DUPLICATE`: Una comprobación tiene dos definiciones distintas.
 - `RECORD_ABSENT`: Aquí no hay registro.
+- `INSTALLATION_INCOMPLETE`: Aquí empezó un apply que no terminó, así que ningún otro comando puede escribir hasta que termine.
 - `POLICY_ABSENT`: No hay una política adoptada, así que no hay configuración efectiva ni mantenedores.
 - `RECORD_BROKEN`: El registro está roto: sus archivos no forman una sola cadena sin cortes.
 - `RECORD_DIGEST_MISMATCH`: El contenido de un archivo de evento no es el que su nombre registra.
@@ -515,6 +558,7 @@ Rechazos
 - `INPUT_UNCOMMITTED`: La entrada del fermento difiere de la que está en un commit, y el commit del barrido llevaría tu edición.
 - `INPUT_CHANGED`: La entrada del fermento cambió mientras corría el barrido.
 - `RECORD_ABSENT`: Aquí no hay registro.
+- `INSTALLATION_INCOMPLETE`: Aquí empezó un apply que no terminó, así que ningún otro comando puede escribir hasta que termine.
 - `POLICY_ABSENT`: No hay una política adoptada, así que no hay configuración efectiva ni mantenedores.
 - `RECORD_BROKEN`: El registro está roto: sus archivos no forman una sola cadena sin cortes.
 - `RECORD_DIGEST_MISMATCH`: El contenido de un archivo de evento no es el que su nombre registra.
@@ -562,6 +606,7 @@ Rechazos
 - `WORDS_MISSING`: Un movimiento de persona necesita tus propias palabras, dadas con --say: no vacías y en texto UTF-8 válido.
 - `WORDS_COPIED`: Las palabras dadas son el ejemplo que imprime la ayuda, no las tuyas.
 - `RECORD_ABSENT`: Aquí no hay registro.
+- `INSTALLATION_INCOMPLETE`: Aquí empezó un apply que no terminó, así que ningún otro comando puede escribir hasta que termine.
 - `POLICY_ABSENT`: No hay una política adoptada, así que no hay configuración efectiva ni mantenedores.
 - `RECORD_BROKEN`: El registro está roto: sus archivos no forman una sola cadena sin cortes.
 - `RECORD_DIGEST_MISMATCH`: El contenido de un archivo de evento no es el que su nombre registra.
@@ -614,6 +659,7 @@ Rechazos
 - `ALAMBIQUE_MISSING`: No hay ALAMBIQUE.md, o no es un archivo regular al que se llegue sin enlaces, o no es texto válido.
 - `UNIT_AMBIGUOUS`: Una unidad de la edición está dos veces o ninguna en el alambique, o dos unidades se traslapan, o una regla que quita no existe.
 - `RECORD_ABSENT`: Aquí no hay registro.
+- `INSTALLATION_INCOMPLETE`: Aquí empezó un apply que no terminó, así que ningún otro comando puede escribir hasta que termine.
 - `POLICY_ABSENT`: No hay una política adoptada, así que no hay configuración efectiva ni mantenedores.
 - `RECORD_BROKEN`: El registro está roto: sus archivos no forman una sola cadena sin cortes.
 - `RECORD_DIGEST_MISMATCH`: El contenido de un archivo de evento no es el que su nombre registra.
@@ -664,6 +710,7 @@ Rechazos
 - `ALAMBIQUE_UNAPPROVED`: El alambique no es el texto que un maestro aprobó por última vez: cambió a mano, o nunca se aprobó.
 - `RECORD_UNCOMMITTED`: Algunos archivos del registro no están confirmados en la rama del registro.
 - `RECORD_ABSENT`: Aquí no hay registro.
+- `INSTALLATION_INCOMPLETE`: Aquí empezó un apply que no terminó, así que ningún otro comando puede escribir hasta que termine.
 - `POLICY_ABSENT`: No hay una política adoptada, así que no hay configuración efectiva ni mantenedores.
 - `RECORD_BROKEN`: El registro está roto: sus archivos no forman una sola cadena sin cortes.
 - `RECORD_DIGEST_MISMATCH`: El contenido de un archivo de evento no es el que su nombre registra.

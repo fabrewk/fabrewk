@@ -529,6 +529,51 @@ pub(crate) fn sync_index(repo: &Repo) -> Result<(), Error> {
     Ok(())
 }
 
+/// Stages, of `entries` (`--index-info`'s lines), those at `paths` whose index entry equals the entry of `base` (or is
+/// absent where `base` has none): an entry that differs carries the person's staged change and is kept (D-097 point 7).
+fn stage_unchanged<'p>(
+    repo: &Repo,
+    base: Option<&str>,
+    entries: &str,
+    paths: impl Iterator<Item = &'p Path>,
+) -> Result<(), Error> {
+    let paths: Vec<String> = paths.map(|p| format!(":(literal){}", p.display())).collect();
+    if paths.is_empty() {
+        return Ok(());
+    }
+    // Each listing's entries by path, as `<mode> <id>`: `ls-files -s` gives `<mode> <id> <stage>`, `ls-tree`
+    // `<mode> <type> <id>`; an entry in conflict is never equal.
+    let listed = |args: Vec<&str>, id: usize| -> Result<std::collections::BTreeMap<String, String>, Error> {
+        let mut a = os(&args);
+        a.extend(paths.iter().map(OsStr::new));
+        let out = git(repo, &a, b"", None)?;
+        let entries = out.split(|b| *b == 0).filter_map(|e| std::str::from_utf8(e).ok()?.split_once('\t'));
+        Ok(entries
+            .map(|(meta, path)| {
+                let w: Vec<&str> = meta.split(' ').collect();
+                let conflict = id == 1 && w.get(2) != Some(&"0");
+                (path.to_owned(), if conflict { String::new() } else { format!("{} {}", w[0], w[id]) })
+            })
+            .collect())
+    };
+    let index = listed(vec!["ls-files", "-s", "-z", "--"], 1)?;
+    let held = match base {
+        Some(b) => listed(vec!["ls-tree", "-z", b, "--"], 2)?,
+        None => Default::default(),
+    };
+    let unchanged: String = entries
+        .split('\0')
+        .filter(|e| !e.is_empty())
+        .filter(|e| {
+            e.split_once('\t')
+                .is_some_and(|(_, p)| paths.contains(&format!(":(literal){p}")) && index.get(p) == held.get(p))
+        })
+        .map(|e| format!("{e}\0"))
+        .collect();
+    fault::point();
+    git(repo, &os(&["update-index", "-z", "--index-info"]), unchanged.as_bytes(), None).map(drop)
+}
+
 /// The message of a record commit: one trailer `Fabrewk-Event: <digest>` per event.
 pub(crate) fn record_message(digests: &[String]) -> String {
     "fabrewk: record\n\n".to_owned() + &digests.iter().map(|d| format!("Fabrewk-Event: {d}\n")).collect::<String>()
@@ -537,17 +582,21 @@ pub(crate) fn record_message(digests: &[String]) -> String {
 /// Makes the record commit of `files` (absolute paths in the working tree) on the record branch, moving it from
 /// `start` by compare-and-swap; if it moved, rebuilds once on the new head when no file of the commit changed there,
 /// and otherwise refuses `RECORD_COMMIT_RACE`, the files left as written. One `Fabrewk-Event` trailer per digest. What
-/// failed in Git that it went on from is pushed on `notes`, each naming its evidence (D-088, D-089).
+/// failed in Git that it went on from is pushed on `notes`, each naming its evidence (D-088, D-089). The files of
+/// `staged`, an installation's, are staged in the person's index before the branch moves, each only where the index
+/// carries no staged change (equal to the base's entry, or absent where the base has none), and are not touched
+/// after; the others are brought to the commit once the branch has moved (D-097 point 7).
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn commit_record(
     repo: &Repo,
     domain: &Path,
     branch: &str,
     start: Option<&str>,
-    files: &[PathBuf],
+    (files, staged): (&[PathBuf], &[PathBuf]),
     message: &str,
     notes: &mut Vec<String>,
 ) -> Result<String, Error> {
+    use std::os::unix::fs::PermissionsExt;
     check_git_locks(repo, branch)?;
     let mut rel = Vec::new();
     for f in files {
@@ -560,12 +609,22 @@ pub(crate) fn commit_record(
     if blobs.split('\n').count() != rel.len() {
         return Err(refuse(Code::ToolFailed, Some(&repo.root), "git hash-object gave another count"));
     }
-    let entries: String = blobs.split('\n').zip(&rel).map(|(blob, path)| format!("100644 {blob}\t{path}\0")).collect();
+    // A file the person made executable stays so (an entry file's, REQ-DOM-6).
+    let exec = |f: &PathBuf| std::fs::metadata(f).is_ok_and(|m| m.permissions().mode() & 0o100 != 0);
+    let (mut entries, mut own) = (String::new(), String::new());
+    for ((blob, path), f) in blobs.split('\n').zip(&rel).zip(files) {
+        let entry = format!("{} {blob}\t{path}\0", if exec(f) { "100755" } else { "100644" });
+        entries += &entry;
+        if !staged.contains(f) {
+            own += &entry;
+        }
+    }
+    stage_unchanged(repo, start, &entries, staged.iter().filter_map(|f| f.strip_prefix(&repo.root).ok()))?;
     let tmp = domain.join("local/tmp");
     std::fs::create_dir_all(&tmp).map_err(io_at(&tmp))?;
     let index = tmp.join("record-index");
     let mut earlier = Vec::new();
-    let result = attempt(repo, branch, start, &rel, &entries, message, &index, &mut earlier);
+    let result = attempt(repo, branch, start, &rel, (&entries, &own), message, &index, &mut earlier);
     let _ = std::fs::remove_file(&index);
     match result {
         Ok(commit) => {
@@ -593,7 +652,7 @@ fn attempt(
     branch: &str,
     start: Option<&str>,
     rel: &[&str],
-    entries: &str,
+    (entries, own): (&str, &str),
     message: &str,
     index: &Path,
     earlier: &mut Vec<String>,
@@ -624,7 +683,7 @@ fn attempt(
             // The commit is made and the branch moved: the person's index is brought to it, and if another Git holds
             // the index now, the next write command does it (`sync_index`), so the commit is never reported as not
             // made (P7D3A-21); the command says what failed (D-088).
-            if let Err(e) = git(repo, &os(&["update-index", "-z", "--index-info"]), entries.as_bytes(), None) {
+            if let Err(e) = git(repo, &os(&["update-index", "-z", "--index-info"]), own.as_bytes(), None) {
                 earlier.push(e.detail());
             }
             fault::point();

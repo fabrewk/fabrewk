@@ -645,12 +645,7 @@ fn assess_s_usage_errors_name_what_it_takes() {
         "usage.choice",
         "--publication: published, own-repository, unpublished",
     );
-    // `apply` is declared, takes `assess`'s options, and is not built in this part (D-099): it reads and writes nothing.
-    usage(
-        &["apply", "d", "--alias", "ana", "--key", "k", "--publication", "published", "--say", "w"],
-        "usage.unbuilt",
-        "apply",
-    );
+    // `apply` takes `assess`'s options and requires three of them (D-097 point 2).
     usage(&["apply", "d", "--alias", "ana", "--key", "k"], "usage.needed", "--publication");
     // `es-MX` reaches the `es` catalogue.
     let out = fx.run(&["assess", "--lang", "es-MX"]);
@@ -1142,7 +1137,7 @@ fn p10a_29_the_installation_s_commands_read_no_record_even_for_a_usage_error() {
     std::fs::create_dir_all(fx.domain.join("data/events/project")).unwrap();
     std::fs::write(fx.domain.join("data/events/project/000001-0000000000000000.json"), "{}").unwrap();
     for args in [
-        &["apply", "d", "--alias", "ana", "--key", "k", "--publication", "published", "--say", "w"][..],
+        &["apply", "d", "--alias", "ana", "--key", "k", "--say", "w"][..],
         &["assess", "--mode", "wrong"],
         &["--json", "assess", "--lang", "fr"],
     ] {

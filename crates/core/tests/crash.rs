@@ -26,7 +26,7 @@ fn scenario(f: &Fixture) {
         );
         say(format!("appended project {}", head.as_ref().unwrap().digest));
     }
-    let h = s.append("project", head.as_ref(), &fabrewk("installed", json!({})), None).unwrap();
+    let h = s.append("project", head.as_ref(), &fabrewk("installed", project_payload("installed")), None).unwrap();
     say(format!("appended project {}", h.digest));
     say(format!("committed {}", s.finish(&f.verifier(), &[]).unwrap().unwrap()));
 
@@ -66,7 +66,7 @@ fn crash_child() {
     let f = Fixture::at(Path::new(&base));
     if std::env::var_os("FABREWK_FAULT_FAIL").is_some() {
         let mut s = Session::begin(&f.domain, f.repo(), &f.verifier()).unwrap();
-        s.append("project", None, &fabrewk("installed", json!({})), None).unwrap();
+        s.append("ext-x", None, &note(json!({})), None).unwrap();
         let e = s.finish(&f.verifier(), &[]).unwrap_err();
         println!("refused {}", e.code().unwrap());
         return;

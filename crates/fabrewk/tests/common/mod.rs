@@ -329,7 +329,12 @@ impl Fx {
 
     /// [`Fx::builder`] with `more` appended to the project file.
     pub fn builder_with(name: &str, mode: &str, script: &str, more: &str) -> Fx {
-        let mut fx = Fx::new_with(name, mode, &format!("{BUILDER}{more}"));
+        Fx::new_with(name, mode, &format!("{BUILDER}{more}")).tooled(script)
+    }
+
+    /// The fake builder of [`Fx::builder`], with its directory first in `PATH` and its credential in the home.
+    pub fn tooled(mut self, script: &str) -> Fx {
+        let fx = &mut self;
         let dir = fx.root.parent().unwrap().join("tool/versions");
         std::fs::create_dir_all(&dir).unwrap();
         fx.fake(script);
@@ -342,7 +347,87 @@ impl Fx {
             .unwrap();
         use std::os::unix::fs::PermissionsExt;
         std::fs::set_permissions(&credential, std::fs::Permissions::from_mode(0o600)).unwrap();
+        self
+    }
+
+    /// A product repository installed by a real `assess` and `apply` (part 10b) in `mode`, as the maestro `xel` (the
+    /// fixture's key, which Git signs with), with Claude Code as its tool, in `es-MX`; `alambique`, when given, placed
+    /// before (committed with the product in `published`) and kept. Then, as the plan's next steps say, the project
+    /// file gains [`BUILDER`]'s models and profiles and `xel`'s fermento [`INPUT`], committed where the mode commits,
+    /// and a maestro adopts it.
+    pub fn applied(name: &str, mode: &str, alambique: Option<&str>) -> Fx {
+        let (fx, options) = Fx::installable(name, mode, alambique);
+        let ran = fx.apply(&options, &[]);
+        assert_eq!(ran.status, 0, "{ran:?}");
+        let models = &BUILDER[BUILDER.find("[models.").unwrap()..];
+        let text = std::fs::read_to_string(fx.domain.join("settings.toml")).unwrap();
+        std::fs::write(fx.domain.join("settings.toml"), format!("{text}\n{models}")).unwrap();
+        let (fermento, parts) = fabrewk_core::fermento::open(&fx.domain, "xel").unwrap();
+        std::fs::write(fx.domain.join("xel/fermento.md"), format!("{INPUT}{}", &fermento[parts.input_end..])).unwrap();
+        let at = |dir: &Path| ["-C".to_owned(), dir.to_str().unwrap().to_owned()];
+        let git = |dir: &Path, args: &[&str]| {
+            let all: Vec<String> = at(dir).into_iter().chain(args.iter().map(|a| a.to_string())).collect();
+            fx.git(&all.iter().map(String::as_str).collect::<Vec<_>>());
+        };
+        let place = match mode {
+            "published" => Some((fx.root.clone(), ".brewstillery")),
+            "own-repository" => Some((fx.domain.clone(), ".")),
+            _ => None,
+        };
+        if let Some((dir, path)) = place {
+            git(&dir, &["add", "--", path]);
+            git(&dir, &["commit", "-q", "-m", "models"]);
+        }
+        let widen = ["--widen", "models.sonnet", "--widen", "profiles.build", "--widen", "profiles.review"];
+        let adopted = fx.run(&[&["adopt", "--say", "Lo decido."][..], &widen].concat());
+        assert_eq!(adopted.status, 0, "{adopted:?}");
         fx
+    }
+
+    /// `apply` of the plan `assess` gives with `options` now, its words `Lo decido.`, with `env`.
+    pub fn apply(&self, options: &[String], env: &[(&str, &str)]) -> Ran {
+        let opts: Vec<&str> = options.iter().map(String::as_str).collect();
+        let assessed = self.run(&[&["assess", "--json"][..], &opts].concat());
+        assert_eq!(assessed.status, 0, "{assessed:?}");
+        let digest = assessed.doc()["digest"].as_str().unwrap().to_owned();
+        self.apply_digest(&digest, options, env)
+    }
+
+    /// `apply <digest> <options> --say 'Lo decido.' --json`, with `env`.
+    pub fn apply_digest(&self, digest: &str, options: &[String], env: &[(&str, &str)]) -> Ran {
+        let opts: Vec<&str> = options.iter().map(String::as_str).collect();
+        self.run_env(&[&["apply", digest][..], &opts, &["--say", "Lo decido.", "--json"]].concat(), env)
+    }
+
+    /// A product repository ready for `apply` in `mode` (see [`Fx::applied`]), and `assess`'s options for it.
+    pub fn installable(name: &str, mode: &str, alambique: Option<&str>) -> (Fx, Vec<String>) {
+        let base = tmp(name);
+        let (root, home, keys) = (base.join("repo"), base.join("home"), base.join("keys"));
+        for d in [&root, &home, &keys] {
+            std::fs::create_dir_all(d).unwrap();
+        }
+        let fx = Fx { domain: root.join(".brewstillery"), root, home, keys, path: None };
+        for alias in ["xel", "stranger"] {
+            let key = fx.keys.join(alias);
+            fx.program("ssh-keygen", &["-q", "-t", "ed25519", "-N", "", "-C", alias, "-f", key.to_str().unwrap()]);
+        }
+        std::fs::write(fx.root.join("README.md"), "fixture\n").unwrap();
+        std::fs::write(fx.home.join(".gitconfig"), "[user]\n\tname = Fixture\n\temail = fixture@example.invalid\n")
+            .unwrap();
+        fx.git(&["init", "-q", "-b", "main"]);
+        fx.git(&["config", "commit.gpgsign", "false"]);
+        fx.git(&["config", "user.signingkey", fx.keys.join("xel.pub").to_str().unwrap()]);
+        fx.commit("fixture");
+        if let Some(text) = alambique {
+            std::fs::create_dir_all(&fx.domain).unwrap();
+            std::fs::write(fx.domain.join("ALAMBIQUE.md"), text).unwrap();
+            if mode == "published" {
+                fx.commit("alambique");
+            }
+        }
+        let key = fx.keys.join("xel.pub").to_str().unwrap().to_owned();
+        let options = ["--alias", "xel", "--key", &key, "--publication", mode, "--tool", "claude", "--lang", "es-MX"];
+        (fx, options.map(String::from).into())
     }
 
     /// Replaces the fake builder's script (see [`Fx::builder`]): its version; dispatched as a reviewer, the script

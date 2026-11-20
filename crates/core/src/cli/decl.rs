@@ -60,6 +60,7 @@ fn needed(c: &Command, f: &str) -> bool {
 /// the domain's, the private folder's and the tools'.
 const WRITE: &[Code] = &[
     RecordAbsent,
+    InstallationIncomplete,
     PolicyAbsent,
     RecordBroken,
     RecordDigestMismatch,
@@ -143,7 +144,7 @@ pub const COMMANDS: &[Command] = &[
         refusals: &[NotARepository, AliasInvalid, PrivateFolderIncluded, ToolFailed, ToolMissing],
         schemas: &["fabrewk.assessment/1"],
     },
-    // Declared so that the command `assess` prints is one that exists and parses; built in part 10b (D-099).
+    // Built in part 10b (D-097 points 6 and 7, D-099).
     Command {
         name: "apply",
         arg: Some("plan"),
@@ -163,9 +164,20 @@ pub const COMMANDS: &[Command] = &[
             "json",
             "help",
         ],
-        moves: &[],
-        refusals: &[],
-        schemas: &["fabrewk.usage/1"],
+        moves: &["assessed", "publication-decided", "policy-adopted", "alambique-baseline", "installed"],
+        refusals: &[
+            AgentEnvironment,
+            PlanChanged,
+            VerdictNone,
+            ModeNotAvailable,
+            RoleForbidden,
+            WordsMissing,
+            WordsCopied,
+            AliasInvalid,
+            PrivateFolderIncluded,
+            DomainNotIgnored,
+        ],
+        schemas: &["fabrewk.applied/1"],
     },
     Command {
         name: "adopt",

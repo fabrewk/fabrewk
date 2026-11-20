@@ -29,7 +29,6 @@ next = "See what the command takes:"
 choice = "The value given is not one this option takes ({word})."
 tool = "There is no built-in tool by that name ({word})."
 lang = "There is no catalogue for that language ({word})."
-unbuilt = "The command {word} is declared but not built yet in this version: it reads and writes nothing."
 
 [internal]
 about = "Internal errors (exit 70): something failed that no refusal names"
@@ -249,6 +248,12 @@ event = "Recorded the event {seq} of the stream {stream}."
 commit = "Committed the record: {commit}."
 uncommitted = "The record is not committed: the publication mode commits nothing."
 recovered = "Git failed and the command went on: {detail}"
+
+[apply]
+about = "What apply reports"
+done = "Applied the plan {digest}: Fabrewk administers this repository."
+already = "The plan {digest} is applied already: nothing was written."
+left = "Left uncommitted in the product's working tree, for you to commit if you want: {path}. These Git commands commit them:"
 
 [reference]
 about = "Words of the generated reference documentation"
@@ -705,6 +710,29 @@ about = "An attempt whose outcome is unknown: its process no longer runs (REQ-RU
 reason = "The process that ran the task's attempt no longer runs, so its outcome is unknown; the attempt is counted as spent, and a retry spends a dispatch."
 next = "The task waits for a person: a maestro authorizes it again or rejects it."
 run = "fabrewk status"
+
+[code.PLAN_CHANGED]
+about = "An apply whose plan is not the one assess gives now, or whose targets changed (REQ-INS-3)"
+reason = "The plan assess gives now, with these options, is not the one named, or a file the plan writes changed since: applying it would write over what you did not see."
+next = "Assess again with the same options, read the plan, and apply the digest it prints:"
+run = "fabrewk assess"
+
+[code.VERDICT_NONE]
+about = "An apply of a plan whose verdict is none (REQ-INS-3)"
+reason = "The plan's verdict is none: a reason it gives blocks it."
+next = "Settle the reasons that block, then assess again:"
+run = "fabrewk assess"
+
+[code.MODE_NOT_AVAILABLE]
+about = "An apply of a plan in review mode, not built in the first core (REQ-INS-3, REQ-INS-5)"
+reason = "Review mode is not built yet, so a plan for it cannot be applied."
+next = "Assess for administering instead:"
+run = "fabrewk assess --mode adopt"
+
+[code.INSTALLATION_INCOMPLETE]
+about = "A write command while an apply is not complete (D-097 point 7)"
+reason = "An apply began here and did not finish, so no other command may write until it does."
+next = "Run the same apply again, with the same digest and options: it finishes what is missing."
 
 [code.POLICY_ABSENT]
 about = "No policy is adopted"

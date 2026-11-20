@@ -43,6 +43,8 @@ pub struct Session {
     record: Option<Replay>,
     /// What failed in Git that the session's commits went on from, each naming its evidence (D-088, D-089).
     notes: Vec<String>,
+    /// The installation's files the record commit takes, staged before the branch moves (see [`Session::install`]).
+    staged: Vec<PathBuf>,
 }
 
 /// Ending a session releases the lock on its open file description, not only this descriptor: a process another
@@ -115,7 +117,8 @@ impl Session {
             fault::point();
             fs::remove_file(leftover).map_err(io_at(leftover))?;
         }
-        Ok(Session { domain: domain.to_path_buf(), _lock: lock, appended: Vec::new(), git, record, notes: Vec::new() })
+        let (appended, notes, staged) = (Vec::new(), Vec::new(), Vec::new());
+        Ok(Session { domain: domain.to_path_buf(), _lock: lock, appended, git, record, notes, staged })
     }
 
     /// The record as replayed when the command began, or at its last [`Session::refresh`]; `None` if there was none.
@@ -268,7 +271,7 @@ impl Session {
         };
         fault::pause("before-commit");
         let mut files: Vec<PathBuf> = self.appended.iter().map(|a| a.1.clone()).collect();
-        files.extend(views.iter().map(|v| self.domain.join(v)));
+        files.extend(views.iter().map(|v| self.domain.join(v)).chain(self.staged.iter().cloned()));
         let commit = if files.is_empty() {
             None
         } else {
@@ -277,8 +280,8 @@ impl Session {
             // A record commit that fails leaves the events written and not committed, whatever the cause, and the
             // refusal says so (D-065); the next write command commits them first (REQ-REG-10).
             let message = git::record_message(&digests);
-            let commit =
-                git::commit_record(repo, &self.domain, branch, start.as_deref(), &files, &message, &mut self.notes);
+            let (start, notes) = (start.as_deref(), &mut self.notes);
+            let commit = git::commit_record(repo, &self.domain, branch, start, (&files, &self.staged), &message, notes);
             Some(commit.map_err(|e| match e {
                 Error::Refused { code, path, detail } => Error::Refused {
                     code,
@@ -304,6 +307,29 @@ impl Session {
         {
             *start = Some(commit.to_owned());
         }
+    }
+
+    /// The repository `apply` made for the domain in `own-repository`, which commits from now on (D-097 point 6), with
+    /// the checks [`Session::begin`] makes of one.
+    pub fn attach(&mut self, repo: Repo) -> Result<(), Error> {
+        git::check_main_worktree(&repo)?;
+        let branch = git::record_branch(&repo)?;
+        let head = git::head_of(&repo, &branch)?;
+        self.git = Some((repo, branch, head));
+        Ok(())
+    }
+
+    /// The installation's record commit (D-097 point 7): it takes every event file the record branch's tip lacks, an
+    /// interrupted `apply`'s among them, and `receipt` (absolute paths), which it stages in the person's index before
+    /// the branch moves, where the index carries no staged change, and never touches after.
+    pub fn install(&mut self, receipt: Vec<PathBuf>) -> Result<(), Error> {
+        if let Some((repo, ..)) = &self.git {
+            let files = git::uncommitted(repo)?;
+            let digest = |f: &PathBuf| fs::read(f).map(|b| canon::sha256_hex(&b)).map_err(io_at(f));
+            self.appended = files.iter().map(|f| Ok((digest(f)?, f.clone()))).collect::<Result<_, Error>>()?;
+        }
+        self.staged = receipt;
+        Ok(())
     }
 
     /// What failed in Git that this session's commits went on from, taken (D-089).
@@ -332,15 +358,9 @@ impl Session {
         if held.as_deref() == Some(bytes.as_slice()) && git::staged(repo, rel)?.as_deref() == Some(bytes.as_slice()) {
             return Ok(None);
         }
-        let commit = git::commit_record(
-            repo,
-            &self.domain,
-            branch,
-            start.as_deref(),
-            &[file.to_path_buf()],
-            message,
-            &mut self.notes,
-        )?;
+        let files = [file.to_path_buf()];
+        let commit =
+            git::commit_record(repo, &self.domain, branch, start.as_deref(), (&files, &[]), message, &mut self.notes)?;
         *start = Some(commit.clone());
         // The branch has moved; if the person's index could not follow (another Git held it), it still holds the text
         // before, which the next `git commit` would take for a reversion: say so, with the commit made.
@@ -378,8 +398,8 @@ impl Session {
             digests.push(canon::sha256_hex(&fs::read(f).map_err(io_at(f))?));
         }
         let message = git::record_message(&digests);
-        let commit =
-            git::commit_record(repo, &self.domain, branch, start.as_deref(), &files, &message, &mut self.notes)?;
+        let (base, notes) = (start.as_deref(), &mut self.notes);
+        let commit = git::commit_record(repo, &self.domain, branch, base, (&files, &[]), &message, notes)?;
         *start = Some(commit.clone());
         Ok(Some(commit))
     }

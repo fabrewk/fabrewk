@@ -25,7 +25,7 @@ pub struct Check {
 /// machine (`unpublished`), as its finding says.
 pub const CHECKS: &[Check] = &[
     Check { id: "C1", codes: &[SettingsInvalid, SettingsKeyNotPersonal, AliasMismatch], control: Effective },
-    Check { id: "C2", codes: &[PolicyAbsent, PolicyPending], control: Effective },
+    Check { id: "C2", codes: &[PolicyAbsent, PolicyPending, InstallationIncomplete], control: Effective },
     Check {
         id: "C3",
         codes: &[
@@ -214,6 +214,10 @@ pub(super) fn run(cx: &Cx) -> Result<Out, Failed> {
         (Ok(_), None) => found.push(("C2", refuse(PolicyAbsent, Some(d), "no policy is adopted"))),
         (Err(_), _) if absent => found.push(("C2", refuse(PolicyAbsent, Some(d), "no policy is adopted"))),
         (Err(_), _) => found.push(("C2", refuse(CheckUnknown, Some(d), "the record does not replay"))),
+    }
+    // An `apply` not complete (D-097 point 7).
+    if let Ok(r) = record {
+        found.extend(super::write::installation(d, r).err().map(|e| ("C2", unknown(e))));
     }
     match record {
         Err(errors) if absent => found.extend(errors.iter().map(|e| ("C4", refuse(RecordAbsent, Some(d), e.detail())))),

@@ -6,6 +6,7 @@
 
 mod accept;
 mod adopt;
+mod apply;
 mod approve;
 mod check;
 mod close;
@@ -313,11 +314,7 @@ pub fn main(args: Vec<OsString>, wired: Wired) -> i32 {
                         "status" => status::run(&cx, arg.as_deref()),
                         "config" => config::run(&cx, arg.as_deref()),
                         "assess" => assess(&cx, command, &options),
-                        "apply" => Err(Failed::Usage(Usage {
-                            key: "usage.unbuilt",
-                            word: "apply".into(),
-                            command: Some(command),
-                        })),
+                        "apply" => apply::run(&cx, command, arg.as_deref().unwrap_or_default(), &options),
                         "adopt" => adopt::run(&cx, &options),
                         "propose" => propose::run(&cx, arg.as_deref().unwrap_or_default()),
                         "authorize" => tasks::authorize(&cx, arg.as_deref().unwrap_or_default(), &options),
@@ -352,6 +349,15 @@ pub fn main(args: Vec<OsString>, wired: Wired) -> i32 {
 
 /// `assess` (D-097): the language and the tools the answers name, checked before the installer reads anything.
 fn assess(cx: &Cx, command: &'static Command, options: &Options) -> Result<Out, Failed> {
+    answers(cx, command, options)?;
+    let home = std::env::var_os("HOME").map(PathBuf::from);
+    let asked = Asked { root: &cx.root, home: home.as_deref(), options, adapters: cx.adapters };
+    let (doc, text) = (cx.installer.assess)(&asked)?;
+    Ok(Out::new(doc, text))
+}
+
+/// The tools and the language the installation's answers name, `assess`'s and `apply`'s alike (D-097 point 2).
+fn answers(cx: &Cx, command: &'static Command, options: &Options) -> Result<(), Failed> {
     let tools: Vec<&str> = cx.adapters.iter().map(|a| a.program.executable).collect();
     if let Some(t) = options.tools.iter().find(|t| !tools.contains(&t.as_str())) {
         return Err(Failed::Usage(Usage {
@@ -369,10 +375,7 @@ fn assess(cx: &Cx, command: &'static Command, options: &Options) -> Result<Out, 
             command: Some(command),
         }));
     }
-    let home = std::env::var_os("HOME").map(PathBuf::from);
-    let asked = Asked { root: &cx.root, home: home.as_deref(), options, adapters: cx.adapters };
-    let (doc, text) = (cx.installer.assess)(&asked)?;
-    Ok(Out::new(doc, text))
+    Ok(())
 }
 
 /// The reference documentation in `lang` (D-055 point 3).

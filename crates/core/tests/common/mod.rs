@@ -268,8 +268,26 @@ pub fn project_payload(kind: &str) -> Value {
             json!({"content": PROJECT, "digest": sha256_hex(PROJECT.as_bytes()), "heads": {}, "widened": []})
         }
         "publication-decided" => json!({"mode": "published", "warningShown": false}),
+        // An empty plan and its digest (part 10b), and the receipt that cites it.
+        "assessed" => json!({"plan": {}, "digest": PLAN}),
+        "installed" => json!({"plan": PLAN, "files": []}),
         _ => json!({}),
     }
+}
+
+/// `assessed`'s payload holding `plan` and its digest.
+pub fn assessed(plan: Value) -> Value {
+    let digest = sha256_hex(&encode(&plan).unwrap());
+    json!({"plan": plan, "digest": digest})
+}
+
+/// The digest of an empty plan, `{}` and a newline.
+pub const PLAN: &str = "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356";
+
+/// An event of Fabrewk's kind that holds any payload, `n` among its words: an extension's note in `ext-x`.
+pub fn note(n: Value) -> Draft {
+    let actor = json!({"kind": "extension", "name": "x", "digest": "0".repeat(64)});
+    draft("extension-note", actor, None, json!({"text": format!("note {n}")}))
 }
 
 /// A move of the maestro `xel`, with words.

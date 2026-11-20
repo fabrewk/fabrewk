@@ -140,11 +140,26 @@ fn invalid(e: &Event, why: impl Into<String>) -> Error {
 /// `RECORD_TRANSITION_INVALID`, as is every other failure: each attempt ends exactly once (REQ-RUN-1).
 pub fn validate(record: &Replay) -> Result<(), Vec<Error>> {
     let mut errors = current(record).err().unwrap_or_default();
+    errors.extend(project(record));
     match crate::fermento::proposals(record) {
         Ok(all) => errors.extend(crate::alambique::validate(record, &all)),
         Err(e) => errors.extend(e),
     }
     if errors.is_empty() { Ok(()) } else { Err(errors) }
+}
+
+/// The `project` stream's order (section 4, "Project"; part 10b): `apply` opens it with `assessed`,
+/// `publication-decided`, `policy-adopted` and `installed`, in that order, and neither `assessed` nor `installed` stands
+/// anywhere else; an installation stopped before its end holds a prefix of that opening.
+fn project(record: &Replay) -> Option<Error> {
+    const OPENING: [&str; 4] = ["assessed", "publication-decided", "policy-adopted", "installed"];
+    let events = record.streams.get("project").map(Vec::as_slice).unwrap_or_default();
+    let opened = events.first().is_some_and(|e| e.kind == "assessed");
+    let out = events.iter().enumerate().find(|(i, e)| match OPENING.get(*i).filter(|_| opened) {
+        Some(kind) => e.kind != *kind,
+        None => matches!(e.kind.as_str(), "assessed" | "installed"),
+    });
+    out.map(|(_, e)| invalid(e, "the project stream opens with apply's events, in their order, and holds them once"))
 }
 
 /// The state of every stage and task stream after its events, held to the table as [`validate`] holds them.

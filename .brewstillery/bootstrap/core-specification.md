@@ -986,6 +986,27 @@ there to the private folder is a declared residual, but for the repository's con
 checked as above (D-103). Every file `assess` opens by itself is checked by where it really lies, and one in the
 private folder is reported as `private` and not read; a key file there is unusable (`key-inside`).
 
+**Amended in part 10b (D-105).** How `apply` is built, points 6 and 7 read so. `assessed`'s payload is exactly `plan`
+(the plan `assess` gave, which holds the verdict and its reasons) and `digest` (the SHA-256 of its canonical bytes;
+another digest is `RECORD_BROKEN`); `installed`'s is exactly `plan` (that digest) and `files`, the receipt: each file
+written or changed, by the path the plan names and the digest of its bytes after; the views, generated after it, are
+not in it. Replay holds the `project` stream's order: opened by `assessed`, its first four events are `assessed`,
+`publication-decided`, `policy-adopted` and `installed`, a prefix of them while the installation is not complete, and
+neither `assessed` nor `installed` stands anywhere else (`RECORD_TRANSITION_INVALID`). A record the plan's `assessed`
+does not open (the test helper's of section 11.2 rule 2, the bootstrap's import) is no installation. `apply` checks the
+project file the plan creates (`SETTINGS_INVALID`) before the key Git signs with (`ROLE_FORBIDDEN`), which needs it;
+the words' tag is `--say-lang`, else the plan's `--lang`. Under the lock, fresh or resumed, each target must be as the
+plan's inputs found it or as the plan writes it, reached through no link (`PLAN_CHANGED`). In `own-repository`, before
+the domain's repository exists, Git must name the author outside any repository, as that new repository will
+(`TOOL_FAILED`, nothing written). An alambique kept is committed with the record commit in the modes that commit,
+since the baseline names it; it is not in the receipt, which `apply` did not write. A file the person made executable
+stays so, in the working tree and in the commit. `apply` names what it left uncommitted (the entry files, in
+`own-repository` and `unpublished`) with `git add -- <files>` and `git commit`. Once complete, the same `apply` writes
+nothing, the person's index included: a stop after the branch moved leaves the record's own entries to the next write
+command, as for every write command (`sync_index`). `check` reports `INSTALLATION_INCOMPLETE` under C2, and it is among
+the refusals of every write command. F-1, F-2 and the crash suite over F-1 start from a real `apply`; the other tests
+keep section 11.2 rule 2's helper.
+
 ### SEC: confinement, credentials and controls
 
 - **REQ-SEC-1.** On Linux every agent and check runs under bubblewrap: system read-only, an empty home, only the tool's
@@ -1895,7 +1916,7 @@ Read-only; prints every finding with its code and severity, and exits 3 if any i
 | # | Verifies | Code | Severity | Control |
 | --- | --- | --- | --- | --- |
 | C1 | Settings parse and validate; personal files keep to their keys | `SETTINGS_INVALID`, `SETTINGS_KEY_NOT_PERSONAL`, `ALIAS_MISMATCH` | error | effective |
-| C2 | A policy is adopted; the file matches it or its change is pending | `POLICY_ABSENT`, `POLICY_PENDING` | error, warning | effective |
+| C2 | A policy is adopted; the file matches it or its change is pending; an `apply` is complete (part 10b) | `POLICY_ABSENT`, `POLICY_PENDING`, `INSTALLATION_INCOMPLETE` | error, warning, error | effective |
 | C3 | The record replays: versions, digests, canonical form, chains, forks, transitions, signatures, identifiers | REQ-REG-6's codes, `RECORD_ID_COLLISION` | error | effective |
 | C4 | The record is present and has not rolled back | `RECORD_ABSENT`, `RECORD_ROLLBACK`, `MARK_INVALID` | error | effective with Git history; cooperative on one machine |
 | C5 | Views equal a fresh generation | `VIEW_STALE` | error | effective |
@@ -1963,7 +1984,7 @@ All codes, in one list: `AGENT_ENVIRONMENT`, `ALAMBIQUE_CHANGED`, `ALAMBIQUE_MIS
 `ALIAS_MISMATCH`, `ANSWER_INVALID`, `ATTEMPT_ENDED`, `ATTEMPT_REPLACED`, `BASE_MOVED`, `BUDGET_EXHAUSTED`, `CHECK_DUPLICATE`,
 `CHECK_UNKNOWN`, `CONFINEMENT_UNAVAILABLE`, `CREDENTIAL_SUSPECTED`, `DEPENDENCY_OPEN`, `DISK_LOW`, `DOMAIN_NOT_IGNORED`,
 `DOMAIN_UNKNOWN_ENTRY`, `EVIDENCE_STALE`, `EXTENSION_DIGEST`, `EXTENSION_OUTPUT_INVALID`, `FERMENTO_MISSING`,
-`GITIGNORE_CHANGED`, `HEAD_DETACHED`, `INPUT_CHANGED`, `INPUT_UNCOMMITTED`, `KEY_UNKNOWN`, `LANE_VIOLATION`,
+`GITIGNORE_CHANGED`, `HEAD_DETACHED`, `INPUT_CHANGED`, `INPUT_UNCOMMITTED`, `INSTALLATION_INCOMPLETE`, `KEY_UNKNOWN`, `LANE_VIOLATION`,
 `LIMIT_UNOBSERVABLE`, `LOCK_HELD`, `MAINTAINER_UNLISTED`, `MARK_INVALID`, `MERGE_IN_PROGRESS`, `MODE_NOT_AVAILABLE`,
 `MOVE_NOT_ALLOWED`, `NOT_A_REPOSITORY`, `NO_PROGRESS`, `OUTCOME_UNKNOWN`, `PLAN_CHANGED`, `PLATFORM_UNSUPPORTED`, `POINT_CHANGED`,
 `POLICY_ABSENT`, `POLICY_PENDING`, `POLICY_UNCOMMITTED`, `PRIVATE_FOLDER_INCLUDED`, `PRIVATE_FOLDER_PERMISSIONS`, `PROPOSAL_STALE`,

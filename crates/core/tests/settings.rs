@@ -118,7 +118,8 @@ fn refusal_policy_absent() {
     assert_eq!(e.code(), Some(Code::PolicyAbsent));
     let mut s = begin(&f, None);
     let head = s.head("project").unwrap();
-    s.append("project", head.as_ref(), &person("assessed", "Evalúa.", json!({})), Some(&f.signer())).unwrap();
+    s.append("project", head.as_ref(), &person("assessed", "Evalúa.", project_payload("assessed")), Some(&f.signer()))
+        .unwrap();
     s.finish(&f.verifier(), &[]).unwrap();
     let record = replay(&f.domain, &f.verifier()).unwrap();
     assert!(settings::in_force(&record).unwrap().is_none(), "a record with no policy-adopted has no policy");

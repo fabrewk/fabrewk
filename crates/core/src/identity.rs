@@ -15,7 +15,7 @@ use std::path::Path;
 /// One adoption of the `project` stream: its place, the policy it adopts and its seal.
 struct Adopted<'a> {
     event: &'a Event,
-    digest: &'a str,
+    digest: String,
     settings: Settings,
     seal: BTreeMap<&'a str, (u64, &'a str)>,
 }
@@ -31,10 +31,27 @@ fn adoptions(record: &Replay) -> Result<Vec<Adopted<'_>>, Vec<Error>> {
         let seal = payload["heads"].as_object().into_iter().flatten();
         let seal =
             seal.map(|(s, h)| (s.as_str(), (h["seq"].as_u64().unwrap_or(0), h["digest"].as_str().unwrap_or(""))));
-        let digest = payload["digest"].as_str().unwrap_or_default();
+        let digest = payload["digest"].as_str().unwrap_or_default().to_owned();
         out.push(Adopted { event, digest, settings, seal: seal.collect() });
     }
+    // Before the first adoption, the record of an `apply` not complete holds only the `project` stream, opened by
+    // `assessed`: its events are verified against the project file its plan creates (P10O-5), and any other form cites
+    // no adopted policy.
+    let first = record.streams.get("project").and_then(|s| s.first()).filter(|e| e.kind == "assessed");
+    if let Some(event) = first.filter(|_| out.is_empty() && record.streams.len() == 1) {
+        let text = planned_policy(&event.value["payload"]["plan"]).unwrap_or_default();
+        let settings = settings::parse(&event.path, text, Level::Project)?;
+        let digest = crate::record::sha256_hex(text.as_bytes());
+        out.push(Adopted { event, digest, settings, seal: BTreeMap::new() });
+    }
     Ok(out)
+}
+
+/// The project file a plan creates (`fabrewk.plan/1`, D-097 point 5), if it creates one.
+pub fn planned_policy(plan: &serde_json::Value) -> Option<&str> {
+    let files = plan["files"].as_array()?;
+    let file = files.iter().find(|f| f["path"] == ".brewstillery/settings.toml" && f["action"] == "create")?;
+    file["content"].as_str()
 }
 
 /// The policy in force at an event's place (D-050), `None` when it was written before every adoption.

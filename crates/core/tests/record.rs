@@ -20,7 +20,7 @@ fn project(f: &Fixture, s: &mut Session) -> Head {
             s.append("project", head.as_ref(), &person(kind, words, project_payload(kind)), Some(&f.signer())).unwrap(),
         );
     }
-    s.append("project", head.as_ref(), &fabrewk("installed", json!({"files": []})), None).unwrap()
+    s.append("project", head.as_ref(), &fabrewk("installed", project_payload("installed")), None).unwrap()
 }
 
 /// A task created and authorized; gives its stream and head.
@@ -126,8 +126,8 @@ fn refusal_record_id_collision() {
     assert_eq!(codes(replay(&f.domain, &f.verifier())), [Code::RecordFork]);
     // Two events at `seq` 1 of a stream that is not a stage's or a task's: a fork.
     std::fs::remove_dir_all(f.stream_dir(&stream)).unwrap();
-    f.forge("project", 1, None, &fabrewk("installed", json!({"n": 1})), None);
-    f.forge("project", 1, None, &fabrewk("installed", json!({"n": 2})), None);
+    f.forge("ext-x", 1, None, &note(json!({"n": 1})), None);
+    f.forge("ext-x", 1, None, &note(json!({"n": 2})), None);
     assert_eq!(codes(replay(&f.domain, &f.verifier())), [Code::RecordFork]);
 }
 
@@ -166,18 +166,15 @@ fn req_reg_2_order_comes_from_prev_not_time() {
         let f = Fixture::new("permuted", false);
         let mut prev: Option<String> = None;
         for (seq, i) in order.iter().enumerate() {
-            let mut v = fabrewk("installed", json!({"n": seq})).build("project", seq as u64 + 1, prev.as_deref());
+            let mut v = note(json!({"n": seq})).build("ext-x", seq as u64 + 1, prev.as_deref());
             v["at"] = json!(times[*i]);
             let bytes = encode(&v).unwrap();
-            f.place("project", seq as u64 + 1, &bytes);
+            f.place("ext-x", seq as u64 + 1, &bytes);
             prev = Some(sha256_hex(&bytes));
         }
         let r = ok_replay(&f);
         states.push(
-            r.streams["project"]
-                .iter()
-                .map(|e| (e.seq, e.kind.clone(), e.value["payload"].clone()))
-                .collect::<Vec<_>>(),
+            r.streams["ext-x"].iter().map(|e| (e.seq, e.kind.clone(), e.value["payload"].clone())).collect::<Vec<_>>(),
         );
     }
     assert_eq!(states[0], states[1]);
@@ -208,11 +205,11 @@ fn pd_03_schema_1_is_pinned() {
 }
 
 fn forged_with(f: &Fixture, edit: impl Fn(&mut Value)) -> Vec<Code> {
-    let mut v = fabrewk("installed", json!({})).build("project", 1, None);
+    let mut v = note(json!({})).build("ext-x", 1, None);
     edit(&mut v);
-    f.place("project", 1, &encode(&v).unwrap());
+    f.place("ext-x", 1, &encode(&v).unwrap());
     let r = codes(replay(&f.domain, &f.verifier()));
-    std::fs::remove_dir_all(f.stream_dir("project")).unwrap();
+    std::fs::remove_dir_all(f.stream_dir("ext-x")).unwrap();
     r
 }
 
@@ -234,7 +231,8 @@ fn refusal_record_version_unknown() {
     let f2 = Fixture::new("version-say", false);
     for say in [json!({"a": 1, "b": 2}), json!({"text": 1, "lang": "es"}), json!({"text": "x", "lang": ""}), json!("x")]
     {
-        let mut v = person("assessed", "x", json!({})).build("project", 1, None);
+        let mut v =
+            person("publication-decided", "x", project_payload("publication-decided")).build("project", 1, None);
         v["say"] = say.clone();
         let path = f2.place("project", 1, &encode(&v).unwrap());
         std::fs::write(sig(&path), sign_with(&f2.signer(), &std::fs::read(&path).unwrap(), "fabrewk")).unwrap();
@@ -258,7 +256,7 @@ fn pd_04_unicode_text_is_stored_and_replayed_intact() {
     s.append(
         "project",
         None,
-        &person("assessed", text, json!({"file": format!("x{text}.md"), "finding": text})),
+        &person("assessed", text, assessed(json!({"file": format!("x{text}.md"), "finding": text}))),
         Some(&f.signer()),
     )
     .unwrap();
@@ -272,7 +270,7 @@ fn pd_04_unicode_text_is_stored_and_replayed_intact() {
     let r = ok_replay(&f);
     let e = &r.streams["project"][0];
     assert_eq!(e.value["say"]["text"], json!(text));
-    assert_eq!(e.value["payload"]["finding"], json!(text));
+    assert_eq!(e.value["payload"]["plan"]["finding"], json!(text));
     assert_eq!(r.streams[&stream][0].value["payload"]["goal"], json!(text));
     for events in r.streams.values() {
         for e in events {
@@ -308,13 +306,15 @@ fn pd_04_no_line_splitting_in_the_record() {
 #[test]
 fn refusal_record_noncanonical() {
     let f = Fixture::new("noncanonical", false);
-    let good =
-        String::from_utf8(encode(&fabrewk("installed", json!({"n": 1})).build("project", 1, None)).unwrap()).unwrap();
+    let good = String::from_utf8(
+        encode(&person("assessed", "x", assessed(json!({"n": 1}))).build("project", 1, None)).unwrap(),
+    )
+    .unwrap();
     let edits: [&dyn Fn(&str) -> String; 5] = [
         &|s| s.replacen("{\"actor\"", "{\"schema\":1,\"actor\"", 1).replacen(",\"schema\":1", "", 1),
         &|s| s.replacen("\"n\":1", "\"n\": 1", 1),
         &|s| s.replacen("\"n\":1", "\"n\":1.0", 1),
-        &|s| s.replacen("\"installed\"", "\"install\\u0065d\"", 1),
+        &|s| s.replacen("\"assessed\"", "\"a\\u0073sessed\"", 1),
         &|s| s.trim_end_matches('\n').to_owned(),
     ];
     for edit in edits {
@@ -354,7 +354,7 @@ fn req_reg_4_signatures_verify_with_ssh_keygen() {
 #[test]
 fn refusal_record_signature_invalid() {
     let f = Fixture::new("signature-invalid", false);
-    let draft = person("assessed", "Evalúa.", json!({}));
+    let draft = person("publication-decided", "Evalúa.", project_payload("publication-decided"));
     let check = |setup: &dyn Fn(&Path)| {
         let path = f.forge("project", 1, None, &draft, None);
         setup(&path);
@@ -378,10 +378,10 @@ fn refusal_record_signature_invalid() {
         invalid
     );
     // A signature beside an event no person records.
-    let path = f.forge("project", 1, None, &fabrewk("installed", json!({})), None);
+    let path = f.forge("ext-x", 1, None, &note(json!({})), None);
     std::fs::write(sig(&path), sign_with(&f.signer(), &std::fs::read(&path).unwrap(), "fabrewk")).unwrap();
     assert_eq!(codes(replay(&f.domain, &f.verifier())), invalid);
-    std::fs::remove_dir_all(f.stream_dir("project")).unwrap();
+    std::fs::remove_dir_all(f.stream_dir("ext-x")).unwrap();
     // The library writes no person's event without a signer.
     let mut s = begin(&f, None);
     assert_eq!(code(&s.append("project", None, &draft, None).unwrap_err()), Some(Code::RecordSignatureInvalid));
@@ -420,27 +420,24 @@ fn lock_child() {
 fn refusal_record_head_moved() {
     let f = Fixture::new("head-moved", false);
     let mut s = begin(&f, None);
-    let h1 = s.append("project", None, &fabrewk("installed", json!({"n": 1})), None).unwrap();
+    let h1 = s.append("ext-x", None, &note(json!({"n": 1})), None).unwrap();
     // A writer that ignores the lock appends meanwhile.
-    f.forge("project", 2, Some(&h1.digest), &fabrewk("installed", json!({"n": 2})), None);
+    f.forge("ext-x", 2, Some(&h1.digest), &note(json!({"n": 2})), None);
     let before = snapshot(&f.domain);
-    let e = s.append("project", Some(&h1), &fabrewk("installed", json!({"n": 3})), None).unwrap_err();
+    let e = s.append("ext-x", Some(&h1), &note(json!({"n": 3})), None).unwrap_err();
     assert_eq!(code(&e), Some(Code::RecordHeadMoved));
     assert_eq!(snapshot(&f.domain), before);
     // A stale "no head yet" is refused the same way.
-    assert_eq!(
-        code(&s.append("project", None, &fabrewk("installed", json!({})), None).unwrap_err()),
-        Some(Code::RecordHeadMoved)
-    );
+    assert_eq!(code(&s.append("ext-x", None, &note(json!({})), None).unwrap_err()), Some(Code::RecordHeadMoved));
 }
 
 #[test]
 fn req_reg_5_readers_skip_temporary_names_and_writers_remove_them() {
     let f = Fixture::new("temporary", false);
     let mut s = begin(&f, None);
-    let h = s.append("project", None, &fabrewk("installed", json!({})), None).unwrap();
+    let h = s.append("ext-x", None, &note(json!({})), None).unwrap();
     drop(s);
-    let dir = f.stream_dir("project");
+    let dir = f.stream_dir("ext-x");
     // What a writer killed mid-write leaves: a temporary event and a signature whose event never got in place.
     std::fs::write(dir.join(".000002-0123456789abcdef.json.tmp"), b"{").unwrap();
     std::fs::write(dir.join("000002-0123456789abcdef.json.sig"), b"x").unwrap();
@@ -448,13 +445,13 @@ fn req_reg_5_readers_skip_temporary_names_and_writers_remove_them() {
     // Other names starting with `.` are skipped and left alone, a directory included.
     std::fs::write(dir.join(".notes"), b"").unwrap();
     std::fs::create_dir(dir.join(".keep")).unwrap();
-    assert_eq!(ok_replay(&f).streams["project"].len(), 1);
+    assert_eq!(ok_replay(&f).streams["ext-x"].len(), 1);
     let mut s = begin(&f, None);
     assert!(!dir.join(".000002-0123456789abcdef.json.tmp").exists());
     assert!(!dir.join("000002-0123456789abcdef.json.sig").exists());
     assert!(dir.join(".notes").exists() && dir.join(".keep").is_dir());
-    assert_eq!(s.head("project").unwrap(), Some(h.clone()));
-    s.append("project", Some(&h), &fabrewk("installed", json!({})), None).unwrap();
+    assert_eq!(s.head("ext-x").unwrap(), Some(h.clone()));
+    s.append("ext-x", Some(&h), &note(json!({})), None).unwrap();
 }
 
 // ---- REQ-REG-6 ----------------------------------------------------------------------------------------------------
@@ -462,15 +459,15 @@ fn req_reg_5_readers_skip_temporary_names_and_writers_remove_them() {
 #[test]
 fn refusal_record_broken() {
     let f = Fixture::new("broken", false);
-    let one = f.forge("project", 1, None, &fabrewk("installed", json!({"n": 1})), None);
+    let one = f.forge("ext-x", 1, None, &note(json!({"n": 1})), None);
     let d1 = sha256_hex(&std::fs::read(&one).unwrap());
     let broken = [Code::RecordBroken];
     // A gap in `seq`.
-    let three = f.forge("project", 3, Some(&d1), &fabrewk("installed", json!({"n": 3})), None);
+    let three = f.forge("ext-x", 3, Some(&d1), &note(json!({"n": 3})), None);
     assert_eq!(codes(replay(&f.domain, &f.verifier())), broken);
     std::fs::remove_file(three).unwrap();
     // A `prev` that names no event.
-    let two = f.forge("project", 2, Some(&"0".repeat(64)), &fabrewk("installed", json!({"n": 2})), None);
+    let two = f.forge("ext-x", 2, Some(&"0".repeat(64)), &note(json!({"n": 2})), None);
     assert_eq!(codes(replay(&f.domain, &f.verifier())), broken);
     std::fs::remove_file(two).unwrap();
     // An event copied into another stream's directory.
@@ -479,15 +476,15 @@ fn refusal_record_broken() {
     assert_eq!(codes(replay(&f.domain, &f.verifier())), broken);
     std::fs::remove_dir_all(f.stream_dir("rules")).unwrap();
     // A file that is not an event, and a directory that is not a stream.
-    std::fs::write(f.stream_dir("project").join("notes.txt"), b"").unwrap();
+    std::fs::write(f.stream_dir("ext-x").join("notes.txt"), b"").unwrap();
     assert_eq!(codes(replay(&f.domain, &f.verifier())), broken);
-    std::fs::remove_file(f.stream_dir("project").join("notes.txt")).unwrap();
+    std::fs::remove_file(f.stream_dir("ext-x").join("notes.txt")).unwrap();
     std::fs::create_dir_all(f.domain.join("data/events/Project")).unwrap();
     assert_eq!(codes(replay(&f.domain, &f.verifier())), broken);
     std::fs::remove_dir_all(f.domain.join("data/events/Project")).unwrap();
     // `prev` set at `seq` 1.
     std::fs::remove_file(&one).unwrap();
-    f.forge("project", 1, Some(&d1), &fabrewk("installed", json!({})), None);
+    f.forge("ext-x", 1, Some(&d1), &note(json!({})), None);
     assert_eq!(codes(replay(&f.domain, &f.verifier())), broken);
 }
 
@@ -509,9 +506,9 @@ fn pd_06_an_approval_copied_into_another_stream_is_refused_for_its_place() {
 #[test]
 fn refusal_record_digest_mismatch() {
     let f = Fixture::new("digest", false);
-    let path = f.forge("project", 1, None, &fabrewk("installed", json!({})), None);
+    let path = f.forge("ext-x", 1, None, &note(json!({})), None);
     // A file renamed with another digest.
-    let other = f.stream_dir("project").join("000001-0000000000000000.json");
+    let other = f.stream_dir("ext-x").join("000001-0000000000000000.json");
     std::fs::rename(&path, &other).unwrap();
     assert_eq!(codes(replay(&f.domain, &f.verifier())), [Code::RecordDigestMismatch]);
     std::fs::rename(&other, &path).unwrap();
@@ -541,10 +538,10 @@ fn refusal_record_transition_invalid() {
     words.say = None;
     assert_eq!(check("project", &words, false), invalid);
     // Words on a move no person records, and a person's move without words.
-    let mut said = fabrewk("installed", json!({}));
-    said.say = person("assessed", "Hola.", json!({})).say;
-    assert_eq!(check("project", &said, false), invalid);
-    let mut silent = person("assessed", "Hola.", json!({}));
+    let mut said = note(json!({}));
+    said.say = person("publication-decided", "Hola.", project_payload("publication-decided")).say;
+    assert_eq!(check("ext-x", &said, false), invalid);
+    let mut silent = person("publication-decided", "Hola.", project_payload("publication-decided"));
     silent.say = None;
     assert_eq!(check("project", &silent, true), invalid);
     // A second creation later in its own stream (P7B-4).
@@ -566,11 +563,24 @@ fn refusal_record_transition_invalid() {
 fn pd_31_empty_words_on_replay() {
     let f = Fixture::new("pd31", false);
     for words in ["", " ", "\t", "\n", "\u{2028}", " \u{85}\u{3000} "] {
-        f.forge("project", 1, None, &person("assessed", words, json!({})), Some(&f.signer()));
+        f.forge(
+            "project",
+            1,
+            None,
+            &person("publication-decided", words, project_payload("publication-decided")),
+            Some(&f.signer()),
+        );
         assert_eq!(codes(replay(&f.domain, &f.verifier())), [Code::RecordTransitionInvalid], "{words:?}");
         std::fs::remove_dir_all(f.stream_dir("project")).unwrap();
         let mut s = begin(&f, None);
-        let e = s.append("project", None, &person("assessed", words, json!({})), Some(&f.signer())).unwrap_err();
+        let e = s
+            .append(
+                "project",
+                None,
+                &person("publication-decided", words, project_payload("publication-decided")),
+                Some(&f.signer()),
+            )
+            .unwrap_err();
         assert_eq!(code(&e), Some(Code::RecordTransitionInvalid));
         assert!(!f.stream_dir("project").exists() || f.events("project").is_empty());
     }
@@ -624,7 +634,7 @@ fn pd_02_an_invalid_mark_refuses_and_only_a_person_removes_it() {
     // Once a person removes it, the next write command writes a fresh mark.
     std::fs::remove_file(&mark).unwrap();
     let mut s = begin(&f, None);
-    s.append("project", s.head("project").unwrap().as_ref(), &fabrewk("installed", json!({})), None).unwrap();
+    s.append("ext-x", s.head("ext-x").unwrap().as_ref(), &note(json!({})), None).unwrap();
     s.finish(&f.verifier(), &[]).unwrap();
     check_mark(&f.domain, &ok_replay(&f)).unwrap();
 }
@@ -692,8 +702,8 @@ fn published(f: &Fixture) -> Vec<String> {
     task(f, &mut s);
     commits.push(s.finish(&f.verifier(), &[]).unwrap().unwrap());
     let mut s = begin(f, f.repo());
-    let h = s.head("project").unwrap();
-    s.append("project", h.as_ref(), &fabrewk("installed", json!({"n": 5})), None).unwrap();
+    let h = s.head("ext-x").unwrap();
+    s.append("ext-x", h.as_ref(), &note(json!({"n": 5})), None).unwrap();
     commits.push(s.finish(&f.verifier(), &[]).unwrap().unwrap());
     commits
 }
@@ -740,8 +750,8 @@ fn pd_01_history_walk() {
         let last = last_event(&f);
         git(&f.root, &["rm", "-q", &last]);
         git(&f.root, &["commit", "-q", "-m", "cut"]);
-        let last = ok_replay(&f).streams["project"].last().unwrap().clone();
-        f.forge("project", last.seq + 1, Some(&last.digest), &fabrewk("installed", json!({"regrown": true})), None);
+        let last = ok_replay(&f).streams["ext-x"].last().unwrap().clone();
+        f.forge("ext-x", last.seq + 1, Some(&last.digest), &note(json!({"regrown": true})), None);
         git(&f.root, &["add", ".brewstillery/data"]);
         git(&f.root, &["commit", "-q", "-m", "regrown"]);
         assert_eq!(walk(&f), rollback);
@@ -769,7 +779,7 @@ fn pd_01_history_walk() {
         let f = Fixture::new("pd01g", true);
         published(&f);
         let files: Vec<String> = f
-            .events("project")
+            .events("ext-x")
             .iter()
             .rev()
             .take(2)
@@ -783,8 +793,8 @@ fn pd_01_history_walk() {
         for (p, bytes) in files.iter().zip(&saved) {
             std::fs::write(f.root.join(p), bytes).unwrap();
         }
-        let last = ok_replay(&f).streams["project"].last().unwrap().clone();
-        f.forge("project", last.seq + 1, Some(&last.digest), &fabrewk("installed", json!({"n": 6})), None);
+        let last = ok_replay(&f).streams["ext-x"].last().unwrap().clone();
+        f.forge("ext-x", last.seq + 1, Some(&last.digest), &note(json!({"n": 6})), None);
         git(&f.root, &["add", ".brewstillery/data"]);
         git(&f.root, &["commit", "-q", "-m", "restored"]);
         assert_eq!(walk(&f), rollback);
@@ -827,8 +837,8 @@ fn refusal_record_fork() {
             let domain = root.join(".brewstillery");
             let mut s =
                 Session::begin(&domain, Repo::for_domain(&domain, Publication::Published), &f.verifier()).unwrap();
-            let h = s.head("project").unwrap();
-            s.append("project", h.as_ref(), &fabrewk("installed", json!({"clone": n})), None).unwrap();
+            let h = s.head("ext-x").unwrap();
+            s.append("ext-x", h.as_ref(), &note(json!({"clone": n})), None).unwrap();
             s.finish(&f.verifier(), &[]).unwrap();
         }
         git(&f.root, &["pull", "-q", "--no-rebase", "--no-edit", clone.to_str().unwrap(), "main"]);
@@ -912,8 +922,8 @@ fn req_reg_10_a_moved_head_rebuilds_or_races() {
         let mut s = begin(&f, f.repo());
         let first = s.commit_uncommitted(&f.verifier()).unwrap().unwrap();
         assert!(uncommitted(&f.repo().unwrap()).unwrap().is_empty());
-        let h = s.head("project").unwrap();
-        s.append("project", h.as_ref(), &fabrewk("installed", json!({})), None).unwrap();
+        let h = s.head("ext-x").unwrap();
+        s.append("ext-x", h.as_ref(), &note(json!({})), None).unwrap();
         let second = s.finish(&f.verifier(), &[]).unwrap().unwrap();
         assert_eq!(git(&f.root, &["rev-parse", "HEAD^"]), first);
         assert_eq!(git(&f.root, &["rev-parse", "HEAD"]), second);
@@ -1056,13 +1066,13 @@ fn an_unreadable_place_is_an_error_never_an_absence() {
     // A stream that is a file, read by a writer's head.
     let s = begin(&f, None);
     std::fs::create_dir_all(f.domain.join("data/events")).unwrap();
-    std::fs::write(f.stream_dir("project"), b"").unwrap();
-    assert_eq!(s.head("project").unwrap_err().code(), None);
+    std::fs::write(f.stream_dir("ext-x"), b"").unwrap();
+    assert_eq!(s.head("ext-x").unwrap_err().code(), None);
     drop(s);
-    std::fs::remove_file(f.stream_dir("project")).unwrap();
+    std::fs::remove_file(f.stream_dir("ext-x")).unwrap();
     // A mark that is a directory.
     let mut s = begin(&f, None);
-    s.append("project", None, &fabrewk("installed", json!({})), None).unwrap();
+    s.append("ext-x", None, &note(json!({})), None).unwrap();
     s.finish(&f.verifier(), &[]).unwrap();
     let mark = f.domain.join("local/cache/heads.json");
     std::fs::remove_file(&mark).unwrap();
@@ -1073,7 +1083,7 @@ fn an_unreadable_place_is_an_error_never_an_absence() {
 #[test]
 fn refusal_record_broken_names() {
     let f = Fixture::new("names-broken", false);
-    let bytes = encode(&fabrewk("installed", json!({})).build("project", 1, None)).unwrap();
+    let bytes = encode(&note(json!({})).build("ext-x", 1, None)).unwrap();
     let digest = &sha256_hex(&bytes)[..16];
     for name in [
         format!("+00001-{digest}.json"),
@@ -1081,10 +1091,10 @@ fn refusal_record_broken_names() {
         format!("00001-{digest}.json"),
         format!("000001-{}.json", &digest[..15]),
     ] {
-        std::fs::create_dir_all(f.stream_dir("project")).unwrap();
-        std::fs::write(f.stream_dir("project").join(&name), &bytes).unwrap();
+        std::fs::create_dir_all(f.stream_dir("ext-x")).unwrap();
+        std::fs::write(f.stream_dir("ext-x").join(&name), &bytes).unwrap();
         assert_eq!(codes(replay(&f.domain, &f.verifier())), [Code::RecordBroken], "{name}");
-        std::fs::remove_dir_all(f.stream_dir("project")).unwrap();
+        std::fs::remove_dir_all(f.stream_dir("ext-x")).unwrap();
     }
 }
 
@@ -1092,10 +1102,10 @@ fn refusal_record_broken_names() {
 fn pd_02_a_mark_at_position_zero_is_invalid() {
     let f = Fixture::new("mark-zero", false);
     let mut s = begin(&f, None);
-    let h = s.append("project", None, &fabrewk("installed", json!({})), None).unwrap();
+    let h = s.append("ext-x", None, &note(json!({})), None).unwrap();
     s.finish(&f.verifier(), &[]).unwrap();
     let mark = f.domain.join("local/cache/heads.json");
-    let zero = encode(&json!({"schema": 1, "heads": {"project": {"seq": 0, "digest": h.digest}}})).unwrap();
+    let zero = encode(&json!({"schema": 1, "heads": {"ext-x": {"seq": 0, "digest": h.digest}}})).unwrap();
     std::fs::write(&mark, zero).unwrap();
     assert_eq!(code(&check_mark(&f.domain, &ok_replay(&f)).unwrap_err()), Some(Code::MarkInvalid));
     let bad_stream = encode(&json!({"schema": 1, "heads": {"Project": {"seq": 1, "digest": h.digest}}})).unwrap();
@@ -1108,25 +1118,25 @@ fn req_reg_5_the_session_reports_the_record_and_a_forked_head() {
     let f = Fixture::new("session-record", false);
     let mut s = begin(&f, None);
     assert!(s.record().is_none());
-    let h = s.append("project", None, &fabrewk("installed", json!({"n": 1})), None).unwrap();
+    let h = s.append("ext-x", None, &note(json!({"n": 1})), None).unwrap();
     s.finish(&f.verifier(), &[]).unwrap();
     let s = begin(&f, None);
-    assert_eq!(s.record().unwrap().streams["project"].len(), 1);
+    assert_eq!(s.record().unwrap().streams["ext-x"].len(), 1);
     // Two events at the next position, written meanwhile by writers that ignore the lock.
-    f.forge("project", 2, Some(&h.digest), &fabrewk("installed", json!({"n": 2})), None);
-    f.forge("project", 2, Some(&h.digest), &fabrewk("installed", json!({"n": 3})), None);
-    assert_eq!(code(&s.head("project").unwrap_err()), Some(Code::RecordFork));
+    f.forge("ext-x", 2, Some(&h.digest), &note(json!({"n": 2})), None);
+    f.forge("ext-x", 2, Some(&h.digest), &note(json!({"n": 3})), None);
+    assert_eq!(code(&s.head("ext-x").unwrap_err()), Some(Code::RecordFork));
 }
 
 #[test]
 fn req_reg_1_a_stream_holds_at_most_999999_events() {
     let f = Fixture::new("full", false);
     let mut s = begin(&f, None);
-    let last = f.forge("project", 999_998, Some(&"0".repeat(64)), &fabrewk("installed", json!({})), None);
+    let last = f.forge("ext-x", 999_998, Some(&"0".repeat(64)), &note(json!({})), None);
     let head = Head { seq: 999_998, digest: sha256_hex(&std::fs::read(last).unwrap()) };
-    let head = s.append("project", Some(&head), &fabrewk("installed", json!({})), None).unwrap();
+    let head = s.append("ext-x", Some(&head), &note(json!({})), None).unwrap();
     assert_eq!(head.seq, 999_999);
-    let e = s.append("project", Some(&head), &fabrewk("installed", json!({})), None).unwrap_err();
+    let e = s.append("ext-x", Some(&head), &note(json!({})), None).unwrap_err();
     assert_eq!(code(&e), Some(Code::RecordBroken));
 }
 
@@ -1156,12 +1166,13 @@ fn req_reg_3_the_writer_never_writes_what_the_reader_refuses() {
     // P7B-2: nesting is bounded, the same way when writing and when reading.
     let f = Fixture::new("depth", false);
     let nest = |n: usize| (0..n).fold(json!("leaf"), |v, _| json!({"n": v}));
-    // The event is depth 1 and its payload depth 2: a payload of 63 objects reaches the limit, 64 pass it.
+    // The event is depth 1, its payload depth 2 and the plan `assessed` holds depth 3: a plan of 62 objects reaches
+    // the limit, 63 pass it.
     let mut s = begin(&f, None);
-    let h = s.append("project", None, &fabrewk("installed", nest(fabrewk_core::record::MAX_DEPTH - 1)), None).unwrap();
+    let deep = |n: usize| person("assessed", "Evalúa.", assessed(nest(n)));
+    let h = s.append("project", None, &deep(fabrewk_core::record::MAX_DEPTH - 2), Some(&f.signer())).unwrap();
     let before = snapshot(&f.domain);
-    let e =
-        s.append("project", Some(&h), &fabrewk("installed", nest(fabrewk_core::record::MAX_DEPTH)), None).unwrap_err();
+    let e = s.append("project", Some(&h), &deep(fabrewk_core::record::MAX_DEPTH - 1), Some(&f.signer())).unwrap_err();
     assert_eq!(code(&e), Some(Code::RecordNoncanonical));
     assert_eq!(snapshot(&f.domain), before);
     s.finish(&f.verifier(), &[]).unwrap();
@@ -1181,8 +1192,8 @@ fn req_reg_10_a_git_stopped_inside_the_record_commit_leaves_nothing_that_blocks(
         std::fs::write(tmp.join("record-index"), b"partial").unwrap();
         let mut s = begin(&f, f.repo());
         assert!(!tmp.join("record-index.lock").exists() && !tmp.join("record-index").exists());
-        let h = s.head("project").unwrap();
-        s.append("project", h.as_ref(), &fabrewk("installed", json!({})), None).unwrap();
+        let h = s.head("ext-x").unwrap();
+        s.append("ext-x", h.as_ref(), &note(json!({})), None).unwrap();
         s.finish(&f.verifier(), &[]).unwrap().unwrap();
         assert!(uncommitted(&f.repo().unwrap()).unwrap().is_empty());
     });

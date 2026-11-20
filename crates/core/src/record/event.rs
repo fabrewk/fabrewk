@@ -227,6 +227,9 @@ pub(crate) fn check(v: &Value, stream: &str, seq: u64) -> Result<Class, (Code, &
     if kind == "publication-decided" {
         publication_payload(&o["payload"])?;
     }
+    if kind == "assessed" || kind == "installed" {
+        installation_payload(kind, &o["payload"])?;
+    }
     if !crate::task::shape(kind, &o["payload"]) || !crate::fermento::shape(kind, &o["payload"]) {
         return Err((Unknown, "payload"));
     }
@@ -241,6 +244,32 @@ fn publication_payload(p: &Value) -> Result<(), (Code, &'static str)> {
     let shown = o.and_then(|o| o.get("warningShown")?.as_bool());
     if !mode.is_some_and(|m| ["published", "own-repository", "unpublished"].contains(&m)) || shown.is_none() {
         return Err((Code::RecordVersionUnknown, "payload"));
+    }
+    Ok(())
+}
+
+/// The installation's payloads (part 10b, D-097 point 6): `assessed`'s is exactly `plan` (the plan `assess` gave, an
+/// object, which holds the verdict and its reasons) and `digest` (the SHA-256 of its canonical bytes, its identity);
+/// `installed`'s, exactly `plan` (that digest) and `files` (the receipt: each file written or changed, `path` as the plan
+/// names it and `digest` of its bytes after). A malformed payload is `RECORD_VERSION_UNKNOWN`; a digest that is not the
+/// plan's is `RECORD_BROKEN`.
+fn installation_payload(kind: &str, p: &Value) -> Result<(), (Code, &'static str)> {
+    let o = p.as_object().filter(|o| o.len() == 2);
+    let digest = o.and_then(|o| o.get(if kind == "assessed" { "digest" } else { "plan" })?.as_str());
+    let file = |f: &Value| {
+        let f = f.as_object().filter(|f| f.len() == 2);
+        f.and_then(|f| f.get("path")?.as_str()).is_some_and(|p| !p.is_empty())
+            && f.and_then(|f| f.get("digest")?.as_str()).is_some_and(|d| is_hex(d, 64))
+    };
+    let body = match kind {
+        "assessed" => o.and_then(|o| o.get("plan")).filter(|p| p.is_object()),
+        _ => o.and_then(|o| o.get("files")).filter(|f| f.as_array().is_some_and(|a| a.iter().all(file))),
+    };
+    let (Some(digest), Some(body)) = (digest.filter(|d| is_hex(d, 64)), body) else {
+        return Err((Code::RecordVersionUnknown, "payload"));
+    };
+    if kind == "assessed" && encode(body).is_none_or(|b| sha256_hex(&b) != digest) {
+        return Err((Code::RecordBroken, "the plan's digest is not its content's"));
     }
     Ok(())
 }
