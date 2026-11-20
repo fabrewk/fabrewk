@@ -1005,7 +1005,18 @@ stays so, in the working tree and in the commit. `apply` names what it left unco
 nothing, the person's index included: a stop after the branch moved leaves the record's own entries to the next write
 command, as for every write command (`sync_index`). `check` reports `INSTALLATION_INCOMPLETE` under C2, and it is among
 the refusals of every write command. F-1, F-2 and the crash suite over F-1 start from a real `apply`; the other tests
-keep section 11.2 rule 2's helper.
+keep section 11.2 rule 2's helper. After Codex's passes (P10B-1 to P10B-12, D-106): the opening is bound to the plan
+on replay, `publication-decided`'s mode, `policy-adopted`'s project file and `installed`'s plan being the plan's
+(`RECORD_TRANSITION_INVALID`); a resumed `apply` takes only the options its plan was made from (`PLAN_CHANGED`); a view
+present is a target only when it is what the record as it stands gives; `apply` makes its temporary files in
+`local/tmp/`, never beside a file of the person's, and a file it replaces keeps its permissions from before the
+rename; `local/tmp/` reached through a link is walked by no write command and refused by the session once the lock
+is held (`RECORD_BROKEN`). A repository whose Git directory lies apart from its working tree gets a plan from
+`assess`, and `apply`, as every write command since part 7b, refuses it at the main working tree's check
+(`NOT_A_REPOSITORY`) with nothing written: a declared limitation. After the mutation run: a resumed `apply` writes
+again no file already as the plan writes it; whether an `apply` is complete is read only from the record, the views
+and the record branch, so that the person's own commit of what a stopped `apply` left does not complete it, and a Git
+failure in that reading refuses; a record that does not replay is refused with its own code, never reassessed.
 
 ### SEC: confinement, credentials and controls
 
