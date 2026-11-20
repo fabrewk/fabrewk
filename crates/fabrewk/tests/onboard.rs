@@ -441,3 +441,13 @@ fn p10c_12_a_home_that_is_not_utf_8_is_not_read_for_another() {
     assert!(!ran.stdout.contains(lossy.to_str().unwrap()), "{}", ran.stdout);
     assert_eq!(fx.snapshot(), before);
 }
+
+#[test]
+fn p10c_13_the_plan_shown_holds_every_character_the_alambique_will() {
+    let fx = product("onboard-preview");
+    let k = key(&fx);
+    let ran = onboard(&fx, &["en", "adopt", "published", "ana", &k, "", "Purpose\x16\r", "", "", "no"]);
+    assert_eq!(ran.status, 0, "{ran:?}");
+    // In the alambique's lines, as the plan shows its content, the carriage return is shown, not lost.
+    assert!(ran.stdout.contains("\n      Purpose\\u000d\n"), "{}", ran.stdout);
+}

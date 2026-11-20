@@ -881,7 +881,8 @@ fn render(lang: &str, plan: &Value, digest: &str, apply: &[Value]) -> String {
             "block" => s(&f["lines"]),
             _ => String::new(),
         };
-        out += &shown.lines().map(|l| format!("      {l}\n")).collect::<String>();
+        // Split at each line's end alone, so that a carriage return the content holds is shown too (P10C-13).
+        out += &shown.split_terminator('\n').map(|l| format!("      {l}\n")).collect::<String>();
     }
     if let Some(w) = plan.get("warning") {
         out += &format!("\n{}\n\n{}\n", s(&w["title"]), s(&w["text"]).trim_end());

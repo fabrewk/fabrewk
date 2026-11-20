@@ -1027,7 +1027,7 @@ answer is a tag as `--lang` takes it (`es-MX` reaches `es`), and it is `--lang`'
 answers so far runs right after it, so that `assess`'s refusals (`NOT_A_REPOSITORY`, `PRIVATE_FOLDER_INCLUDED`) end
 the interview before another question, in the language chosen; another runs after the key, whose plan gives Git's
 commands to sign with that key when Git does not, shown and never run; the last runs after the last question, and its
-text (`assess`'s, its `apply` command included) is the plan shown whole and its digest the one a yes applies. A
+text (`assess`'s, its `apply` command included) is the plan shown whole and its digest the one a yes applies; a file's content is shown line by line, split at each line's end alone, so that a carriage return it holds is shown as every hidden character is (P10C-13). A
 question that lists its choices (the mode; the publication and, after the warning, its exits, the same three modes;
 the tools, any of them, separated by white space or commas) takes only them, trimmed and in any case (P10C-3); the alias,
 the key, the yes and the words need an answer; the tools (empty: none) and REQ-INS-8's three questions (empty: the
