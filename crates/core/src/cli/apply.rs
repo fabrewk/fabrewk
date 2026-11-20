@@ -28,19 +28,16 @@ pub(super) fn run(cx: &Cx, command: &'static Command, digest: &str, options: &Op
     let record = recorded(cx)?;
     let home = std::env::var_os("HOME").map(PathBuf::from);
     let asked = crate::install::Asked { root: &cx.root, home: home.as_deref(), options, adapters: cx.adapters };
-    let plan = match record.as_ref().and_then(held) {
+    let plan = match record.as_ref().and_then(|r| Some((r, held(r)?))) {
         // An `apply` of this plan began: it is finished from the plan it recorded, never reassessed, and only with the
         // options that plan was made from (point 7, D-097 decision 3; P10B-7).
-        Some((d, plan)) if d == digest && plan["answers"] != (cx.installer.answers)(&asked) => {
+        Some((_, (d, plan))) if d == digest && plan["answers"] != (cx.installer.answers)(&asked) => {
             return Err(changed("an option differs from those the recorded plan was made from").into());
         }
-        Some((d, plan)) if d == digest => {
-            match write::installation(&cx.domain, record.as_ref().unwrap_or(&Default::default())) {
-                Ok(()) => return Ok(out(cx, digest, None)),
-                Err(e) if e.code() == Some(Code::InstallationIncomplete) => plan.clone(),
-                Err(e) => return Err(e.into()),
-            }
-        }
+        Some((r, (d, plan))) if d == digest => match write::pending(&cx.domain, r)? {
+            None => return Ok(out(cx, digest, None)),
+            Some(_) => plan.clone(),
+        },
         _ => {
             let (doc, _) = (cx.installer.assess)(&asked)?;
             if doc["digest"] != digest {
@@ -95,13 +92,17 @@ fn targets(root: &Path, plan: &Value, record: Option<&Replay>) -> Result<(), Err
     let inputs = plan["inputs"].as_array().map(Vec::as_slice).unwrap_or_default();
     for f in plan["files"].as_array().into_iter().flatten() {
         let rel = f["path"].as_str().unwrap_or_default();
+        let refused = || changed(&format!("{rel} is neither as the plan found it nor as it writes it"));
+        // No path of the plan passes through a link, which would take a write out of the repository. A Git directory
+        // outside the working tree, whose exclude file the plan names absolutely, never reaches here: the main working
+        // tree's check refuses it first (`NOT_A_REPOSITORY`).
+        if !crate::code::unlinked(root, rel) {
+            return Err(refused());
+        }
         let path = root.join(rel);
         let meta = fs::symlink_metadata(&path);
         let absent = meta.as_ref().is_err_and(|e| e.kind() == std::io::ErrorKind::NotFound);
-        // A Git directory outside the working tree, whose exclude file the plan names absolutely, never reaches here:
-        // the main working tree's check refuses it first (`NOT_A_REPOSITORY`).
-        let plain = crate::code::unlinked(root, rel);
-        let bytes = meta.as_ref().is_ok_and(|m| m.is_file() && plain).then(|| fs::read(&path).ok()).flatten();
+        let bytes = meta.as_ref().is_ok_and(fs::Metadata::is_file).then(|| fs::read(&path).ok()).flatten();
         let now = bytes.as_deref().map(sha256_hex);
         let input = inputs.iter().find(|i| i["path"] == rel);
         let found =
@@ -124,9 +125,8 @@ fn targets(root: &Path, plan: &Value, record: Option<&Replay>) -> Result<(), Err
                 absent || record.is_some_and(fresh)
             }
         };
-        // No path of the plan passes through a link, which would take a write out of the repository.
-        if !ok || !plain {
-            return Err(changed(&format!("{rel} is neither as the plan found it nor as it writes it")));
+        if !ok {
+            return Err(refused());
         }
     }
     Ok(())
@@ -168,7 +168,9 @@ fn install(
     if record.as_ref().is_some_and(|r| held(r).is_none_or(|(d, _)| d != digest)) {
         return Err(changed("the record holds another installation than this plan's").into());
     }
-    if record.as_ref().is_some_and(|r| write::installation(&cx.domain, r).is_ok()) {
+    if let Some(r) = &record
+        && write::pending(&cx.domain, r)?.is_none()
+    {
         return Ok(None);
     }
     let present: Vec<(String, String)> =

@@ -1424,34 +1424,123 @@ fn p9g_20_a_refusal_after_a_recovery_names_what_it_went_on_from() {
     assert!(e["detail"].as_str().unwrap().contains("before it, git update-ref"), "{e}");
 }
 
+/// Stops `apply` at each write point in turn until it leaves its first two events, and gives the plan's digest. Before
+/// that point, what the stopped `apply` wrote is taken back, as by a person who never ran it.
+fn stopped(fx: &Fx, options: &[String]) -> String {
+    for n in 1.. {
+        let ran = fx.apply(options, &[("FABREWK_FAULT_ABORT_AT", &n.to_string())]);
+        assert_eq!(ran.status, -1, "{n}: {ran:?}");
+        if fx.events("project").len() == 2 {
+            return fx.events("project")[0]["payload"]["digest"].as_str().unwrap().to_owned();
+        }
+        fx.git(&["clean", "-fdxq", "--", ".brewstillery"]);
+    }
+    unreachable!()
+}
+
+/// An `apply` stopped after its first two events finishes only over targets as its plan found them or as it writes
+/// them (point 7, REQ-DOM-1): in each mode, a target made, changed or made unreadable meanwhile is `PLAN_CHANGED`, and
+/// kept byte for byte; put back, the same `apply` finishes.
+#[test]
+fn a_resumed_apply_overwrites_no_target_changed_after_its_stop() {
+    use std::os::unix::fs::PermissionsExt;
+    for mode in ["published", "unpublished", "own-repository"] {
+        let (fx, options) =
+            Fx::installable(&format!("apply-resume-changed-{mode}"), mode, (mode == "published").then_some("# Ours\n"));
+        fs::write(fx.root.join("AGENTS.md"), "# Ours\n").unwrap();
+        fx.commit("entry");
+        let digest = stopped(&fx, &options);
+        // Made where the plan found nothing, changed where it found a file, a view made unreadable, the exclude file
+        // without the line, a file where the domain's repository goes.
+        let targets: &[&str] = match mode {
+            "published" => {
+                &[".brewstillery/settings.toml", "AGENTS.md", ".brewstillery/ALAMBIQUE.md", ".brewstillery/STATUS.md"]
+            }
+            "unpublished" => &[".git/info/exclude"],
+            _ => &[".brewstillery/.git"],
+        };
+        for rel in targets {
+            let path = fx.root.join(rel);
+            let before = fs::read(&path).ok();
+            fs::write(&path, "theirs\n").unwrap();
+            let unreadable = rel.ends_with("STATUS.md");
+            if unreadable {
+                fs::set_permissions(&path, fs::Permissions::from_mode(0o000)).unwrap();
+            }
+            let ran = fx.apply_digest(&digest, &options, &[]);
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o644)).unwrap();
+            assert_eq!(ran.status, 1, "{mode} {rel}: {ran:?}");
+            assert_eq!(ran.doc()["refusals"][0]["code"], "PLAN_CHANGED", "{mode} {rel}: {ran:?}");
+            assert_eq!(fs::read(&path).unwrap(), b"theirs\n", "{mode} {rel}");
+            match before {
+                Some(bytes) => fs::write(&path, bytes).unwrap(),
+                None => fs::remove_file(&path).unwrap(),
+            }
+        }
+        assert_eq!(fx.apply_digest(&digest, &options, &[]).status, 0, "{mode}");
+        assert_eq!(fx.run(&["check"]).status, 0, "{mode}");
+    }
+}
+
+/// In `published`, an entry file a resumed `apply` commits is staged where the person staged nothing of theirs; a
+/// change of theirs staged in it after the stop, the working tree as the plan found it, is kept in the index (D-097
+/// point 7).
+#[test]
+fn req_reg_10_a_resumed_apply_stages_an_entry_file_only_where_the_person_staged_nothing() {
+    let (fx, options) = Fx::installable("apply-resume-staged", "published", None);
+    fs::write(fx.root.join("AGENTS.md"), "# Ours\n").unwrap();
+    fs::write(fx.root.join("CLAUDE.md"), "Claude: ours.\n").unwrap();
+    fx.commit("entry files");
+    let digest = stopped(&fx, &options);
+    fs::write(fx.root.join("AGENTS.md"), "# Ours, staged\n").unwrap();
+    fx.git(&["add", "AGENTS.md"]);
+    fs::write(fx.root.join("AGENTS.md"), "# Ours\n").unwrap();
+    let ran = fx.apply_digest(&digest, &options, &[]);
+    assert_eq!(ran.status, 0, "{ran:?}");
+    assert!(fx.git(&["show", "HEAD:AGENTS.md"]).starts_with("# Ours\n\n<!-- fabrewk:entry begin -->"));
+    assert_eq!(fx.git(&["show", ":AGENTS.md"]), "# Ours, staged");
+    assert_eq!(fx.git(&["diff", "--cached", "--name-only"]), "AGENTS.md");
+}
+
+/// An `apply` stopped after its first two events whose record no longer replays is refused with the replay's code and
+/// nothing written: a record that does not replay is never taken for no record, and reassessed.
+#[test]
+fn a_resumed_apply_over_a_record_that_does_not_replay_is_refused_with_its_code() {
+    let (fx, options) = Fx::installable("apply-resume-broken", "published", None);
+    let digest = stopped(&fx, &options);
+    let dir = fx.domain.join("data/events/project");
+    let mut files: Vec<PathBuf> = fs::read_dir(&dir).unwrap().map(|e| e.unwrap().path()).collect();
+    files.retain(|f| f.extension().is_some_and(|e| e == "json"));
+    files.sort();
+    fs::write(&files[1], "{}\n").unwrap();
+    let before = fx.snapshot();
+    let ran = fx.apply_digest(&digest, &options, &[]);
+    assert_eq!(ran.status, 1, "{ran:?}");
+    assert_eq!(ran.doc()["refusals"][0]["code"], "RECORD_DIGEST_MISMATCH", "{ran:?}");
+    assert_eq!(fx.snapshot(), before);
+}
+
 /// `INSTALLATION_INCOMPLETE` (D-097 point 7; 11.4): an `apply` stopped once `assessed` is written and before
 /// `installed`; every other write command refuses it with nothing written, `check` reports it, and the same `apply`,
 /// run again, finishes it, after which they work.
 #[test]
 fn refusal_installation_incomplete() {
     let (fx, options) = Fx::installable("installation-incomplete", "published", None);
-    let mut n = 1;
-    let digest = loop {
-        let base = fx.root.parent().unwrap();
-        let ran = fx.apply(&options, &[("FABREWK_FAULT_ABORT_AT", &n.to_string())]);
-        assert_eq!(ran.status, -1, "{n}: {ran:?}");
-        let kinds: Vec<_> = fx.events("project").iter().map(|e| e["kind"].clone()).collect();
-        if kinds.len() == 2 {
-            break fx.events("project")[0]["payload"]["digest"].as_str().unwrap().to_owned();
-        }
-        // Back to before it, as a person who never ran it.
-        let _ = std::fs::remove_dir_all(&fx.domain);
-        assert!(base.exists());
-        n += 1;
-    };
+    let digest = stopped(&fx, &options);
     let plan = flow::plan(&fx);
     refused(&fx, &["propose", &plan], "INSTALLATION_INCOMPLETE", 1, "en");
     refused(&fx, &["adopt", "--say", "Lo decido."], "INSTALLATION_INCOMPLETE", 1, "en");
-    let doc = fx.run(&["check", "--json"]).doc();
-    let found: Vec<&Value> =
-        doc["findings"].as_array().unwrap().iter().filter(|f| f["code"] == "INSTALLATION_INCOMPLETE").collect();
-    assert_eq!(found.len(), 1, "{doc}");
-    assert_eq!(found[0]["check"], "C2", "{doc}");
+    for committed in [false, true] {
+        // The person commits what the stopped `apply` left: the record holds no `installed`, so it is not complete.
+        if committed {
+            fx.commit("mine");
+        }
+        let doc = fx.run(&["check", "--json"]).doc();
+        let found: Vec<&Value> =
+            doc["findings"].as_array().unwrap().iter().filter(|f| f["code"] == "INSTALLATION_INCOMPLETE").collect();
+        assert_eq!(found.len(), 1, "{committed}: {doc}");
+        assert_eq!(found[0]["check"], "C2", "{doc}");
+    }
     let again = fx.apply_digest(&digest, &options, &[]);
     assert_eq!(again.status, 0, "{again:?}");
     assert_eq!(fx.run(&["check"]).status, 0);
@@ -1463,16 +1552,7 @@ fn refusal_installation_incomplete() {
 #[test]
 fn a_resumed_apply_writes_through_no_link() {
     let (fx, options) = Fx::installable("apply-resume-link", "published", None);
-    let mut n = 1;
-    let digest = loop {
-        let ran = fx.apply(&options, &[("FABREWK_FAULT_ABORT_AT", &n.to_string())]);
-        assert_eq!(ran.status, -1, "{n}: {ran:?}");
-        if fx.events("project").len() == 2 {
-            break fx.events("project")[0]["payload"]["digest"].as_str().unwrap().to_owned();
-        }
-        let _ = std::fs::remove_dir_all(&fx.domain);
-        n += 1;
-    };
+    let digest = stopped(&fx, &options);
     assert!(!fx.domain.join("xel").exists());
     let outside = fx.root.parent().unwrap().join("outside");
     fs::create_dir(&outside).unwrap();
@@ -1515,16 +1595,7 @@ fn p10b_2_a_view_made_before_the_lock_is_not_overwritten() {
 #[test]
 fn p10b_7_a_resumed_apply_with_another_option_is_refused() {
     let (fx, options) = Fx::installable("apply-resume-options", "published", None);
-    let mut n = 1;
-    let digest = loop {
-        let ran = fx.apply(&options, &[("FABREWK_FAULT_ABORT_AT", &n.to_string())]);
-        assert_eq!(ran.status, -1, "{n}: {ran:?}");
-        if fx.events("project").len() == 2 {
-            break fx.events("project")[0]["payload"]["digest"].as_str().unwrap().to_owned();
-        }
-        let _ = std::fs::remove_dir_all(&fx.domain);
-        n += 1;
-    };
+    let digest = stopped(&fx, &options);
     let other: Vec<String> =
         options.iter().map(|o| if o == "published" { "unpublished".into() } else { o.clone() }).collect();
     assert_ne!(other, options);

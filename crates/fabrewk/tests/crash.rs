@@ -296,9 +296,24 @@ fn the_crash_suite_over_apply() {
                     if opened && !complete {
                         assert_eq!(ran.doc()["refusals"][0]["code"], "INSTALLATION_INCOMPLETE", "{what}: {ran:?}");
                     }
+                    // What the stopped apply wrote whole is not written again: only what is missing is (point 7).
+                    use std::os::unix::fs::MetadataExt;
+                    let plan = fx.events("project").into_iter().find(|e| e["kind"] == "assessed");
+                    let files = plan.map(|e| e["payload"]["plan"]["files"].clone()).unwrap_or_default();
+                    let whole: Vec<(PathBuf, u64)> = (files.as_array().into_iter().flatten())
+                        .filter_map(|f| {
+                            let path = fx.root.join(f["path"].as_str()?);
+                            let bytes = std::fs::read(&path).ok()?;
+                            let ino = std::fs::metadata(&path).ok()?.ino();
+                            (bytes == f["content"].as_str()?.as_bytes()).then_some((path, ino))
+                        })
+                        .collect();
                     // The same apply finishes it.
                     let again = fx.apply_digest(&digest, &options, &[]);
                     assert_eq!(again.status, 0, "{what}: {again:?}");
+                    for (path, ino) in &whole {
+                        assert_eq!(std::fs::metadata(path).unwrap().ino(), *ino, "{what}: {}", path.display());
+                    }
                     let check = fx.run(&["check"]);
                     assert_eq!(check.status, 0, "{what}: {check:?}");
                     let agents = std::fs::metadata(fx.root.join("AGENTS.md")).unwrap().permissions().mode();

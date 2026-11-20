@@ -86,6 +86,8 @@ fn req_ins_3_apply_writes_the_plan_s_files_and_its_five_events_in_order() {
     let project = fx.events("project");
     assert_eq!(project[0]["payload"]["digest"], json!(d));
     assert_eq!(project[1]["payload"], json!({"mode": "published", "warningShown": false}));
+    // In `published` every file is committed: nothing is left, and no command is named.
+    assert_eq!((doc["left"].clone(), doc.get("run")), (json!([]), None), "{doc}");
     // The receipt: every file written or changed, with the digest of its bytes after.
     for f in project[3]["payload"]["files"].as_array().unwrap() {
         let bytes = fs::read(fx.root.join(f["path"].as_str().unwrap())).unwrap();
@@ -102,6 +104,10 @@ fn req_ins_3_apply_writes_the_plan_s_files_and_its_five_events_in_order() {
     let before = fx.snapshot();
     let again = apply(&fx, &d, &opts);
     assert_eq!((again.status, again.doc()["applied"].clone()), (0, json!(false)), "{again:?}");
+    assert_eq!(fx.snapshot(), before);
+    // Another plan, once this one is applied, is refused with nothing written.
+    let other = apply(&fx, &"0".repeat(64), &opts);
+    assert_eq!((other.status, other.doc()["refusals"][0]["code"].clone()), (1, json!("PLAN_CHANGED")), "{other:?}");
     assert_eq!(fx.snapshot(), before);
 }
 
@@ -186,6 +192,8 @@ fn req_ins_8_the_first_alambique_is_the_plan_s_text_and_its_digest_the_baseline(
         let ran = apply(&fx, doc["digest"].as_str().unwrap(), &opts);
         assert_eq!(ran.status, 0, "{lang}: {ran:?}");
         assert_eq!(fs::read_to_string(fx.domain.join("ALAMBIQUE.md")).unwrap(), text);
+        // The words' language, with no `--say-lang`, is the one the plan gives its first maestro.
+        assert_eq!(fx.events("project")[0]["say"]["lang"], json!(lang), "{lang}");
         assert_eq!(fx.events("alambique")[0]["payload"]["digest"], json!(sha256_hex(text.as_bytes())));
         assert_eq!(fx.run(&["check"]).status, 0, "{lang}");
     }

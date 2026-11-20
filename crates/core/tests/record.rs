@@ -1302,4 +1302,9 @@ fn the_project_stream_opens_with_apply_s_events_bound_to_its_plan() {
     ] {
         assert_eq!(events(&list), invalid, "{what}");
     }
+    // The payloads: a plan whose digest is not its content's, a receipt's file with no path.
+    let forged = json!({"plan": plan, "digest": "0".repeat(64)});
+    assert_eq!(events(&[("assessed", forged)]), [Code::RecordBroken]);
+    let pathless = json!({"plan": opened["digest"], "files": [{"path": "", "digest": "0".repeat(64)}]});
+    assert_eq!(events(&with(3, ("installed", pathless))), [Code::RecordVersionUnknown]);
 }

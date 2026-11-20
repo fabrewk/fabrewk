@@ -38,31 +38,38 @@ pub(super) fn state(cx: &Cx, record: &Replay) -> Result<State, Failed> {
     Ok(State { policy, mode })
 }
 
-/// Refuses `INSTALLATION_INCOMPLETE` while an `apply` is not complete (D-097 point 7, P10O-6): the record it opened with
-/// `assessed` holds no `installed`, or, in `unpublished`, a view is not written, or, in a mode that commits, the record
-/// branch's tip lacks `installed`. Facts of the record, the views and the branch, never of the index (P10O-15). A
-/// record no `apply` opened is no installation.
+/// Refuses `INSTALLATION_INCOMPLETE` while an `apply` is not complete ([`pending`]).
 pub(super) fn installation(domain: &std::path::Path, record: &Replay) -> Result<(), Error> {
+    match pending(domain, record)? {
+        Some(why) => Err(refuse(Code::InstallationIncomplete, Some(domain), why.to_owned())),
+        None => Ok(()),
+    }
+}
+
+/// Why an `apply` is not complete (D-097 point 7, P10O-6), `None` when it is: the record it opened with `assessed`
+/// holds no `installed`, or, in `unpublished`, a view is not written, or, in a mode that commits, the record branch's
+/// tip lacks `installed`. Facts of the record, the views and the branch, never of the index (P10O-15). A record no
+/// `apply` opened is no installation.
+pub(super) fn pending(domain: &std::path::Path, record: &Replay) -> Result<Option<&'static str>, Error> {
     let project = record.streams.get("project").map(Vec::as_slice).unwrap_or_default();
     if project.first().is_none_or(|e| e.kind != "assessed") {
-        return Ok(());
+        return Ok(None);
     }
-    let incomplete = |why: &str| Err(refuse(Code::InstallationIncomplete, Some(domain), why.to_owned()));
     let Some(installed) = project.iter().find(|e| e.kind == "installed") else {
-        return incomplete("the record holds no installed event");
+        return Ok(Some("the record holds no installed event"));
     };
-    match domain::publication(record).and_then(|m| Repo::for_domain(domain, m)) {
+    Ok(match domain::publication(record).and_then(|m| Repo::for_domain(domain, m)) {
         Some(repo) if crate::record::uncommitted(&repo)?.contains(&installed.path) => {
-            incomplete("the record commit holding the installed event is not made")
+            Some("the record commit holding the installed event is not made")
         }
         None if ["STATUS.md", "RULES.md"]
             .iter()
             .any(|v| !std::fs::symlink_metadata(domain.join(v)).is_ok_and(|m| m.is_file())) =>
         {
-            incomplete("the views are not written")
+            Some("the views are not written")
         }
-        _ => Ok(()),
-    }
+        _ => None,
+    })
 }
 
 /// Refuses a person's move where the environment shows an agent's or an extension's marker (`AGENT_ENVIRONMENT`): a

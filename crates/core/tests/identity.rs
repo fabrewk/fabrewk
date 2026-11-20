@@ -151,6 +151,32 @@ fn req_reg_4_apply_cites_the_first_adoption() {
     }
 }
 
+/// Before the first adoption, only a record that holds the `project` stream an `apply` opened, and no other, is verified
+/// against its plan's project file (P10O-5): with an event of another stream, each stream's events cite no adopted
+/// policy.
+#[test]
+fn req_reg_4_before_the_first_adoption_only_apply_s_stream_is_verified_against_its_plan() {
+    let f = Fixture::new("apply-before-adoption", false);
+    let text = policy_text(&f, None, "");
+    let digest = sha256_hex(text.as_bytes());
+    let planned = assessed(json!({
+        "answers": {"publication": "published"},
+        "files": [{"path": ".brewstillery/settings.toml", "action": "create", "content": text}],
+    }));
+    let mut prev: Option<String> = None;
+    for (seq, kind, payload) in
+        [(1, "assessed", planned), (2, "publication-decided", project_payload("publication-decided"))]
+    {
+        let draft = moved(kind, "xel", "maestro", &digest, payload);
+        let path = f.forge("project", seq, prev.as_deref(), &draft, Some(&f.signer()));
+        prev = Some(sha256_hex(&fs::read(path).unwrap()));
+    }
+    ok(&f);
+    let baseline = moved("alambique-baseline", "xel", "maestro", &digest, json!({"digest": digest}));
+    f.forge("alambique", 1, None, &baseline, Some(&f.signer()));
+    assert_eq!(refused(&f), [Code::RecordSignatureInvalid; 2]);
+}
+
 #[test]
 fn refusal_record_signature_invalid_against_the_policy() {
     let f = Fixture::new("signature-policy", false);
