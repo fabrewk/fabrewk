@@ -56,10 +56,9 @@ pub(super) fn run(cx: &Cx, command: &'static Command, digest: &str, options: &Op
     let settings = settings::parse(&cx.domain.join("settings.toml"), text, Level::Project)?;
     let policy = Policy { digest: sha256_hex(text.as_bytes()), text: text.to_owned(), settings };
     let (alias, actor, signer) = write::person(cx, &policy, "assessed")?;
-    // The words' tag is `--say-lang`, else the first maestro's language, which the plan's own file gives them.
-    let lang = options.say_lang.clone().or_else(|| plan["answers"]["lang"].as_str().map(str::to_owned));
-    let say =
-        write::words(cx, &policy, &alias, &Options { say: options.say.clone(), say_lang: lang, ..Default::default() })?;
+    // The words' tag is `--say-lang`, else the first maestro's language: the plan's project file gives it as the
+    // canonical language, which `languages.agentInteraction` defaults to, and their own file as that key.
+    let say = write::words(cx, &policy, &alias, options)?;
     let mode = match plan["answers"]["publication"].as_str() {
         Some("own-repository") => Publication::OwnRepository,
         Some("unpublished") => Publication::Unpublished,
