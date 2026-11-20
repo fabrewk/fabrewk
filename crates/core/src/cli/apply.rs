@@ -238,12 +238,8 @@ fn install(
                 (_, Some(content)) if fs::read(&path).ok().as_deref() != Some(content.as_bytes()) => {
                     let dir = path.parent().unwrap_or(&cx.root);
                     fs::create_dir_all(dir).map_err(crate::code::io_at(dir))?;
-                    // An entry file keeps its permissions (REQ-DOM-6: nothing outside the block changes).
-                    let kept = fs::metadata(&path).ok().map(|m| m.permissions());
+                    // An entry file keeps its permissions (REQ-DOM-6), given before it is in place (P10B-3).
                     record::write_atomic_via(&path, content.as_bytes(), &cx.domain.join("local/tmp"))?;
-                    if let Some(p) = kept {
-                        fs::set_permissions(&path, p).map_err(crate::code::io_at(&path))?;
-                    }
                 }
                 _ => {}
             }

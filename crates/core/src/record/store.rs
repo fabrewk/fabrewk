@@ -436,6 +436,10 @@ pub(crate) fn write_atomic_via(path: &Path, bytes: &[u8], via: &Path) -> Result<
         let _ = fs::remove_file(&tmp);
         let mut file = File::options().write(true).create_new(true).open(&tmp)?;
         std::io::Write::write_all(&mut file, bytes)?;
+        // The file it replaces keeps its permissions, before it is in place, so that no stop loses them (P10B-3).
+        if let Some(m) = fs::symlink_metadata(path).ok().filter(|m| m.is_file()) {
+            file.set_permissions(m.permissions())?;
+        }
         file.sync_all()
     };
     write().map_err(io_at(&tmp))?;

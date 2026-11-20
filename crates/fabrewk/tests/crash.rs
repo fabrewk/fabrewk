@@ -259,6 +259,11 @@ fn the_crash_suite_over_apply() {
         for mode in ["published", "own-repository", "unpublished"] {
             s.spawn(move || {
                 let (fx, options) = Fx::installable(&format!("crash-apply-{mode}"), mode, None);
+                // An entry file of the person's, executable: its mode stays whatever the stop (P10B-3).
+                use std::os::unix::fs::PermissionsExt;
+                std::fs::write(fx.root.join("AGENTS.md"), "# Ours\n").unwrap();
+                std::fs::set_permissions(fx.root.join("AGENTS.md"), std::fs::Permissions::from_mode(0o755)).unwrap();
+                fx.commit("entry");
                 let base = fx.root.parent().unwrap().to_path_buf();
                 let snapshot = base.with_file_name(format!("{}-before", base.file_name().unwrap().to_str().unwrap()));
                 copy(&base, &snapshot);
@@ -296,6 +301,8 @@ fn the_crash_suite_over_apply() {
                     assert_eq!(again.status, 0, "{what}: {again:?}");
                     let check = fx.run(&["check"]);
                     assert_eq!(check.status, 0, "{what}: {check:?}");
+                    let agents = std::fs::metadata(fx.root.join("AGENTS.md")).unwrap().permissions().mode();
+                    assert_eq!(agents & 0o777, 0o755, "{what}");
                     let kinds: Vec<Value> = fx.events("project").iter().map(|e| e["kind"].clone()).collect();
                     assert_eq!(kinds, ["assessed", "publication-decided", "policy-adopted", "installed"], "{what}");
                     let repo = match mode {
