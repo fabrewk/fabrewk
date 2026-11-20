@@ -1021,7 +1021,7 @@ failure in that reading refuses; a record that does not replay is refused with i
 **Amended in part 10c (D-107).** How `onboard` is built, point 8 read so. It refuses inside an agent
 (`AGENT_ENVIRONMENT`) before it opens the terminal, then opens `/dev/tty` for reading and writing and asks there; the
 questions, the warning and the plan go to the terminal, and `apply`'s report or a refusal goes, as for every command,
-to standard output or standard error. It takes no `--json` (point 2), so `TERMINAL_REQUIRED`'s test asserts the code
+to standard output or standard error. It takes no `--json` (point 2), before the command or after it (P10C-8), so `TERMINAL_REQUIRED`'s test asserts the code
 in the human output alone (PD-35 read so). The first question, the language, is asked in every catalogue's words; its
 answer is a tag as `--lang` takes it (`es-MX` reaches `es`), and it is `--lang`'s answer. An assessment with the
 answers so far runs right after it, so that `assess`'s refusals (`NOT_A_REPOSITORY`, `PRIVATE_FOLDER_INCLUDED`) end
@@ -1029,15 +1029,15 @@ the interview before another question, in the language chosen; another runs afte
 commands to sign with that key when Git does not, shown and never run; the last runs after the last question, and its
 text (`assess`'s, its `apply` command included) is the plan shown whole and its digest the one a yes applies. A
 question that lists its choices (the mode; the publication and, after the warning, its exits, the same three modes;
-the tools, any of them, separated by spaces or commas) takes only them, trimmed and in any case (P10C-3); the alias,
+the tools, any of them, separated by white space or commas) takes only them, trimmed and in any case (P10C-3); the alias,
 the key, the yes and the words need an answer; the tools (empty: none) and REQ-INS-8's three questions (empty: the
 placeholder line) take an empty one: point 8's "an empty one, at any question" is read as at a question that needs an
-answer, since REQ-INS-8 gives an empty answer its placeholder. An empty answer is the empty line; every other answer
+answer, since REQ-INS-8 gives an empty answer its placeholder. An empty answer is the empty line, and a line's answer is all it holds but its end, a carriage return typed literally included (P10C-5); every other answer
 to a question with no choices (the alias, the key, the words, REQ-INS-8's three) is kept as given, spaces included,
 as the same option is on the agent's route, so that `assess` and `apply` judge it there (P10C-1, P10C-2): an alias
 with spaces is `ALIAS_INVALID`, words of spaces alone `WORDS_MISSING`. Any other answer, a needed
 answer empty, a line that is not UTF-8, or the end of input, applies nothing, says so on the terminal and exits 0;
-nothing is asked again. A key's path that starts with `~/` is read from the home, as a shell reads it. The yes is the
+nothing is asked again. A key's path that starts with `~/` is read from the home, as a shell reads it: the home, `/`, then the rest, so that `~//x` is the home's `/x` (P10C-7). The yes is the
 catalogue's word in the language chosen, trimmed and in any case (`yes`; `sí` or `si`); another catalogue's is no
 yes. A plan `apply` could not apply (a verdict `none` or `review`, a plan incomplete) is shown and no yes is asked. A
 yes and the words make the command `apply`, with the plan's digest and those answers, run by the same dispatch in the

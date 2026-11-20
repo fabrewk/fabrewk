@@ -28,7 +28,8 @@ fn ask(i: &mut Interview, question: &str) -> Result<Option<String>, Error> {
         Ok(0) => Ok(None),
         Err(e) if e.kind() == std::io::ErrorKind::InvalidData => Ok(None),
         Err(e) => Err(io(e)),
-        Ok(_) => Ok(Some(line.strip_suffix('\n').unwrap_or(&line).trim_end_matches('\r').to_owned())),
+        // Only the line's end is not the answer: a carriage return typed literally is (P10C-5).
+        Ok(_) => Ok(Some(line.strip_suffix('\n').unwrap_or(&line).to_owned())),
     }
 }
 
@@ -83,7 +84,8 @@ fn asked(i: &mut Interview, o: &mut Options) -> Result<Option<String>, Error> {
     let Some(key) = needed(i, &q("key"))? else { return stop(i, lang) };
     // A path from the home, as a shell would read it.
     let key = match (key.strip_prefix("~/"), i.home) {
-        (Some(rest), Some(home)) => home.join(rest).to_string_lossy().into_owned(),
+        // The home, then the rest, so that `~//x` names `$HOME//x`, as in a shell (P10C-7).
+        (Some(rest), Some(home)) => format!("{}/{rest}", home.to_string_lossy()),
         _ => key,
     };
     o.answers.insert("key", key);
@@ -98,7 +100,7 @@ fn asked(i: &mut Interview, o: &mut Options) -> Result<Option<String>, Error> {
     let names: Vec<&str> = i.adapters.iter().map(|a| a.program.executable).collect();
     let Some(tools) = ask(i, &format!("{} ({})", q("tools"), names.join(", ")))? else { return stop(i, lang) };
     // Choices in any case (P10C-3).
-    for t in tools.to_lowercase().split([' ', ',']).filter(|t| !t.is_empty()) {
+    for t in tools.to_lowercase().split(|c: char| c.is_whitespace() || c == ',').filter(|t| !t.is_empty()) {
         if !names.contains(&t) {
             return stop(i, lang);
         }

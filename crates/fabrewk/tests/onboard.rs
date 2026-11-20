@@ -304,3 +304,29 @@ fn p10c_1_to_3_answers_are_kept_as_given_and_choices_are_taken_in_any_case() {
     let alambique = std::fs::read_to_string(fx.domain.join("ALAMBIQUE.md")).unwrap();
     assert!(alambique.contains("\n   \n"), "{alambique}");
 }
+
+#[test]
+fn p10c_5_to_8_a_line_s_characters_tools_trimmed_a_shell_s_tilde_and_no_json_before_onboard() {
+    let fx = product("onboard-literal");
+    let k = key(&fx);
+    let before = fx.snapshot();
+    // A carriage return typed literally (Ctrl-V Ctrl-M) is part of the answer (P10C-5): an alias holding one is refused.
+    let alias = "ana\x16\r";
+    let ran = onboard(&fx, &["en", "adopt", "published", alias, &k, "", "", "", "", "yes", "Mine."]);
+    assert!(ran.status == 1 && ran.stdout.contains("ALIAS_INVALID: "), "{ran:?}");
+    assert_eq!(fx.snapshot(), before);
+    // `~//x` is the home, then `/x`, as a shell reads it (P10C-7): here no key, so no yes is asked.
+    let ran = onboard(&fx, &["en", "adopt", "published", "ana", &format!("~/{k}"), "", "", "", "", "yes", "Mine."]);
+    assert_eq!(ran.status, 0, "{ran:?}");
+    assert!(!ran.stdout.contains(&say("en", "onboard.confirm", &[])), "{}", ran.stdout);
+    assert_eq!(fx.snapshot(), before);
+    // `--json` before the command is still an option `onboard` does not take (P10C-8).
+    let usage = fx.run(&["--json", "onboard"]);
+    assert_eq!((usage.status, usage.doc()["schema"].clone()), (2, json!("fabrewk.usage/1")), "{usage:?}");
+    // The tools trimmed of any white space (P10C-6); the purpose keeps its carriage return (P10C-5).
+    let lines = ["en", "adopt", "published", "ana", &k, "\tCLAUDE\u{a0}", "Purpose\x16\r", "", "", "yes", "Mine."];
+    let ran = onboard(&fx, &lines);
+    assert_eq!(ran.status, 0, "{ran:?}");
+    let answers = &fx.events("project")[0]["payload"]["plan"]["answers"];
+    assert_eq!((answers["tool"].clone(), answers["purpose"].clone()), (json!(["claude"]), json!("Purpose\r")));
+}
