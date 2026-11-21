@@ -5315,3 +5315,99 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   (the amendment after point 11).
 - Sources: chat of session 44; R-050; D-097 point 9.
 - Supersedes: none.
+
+## R-053 — Session 44, part 10c: `onboard`
+
+- Status: recorded
+- Date: 2026-11-20
+- Who: integrator Claude Code, `claude-opus-5-5`; Codex (`codex-cli 0.166.0`, `gpt-6.1-sol`, effort high, `codex exec
+  -s workspace-write` in a scope of 3 GB, with no network), which wrote the interview's questions (from
+  `target/review-10c-texts/`, reading only, removed after) and reviewed the part (from `target/review-10c/`, a
+  disposable clone brought to each commit reviewed).
+- Start: HEAD `4cf6913`, tree clean.
+- Read: `STATUS.md`, `AGENTS.md`, `plan.md` (row 10, "Phase 10"), `core-specification.md` (REQ-INS-1 to REQ-INS-8,
+  section 5's commands table, section 7's `TERMINAL_REQUIRED`, 11.4, 12, and "Installation, as phase 10's opening
+  fixed it" points 1 to 11 with the amendments of parts 10a and 10b), `architecture-decisions.md` AD-7, D-099, D-105,
+  D-106, R-050, R-052; `xel/fermento.md` (no pending point); the skills `verify-part`, `codex-review`,
+  `differential-review` and `sharp-edges`; the code of `cli/mod.rs`, `cli/decl.rs`, `cli/apply.rs`, `cli/write.rs`,
+  `cli/text.rs`, `code.rs`, `install.rs`, `settings/mod.rs`, `record/event.rs`, `crates/install/src/lib.rs`,
+  `crates/fabrewk/src/main.rs`, both catalogues, and the tests' fixtures (`crates/fabrewk/tests/common/`), `apply.rs`
+  and `surface.rs`; `tools/budget/src/budget.rs`. No credential of the person's was read.
+- Decided: D-107 (the publication warning's final text is Codex's draft).
+- Delivered: `fabrewk onboard` (declared with `--help` alone and the moves of `apply`): `AGENT_ENVIRONMENT` first, then
+  `/dev/tty` opened by the core (`TERMINAL_REQUIRED`, new); the installer's interview (`crates/install/src/onboard.rs`,
+  new, through the contract's `Interview`) asks the language in every catalogue's words, assesses at once so that
+  `assess`'s refusals come before another question, then asks the mode, the publication with the warning and its
+  exits, the alias, the key (with `~/` read from the home) with Git's commands to sign with it, the tools and, when no
+  alambique exists, REQ-INS-8's three questions; it assesses with the answers and shows the plan whole; the
+  catalogue's yes and the person's words make the command `apply`, with the plan's digest and those answers,
+  dispatched in the same process. Any other answer to a question with choices, an empty needed answer, a line cut by
+  the end of input or not UTF-8, or the end of input applies nothing, says so, exits 0. `--json` before a command
+  that takes none is a usage error, with `--help` or not. The plan's text shows a file's carriage return. The
+  catalogue's `[onboard]` (written by Codex), `command.onboard`, `code.TERMINAL_REQUIRED`; the generated help,
+  completions and reference; `crates/fabrewk/tests/onboard.rs` (new, 14 tests on a pseudo-terminal through python3's
+  `pty`, one in stages that takes the tree's digest while the yes and the words are awaited); the fixture `product`
+  moved to the tests' `common`. `core-specification.md`: "Amended in part 10c (D-107)" after point 11.
+- The interview's texts: Codex wrote the `[onboard]` table in `en` and `es` from point 8 and the code; the integrator
+  checked each text against what the interview does (the alias's characters, `~/`, the tools' separator, the yes words
+  fixed by point 8) and applied them as written (`a1ec2f6`).
+- Codex's passes, each over the commit named, confirmed blocking findings (non-blocking in brackets):
+  1. `a1ec2f6`: 3 [1]. P10C-1: the alias and the key's path were trimmed, so `onboard` applied a plan `assess` refuses
+     with the same option. P10C-2: an answer of spaces alone to REQ-INS-8's questions was taken for empty. P10C-3: the
+     tools were matched in their case. P10C-4 (not blocking): the agent's test let the language be asked first.
+     Corrected in `c4202c6`.
+  2. `c4202c6`: 3 [1]. P10C-5: a carriage return typed literally was cut from every answer. P10C-6: the tools were
+     split on ASCII spaces alone. P10C-7: `~//x` replaced the home with `/x`. P10C-8 (not blocking): `--json` before
+     `onboard` was taken. Corrected in `8af4482`.
+  3. `8af4482` (a first launch named a wrong commit in its prompt and was stopped before a report; not counted): 1
+     [2]. P10C-9: words typed without their line's end, then the end of input, were applied. P10C-10 (not
+     blocking): `--json` before `onboard --help` gave the help. P10C-11 (coverage): no test watched the tree while the
+     yes and the words were awaited. Corrected in `7110c06`.
+  4. `7110c06`: 1. P10C-12: a home whose path is not UTF-8 was made lossy to expand `~/`, and could name another
+     directory's key. Corrected in `2e04377`.
+  5. `2e04377`: 1. P10C-13: the plan's text, through `str::lines`, lost a carriage return the first alambique holds.
+     Corrected in `03f5470`.
+  6. `03f5470`: accept, no finding; P10C-1 to P10C-13 closed.
+  Every finding was checked against the code before its correction; each new test failed without it, but P10C-11's,
+  a test of coverage that passed before. The integrator ran the suites before the first pass.
+- Mutation over `4cf6913..HEAD` (`cargo mutants --package fabrewk-core --package fabrewk --package fabrewk-install
+  --test-workspace true --baseline skip --features fabrewk-core/fault-injection --in-diff`, in a 2 GB scope with
+  `ulimit -v 1600000`, the tests selected `--lib --test onboard --test surface --test reading --test apply --test
+  install`, run green by hand first):
+  1. Over `03f5470`, `-j 2 --timeout 300`: 62 mutants, 50 caught, 5 unviable, 5 missed, 2 timeouts. The missed: the
+     guard on a line that is not UTF-8 (three), a language with a valid tag and no catalogue, and the commands to sign
+     shown with Git already signing. Corrected in `bea2ce2`: every read that gives no whole line applies nothing, and
+     tests type a byte that is not UTF-8, `fr` and `en-`, and assert no command to sign where Git signs.
+  2. Over `bea2ce2`, `--iterate`: 34 mutants, 31 caught, 1 missed, 2 timeouts. The missed: `git.signs` beside the
+     commands to sign, which the plan holds exactly when Git does not sign; the check dropped (`a1bfa51`), so no
+     equivalent is declared.
+  3. Over `a1bfa51`, `--iterate -j 1 --timeout 400`: 3 mutants, 1 caught, 2 timeouts. Both timed out alone too: `put`
+     writing nothing and the yes inverted leave the test in stages waiting for a question that never comes, a loop
+     caught by the timeout.
+  None missed, none equivalent. The mutation's corrections came after Codex's accept, as in part 10b (R-052); no pass
+  reviewed them.
+- Verified (`verify-part`), clean clone of `a1bfa51`, every step in a user scope of 2 GB with two build jobs: 721
+  tests passed, 11 ignored; with `fault-injection`, the binary's `crash` and `faults` and the core's `crash`, 52, green;
+  the musl release build, `budget check` (the core 12,310 of 12,500; the installer 1,073 of 1,200; the backend 318 of
+  400; Claude Code's adapter 269 of 600; Codex's 319 of 600; 5 direct runtime crates; 31 in the release build; the
+  binary 3,674,504 bytes), both clippy runs, fmt and `cargo deny` clean; `--version --json` lists no feature. No idle
+  `pasta` before or after.
+- Measured: the core 12,310 of 12,500 (+55 over the part; 190 lines left for part 10d); the installer 1,073 of 1,200
+  (+102; 127 left).
+- Interpretations the maestro may want to read (each in the specification's "Amended in part 10c (D-107)"):
+  1. An empty answer is the empty line alone: an alias with spaces is `ALIAS_INVALID` and words of spaces alone
+     `WORDS_MISSING` (exit 1, nothing written), as on the agent's route, not a stop.
+  2. An answer outside a question's choices stops the interview, applying nothing; nothing is asked again.
+  3. The tools and REQ-INS-8's three questions take an empty answer (none; the placeholder line), although point 8
+     says "an empty one, at any question", since REQ-INS-8 gives an empty answer its placeholder.
+  4. The yes and the choices are taken trimmed and in any case (`SÍ`, `Yes`); another catalogue's yes is no yes.
+  5. A key's path that starts with `~/` is read from the home; a home that is not UTF-8 is not expanded.
+  6. The plan shown is `assess`'s text, its `apply` command included, which the yes runs.
+  7. `TERMINAL_REQUIRED` is asserted in the human output alone, since `onboard` takes no `--json` (PD-35 read so).
+  8. Seen, not changed (part 10a's, accepted): `assess` tells whether Git signs with the key by its path, so a copy
+     of the same key at another path makes the plan show the commands to sign, although `apply` accepts that key.
+  9. The mutation run judged each mutant with the suites the diff reaches, without the crash suite over F-1, as R-052
+     interpretation 5; the clean clone runs everything.
+- Part 10c is closed: REQ-INS-4's criterion on a pseudo-terminal in `es` and `en`, `TERMINAL_REQUIRED`, nothing written
+  before the yes, by `crates/fabrewk/tests/onboard.rs`. The review directory, the clean clone and the mutation's
+  output are removed after this entry.

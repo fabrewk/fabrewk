@@ -7,16 +7,16 @@ view generated from that registry. Technical files are in English by default (D-
 
 **Phases 0 to 7 are closed (D-037, D-040, D-070). Phase 7 (the first code) was split into parts 7a, 7b, 7c1, 7c2a,
 7c2b, 7d1, 7d2, 7s, 7d3a and 7d3b (D-041, D-047, D-048, D-050, D-053, D-059, D-062), the last the task commands
-(D-068, D-069, R-034); phase 8, the core's part 2, was split into 8a, 8b and 8c (D-072) and all three are closed, and so is the phase (D-077); phase 9 (confinement, the adapters and the run) was cut into parts 9a to 9i (D-075, D-076), all accepted, and it is closed (D-096); phase 10, installation, opened with its cut into parts 10a to 10d, Codex's review of its design and the maestro's approval (D-097, D-098, R-049); part 10a, `assess` and its plan, is accepted, at Codex's twentieth pass (D-099 to D-104, R-050, R-051), and part 10b, `apply`, at its seventh (D-105, D-106, R-052).** The repository holds the first code at its root: a
+(D-068, D-069, R-034); phase 8, the core's part 2, was split into 8a, 8b and 8c (D-072) and all three are closed, and so is the phase (D-077); phase 9 (confinement, the adapters and the run) was cut into parts 9a to 9i (D-075, D-076), all accepted, and it is closed (D-096); phase 10, installation, opened with its cut into parts 10a to 10d, Codex's review of its design and the maestro's approval (D-097, D-098, R-049); part 10a, `assess` and its plan, is accepted, at Codex's twentieth pass (D-099 to D-104, R-050, R-051), part 10b, `apply`, at its seventh (D-105, D-106, R-052), and part 10c, `onboard`, at its sixth (D-107, R-053).** The repository holds the first code at its root: a
 Cargo workspace with one crate per ring (`crates/core`, `crates/fabrewk`, the binary, which runs the core's command
 surface, `crates/confine-bwrap`, the confinement backend for Linux, `crates/adapter-claude`, Claude Code's adapter, `crates/adapter-codex`, Codex's, and `crates/install`, the installation) and the size counter `tools/budget`, the licence files, `deny.toml` and a root `.gitignore` with `/target`.
 The record is built in `crates/core/src/record/`, the settings in `crates/core/src/settings/`, identity in
 `identity.rs`, the private folder and the machine file in `machine.rs`, detection and profiles in `detect.rs`, the
 domain's layout in `domain.rs`, the transition table in `table.rs`, the payloads and pattern guards in `task.rs`, the
 credential scan in `scan.rs`, the fermento in `fermento.rs`, the alambique and the rules in `alambique.rs`, the cell's contract and its runner in `confine.rs`, the attempt's copy, its change set and the candidate in `candidate.rs`, the tool adapter's contract in `adapter.rs`, the checks, the identities and the rounds' measure in `gate.rs`, the run in `crates/core/src/cli/run.rs`, the integration in `merge.rs` and `crates/core/src/cli/accept.rs`, the extensions' runner in `crates/core/src/cli/ext.rs`, and the command surface in `crates/core/src/cli/` with its catalogue in
-`crates/core/catalogue/` (`en`, `es`); `fabrewk status`, `fabrewk config`, `fabrewk check` and `fabrewk assess` (the installation's reading, verdict and plan, through the installer's contract in `crates/core/src/install.rs`) read, `fabrewk apply` (the installation's execution, in `crates/core/src/cli/apply.rs`) writes, and `fabrewk
+`crates/core/catalogue/` (`en`, `es`); `fabrewk status`, `fabrewk config`, `fabrewk check` and `fabrewk assess` (the installation's reading, verdict and plan, through the installer's contract in `crates/core/src/install.rs`) read, `fabrewk apply` (the installation's execution, in `crates/core/src/cli/apply.rs`) writes, `fabrewk onboard` (the installer's interview on the terminal, `crates/install/src/onboard.rs`, whose yes is `apply` in the same process) writes after the person's yes and words, and `fabrewk
 adopt`, `fabrewk propose`, `fabrewk authorize`, `fabrewk reject`, `fabrewk sweep`, `fabrewk discard`, `fabrewk approve`, `fabrewk close`, `fabrewk run` (round after round of the builder, the checks and the reviewer, to a verified task or a halt) and `fabrewk accept` (an acceptance and its integration) write, and `fabrewk <name>` runs a permitted extension confined and applies its requests, through one
-write path in `crates/core/src/cli/write.rs`. The skills the maestro approved are in `.brewstillery/skills/`, listed in `AGENTS.md`. The core counts 12,255 of 12,500 lines (D-097), the installer 971 of 1,200, the backend 318 of 400, Claude Code's adapter 269 of 600 and Codex's 319 of 600, formatted at width 120 (D-049, D-054, D-074, D-075). No `data/` exists in this
+write path in `crates/core/src/cli/write.rs`. The skills the maestro approved are in `.brewstillery/skills/`, listed in `AGENTS.md`. The core counts 12,310 of 12,500 lines (D-097), the installer 1,073 of 1,200, the backend 318 of 400, Claude Code's adapter 269 of 600 and Codex's 319 of 600, formatted at width 120 (D-049, D-054, D-074, D-075). No `data/` exists in this
 repository, whose project file still holds bootstrap keys, so `fabrewk check` here reports them. The domain is
 `.brewstillery/`, hidden (D-032).
 
@@ -540,19 +540,35 @@ repository, is imported into the single registry at production and then stays re
   their code gone, none equivalent. Clean clone of `e2eecc7`: 707 tests and 11 ignored, the crash suites over F-1 and
   `apply`, `faults` 47 and `crash` 3 green, musl build, `budget check`, clippy, fmt and `cargo deny` clean. Measured:
   the core 12,255 of 12,500 (+460), the installer 971 of 1,200. No credential of the person's was read.
-- **Next: part 10c, `onboard`** (plan, "Phase 10", row 10c): the terminal (`TERMINAL_REQUIRED`), the language, the
-  questions, the publication warning shown and the words recorded, the explicit yes, `apply`'s path in the same
-  process, nothing written before the yes; REQ-INS-4's criterion on a pseudo-terminal in `es` and `en`; the maestro's
-  decision on the warning's final text (Codex's draft is in both catalogues since 10a). It starts from "Installation,
-  as phase 10's opening fixed it (D-097)" in `core-specification.md`, points 8 and 9, and the amendments of parts 10a
-  and 10b after point 11.
-- **Start prompt:** `Eres el integrador de Fabrewk; parte 10c: fabrewk onboard, la terminal, el idioma, las preguntas,
-  la advertencia mostrada y registrada, el sí explícito y el camino de apply en el mismo proceso; empieza por
-  .brewstillery/STATUS.md`. Model and effort: Claude Code on Opus 5.5 (`claude-opus-5-5`), effort high; Codex GPT-6.1
-  Sol, effort high (plan row 10). Read the skills `verify-part`, `codex-review`, `differential-review` and
-  `sharp-edges` first. When waiting for Codex, wait on the launching command itself; Codex's prompt asks it not to
-  read `.brewstillery/skills/`, to report each finding as an input, an expected result and an actual one, and to
-  write its report in English; if its provider stops a full pass again, D-106's read-only pass is the precedent.
+- **Part 10c closed (session 44, R-053, D-107).** `fabrewk onboard`: `AGENT_ENVIRONMENT`, then `/dev/tty`
+  (`TERMINAL_REQUIRED`, new); the interview asks the language, then in it the mode, the publication with the warning
+  and its exits, the alias, the key with Git's commands to sign with it, the tools and REQ-INS-8's three questions,
+  shows the plan whole, and its yes and the person's words are `apply`, with the plan's digest and those answers, in
+  the same process; any other answer, an empty needed one or the end of input applies nothing and exits 0. The
+  warning's text is final as Codex drafted it (D-107); the interview's questions are Codex's. Codex's passes,
+  confirmed blocking 3, 3, 1, 1, 1, 0: P10C-1 to P10C-13 corrected (answers kept as given, a literal carriage return,
+  a line cut by the end of input, `~/` as a shell reads it, `--json` before a command that takes none, the plan's
+  text showing a carriage return). Mutation: three runs, 5 missed at the first, all then caught or their code gone,
+  two timeouts that wait for a question never asked. Clean clone of `a1bfa51`: 721 tests and 11 ignored, the crash
+  and fault suites (52) green, musl build, `budget check`, clippy, fmt and `cargo deny` clean. Measured: the core
+  12,310 of 12,500 (+55), the installer 1,073 of 1,200 (+102). Nine interpretations the maestro may want to read are
+  in R-053. No credential of the person's was read.
+- **Next: part 10d, the script and the release** (plan, "Phase 10", row 10d): `install.sh` (POSIX `sh`, the platform
+  refused with the supported list, `PLATFORM_UNSUPPORTED`; the release verified by `ssh-keygen -Y verify`, then the
+  checksum; one file `~/.local/bin/fabrewk`; `onboard` offered inside a repository with a terminal), the signed
+  release and its third-party notices from `Cargo.lock` by a tool under `tools/`, `README.md`, `README.es-MX.md` and
+  the manuals in `docs/en/` and `docs/es-MX/` (first-line texts by Codex), and phase 10's acceptance; publishing on
+  GitHub only on the maestro's decision and act. It starts from points 10 and 11 of "Installation, as phase 10's
+  opening fixed it (D-097)" in `core-specification.md`, REQ-INS-6, REQ-INS-7 and BUD-5, and the amendments of parts
+  10a to 10c after point 11. The core has 190 lines left.
+- **Start prompt:** `Eres el integrador de Fabrewk; parte 10d: el script install.sh, la versión firmada y sus avisos,
+  el README y los manuales, y la aceptación de la fase 10; empieza por .brewstillery/STATUS.md`. Model and effort:
+  Claude Code on Opus 5.5 (`claude-opus-5-5`), effort high; Codex GPT-6.1 Sol, effort high (plan row 10). Read the
+  skills `verify-part`, `codex-review`, `differential-review` and `sharp-edges` first. When waiting for Codex, wait on
+  the launching command itself, and check the commit named in each prompt against `git log` before launching; Codex's
+  prompt asks it not to read `.brewstillery/skills/`, to report each finding as an input, an expected result and an
+  actual one, and to write its report in English; if its provider stops a full pass, D-106's read-only pass is the
+  precedent.
 
 Carried without blocking, with destinations, in D-013. A phase that does not pass is corrected and retried; it
 never ends the project (D-003).
