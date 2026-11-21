@@ -52,7 +52,16 @@ main() {
     need sha256sum 'coreutils'
     need tar 'the package tar'
     need gzip 'the package gzip'
-    [ -n "${HOME:-}" ] && [ -d "$HOME" ] || refuse "HOME is not a directory, so there is no ~/.local/bin to install into."
+    # Absolute paths alone, so that no tool takes one for an option.
+    case "${HOME:-}" in
+        /*) [ -d "$HOME" ] || refuse "HOME is not a directory, so there is no ~/.local/bin to install into." ;;
+        *) refuse "HOME is not an absolute path, so there is no ~/.local/bin to install into." ;;
+    esac
+    tmpbase=${TMPDIR:-/tmp}
+    case "$tmpbase" in
+        /*) ;;
+        *) refuse "TMPDIR is not an absolute path; set it to one, or unset it for /tmp." ;;
+    esac
 
     archive="fabrewk-$version-$platform.tar.gz"
     bindir="$HOME/.local/bin"
@@ -61,7 +70,7 @@ main() {
     new=
     trap '[ -z "$tmp" ] || rm -rf "$tmp"; [ -z "$new" ] || rm -f "$new"' EXIT
     trap 'exit 1' HUP INT PIPE TERM
-    tmp=$(mktemp -d "${TMPDIR:-/tmp}/fabrewk-install.XXXXXX")
+    tmp=$(mktemp -d "$tmpbase/fabrewk-install.XXXXXX")
 
     say "downloading Fabrewk $version for $platform from $release_url"
     proto=${release_url%%://*}
@@ -84,8 +93,9 @@ main() {
         refuse "the signature of SHA256SUMS is not valid for any signer this script names; nothing was installed."
     say "the signature of SHA256SUMS is $signer's"
 
+    # Read from standard input: awk takes an operand with `=` for an assignment (P10D-6).
     expected=$(awk -v f="$archive" '$2 == f || $2 == "*" f { n++; h = $1 } END { if (n == 1) print h }' \
-        "$tmp/SHA256SUMS")
+        <"$tmp/SHA256SUMS")
     actual=$(sha256sum <"$tmp/$archive")
     actual=${actual%% *}
     case "$expected" in

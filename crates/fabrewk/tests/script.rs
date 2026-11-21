@@ -612,10 +612,77 @@ fn req_ins_6_onboard_runs_at_the_exact_top_of_a_repository_whose_name_ends_in_a_
 #[test]
 fn req_ins_6_a_temporary_directory_whose_name_holds_a_backslash_is_used_as_it_is() {
     let s = fixture("backslash");
-    let odd = s.dir.join("tmp\\b \\n'x");
+    let odd = s.dir.join("tmp=\\b \\n'x");
     fs::create_dir_all(&odd).unwrap();
     let ran = s.run_with(&[], None, &[("TMPDIR", odd.to_str().unwrap())]);
     assert_eq!(ran.status, 0, "{ran:?}");
     assert_eq!(fs::read_to_string(s.installed()).unwrap(), PROGRAM);
     assert_eq!(fs::read_dir(&odd).unwrap().count(), 0);
+}
+
+#[test]
+fn req_ins_6_a_home_or_temporary_directory_that_is_not_absolute_is_refused() {
+    let s = fixture("relative");
+    for dir in ["-h", "home", "-t", "tmp=path"] {
+        fs::create_dir_all(s.work.join(dir)).unwrap();
+    }
+    for (var, value, said) in [
+        ("HOME", "-h", "HOME is not an absolute path"),
+        ("HOME", "home", "HOME is not an absolute path"),
+        ("HOME", "", "HOME is not an absolute path"),
+        ("TMPDIR", "-t", "TMPDIR is not an absolute path"),
+        ("TMPDIR", "tmp=path", "TMPDIR is not an absolute path"),
+    ] {
+        let ran = s.run_with(&[], None, &[(var, value)]);
+        assert_eq!(ran.status, 1, "{var}={value}: {ran:?}");
+        assert!(ran.stderr.starts_with(said), "{var}={value}: {ran:?}");
+        let made = tree(&s.work);
+        assert_eq!(made, set(&["-h", "home", "-t", "tmp=path"]), "{var}={value}");
+        assert_eq!(s.written(), (set(&[]), set(&[])));
+    }
+}
+
+/// As [`DRIVE`], but the program's standard input is a pipe holding `STDIN_TEXT`, apart from its terminal.
+const DRIVE_APART: &str = r#"
+import os, pty, sys
+typed = sys.stdin.buffer.read()
+r, w = os.pipe()
+pid, fd = pty.fork()
+if pid == 0:
+    os.close(w)
+    os.dup2(r, 0)
+    os.execv(sys.argv[1], sys.argv[1:])
+os.close(r)
+os.write(w, os.environ["STDIN_TEXT"].encode())
+os.close(w)
+os.write(fd, typed + b"\x04")
+out = b""
+while True:
+    try:
+        chunk = os.read(fd, 65536)
+    except OSError:
+        break
+    if not chunk:
+        break
+    out += chunk
+_, status = os.waitpid(pid, 0)
+sys.stdout.buffer.write(out)
+sys.exit(os.waitstatus_to_exitcode(status))
+"#;
+
+#[test]
+fn req_ins_6_the_offer_is_answered_on_the_terminal_never_on_standard_input() {
+    let s = fixture("apart");
+    run_quiet(Command::new("git").args(["init", "-q"]).arg(&s.work));
+    for (terminal, input, runs) in [("n\n", "y\n", false), ("y\n", "n\n", true)] {
+        let mut c = s.command("python3", None, &[("STDIN_TEXT", input)]);
+        c.args(["-I", "-c", DRIVE_APART, "/usr/bin/env", "dash"]).arg(&s.script);
+        let mut child = c.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().unwrap();
+        child.stdin.take().unwrap().write_all(terminal.as_bytes()).unwrap();
+        let out = child.wait_with_output().unwrap();
+        let shown = String::from_utf8_lossy(&out.stdout).replace("\r\n", "\n");
+        assert_eq!(out.status.code(), Some(0), "{shown}");
+        assert!(shown.contains("Run fabrewk onboard in "), "{shown}");
+        assert_eq!(shown.contains("fixture ran in "), runs, "terminal {terminal:?}, input {input:?}: {shown}");
+    }
 }
