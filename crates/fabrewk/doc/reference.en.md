@@ -788,7 +788,7 @@ Documents with --json: `fabrewk.refused/1`, `fabrewk.usage/1`, `fabrewk.internal
 ## Exit statuses
 
 - `0`: done.
-- `1`: refused: a code was printed, and nothing was written.
+- `1`: refused: a code was printed, with its reason and next step; a refusal after the command's events were written says what it left.
 - `2`: usage error: the command line was not accepted.
 - `3`: the check found a problem.
 - `4`: the run stopped and waits for a person: the task is halted.

@@ -53,12 +53,14 @@ actualizaciones por su cuenta y no envía telemetría.
 
 ### Autocompletado
 
-El paquete trae los archivos de autocompletado en `completions/`; el script no los instala. Para usarlos, extrae el
-paquete (`tar -xzf fabrewk-0.1.0-linux-aarch64.tar.gz`) y copia:
+El paquete trae los archivos de autocompletado en el `completions/` de su carpeta; el script no los instala. Para
+usarlos, extrae el paquete (`tar -xzf fabrewk-0.1.0-linux-aarch64.tar.gz`) y copia, desde
+`fabrewk-0.1.0-linux-aarch64/completions/`:
 
-- fish: `completions/fabrewk.fish` a `~/.config/fish/completions/fabrewk.fish`;
-- bash: `completions/fabrewk.sh` a `~/.local/share/bash-completion/completions/fabrewk`; zsh lee el mismo archivo
-  después de `autoload -U bashcompinit; bashcompinit`.
+- fish: `fabrewk.fish` a `~/.config/fish/completions/fabrewk.fish`;
+- bash: `fabrewk.sh` a `~/.local/share/bash-completion/completions/fabrewk`;
+- zsh: el mismo `fabrewk.sh`, cargado desde `~/.zshrc` después de activar el autocompletado de bash: `autoload -U
+  bashcompinit; bashcompinit; source <la ruta donde pusiste fabrewk.sh>`.
 
 ### Quitarlo
 
@@ -86,7 +88,9 @@ terminal (`TERMINAL_REQUIRED`). Pregunta, en este orden:
 7. cuando el repositorio no tiene `.brewstillery/ALAMBIQUE.md`: qué debe lograr el proyecto, para quién y qué deja
    fuera. Cada respuesta se escribe tal como la das; una vacía deja una línea que dice que aún no tiene respuesta.
 
-Luego muestra el veredicto y el plan completo: cada archivo que crearía o cambiaría, con su contenido exacto. Solo el
+Luego muestra el veredicto y el plan completo: cada archivo que crearía, con su contenido exacto; el bloque que
+agregaría a un archivo de entrada existente; la línea que agregaría a `.git/info/exclude`; y las vistas que generaría
+a partir del registro (`STATUS.md`, `RULES.md`), por su nombre. Solo el
 sí del catálogo (`sí` en español, `yes` en inglés) seguido de tus propias palabras lo aplica; cualquier otra
 respuesta, una vacía o el fin de la entrada no aplican nada, y lo dice. Tus palabras se registran tal como las
 escribes, y se firman.
@@ -100,7 +104,8 @@ chat y ejecuta `fabrewk assess` con tus respuestas como opciones, por ejemplo:
 
 `assess` no escribe nada, ni siquiera una caché, y no usa la red. Imprime el veredicto, el plan, el resumen
 criptográfico (digest) del plan y el comando `apply` exacto, entrecomillado para fish y para una shell POSIX. Lees el
-plan y ejecutas ese comando en tu propia terminal, cambiando `<your words>` por las tuyas:
+plan y ejecutas ese comando en tu propia terminal, cambiando `<tus palabras>` por las tuyas (en inglés, `assess`
+imprime `<your words>`):
 
     fabrewk apply <digest> --mode='adopt' --publication='published' … --say='<tus palabras>'
 
@@ -122,11 +127,13 @@ commit o push, archivos generados que preaprueban herramientas. Fabrewk no cambi
 
 ### Qué hace `apply`
 
-Vuelve a evaluar y se niega si el plan ya no es el nombrado (`PLAN_CHANGED`): a un repositorio que cambió después de
-que leíste el plan no se le escribe nada. Luego escribe los archivos del plan, sin sobrescribir nunca un archivo que
-no escribió: en un `AGENTS.md` existente agrega un bloque delimitado, y `CLAUDE.md` apunta a `AGENTS.md`. Registra,
-firmados con tu llave, la evaluación, la decisión de publicación con tus palabras, la configuración adoptada, la línea
-base del alambique y el recibo de la instalación, con el resumen de cada archivo que escribió. En `published` confirma
+Vuelve a evaluar y se niega, sin escribir nada (`PLAN_CHANGED`), si el plan que da ahora no es el nombrado, o si un
+archivo que el plan escribe cambió desde entonces. Luego escribe los archivos del plan, sin sobrescribir nunca un
+archivo que no escribió: en un `AGENTS.md` o un `CLAUDE.md` existentes agrega un bloque delimitado que dirige a los
+agentes a `.brewstillery/STATUS.md`; un `CLAUDE.md` que crea tiene la sola línea `@AGENTS.md`. Registra, firmados con
+tu llave, la evaluación, la decisión de publicación con tus palabras, la configuración adoptada y la línea base del
+alambique; luego, como evento propio de Fabrewk, sin firma, el recibo de la instalación, con el resumen de cada
+archivo que escribió. En `published` confirma
 todo, los archivos de entrada incluidos, conservando cualquier otro cambio que tuvieras; en `own-repository` el
 repositorio propio de la carpeta confirma sus archivos, y los archivos de entrada quedan sin confirmar en el
 producto; en `unpublished` no se confirma nada. Nombra lo que dejó sin confirmar y el comando de Git que lo confirma,

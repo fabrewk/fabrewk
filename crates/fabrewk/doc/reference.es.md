@@ -788,7 +788,7 @@ Documentos con --json: `fabrewk.refused/1`, `fabrewk.usage/1`, `fabrewk.internal
 ## Estados de salida
 
 - `0`: hecho.
-- `1`: rechazado: se imprimió un código y no se escribió nada.
+- `1`: rechazado: se imprimió un código, con su razón y el siguiente paso; un rechazo después de escribir los eventos del comando dice qué dejó.
 - `2`: error de uso: no se aceptó la línea de comandos.
 - `3`: la verificación encontró un problema.
 - `4`: la corrida se detuvo y espera a una persona: la tarea está detenida.

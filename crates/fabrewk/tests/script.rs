@@ -482,3 +482,63 @@ fn req_ins_6_onboard_is_offered_inside_a_repository_with_a_terminal_and_never_in
     assert!(!ran.stdout.contains(question) && !ran.stdout.contains("fixture ran"), "{ran:?}");
     assert_eq!(s.written().0, set(&[".local", ".local/bin", ".local/bin/fabrewk"]));
 }
+
+/// Each README (point 11): one ` ```text ` block, the agent's preset prompt, whose commands are its lines indented
+/// by four spaces and whose last command is `fabrewk assess`, never `fabrewk apply`; the script's allowed-signers line
+/// as the script writes it; the script's commands as the manual writes them; and every relative link to a file that
+/// exists.
+#[test]
+fn req_ins_6_the_agent_route_ends_at_assess_and_the_readmes_name_the_script_s_signers() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let text = script_text();
+    let signers = text.lines().find(|l| l.starts_with("allowed_signers=")).unwrap();
+    let signers = &signers["allowed_signers='".len()..signers.len() - 1];
+    for (readme, manual) in
+        [("README.md", "docs/en/installation.md"), ("README.es-MX.md", "docs/es-MX/installation.md")]
+    {
+        let doc = fs::read_to_string(root.join(readme)).unwrap();
+        assert_eq!(doc.matches("```text\n").count(), 1, "{readme}");
+        let prompt = &doc[doc.find("```text\n").unwrap() + 8..];
+        let prompt = &prompt[..prompt.find("\n```").unwrap()];
+        let commands: Vec<&str> =
+            prompt.lines().filter_map(|l| l.strip_prefix("    ")).filter(|l| !l.starts_with(' ')).collect();
+        assert!(commands.len() >= 2, "{readme}: {prompt}");
+        assert!(commands.last().unwrap().starts_with("fabrewk assess "), "{readme}: {commands:?}");
+        assert!(commands.iter().all(|c| !c.starts_with("fabrewk apply")), "{readme}: {commands:?}");
+        assert!(commands.iter().all(|c| !c.contains("| sh")), "{readme}: the agent never pipes the script");
+        assert!(doc.contains(&format!("\n{signers}\n")), "{readme}");
+        let guide = fs::read_to_string(root.join(manual)).unwrap();
+        assert!(guide.contains(&format!("\n    {signers}\n")), "{manual}");
+        for fetch in [
+            format!(
+                "curl --proto '=https' --tlsv1.2 -fsSLO https://raw.githubusercontent.com/fabrewk/fabrewk/v{VERSION}/install.sh"
+            ),
+            format!(
+                "curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/fabrewk/fabrewk/v{VERSION}/install.sh | sh"
+            ),
+        ] {
+            assert!(doc.contains(&format!("\n{fetch}\n")), "{readme}: {fetch}");
+            assert!(guide.contains(&format!("\n    {fetch}\n")), "{manual}: {fetch}");
+        }
+        for link in doc.split("](").skip(1).map(|l| &l[..l.find(')').unwrap()]) {
+            let file = link.split('#').next().unwrap();
+            if !link.contains("://") && !file.is_empty() {
+                assert!(root.join(file).is_file(), "{readme}: {link}");
+            }
+        }
+    }
+    assert!(text.contains(&format!("raw.githubusercontent.com/fabrewk/fabrewk/v{VERSION}/install.sh | sh")));
+    // The manuals' relative links reach files that exist, from their own directory.
+    for lang in ["en", "es-MX"] {
+        for page in ["installation.md", "working.md", "commands.md"] {
+            let dir = root.join("docs").join(lang);
+            let doc = fs::read_to_string(dir.join(page)).unwrap();
+            for link in doc.split("](").skip(1).map(|l| &l[..l.find(')').unwrap()]) {
+                let file = link.split('#').next().unwrap();
+                if !link.contains("://") && !file.is_empty() {
+                    assert!(dir.join(file).is_file(), "docs/{lang}/{page}: {link}");
+                }
+            }
+        }
+    }
+}

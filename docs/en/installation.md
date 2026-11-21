@@ -52,12 +52,14 @@ for updates by itself and sends no telemetry.
 
 ### Completions
 
-The archive holds the completion files in `completions/`; the script does not install them. To use them, extract
-the archive (`tar -xzf fabrewk-0.1.0-linux-aarch64.tar.gz`) and copy:
+The archive holds the completion files in its directory's `completions/`; the script does not install them. To use
+them, extract the archive (`tar -xzf fabrewk-0.1.0-linux-aarch64.tar.gz`) and copy, from
+`fabrewk-0.1.0-linux-aarch64/completions/`:
 
-- fish: `completions/fabrewk.fish` to `~/.config/fish/completions/fabrewk.fish`;
-- bash: `completions/fabrewk.sh` to `~/.local/share/bash-completion/completions/fabrewk`; zsh reads the same file
-  after `autoload -U bashcompinit; bashcompinit`.
+- fish: `fabrewk.fish` to `~/.config/fish/completions/fabrewk.fish`;
+- bash: `fabrewk.sh` to `~/.local/share/bash-completion/completions/fabrewk`;
+- zsh: the same `fabrewk.sh`, loaded from `~/.zshrc` after bash's completion is enabled: `autoload -U bashcompinit;
+  bashcompinit; source <the path where you put fabrewk.sh>`.
 
 ### Removing it
 
@@ -85,7 +87,9 @@ terminal (`TERMINAL_REQUIRED`). It asks, in this order:
 7. when the repository has no `.brewstillery/ALAMBIQUE.md`: what the project must achieve, for whom, and what it
    leaves out. Each answer is written as you give it; an empty one leaves a line saying it is not answered yet.
 
-Then it shows the verdict and the whole plan: every file it would create or change, with its exact content. Only
+Then it shows the verdict and the whole plan: every file it would create, with its exact content; the block it
+would add to an existing entry file; the line it would add to `.git/info/exclude`; and the views it would generate
+from the record (`STATUS.md`, `RULES.md`), by name. Only
 the catalogue's yes (`yes` in English, `sí` in Spanish) followed by your own words applies it; any other answer, an
 empty one, or the end of input applies nothing and says so. Your words are recorded as you write them, and signed.
 
@@ -120,11 +124,12 @@ Fabrewk changes none of them.
 
 ### What `apply` does
 
-It assesses again and refuses if the plan is no longer the one named (`PLAN_CHANGED`): a repository that changed
-after you read the plan gets nothing written. Then it writes the plan's files, never overwriting a file it did not
-write: in an existing `AGENTS.md` it adds a delimited block, and `CLAUDE.md` points to `AGENTS.md`. It records, signed
-with your key, the assessment, the publication decision with your words, the adopted settings, the alambique's
-baseline and the installation's receipt, with the digest of every file it wrote. In `published` it commits all of
+It assesses again and refuses, writing nothing (`PLAN_CHANGED`), if the plan it gives now is not the one named, or
+if a file the plan writes changed since. Then it writes the plan's files, never overwriting a file it did not write:
+in an existing `AGENTS.md` or `CLAUDE.md` it adds a delimited block that points agents to `.brewstillery/STATUS.md`;
+a `CLAUDE.md` it creates holds the single line `@AGENTS.md`. It records, signed with your key, the assessment, the
+publication decision with your words, the adopted settings and the alambique's baseline; then, as Fabrewk's own
+event, unsigned, the installation's receipt, with the digest of every file it wrote. In `published` it commits all of
 it, the entry files included, keeping every other change you had; in `own-repository` the folder's own repository
 commits the folder's files, and the entry files are left uncommitted in the product; in `unpublished` nothing is
 committed. It names what it left uncommitted and the Git command that commits it, and runs none.

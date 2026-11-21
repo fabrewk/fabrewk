@@ -3,7 +3,7 @@
 Cada comando, con lo que hace. La [referencia de comandos](../../crates/fabrewk/doc/reference.es.md) se genera a
 partir de la propia declaración de comandos del programa, así que enumera exactamente los comandos que existen, cada
 uno con sus opciones, los movimientos del registro que puede causar, sus documentos JSON y sus rechazos; `fabrewk
-<comando> --help` imprime lo mismo. Los comandos y las opciones están en inglés en todos los idiomas.
+<comando> --help` imprime su resumen, sus opciones, el formato de su archivo cuando recibe uno, y sus rechazos. Los comandos y las opciones están en inglés en todos los idiomas.
 
 ## Leer, sin escribir nada
 
@@ -11,7 +11,7 @@ uno con sus opciones, los movimientos del registro que puede causar, sus documen
 | --- | --- |
 | `fabrewk status [<id>]` | La salud del registro, la política vigente y el estado de cada etapa y tarea; con un identificador, esa etapa o tarea con sus eventos y el digest que cita una decisión sobre ella. |
 | `fabrewk config [<clave>]` | Cada valor efectivo de la configuración con su origen, los cambios sin adoptar, las llaves de los mantenedores, lo que tiene este equipo y cada control. |
-| `fabrewk check` | Verifica la configuración, la política, el registro, el dominio, las credenciales y la carpeta privada; sale con 3 ante un problema. |
+| `fabrewk check` | Verifica la configuración, la política, el registro, el dominio, las credenciales y la carpeta privada; sale con 3 ante un error, con 0 si solo hay advertencias. |
 | `fabrewk assess [<opciones>]` | Evalúa el repositorio sin escribir nada: el veredicto, sus razones y el plan, con su digest y el comando `apply`. |
 
 ## La instalación
@@ -52,14 +52,15 @@ y opcionalmente `--say-lang <etiqueta>`, su idioma; cada una se niega dentro de 
 
 ## Salida y estados de salida
 
-Todo comando salvo `onboard` acepta `--json`, que imprime un documento JSON con un campo `schema`; un rechazo con
-`--json` también es un documento. Un rechazo imprime primero su código, por ejemplo `PLAN_CHANGED: …`, con la razón y
+Todo comando integrado salvo `onboard` acepta `--json`, que imprime un documento JSON con un campo `schema`; un
+rechazo con `--json` también es un documento, y `--help` sigue siendo texto. Los argumentos de una extensión son
+suyos. Un rechazo imprime primero su código, por ejemplo `PLAN_CHANGED: …`, con la razón y
 el siguiente paso.
 
 | Estado | Significado |
 | --- | --- |
 | `0` | Hecho. |
-| `1` | Rechazado: se imprimió un código y no se escribió nada. |
+| `1` | Rechazado: se imprimió un código, con su razón y el siguiente paso. Un rechazo antes de que se escriban los eventos del comando no deja nada escrito; uno posterior dice qué dejó y cómo se termina. |
 | `2` | Error de uso: no se aceptó la línea de comandos. |
 | `3` | La verificación encontró un problema. |
 | `4` | La ejecución se detuvo y espera a una persona: la tarea quedó detenida. |

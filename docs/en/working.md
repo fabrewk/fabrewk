@@ -71,7 +71,7 @@ as effective or cooperative.
    tree, without the repository's `.git`, with no access to the private folder and only the network its provider
    needs; Fabrewk records its candidate, runs the checks, and dispatches the reviewer on the same candidate. The run
    ends with a verified task, or halts and waits for a person (exit status 4), naming why. `run <stage>` runs the
-   stage's authorized tasks one after another and stops at the first that waits.
+   stage's first task that may start a run.
 4. **Accept or reject.** A maestro reads the verified candidate in `fabrewk status <task>` and accepts it, `fabrewk
    accept <task> --seen <digest> --say '<words>'`, which integrates it into the branch in the same command, or
    rejects it, `fabrewk reject <task> --say '<words>'`.
@@ -86,10 +86,10 @@ A task that changes a path it may not change, or that leaves a suspected credent
 
 - `fabrewk status` shows the record's health, the policy in force and the state of each stage and task.
 - `fabrewk check` verifies the settings, the policy, the record, the domain, the credentials and the private folder;
-  it exits 3 when it finds a problem.
+  it exits 3 when it finds an error; warnings alone, such as settings not adopted yet, exit 0.
 
-Every command but `onboard` takes `--json`, which prints one document with a `schema` field, for agents and scripts.
-Every command takes `--help`. [The commands](commands.md) lists them all.
+Every built-in command but `onboard` takes `--json`, which prints one document with a `schema` field, for agents and
+scripts. Every built-in command takes `--help`, which prints text. [The commands](commands.md) lists them all.
 
 ## Extensions
 

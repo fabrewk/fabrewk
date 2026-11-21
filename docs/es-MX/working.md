@@ -75,8 +75,8 @@ control, marcado como efectivo o cooperativo.
    aislada del árbol base, sin el `.git` del repositorio, sin acceso a la carpeta privada y con solo la red que necesita
    su proveedor; Fabrewk registra su candidato, corre las verificaciones y despacha al revisor sobre el mismo
    candidato. La ejecución termina con una tarea verificada, o se detiene y espera a una persona (estado de salida 4),
-   diciendo por qué. `run <etapa>` corre una tras otra las tareas autorizadas de la etapa y se detiene en la primera
-   que espera.
+   diciendo por qué. `run <etapa>` corre la primera tarea de la etapa que puede empezar una
+   ejecución.
 4. **Aceptar o rechazar.** Un maestro lee el candidato verificado en `fabrewk status <tarea>` y lo acepta, `fabrewk
    accept <tarea> --seen <digest> --say '<palabras>'`, lo que lo integra en la rama en el mismo comando, o lo rechaza,
    `fabrewk reject <tarea> --say '<palabras>'`.
@@ -92,10 +92,11 @@ escribe.
 
 - `fabrewk status` muestra la salud del registro, la política vigente y el estado de cada etapa y tarea.
 - `fabrewk check` verifica la configuración, la política, el registro, el dominio, las credenciales y la carpeta
-  privada; sale con 3 cuando encuentra un problema.
+  privada; sale con 3 cuando encuentra un error; solo advertencias, como una configuración aún sin adoptar, salen con
+  0.
 
-Todo comando salvo `onboard` acepta `--json`, que imprime un documento con un campo `schema`, para agentes y scripts.
-Todo comando acepta `--help`. [Los comandos](commands.md) los enumera todos.
+Todo comando integrado salvo `onboard` acepta `--json`, que imprime un documento con un campo `schema`, para agentes y
+scripts. Todo comando integrado acepta `--help`, que imprime texto. [Los comandos](commands.md) los enumera todos.
 
 ## Extensiones
 
