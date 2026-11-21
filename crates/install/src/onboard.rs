@@ -85,11 +85,11 @@ fn asked(i: &mut Interview, o: &mut Options) -> Result<Option<String>, Error> {
         _ => key,
     };
     o.answers.insert("key", key);
-    // Git's commands to sign with that key, when Git does not: shown, never run.
+    // Git's commands to sign with that key, which the plan holds exactly when Git does not: shown, never run.
     let (doc, _) = assessed(i, o)?;
     let commands: Vec<&Value> =
         doc["plan"]["next"].as_array().into_iter().flatten().filter(|n| n.get("command").is_some()).collect();
-    if doc["plan"]["git"]["signs"] != true && !commands.is_empty() {
+    if !commands.is_empty() {
         let lines: String = commands.iter().map(|c| super::shell_line(lang, c, "")).collect();
         put(i, &format!("{}\n{lines}", q("sign")))?;
     }
