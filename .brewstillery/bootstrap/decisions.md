@@ -5599,3 +5599,124 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   6. Section 5's `run <stage>` and phase 9's code differ (D-110's consequences).
 - Phase 10 is closed (D-110). The review directories, the clean clone and the mutation's output are removed after
   this entry; `target/release-0.1.0/` is kept for the maestro's publication.
+
+## D-111 — Phase 11 recast: the pilot is Fabrewk's self-construction, stage 0 a hand-built 0.2.0 that imports the bootstrap
+
+- Status: decided
+- Decided: 2026-11-20
+- Origin: maintainer XEL: the recast chosen in session 45's chat after part 10d's close (STATUS.md's handover);
+  session 46's start prompt; and, in session 46's chat, to the integrator's three questions: "Importador a mano,
+  0.2.0 = etapa 0 (Recomendado)"; "Primera tarea de la etapa 1 (Recomendado)"; "La etapa 0, antes de adoptar
+  (Recomendado)"; on the commits' author address: "sobre mi correo personal como autor no lo veo como problema,
+  que quede así"; then the drafted texts: "Aprobadas, aplícalas y cierra la sesión".
+- Decision:
+  1. The first pilot (6.48) is Fabrewk's self-construction (6.53), in this repository. TickBrew, rebuilt from its
+     original drafting board in a new repository, becomes the first outside project Fabrewk serves, once its
+     alambique settles; its module and its languages are its own project's decisions.
+  2. The comparison arm (6.48) is the bootstrap record: `decisions.md`'s R entries and `plan.md` stand for the
+     manual method (Claude and Codex with the maestro relaying). Both arms are compared by the measures both
+     record, per part or task: Codex's passes and confirmed blocking findings, corrections, mutants missed, the
+     clean clone's result, counted lines. Time, consumption and the maestro's interventions the bootstrap did not
+     record uniformly: the pilot reports them, and compares them only where an R entry has them. The comparison is
+     weaker than D-009's: different tasks, one integrator, the manual arm read from its record after the fact; the
+     pilot's report says so. Phase 11's hand-built work is measured in full as the pilot measures, so the manual
+     arm has one sample measured the same way.
+  3. Order: the importer of `bootstrap/` into the single registry and the check that fails on any later change in
+     `bootstrap/` are built by hand (the bootstrap's method, Codex's review) and released as 0.2.0, signed by
+     `xel` as D-108's release was; 0.2.0 is stage 0. In this order: the maestro publishes it (point 4), installs
+     it in this repository with `install.sh` from GitHub, and with the installed binary imports the bootstrap,
+     which closes it, adopts the policy and records the alambique's baseline. 0.1.0 cannot be stage 0: its replay
+     takes a closed list of event kinds (`crates/core/src/record/event.rs`, `KINDS`), so it cannot read the imported
+     history, and its `assess` gives this repository the verdict `none`. 0.1.0 is not published; R-054 keeps its
+     record.
+  4. The pre-release: after the review list of `plan.md`'s "Phases 11 to 13", the maestro publishes 0.2.0 on
+     GitHub as a pre-release, before the adoption; stage 0 is then installed in this repository with `install.sh`
+     from GitHub's address, as any person would install it.
+  5. `run <stage>`: section 5 of `core-specification.md` stays the requirement. Closing the gap with phase 9's code
+     (D-110's consequence) is the first task of stage 1, built by Fabrewk; until then stage 1 runs task by task.
+  6. The bootstrap ends at the import. From then the decisions are the record's own (the maestro's signed moves,
+     the alambique's approvals, the sweeps), `bootstrap/` is read-only with a check, `STATUS.md` becomes the
+     generated view, D-022's closing rule gives way to Fabrewk's rules, and the entry files say so. `plan.md` is
+     imported as it stands then; its rows 12 and 13 continue as stages in the record, proposed and authorized
+     with Fabrewk's commands. Production is declared by the maestro after the pilot passes (plan row 13).
+  7. The pilot keeps hidden criteria (plan row 11 as D-010 approved it): criteria the maestro fixes in the pilot's
+     specification and the builder and reviewer agents do not see, which agents cannot read since they work on a
+     copy without `.brewstillery/` (AD-1).
+  8. Plan rows 11 to 13 are rewritten as `plan.md` holds them from this entry.
+  9. The commits' author address stays as it is when the repository becomes public; the history is not
+     rewritten, so the record's commit citations hold.
+- Reason: 6.53's toolchain analogy, made the pilot; the maestro's order (the importer first, then the adoption);
+  the code's facts in point 3. The alternatives offered: 0.1.0 unchanged as stage 0, with the importer as stage 1's
+  first task; for `run <stage>`, by hand with the importer, or the specification amended to the code; for the
+  pre-release, 0.1.0 now, or nothing until stage 1 passes.
+- Consequences: `ALAMBIQUE.md` section 2, 6.48 and 6.53 (6.53's key `[decidido]`), D-112; `AGENTS.md`; `STATUS.md`;
+  `plan.md` rows 11 to 13 and "Phases 11 to 13". Phase 11's opening amends `core-specification.md` (Codex reviews,
+  the maestro approves, as D-097 and D-098): "How to read it" (the pilot is phase 12; phase 11 builds the
+  importer), section 3 (the imported history's events), section 6 (the read-only check), REQ-FER-7 and section
+  8's "This repository" (the bootstrap keys replaced at the import, not at phase 13), the 6.48 row and section 13's
+  lines for phases 11 to 13. `install.sh`, the READMEs and the manuals name 0.2.0. The core's ceiling (12,312 of
+  12,500) is decided by the maestro when phase 11 starts, with the measure.
+- Sources: chats of sessions 45 and 46; `ALAMBIQUE.md` 6.48, 6.53; D-003, D-004, D-005, D-009, D-010, D-022, D-067,
+  D-108, D-110; `plan.md` rows 11 to 13; `core-specification.md` sections 1, 3, 5, 8, 11.4, 13;
+  `crates/core/src/record/event.rs`, `crates/core/src/cli/tasks.rs`; 0.1.0's `assess` in a disposable clone at
+  `e3029bf`.
+- Supersedes: D-004; D-009; D-003 only in "on a fixed task" (the comparison is with the bootstrap record, point
+  2); D-005 only in when the import happens (when the bootstrap closes, before the pilot, not at production);
+  D-067 point 4 only where it puts the self-rebuild after the pilot and proposes its phase after phase 13 (the
+  self-construction is the pilot, phases 11 and 12); D-010's plan rows 11 to 13; D-110's consequences only where
+  phase 11 is the pilot's specification on the maestro's module, and where phase 11 is the destination of `run
+  <stage>` (now stage 1's first task, point 5).
+
+## D-112 — The alambique's edits for the recast, applied on the maestro's approval
+
+- Status: decided
+- Decided: 2026-11-20
+- Origin: maintainer XEL in session 46's chat, on the drafted text: "Aprobadas, aplícalas y cierra la sesión".
+- Decision: four edits to the alambique, drafted by the integrator and checked for fidelity by Codex (R-055).
+  1. Section 2, the bootstrap's bullet: the record of the construction "a mano", imported "al cerrarse el
+     bootstrap" instead of "en producción".
+  2. 6.48, first paragraph: "sobre una tarea fija" removed.
+  3. 6.48, third paragraph, replaced whole: the first pilot is Fabrewk's self-construction (6.53), compared with the
+     current workflow through the bootstrap record, its weaker comparability stated, `[decidido]`; the pilot's
+     specification fixes what is built, the provoked refusals and the measures; TickBrew the first outside project
+     once its alambique settles, `[proyectado]`.
+  4. 6.53, replaced whole, its key `[proyectado]` changed to `[decidido]` on the maestro's approval: the last
+     hand-built version is stage 0, published, installed in its own repository as anyone would install it, and
+     closing the bootstrap by importing its record; the self-construction is the first pilot; the external oracles
+     named (tests in a clean clone, past-defect cases, independent review launched outside Fabrewk, the maestro's
+     acceptance).
+  The passages that name the pilot and do not change, with the reason: section 3 (TickBrew's legacy pilots);
+  section 5, 6.50, 6.51 and 6.52, where "el piloto" stays the name of 6.48's evaluation.
+- Consequences: `ALAMBIQUE.md` (sha256 `b9409261…647b` before, `ff12f03a…4dc9` after). The fermento has no pending
+  point; its answer is unchanged.
+- Sources: chat of session 46; D-111; R-055.
+- Supersedes: none.
+
+## R-055 — Session 46, phase 11 recast: the pilot as Fabrewk's self-construction
+
+- Status: recorded
+- Date: 2026-11-20
+- Who: integrator Claude Code, `claude-opus-5-5`; Codex (`codex-cli 0.166.0`, `gpt-6.1-sol`, effort high, `codex exec
+  -s workspace-write` in a scope of 3 GB, with no network), which checked the drafts' fidelity from
+  `target/review-11-drafts/` (a disposable clone at `e3029bf`, the drafts file, the 0.1.0 binary), reading only.
+- Start: HEAD `e3029bf`, tree clean.
+- Read: `STATUS.md`, `AGENTS.md`, `plan.md`, `ALAMBIQUE.md` (sections 1 to 3, 5, 6.48 to 6.53), `xel/fermento.md`
+  (no pending point; separator found once), both settings files; `decisions.md` D-003 to D-005, D-009, D-010, D-067,
+  D-108 to D-110, R-054; `core-specification.md` "How to read it", section 1, REQ-FER-7, REQ-GATE-8, sections 3, 5, 8,
+  11.4, 13; `architecture-decisions.md` AD-1 and AD-14's passages on the import and the pilot; the skills
+  `codex-review` and `differential-review`; `crates/core/src/table.rs`, `record/event.rs` (`KINDS`, `stream_kind`),
+  `cli/tasks.rs` (`first_to_run`), `docs/en/working.md`. Ran 0.1.0's `assess --alias xel`, from the signed release's
+  archive, in a disposable clone of this repository with a fixture home: verdict `none`, four files present that the
+  plan would create. Counted from Git: 313 commits, one author address, none signed; five bootstrap files holding
+  `/home/xel`. No credential of the person's was read.
+- Decided: D-111 (the recast), D-112 (the alambique's edits).
+- Codex's passes over the drafts, confirmed blocking findings:
+  1. 5. P11R-1: `AGENTS.md`'s quotation lost its indentation. P11R-2: the old row 11's hidden criteria dropped
+     silently. P11R-3: 6.53 and row 11 gave different orders for the import and the publication. P11R-4: D-111's
+     `Supersedes` missed D-003's fixed task, D-067 point 4 and D-110's destination for `run <stage>`. P11R-5:
+     `STATUS.md`'s "Next" and start prompt still named 0.1.0 as stage 0. Each confirmed against the files and
+     corrected; the integrator added what becomes of `plan.md` after the import.
+  2. Narrow, on the corrections: accept, P11R-1 to P11R-5 closed, no new finding.
+- Applied: `ALAMBIQUE.md` (D-112), `AGENTS.md`'s "Bootstrap record", `STATUS.md`'s "Evidence" and "Latest and next",
+  `plan.md` (the opening's sentence, rows 11 to 13, "Phases 11 to 13").
+- `target/release-0.1.0/` stays, unpublished (D-111 point 3). The review directory is removed after this entry.

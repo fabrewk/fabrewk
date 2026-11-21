@@ -32,9 +32,9 @@ summarizes the rules already fixed; the decisions and their origin are in `.brew
 - **Bootstrap record.** `.brewstillery/bootstrap/` is the provisional record of Fabrewk's self-construction:
   append-only for its entries (decisions and provenance), except `plan.md` and the audit, which the integrator
   maintains; one writer (the integrator). `bootstrap` is a reserved name, exists only in this repository and
-  never in a project Fabrewk serves; at production it is imported into the single registry and stays read-only,
-  never deleted. Technical provenance (paths, revisions, lines read) goes there and in commit messages, not in
-  the alambique or the fermentos.
+  never in a project Fabrewk serves; when the bootstrap closes (phase 11) it is imported into the single registry
+  and stays read-only, never deleted. Technical provenance (paths, revisions, lines read) goes there and in commit
+  messages, not in the alambique or the fermentos.
 - **Languages.** Talk to each maintainer in the language of their settings (`agentInteraction`; `xel`: es-MX).
   Technical files (these agent files, `STATUS.md`, the bootstrap record, canonical documents) are in English by
   default; the project setting is `languages.canonicalDocumentationLanguage`. The alambique and fermento answers are
