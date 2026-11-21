@@ -571,17 +571,27 @@ repository, is imported into the single registry at production and then stays re
   of 23. Measured: the core 12,312 of 12,500, the installer 1,073 of 1,200. Six interpretations the maestro may want
   to read are in R-054; section 5's `run <stage>` and phase 9's code differ, with phase 11 as destination (D-110).
   Publishing on GitHub is the maestro's act, not done. No credential of the person's was read.
-- **Next: phase 11, the pilot's specification** (plan row 11): the module, the hidden criteria, the six provoked
-  refusals (6.48, D-009) picked from section 11.4, and the budget for both arms; the maestro approves the budget and
-  the criteria before the pilot starts. Its inputs are the maestro's: the module, the new repository and its
-  alambique, written by XEL. It also settles section 5's `run <stage>` against phase 9's code (D-110).
-- **Start prompt:** `Eres el integrador de Fabrewk; fase 11: la especificación del piloto (el módulo, los criterios
-  ocultos, los seis rechazos provocados y el presupuesto de ambos brazos); empieza por .brewstillery/STATUS.md`. Model
-  and effort: Claude Code on Opus 5.5 (`claude-opus-5-5`), effort high; Codex GPT-6.1 Sol, effort high, reviews (plan
-  row 11). Read the skills `verify-part`, `codex-review`, `differential-review` and `sharp-edges` first. When waiting
-  for Codex, wait on the launching command itself, and check the commit named in each prompt against `git log`
-  before launching; Codex's prompt asks it not to read `.brewstillery/skills/`, to report each finding as an input,
-  an expected result and an actual one, and to write its report in English.
+- **Next: phase 11, the pilot recast as Fabrewk's self-construction** (the maestro's choice in session 45's chat,
+  after part 10d's close; to be decided and recorded at the session's start, superseding the plan's row 11 as
+  written). The session drafts, for the maestro's approval before any code: the alambique's edits (6.48, the pilot,
+  and every passage that names it; 6.53, self-construction by stages, from "after the pilot" to being the pilot);
+  D-009's comparison arm replaced by the bootstrap record as the manual method's reference, its weaker comparability
+  stated; plan rows 11 to 13 rewritten: the importer of `bootstrap/` into the single registry first, then Fabrewk
+  adopting its own repository with the installed 0.1.0 as stage 0, the six provoked refusals and one real rejection
+  round there, the external oracles of 6.53 kept (tests in a clean clone, the past-defect cases, Codex launched
+  outside Fabrewk, the maestro's acceptance); TickBrew as the first outside project once its alambique settles; and
+  what to review before publishing the pre-release on GitHub (the repository public, so the bootstrap record too).
+  Section 5's `run <stage>` against phase 9's code is settled there too (D-110).
+- **Start prompt:** `Eres el integrador de Fabrewk; fase 11: replantear el piloto como la autoconstrucción de Fabrewk
+  (editar el alambique en 6.48, 6.53 y donde nombre el piloto, reemplazar el brazo de comparación de D-009 por el
+  registro del bootstrap y reescribir las filas 11 a 13 del plan: primero el importador del bootstrap, luego la
+  adopción del propio repositorio con la 0.1.0 como etapa 0, los rechazos provocados, los oráculos externos y lo que
+  revisar antes de publicar la pre-release); empieza por .brewstillery/STATUS.md`. Model and effort: Claude Code on
+  Opus 5.5 (`claude-opus-5-5`), effort high; Codex GPT-6.1 Sol, effort high, checks the drafts' fidelity (plan row
+  11). Read the skills `codex-review` and `differential-review` first. When waiting for Codex, wait on the launching
+  command itself, and check the commit named in each prompt against `git log` before launching; Codex's prompt asks
+  it not to read `.brewstillery/skills/`, to report each finding as an input, an expected result and an actual one,
+  and to write its report in English.
 
 Carried without blocking, with destinations, in D-013. A phase that does not pass is corrected and retried; it
 never ends the project (D-003).
