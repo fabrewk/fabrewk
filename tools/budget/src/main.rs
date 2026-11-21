@@ -1,12 +1,15 @@
 //! `budget count` prints each ring's measure; `budget check --binary <path>` checks the whole
-//! budget: rings, crates and the stripped release binary. Exit status: 0 within, 1 over, 2 usage, 70 error.
+//! budget: rings, crates and the stripped release binary; `budget notices --out <dir>` writes the third-party
+//! notices; `budget release --binary <path> --out <dir>` makes the release a maestro signs (REQ-BUD-5, part 10d).
+//! Exit status: 0 within, 1 over, 2 usage, 70 error.
 
 use budget::budget::RINGS;
-use budget::{deps, rings};
+use budget::{deps, notices, release, rings};
+use std::path::Path;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-const USAGE: &str = "usage: budget count | budget check --binary <path>";
+const USAGE: &str = "usage: budget count | budget check --binary <path> | budget notices --out <dir> |\n       budget release --binary <path> --out <dir>";
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -14,6 +17,8 @@ fn main() -> ExitCode {
     let result = match args.as_slice() {
         ["count"] => count(),
         ["check", "--binary", binary] => check(PathBuf::from(binary)),
+        ["notices", "--out", dir] => notices::write(&budget::workspace_root(), Path::new(dir)).map(|()| true),
+        ["release", "--binary", binary, "--out", dir] => make_release(Path::new(binary), Path::new(dir)),
         _ => {
             eprintln!("{USAGE}");
             return ExitCode::from(2);
@@ -60,4 +65,14 @@ fn check(binary: PathBuf) -> Result<bool, String> {
         println!("over budget: {p}");
     }
     Ok(problems.is_empty())
+}
+
+fn make_release(binary: &Path, out: &Path) -> Result<bool, String> {
+    for file in release::make(&budget::workspace_root(), binary, out)? {
+        println!("made {}", file.display());
+    }
+    let sums = out.join("SHA256SUMS");
+    println!("sign it, in the maestro's terminal, with the key the script names:");
+    println!("  ssh-keygen -Y sign -n {} -f <the signing key> {}", release::NAMESPACE, sums.display());
+    Ok(true)
 }

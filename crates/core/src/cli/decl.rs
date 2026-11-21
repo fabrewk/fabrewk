@@ -808,7 +808,9 @@ pub fn reference(lang: &str, checks: &[(String, String, String)]) -> String {
         let moves = if moves.is_empty() { t("reference.none") } else { moves.join(", ") + "." };
         out += &format!("\n{} {moves}\n", t("reference.moves"));
         let schemas: Vec<String> = c.schemas.iter().map(|s| format!("`{s}`")).collect();
-        out += &format!("\n{} {}\n", t("reference.documents"), schemas.join(", "));
+        if !schemas.is_empty() {
+            out += &format!("\n{} {}\n", t("reference.documents"), schemas.join(", "));
+        }
         if c.name == "propose" {
             out += &format!("\n{}\n\n```text\n{}```\n", t("help.format"), file_format(lang));
         }

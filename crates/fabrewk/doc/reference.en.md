@@ -157,8 +157,6 @@ Asks the installation's questions on the terminal, shows the plan, and applies i
 
 Moves it may cause: `assessed` (repository assessed), `publication-decided` (publication decided), `policy-adopted` (policy adopted), `alambique-baseline` (alambique's baseline), `installed` (installed).
 
-Documents with --json: 
-
 Refusals
 
 - `TERMINAL_REQUIRED`: There is no terminal to ask the questions on, so onboard asks nothing and writes nothing.

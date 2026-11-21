@@ -516,6 +516,30 @@ pub fn run_in(dir: &Path, home: &Path, args: &[&str], path: Option<&std::ffi::Os
     }
 }
 
+/// A Python program that runs its arguments on a new pseudo-terminal, its controlling terminal, typing what it reads
+/// from its standard input and then the end of input: it prints what the terminal showed, its line ends as written,
+/// and exits with the program's status.
+pub const DRIVE: &str = r#"
+import os, pty, sys
+typed = sys.stdin.buffer.read()
+pid, fd = pty.fork()
+if pid == 0:
+    os.execv(sys.argv[1], sys.argv[1:])
+os.write(fd, typed + b"\x04")
+out = b""
+while True:
+    try:
+        chunk = os.read(fd, 65536)
+    except OSError:
+        break
+    if not chunk:
+        break
+    out += chunk
+_, status = os.waitpid(pid, 0)
+sys.stdout.buffer.write(out)
+sys.exit(os.waitstatus_to_exitcode(status))
+"#;
+
 /// A directory holding links to the programs named, found in this process's `PATH`, and nothing else.
 pub fn path_with(base: &Path, programs: &[&str]) -> std::ffi::OsString {
     let bin = base.join("bin");

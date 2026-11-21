@@ -11,29 +11,6 @@ use serde_json::json;
 use std::io::Write;
 use std::process::{Command, Stdio};
 
-/// Runs the binary with `args` on a new pseudo-terminal, its controlling terminal, typing `typed` and then the end of
-/// input: what the terminal showed, its line ends as written, and the exit status.
-const DRIVE: &str = r#"
-import os, pty, sys
-typed = sys.stdin.buffer.read()
-pid, fd = pty.fork()
-if pid == 0:
-    os.execv(sys.argv[1], sys.argv[1:])
-os.write(fd, typed + b"\x04")
-out = b""
-while True:
-    try:
-        chunk = os.read(fd, 65536)
-    except OSError:
-        break
-    if not chunk:
-        break
-    out += chunk
-_, status = os.waitpid(pid, 0)
-sys.stdout.buffer.write(out)
-sys.exit(os.waitstatus_to_exitcode(status))
-"#;
-
 /// `onboard` on a pseudo-terminal, each of `lines` typed and ended, with `env` added.
 fn onboard_env(fx: &Fx, lines: &[&str], env: &[(&str, &std::ffi::OsStr)]) -> Ran {
     let typed: String = lines.iter().map(|l| format!("{l}\n")).collect();

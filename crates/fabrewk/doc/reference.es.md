@@ -157,8 +157,6 @@ Hace en la terminal las preguntas de la instalación, muestra el plan y lo aplic
 
 Movimientos que puede causar: `assessed` (repositorio evaluado), `publication-decided` (publicación decidida), `policy-adopted` (política adoptada), `alambique-baseline` (base del alambique), `installed` (instalado).
 
-Documentos con --json: 
-
 Rechazos
 
 - `TERMINAL_REQUIRED`: No hay una terminal donde hacer las preguntas, así que onboard no pregunta nada ni escribe nada.

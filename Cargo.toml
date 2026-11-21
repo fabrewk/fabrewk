@@ -7,7 +7,7 @@ resolver = "3"
 members = ["crates/core", "crates/adapter-claude", "crates/adapter-codex", "crates/confine-bwrap", "crates/install", "crates/fabrewk", "tools/budget"]
 
 [workspace.package]
-version = "0.0.0"
+version = "0.1.0"
 edition = "2024"
 # The Fedora rustc at phase 7's start (AD-4, REQ-BUD-3); raised only by a maestro's recorded decision.
 rust-version = "1.99.1"

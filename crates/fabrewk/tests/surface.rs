@@ -38,6 +38,19 @@ fn shell_ok(shell: &str, flag: &str, script: &str) -> bool {
 }
 
 #[test]
+fn req_cli_1_the_reference_names_documents_only_for_a_command_that_prints_them() {
+    for (lang, _) in CATALOGUES {
+        let reference = cli::reference(lang);
+        let documents = cli::say(lang, "reference.documents", &[]);
+        let onboard = &reference[reference.find("## `fabrewk onboard`").unwrap()..];
+        let onboard = &onboard[..onboard[3..].find("\n## ").unwrap()];
+        assert!(!onboard.contains(&documents), "{lang}: {onboard}");
+        let assess = &reference[reference.find("## `fabrewk assess").unwrap()..];
+        assert!(assess.contains(&format!("{documents} `fabrewk.assessment/1`")), "{lang}");
+    }
+}
+
+#[test]
 fn req_cli_1_generated_files_equal_a_fresh_generation() {
     for (path, fresh) in generated() {
         if std::env::var_os("FABREWK_REGENERATE").is_some() {

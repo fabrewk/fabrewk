@@ -1,9 +1,12 @@
-//! Fabrewk's size counter and budget checks: a development tool kept in the workspace, never shipped (REQ-BUD-1).
+//! Fabrewk's size counter and budget checks, and the release with its third-party notices: a development tool kept in
+//! the workspace, never shipped (REQ-BUD-1, REQ-BUD-5).
 
 pub mod budget;
 pub mod count;
 pub mod deps;
 pub mod json;
+pub mod notices;
+pub mod release;
 pub mod rings;
 pub mod sources;
 
