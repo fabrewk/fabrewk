@@ -132,7 +132,7 @@ main() {
         answer=
         read -r answer </dev/tty || answer=
         case "$answer" in
-            y | Y | yes | Yes | YES) exec "$bindir/fabrewk" onboard ;;
+            y | Y | yes | Yes | YES) cd "$top" && exec "$bindir/fabrewk" onboard ;;
         esac
         say "when you want it, run fabrewk onboard inside the repository."
     else

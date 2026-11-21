@@ -25,9 +25,8 @@ fn base() -> String {
     format!("fabrewk-{VERSION}-linux-aarch64")
 }
 
-/// The program the fixture's release carries: it says its version and that `onboard` ran, with its arguments.
-const PROGRAM: &str =
-    "#!/bin/sh\ncase \"$1\" in\n--version) echo \"fabrewk fixture\" ;;\n*) echo \"fixture ran: $*\" ;;\nesac\n";
+/// The program the fixture's release carries: it says its version, and where it ran with which arguments.
+const PROGRAM: &str = "#!/bin/sh\ncase \"$1\" in\n--version) echo \"fabrewk fixture\" ;;\n*) echo \"fixture ran in $(pwd): $*\" ;;\nesac\n";
 
 struct Script {
     dir: PathBuf,
@@ -205,7 +204,12 @@ impl Script {
 
     /// The script on a pseudo-terminal, its controlling terminal, `typed` typed and then the end of input.
     fn on_terminal(&self, typed: &str, env: &[(&str, &str)]) -> Ran {
+        self.on_terminal_in(&self.work, typed, env)
+    }
+
+    fn on_terminal_in(&self, dir: &Path, typed: &str, env: &[(&str, &str)]) -> Ran {
         let mut c = self.command("python3", None, env);
+        c.current_dir(dir);
         c.args(["-I", "-c", DRIVE, "/usr/bin/env", "dash"]).arg(&self.script);
         let mut child = c.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().unwrap();
         child.stdin.take().unwrap().write_all(typed.as_bytes()).unwrap();
@@ -437,7 +441,13 @@ fn req_ins_6_onboard_is_offered_inside_a_repository_with_a_terminal_and_never_in
     assert_eq!(ran.status, 0, "{ran:?}");
     assert!(ran.stdout.contains(&format!("{question}{} now?", s.work.display())), "{ran:?}");
     // The terminal echoes what is typed as it is typed, before the question.
-    assert!(ran.stdout.ends_with("[y/N] fixture ran: onboard\n"), "{ran:?}");
+    assert!(ran.stdout.ends_with(&format!("[y/N] fixture ran in {}: onboard\n", s.work.display())), "{ran:?}");
+    // From a directory inside the repository, `onboard` runs at its root, where it is asked.
+    let inside = s.work.join("inside");
+    fs::create_dir_all(&inside).unwrap();
+    let ran = s.on_terminal_in(&inside, "y\n", &[]);
+    assert!(ran.stdout.contains(&format!("{question}{} now?", s.work.display())), "{ran:?}");
+    assert!(ran.stdout.ends_with(&format!("[y/N] fixture ran in {}: onboard\n", s.work.display())), "{ran:?}");
     for typed in ["n\n", "\n", "", "yes please\n", "sí\n"] {
         let ran = s.on_terminal(typed, &[]);
         assert_eq!(ran.status, 0, "{typed:?}: {ran:?}");
