@@ -244,8 +244,15 @@ fn req_bud_5_a_release_holds_exactly_its_files_reproducibly_with_its_notices_fre
     let said = format!(r#"{{"features":[],"schema":"fabrewk.version/1","version":"{version}"}}"#);
     let binary = fake_binary(&bin, "fabrewk", &said);
     let (one, two) = (tmp("release-1"), tmp("release-2").join("new"));
-    for out in [&one, &two] {
-        let ran = budget(&["release", "--binary", binary.to_str().unwrap(), "--out", out.to_str().unwrap()]);
+    // The second under a umask that would make every file its owner's alone: the modes are the release's own.
+    for (out, umask) in [(&one, "022"), (&two, "077")] {
+        let script = format!("umask {umask} && exec \"$0\" release --binary \"$1\" --out \"$2\"");
+        let ran = Command::new("sh")
+            .args(["-c", &script, env!("CARGO_BIN_EXE_budget")])
+            .arg(&binary)
+            .arg(out)
+            .output()
+            .unwrap();
         assert_eq!(ran.status.code(), Some(0), "{}", String::from_utf8_lossy(&ran.stderr));
         let said = String::from_utf8(ran.stdout).unwrap();
         assert!(said.contains("ssh-keygen -Y sign -n fabrewk-release -f <the signing key> "), "{said}");
@@ -327,6 +334,10 @@ fn req_bud_5_a_release_refuses_another_version_a_feature_or_a_directory_not_empt
     let script = bin.join("script");
     fs::write(&script, format!("#!/bin/sh\necho '{said}'\n")).unwrap();
     fs::set_permissions(&script, fs::Permissions::from_mode(0o755)).unwrap();
+    let other_arch = bin.join("x86-64");
+    let mut bytes = fs::read(&binary).unwrap();
+    bytes[18..20].copy_from_slice(&62u16.to_le_bytes());
+    fs::write(&other_arch, bytes).unwrap();
     let short = bin.join("short");
     fs::write(&short, &fs::read(&binary).unwrap()[..80]).unwrap();
     fs::set_permissions(&short, fs::Permissions::from_mode(0o755)).unwrap();
@@ -335,6 +346,7 @@ fn req_bud_5_a_release_refuses_another_version_a_feature_or_a_directory_not_empt
         (built_binary(&bin, "unstripped", &said, Some(notices::TARGET), false), "holds a symbol table"),
         (script, "is not a 64-bit little-endian ELF for AArch64"),
         (short, "headers are cut short"),
+        (other_arch, "is not a 64-bit little-endian ELF for AArch64"),
     ] {
         let out = tmp("refused-elf");
         let ran = budget(&["release", "--binary", other.to_str().unwrap(), "--out", out.to_str().unwrap()]);
