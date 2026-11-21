@@ -175,9 +175,15 @@ pub fn toolchain() -> Result<Toolchain, String> {
     Ok(Toolchain { release: field("release: ")?, llvm: field("LLVM version: ")?, sysroot: sysroot.trim().into() })
 }
 
-/// The toolchain's libraries the binary links, but the standard library, checked against the toolchain: its LLVM is
-/// the one libunwind's text is for, and its musl `libc.a` names the version musl's text is for.
+/// The toolchain's libraries the binary links, but the standard library, checked against the toolchain: it is the
+/// workspace's `rust-version`, its LLVM is the one libunwind's text is for, and its musl `libc.a` names the version
+/// musl's text is for.
 pub fn toolchain_libraries(t: &Toolchain) -> Result<Vec<Linked>, String> {
+    // The release is built with the workspace's toolchain; the standard library's notices are that toolchain's.
+    let pinned = env!("CARGO_PKG_RUST_VERSION");
+    if t.release != pinned {
+        return Err(format!("rustc is {}; a release's notices are the workspace's toolchain's, {pinned}", t.release));
+    }
     if t.llvm != LLVM {
         return Err(format!("the toolchain's LLVM is {}; the libunwind text kept is for {LLVM}", t.llvm));
     }

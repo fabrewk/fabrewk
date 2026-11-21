@@ -146,7 +146,11 @@ fn req_bud_5_the_toolchain_s_libraries_are_checked_against_the_toolchain() {
     let sysroot = tmp("sysroot");
     let lib = sysroot.join("lib/rustlib/aarch64-unknown-linux-musl/lib/self-contained");
     fs::create_dir_all(&lib).unwrap();
-    let t = |llvm: &str| Toolchain { release: "1.0.0".into(), llvm: llvm.into(), sysroot: sysroot.clone() };
+    let pinned = env!("CARGO_PKG_RUST_VERSION");
+    let other = Toolchain { release: "1.100.0".into(), llvm: "23.1.1".into(), sysroot: sysroot.clone() };
+    let err = notices::toolchain_libraries(&other).unwrap_err();
+    assert_eq!(err, format!("rustc is 1.100.0; a release's notices are the workspace's toolchain's, {pinned}"));
+    let t = |llvm: &str| Toolchain { release: pinned.into(), llvm: llvm.into(), sysroot: sysroot.clone() };
     let err = notices::toolchain_libraries(&t("22.0.0")).unwrap_err();
     assert_eq!(err, "the toolchain's LLVM is 22.0.0; the libunwind text kept is for 23.1.1");
     fs::write(lib.join("libc.a"), b"x\x001.2.4\x00y 1.2.5").unwrap();
