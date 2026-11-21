@@ -608,3 +608,14 @@ fn req_ins_6_onboard_runs_at_the_exact_top_of_a_repository_whose_name_ends_in_a_
     assert!(ran.stdout.contains(&format!("Run fabrewk onboard in {} now?", odd.display())), "{ran:?}");
     assert_eq!(fs::read(&record).unwrap(), odd.as_os_str().as_encoded_bytes());
 }
+
+#[test]
+fn req_ins_6_a_temporary_directory_whose_name_holds_a_backslash_is_used_as_it_is() {
+    let s = fixture("backslash");
+    let odd = s.dir.join("tmp\\b \\n'x");
+    fs::create_dir_all(&odd).unwrap();
+    let ran = s.run_with(&[], None, &[("TMPDIR", odd.to_str().unwrap())]);
+    assert_eq!(ran.status, 0, "{ran:?}");
+    assert_eq!(fs::read_to_string(s.installed()).unwrap(), PROGRAM);
+    assert_eq!(fs::read_dir(&odd).unwrap().count(), 0);
+}

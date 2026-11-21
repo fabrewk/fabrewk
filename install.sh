@@ -95,7 +95,8 @@ main() {
         refuse "the checksum of $archive is not the one SHA256SUMS lists; nothing was installed."
     say "the checksum of $archive matches"
 
-    tar -xzf "$tmp/$archive" -C "$tmp" "fabrewk-$version-$platform/fabrewk" ||
+    # Inside the temporary directory, by relative names: GNU tar reads escapes in the names it is given (P10D-5).
+    (cd "$tmp" && tar -xzf "$archive" "fabrewk-$version-$platform/fabrewk") ||
         refuse "the archive holds no program fabrewk; nothing was installed."
     binary="$tmp/fabrewk-$version-$platform/fabrewk"
     [ -f "$binary" ] && [ ! -L "$binary" ] || refuse "the archive holds no program fabrewk; nothing was installed."
