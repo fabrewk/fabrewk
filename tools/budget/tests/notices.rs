@@ -204,12 +204,29 @@ fn req_bud_5_a_fresh_generation_gives_the_same_bytes_and_names_every_crate_the_b
     assert_eq!(fs::read(one.join(notices::STD_FILE)).unwrap(), std);
 }
 
-/// A program standing for the release binary, answering `--version --json` with `said`.
-fn fake_binary(dir: &Path, said: &str) -> PathBuf {
-    let path = dir.join("fabrewk");
-    fs::write(&path, format!("#!/bin/sh\nprintf '%s\\n' '{said}'\n")).unwrap();
-    fs::set_permissions(&path, fs::Permissions::from_mode(0o755)).unwrap();
+/// A program standing for the release binary, built by `rustc` for `target` (stripped when `strip`), answering
+/// `--version --json` with `said`.
+fn built_binary(dir: &Path, name: &str, said: &str, target: Option<&str>, strip: bool) -> PathBuf {
+    let source = dir.join(format!("{name}.rs"));
+    let said = said.replace('\\', "\\\\").replace('"', "\\\"");
+    fs::write(&source, format!("fn main() {{\n    println!(\"{{}}\", \"{said}\");\n}}\n")).unwrap();
+    let path = dir.join(name);
+    let mut c = Command::new("rustc");
+    c.args(["--edition", "2024", "-C", "opt-level=0", "-o"]).arg(&path).arg(&source);
+    if let Some(t) = target {
+        c.args(["--target", t]);
+    }
+    if strip {
+        c.args(["-C", "strip=symbols"]);
+    }
+    let out = c.output().unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
     path
+}
+
+/// The release target's build: static for musl, stripped.
+fn fake_binary(dir: &Path, name: &str, said: &str) -> PathBuf {
+    built_binary(dir, name, said, Some(notices::TARGET), true)
 }
 
 fn listing(archive: &Path) -> String {
@@ -224,7 +241,8 @@ fn req_bud_5_a_release_holds_exactly_its_files_reproducibly_with_its_notices_fre
     let base = release::base(version);
     assert_eq!(base, format!("fabrewk-{version}-linux-aarch64"));
     let bin = tmp("release-bin");
-    let binary = fake_binary(&bin, &format!(r#"{{"features":[],"schema":"fabrewk.version/1","version":"{version}"}}"#));
+    let said = format!(r#"{{"features":[],"schema":"fabrewk.version/1","version":"{version}"}}"#);
+    let binary = fake_binary(&bin, "fabrewk", &said);
     let (one, two) = (tmp("release-1"), tmp("release-2").join("new"));
     for out in [&one, &two] {
         let ran = budget(&["release", "--binary", binary.to_str().unwrap(), "--out", out.to_str().unwrap()]);
@@ -294,15 +312,36 @@ fn req_bud_5_a_release_refuses_another_version_a_feature_or_a_directory_not_empt
         (format!(r#"{{"features":["fault-injection"],"version":"{version}"}}"#), "the binary was built with features"),
         (format!(r#"{{"version":"{version}"}}"#), "the binary was built with features"),
     ];
-    for (said, why) in &cases {
-        let binary = fake_binary(&bin, said);
+    for (n, (said, why)) in cases.iter().enumerate() {
+        let binary = fake_binary(&bin, &format!("v{n}"), said);
         let out = tmp("refused-out");
         let ran = budget(&["release", "--binary", binary.to_str().unwrap(), "--out", out.to_str().unwrap()]);
         assert_eq!(ran.status.code(), Some(70));
         assert!(String::from_utf8_lossy(&ran.stderr).contains(why), "{}", String::from_utf8_lossy(&ran.stderr));
         assert_eq!(fs::read_dir(&out).unwrap().count(), 0);
     }
-    let binary = fake_binary(&bin, &format!(r#"{{"features":[],"version":"{version}"}}"#));
+    let said = format!(r#"{{"features":[],"version":"{version}"}}"#);
+    let binary = fake_binary(&bin, "fabrewk", &said);
+    // Another target's build, a build not stripped, a program that is no ELF, and an ELF cut short are refused before
+    // the program runs.
+    let script = bin.join("script");
+    fs::write(&script, format!("#!/bin/sh\necho '{said}'\n")).unwrap();
+    fs::set_permissions(&script, fs::Permissions::from_mode(0o755)).unwrap();
+    let short = bin.join("short");
+    fs::write(&short, &fs::read(&binary).unwrap()[..80]).unwrap();
+    fs::set_permissions(&short, fs::Permissions::from_mode(0o755)).unwrap();
+    for (other, why) in [
+        (built_binary(&bin, "gnu", &said, None, true), "it is dynamic, not the static musl build"),
+        (built_binary(&bin, "unstripped", &said, Some(notices::TARGET), false), "holds a symbol table"),
+        (script, "is not a 64-bit little-endian ELF for AArch64"),
+        (short, "headers are cut short"),
+    ] {
+        let out = tmp("refused-elf");
+        let ran = budget(&["release", "--binary", other.to_str().unwrap(), "--out", out.to_str().unwrap()]);
+        assert_eq!(ran.status.code(), Some(70), "{why}");
+        assert!(String::from_utf8_lossy(&ran.stderr).contains(why), "{why}: {}", String::from_utf8_lossy(&ran.stderr));
+        assert_eq!(fs::read_dir(&out).unwrap().count(), 0);
+    }
     let out = tmp("refused-full");
     fs::write(out.join("left"), "x").unwrap();
     let ran = budget(&["release", "--binary", binary.to_str().unwrap(), "--out", out.to_str().unwrap()]);

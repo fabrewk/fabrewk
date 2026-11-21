@@ -25,8 +25,9 @@ fn base() -> String {
     format!("fabrewk-{VERSION}-linux-aarch64")
 }
 
-/// The program the fixture's release carries: it says its version, and where it ran with which arguments.
-const PROGRAM: &str = "#!/bin/sh\ncase \"$1\" in\n--version) echo \"fabrewk fixture\" ;;\n*) echo \"fixture ran in $(pwd): $*\" ;;\nesac\n";
+/// The program the fixture's release carries: it says its version, and where it ran with which arguments, writing
+/// the directory exactly into `FIXTURE_CWD` when that names a file.
+const PROGRAM: &str = "#!/bin/sh\ncase \"$1\" in\n--version) echo \"fabrewk fixture\" ;;\n*) [ -z \"${FIXTURE_CWD:-}\" ] || printf %s \"$PWD\" >\"$FIXTURE_CWD\"; echo \"fixture ran in $(pwd): $*\" ;;\nesac\n";
 
 struct Script {
     dir: PathBuf,
@@ -541,4 +542,69 @@ fn req_ins_6_the_agent_route_ends_at_assess_and_the_readmes_name_the_script_s_si
             }
         }
     }
+}
+
+/// A directory holding `name`, a program that runs `body`, first on a `PATH` of this process's.
+fn wrapper(dir: &Path, name: &str, body: &str) -> std::ffi::OsString {
+    let bin = dir.join(format!("wrap-{name}"));
+    fs::create_dir_all(&bin).unwrap();
+    fs::write(bin.join(name), format!("#!/bin/sh\n{body}\n")).unwrap();
+    fs::set_permissions(bin.join(name), fs::Permissions::from_mode(0o755)).unwrap();
+    let mut path = bin.into_os_string();
+    path.push(":");
+    path.push(std::env::var_os("PATH").unwrap());
+    path
+}
+
+fn real(program: &str) -> PathBuf {
+    std::env::split_paths(&std::env::var_os("PATH").unwrap()).map(|d| d.join(program)).find(|f| f.is_file()).unwrap()
+}
+
+#[test]
+fn req_ins_6_a_signal_or_a_closed_output_leaves_nothing_behind() {
+    let s = fixture("signals");
+    // A signal right after the first temporary directory is made, before its name is kept (P10D-2), and right after
+    // the program's temporary file is made beside it.
+    let mktemp = real("mktemp");
+    for (when, body) in [
+        ("the first", format!("{} \"$@\"\nkill -TERM \"$PPID\"", mktemp.display())),
+        ("the second", format!("{} \"$@\"\ncase \"$1\" in -d) ;; *) kill -TERM \"$PPID\" ;; esac", mktemp.display())),
+    ] {
+        let ran = s.run_with(&[], Some(wrapper(&s.dir.join(when), "mktemp", &body)), &[]);
+        assert_eq!(ran.status, 1, "{when}: {ran:?}");
+        let (home, tmp) = s.written();
+        assert!(tmp.is_empty() && !home.contains(".local/bin/fabrewk"), "{when}: {home:?} {tmp:?}");
+        assert!(home.iter().all(|p| !p.contains(".fabrewk.")), "{when}: {home:?}");
+    }
+    // The output closed under it, as `| head -n 1` does, while it downloads (P10D-1).
+    let flag = s.dir.join("closed");
+    let body = format!(
+        "i=0\nwhile [ ! -e '{}' ] && [ $i -lt 200 ]; do sleep 0.05; i=$((i + 1)); done\nexec {} \"$@\"",
+        flag.display(),
+        real("curl").display()
+    );
+    let mut c = s.command("setsid", Some(wrapper(&s.dir, "curl", &body)), &[]);
+    let mut child = c.args(["-w", "dash"]).arg(&s.script).stdin(Stdio::null()).stdout(Stdio::piped()).spawn().unwrap();
+    let mut first = String::new();
+    std::io::BufRead::read_line(&mut std::io::BufReader::new(child.stdout.take().unwrap()), &mut first).unwrap();
+    assert!(first.starts_with("fabrewk install: downloading Fabrewk"), "{first}");
+    fs::write(&flag, "").unwrap();
+    let status = child.wait().unwrap();
+    assert_eq!(status.code(), Some(1), "{status:?}");
+    // Only the directories the earlier cases made stay; no download, no program.
+    assert_eq!(s.written(), (set(&[".local", ".local/bin"]), set(&[])));
+}
+
+#[test]
+fn req_ins_6_onboard_runs_at_the_exact_top_of_a_repository_whose_name_ends_in_a_line_end() {
+    let s = fixture("line-end");
+    let (odd, sibling) = (s.work.join("project\n"), s.work.join("project"));
+    for d in [&odd, &sibling] {
+        run_quiet(Command::new("git").args(["init", "-q"]).arg(d));
+    }
+    let record = s.dir.join("cwd");
+    let ran = s.on_terminal_in(&odd, "y\n", &[("FIXTURE_CWD", record.to_str().unwrap())]);
+    assert_eq!(ran.status, 0, "{ran:?}");
+    assert!(ran.stdout.contains(&format!("Run fabrewk onboard in {} now?", odd.display())), "{ran:?}");
+    assert_eq!(fs::read(&record).unwrap(), odd.as_os_str().as_encoded_bytes());
 }

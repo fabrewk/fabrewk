@@ -19,6 +19,8 @@ release_url=https://github.com/fabrewk/fabrewk/releases/download/v0.1.0
 allowed_signers='xel namespaces="fabrewk-release" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMpNfw3yY4sb7CO5xUCEfRQuPtw6UlYial7Y/MWCHFVf xel@fabrewk'
 namespace=fabrewk-release
 supported=linux-aarch64
+newline='
+'
 
 say() {
     printf 'fabrewk install: %s\n' "$*"
@@ -54,10 +56,12 @@ main() {
 
     archive="fabrewk-$version-$platform.tar.gz"
     bindir="$HOME/.local/bin"
-    tmp=$(mktemp -d "${TMPDIR:-/tmp}/fabrewk-install.XXXXXX")
+    # The traps come before the first temporary file, so that a signal or an output closed under it leaves nothing.
+    tmp=
     new=
-    trap 'rm -rf "$tmp"; [ -z "$new" ] || rm -f "$new"' EXIT
-    trap 'exit 1' HUP INT TERM
+    trap '[ -z "$tmp" ] || rm -rf "$tmp"; [ -z "$new" ] || rm -f "$new"' EXIT
+    trap 'exit 1' HUP INT PIPE TERM
+    tmp=$(mktemp -d "${TMPDIR:-/tmp}/fabrewk-install.XXXXXX")
 
     say "downloading Fabrewk $version for $platform from $release_url"
     proto=${release_url%%://*}
@@ -126,7 +130,10 @@ main() {
         say "$agent is set, so this runs inside an agent: the next step is fabrewk assess with the maintainer's answers."
     elif command -v git >/dev/null 2>&1 && [ "$(git rev-parse --is-inside-work-tree 2>/dev/null)" = true ] &&
         (exec </dev/tty >/dev/tty) 2>/dev/null; then
-        top=$(git rev-parse --show-toplevel)
+        # The top as Git prints it, its own trailing line ends kept: only the one Git adds is removed.
+        top=$(git rev-parse --show-toplevel && echo x) || refuse "git could not name the repository's top."
+        top=${top%x}
+        top=${top%"$newline"}
         printf 'Run fabrewk onboard in %s now? It asks its questions here and writes nothing before your yes. [y/N] ' \
             "$top" >/dev/tty
         answer=
