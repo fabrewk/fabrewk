@@ -1046,6 +1046,34 @@ repository changed between the plan shown and the yes is `PLAN_CHANGED` with not
 warning's text is Codex's draft of part 10a, made final by the maestro (D-107); the interview's questions are
 Codex's, as point 11 says.
 
+**Amended in part 10d (D-108, D-109).** How the script and the release are built, points 10 and 11 read so.
+`install.sh` takes no argument (any is a usage error, exit 2, before anything else); it then reads `uname -s` and
+`uname -m`, and only `Linux` with `aarch64` or `arm64` is supported, any other pair `PLATFORM_UNSUPPORTED` with the
+list, before any download; a missing `curl`, `ssh-keygen`, `sha256sum`, `tar` or `gzip` is `TOOL_MISSING`, naming
+the package, and the script installs no tool. `HOME` and `TMPDIR` must be absolute paths, so that no tool takes one
+for an option or an assignment (P10D-6), and `awk` reads `SHA256SUMS` from its standard input. Its traps (`EXIT`, and `HUP`, `INT`, `PIPE`, `TERM`) are set before
+the first temporary file, which is a directory under `TMPDIR`, so that no signal and no output closed under it leaves
+a download behind (P10D-1, P10D-2). `curl` keeps to the address's own protocol, redirections included, so that the
+tests' copy reads a `file://` release with the same command. The signature is verified for each principal the
+script's allowed-signers lines name, in the namespace `fabrewk-release`; then `SHA256SUMS` must list the archive
+exactly once, by its digest; then only the member `fabrewk-<version>-linux-aarch64/fabrewk` is extracted, inside the
+temporary directory by relative names, since GNU `tar` reads escapes in the names it is given (P10D-5), and it must be
+a regular file. The program goes to a temporary file made in `~/.local/bin` and renamed over `fabrewk`; a
+directory there is refused. Inside an agent (the adapters' markers and `FABREWK_EXTENSION`, set even empty, as the
+core reads them) it offers nothing and names `fabrewk assess` as the next step; inside a Git working tree with
+`/dev/tty` open for reading and writing, it asks there and reads the answer there, never from standard input, `[y/N]`, and a yes runs `fabrewk onboard` at the repository's
+exact top (P10D-3); otherwise it names `fabrewk onboard`. The release is made by `budget release --binary <path> --out
+<dir>` in `tools/budget`, which refuses a binary that is not a static, stripped AArch64 ELF (P10D-4), that is not
+the workspace's version or holds a feature, and a directory not empty; its archive is reproducible (entries sorted,
+owned by 0, dated by the commit, `gzip -n`). `budget notices` lists every crate the binary reaches through normal and
+build dependencies in `cargo metadata` filtered to `aarch64-unknown-linux-musl`, with the licence its manifest
+declares and every licence text at its package's top (a file named `LICENSE`, `LICENCE`, `COPYING`, `COPYRIGHT`,
+`NOTICE` or `UNLICENSE`, in any case, a crate with none stopping it), each distinct text once with what carries it,
+then the toolchain's libraries (D-108 point 4), refusing a `rustc` other than the workspace's `rust-version`, an
+LLVM or a musl other than the texts kept are for. The READMEs' preset prompt is their one ```` ```text ```` block,
+its commands its lines indented by four spaces, the last `fabrewk assess`, none `fabrewk apply` (section 12's "the
+agent route's last command" read so). The READMEs say that outside contributions are not accepted yet (D-109).
+
 ### SEC: confinement, credentials and controls
 
 - **REQ-SEC-1.** On Linux every agent and check runs under bubblewrap: system read-only, an empty home, only the tool's

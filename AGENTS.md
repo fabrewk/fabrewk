@@ -8,7 +8,9 @@ summarizes the rules already fixed; the decisions and their origin are in `.brew
 - **Domain.** Everything Fabrewk works on in a repository lives in `.brewstillery/`. Outside it there are only the
   entry files tools require at the root (`AGENTS.md`, `CLAUDE.md`), declared and minimal. In this repository
   Fabrewk's own code is the product and lives at the root: a Cargo workspace with one crate per ring under `crates/`,
-  development tools under `tools/`, the licence files and a root `.gitignore` holding `/target` (D-041).
+  development tools under `tools/`, the licence files and a root `.gitignore` holding `/target` (D-041); and the
+  product's own files, `install.sh`, `README.md`, `README.es-MX.md` and the manuals in `docs/en/` and `docs/es-MX/`
+  (D-097).
 - **Alambique.** `.brewstillery/ALAMBIQUE.md` is the project's description, approved by its maestros. No agent edits
   it directly: an agent drafts each approved edit and a maestro approves it (in the bootstrap, XEL in chat). Its
   status keys (`[decidido]` and the others defined in its opening) reflect the bootstrap record; an agent proposes a
