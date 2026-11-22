@@ -26,19 +26,20 @@ pub struct Walk {
     /// Each regular file of at most 1 MiB, by its path from the repository's root, with its bytes.
     pub files: BTreeMap<String, Vec<u8>>,
     /// Every other entry, by its path, and what it is: `link`, `other` (neither a regular file nor a directory),
-    /// `not-utf8` (its name), `too-large`, `empty` (a directory that holds nothing but directories, at any depth) or
-    /// `unreadable`.
+    /// `not-utf8` (its name), `too-large`, `empty` (a directory that holds nothing but directories, at any depth),
+    /// `private` (an entry `skip` names, never opened) or `unreadable`.
     pub odd: Vec<(String, &'static str)>,
 }
 
-/// Walks `bootstrap/` under `root`, following no link on the way or at an entry; `None` when it is absent. A
-/// `bootstrap/` that is itself a link or not a directory is its one odd entry.
-pub fn walk(root: &Path) -> Option<Walk> {
+/// Walks `bootstrap/` under `root`, following no link on the way or at an entry, and opening no entry `skip` names
+/// (the installer's private folder, P11A-5); `None` when it is absent. A `bootstrap/` that is itself a link or not a
+/// directory is its one odd entry.
+pub fn walk(root: &Path, skip: &dyn Fn(&Path) -> bool) -> Option<Walk> {
     let mut out = Walk::default();
     match std::fs::symlink_metadata(root.join(DIR)) {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return None,
         Err(_) => out.odd.push((DIR.into(), "unreadable")),
-        Ok(m) if m.is_dir() && unlinked(root, DIR) => _ = visit(root, DIR, &mut out),
+        Ok(m) if m.is_dir() && unlinked(root, DIR) => _ = visit(root, DIR, skip, &mut out),
         Ok(m) if m.is_dir() || m.file_type().is_symlink() || !unlinked(root, DIR) => out.odd.push((DIR.into(), "link")),
         Ok(_) => out.odd.push((DIR.into(), "other")),
     }
@@ -46,7 +47,7 @@ pub fn walk(root: &Path) -> Option<Walk> {
 }
 
 /// Walks the directory `rel`; whether it holds anything but directories, at any depth.
-fn visit(root: &Path, rel: &str, out: &mut Walk) -> bool {
+fn visit(root: &Path, rel: &str, skip: &dyn Fn(&Path) -> bool, out: &mut Walk) -> bool {
     let Ok(mut entries) = std::fs::read_dir(root.join(rel)).and_then(|e| e.collect::<Result<Vec<_>, _>>()) else {
         out.odd.push((rel.into(), "unreadable"));
         return true;
@@ -60,8 +61,9 @@ fn visit(root: &Path, rel: &str, out: &mut Walk) -> bool {
             continue;
         };
         let what = match std::fs::symlink_metadata(e.path()) {
+            _ if skip(&e.path()) => "private",
             Ok(m) if m.is_dir() => {
-                held |= visit(root, &name, out);
+                held |= visit(root, &name, skip, out);
                 continue;
             }
             Ok(m) if m.file_type().is_symlink() => "link",
@@ -162,7 +164,7 @@ fn listed(import: &Value) -> BTreeMap<String, String> {
 pub fn planned(root: &Path, plan: &Value, digest: &str, split: Split) -> Result<Vec<Value>, Error> {
     let changed = |why: &str| refuse(Code::PlanChanged, Some(&root.join(DIR)), why.to_owned());
     let import = &plan["import"];
-    let walk = walk(root).unwrap_or_default();
+    let walk = walk(root, &|_| false).unwrap_or_default();
     let found: BTreeMap<String, String> = walk.files.iter().map(|(p, b)| (p.clone(), sha256_hex(b))).collect();
     if !walk.odd.is_empty() || found != listed(import) {
         return Err(changed("bootstrap/ no longer holds exactly the files the plan imports"));
@@ -240,10 +242,14 @@ pub fn imported(record: &Replay) -> Option<&Event> {
 pub fn check(root: &Path, record: &Replay) -> Vec<Error> {
     let Some(event) = imported(record) else { return Vec::new() };
     let mut listed = listed(&event.value["payload"]);
-    let walk = walk(root).unwrap_or_default();
+    let walk = walk(root, &|_| false).unwrap_or_default();
     let mut out = Vec::new();
     let mut found = |path: &str, why: String| out.push(refuse(Code::BootstrapChanged, Some(&root.join(path)), why));
     for (path, what) in &walk.odd {
+        // What lies under a directory that cannot be read is unknown, never removed (P11A-7).
+        if *what == "unreadable" {
+            listed.retain(|p, _| !p.starts_with(&format!("{path}/")));
+        }
         let place = if listed.remove(path).is_some() { "changed" } else { "added" };
         match *what {
             "unreadable" => {}

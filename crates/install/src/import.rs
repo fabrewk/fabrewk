@@ -111,7 +111,7 @@ pub(super) fn read(
     let mut say = |key: &str, blocks: bool, path: Option<&str>, detail: Option<&str>| {
         reasons.push(reason(key, blocks, path, detail));
     };
-    let walk = bootstrap::walk(root).unwrap_or_default();
+    let walk = bootstrap::walk(root, &|p| super::private(p)).unwrap_or_default();
     let mut set = BTreeMap::new();
     for (path, what) in &walk.odd {
         say(&format!("import-{what}"), true, Some(path), None);
@@ -215,7 +215,9 @@ pub(super) fn read(
     let top = listed.then(|| std::fs::read_dir(&domain)).transpose();
     for entry in top.map_err(|e| Error::Io { path: domain.clone(), error: e })?.into_iter().flatten().flatten() {
         let name = entry.file_name();
-        let ours = ["bootstrap", "skills", "data", "local"].iter().chain(&alias).any(|n| name == *n);
+        // With no alias given, the plan is incomplete and a maintainer's directory is not told from another's yet.
+        let ours = ["bootstrap", "skills", "data", "local"].iter().chain(&alias).any(|n| name == *n)
+            || (alias.is_none() && name.to_str().is_some_and(fabrewk_core::settings::is_alias));
         if entry.file_type().is_ok_and(|t| t.is_dir()) && !ours {
             say("import-directory", true, Some(&format!(".brewstillery/{}", name.to_string_lossy())), None);
         }

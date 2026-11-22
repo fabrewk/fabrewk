@@ -413,3 +413,47 @@ fn p11a_3_the_import_s_credential_reason_reads_only_what_assess_reads() {
     let reasons = assess(&fx, &options, &[])["plan"]["reasons"].clone();
     assert!(reasons.as_array().unwrap().iter().any(|r| r["reason"] == "import-credential"), "{reasons}");
 }
+
+#[test]
+fn p11a_5_a_file_of_the_private_folder_inside_bootstrap_is_never_read() {
+    let (fx, options) = importable("p11a-5", false);
+    let config = fx.domain.join("bootstrap");
+    std::fs::create_dir_all(config.join("fabrewk")).unwrap();
+    std::fs::write(config.join("fabrewk/private-note.txt"), "private\n").unwrap();
+    fx.commit("private");
+    let opts: Vec<&str> = options.iter().map(String::as_str).collect();
+    let ran =
+        fx.run_env(&[&["assess", "--json"][..], &opts].concat(), &[("XDG_CONFIG_HOME", config.to_str().unwrap())]);
+    let plan = &ran.doc()["plan"];
+    assert_eq!(plan["verdict"], "none", "{ran:?}");
+    let private = ".brewstillery/bootstrap/fabrewk";
+    assert!(
+        plan["reasons"].as_array().unwrap().iter().any(|r| r["reason"] == "import-private" && r["path"] == private)
+    );
+    let read =
+        plan["inputs"].as_array().unwrap().iter().any(|i| i["path"].as_str().is_some_and(|p| p.starts_with(private)));
+    assert!(!read, "{}", plan["inputs"]);
+}
+
+#[test]
+fn p11a_6_without_the_alias_the_import_s_plan_is_incomplete_not_blocked() {
+    let (fx, options) = importable("p11a-6", false);
+    let pairs: Vec<&[String]> = options.chunks(2).filter(|p| p[0] != "--alias").collect();
+    let doc = assess(&fx, &pairs.concat(), &[]);
+    assert_eq!(doc["plan"]["verdict"], "adopt", "{}", doc["plan"]["reasons"]);
+    assert_eq!(doc["plan"]["incomplete"], json!(["alias"]));
+}
+
+#[test]
+fn p11a_7_a_directory_of_bootstrap_that_cannot_be_read_is_unknown_and_nothing_under_it_removed() {
+    use std::os::unix::fs::PermissionsExt;
+    let (fx, options) = importable("p11a-7", false);
+    assert_eq!(fx.apply(&options, &[]).status, 0);
+    let b = fx.domain.join("bootstrap");
+    std::fs::set_permissions(&b, std::fs::Permissions::from_mode(0o000)).unwrap();
+    let found = findings(&fx);
+    std::fs::set_permissions(&b, std::fs::Permissions::from_mode(0o755)).unwrap();
+    assert!(!found.iter().any(|f| f.0 == "BOOTSTRAP_CHANGED"), "{found:?}");
+    assert!(found.iter().any(|f| f.0 == "CHECK_UNKNOWN" && f.1 == ".brewstillery/bootstrap"), "{found:?}");
+    assert_eq!(fx.run(&["check"]).status, 0);
+}

@@ -1246,6 +1246,7 @@ import-not-utf8 = "{path} has a name that is not valid UTF-8. Rename it before i
 import-too-large = "{path} exceeds the import's limit of 1 MiB per file."
 import-empty = "{path} is a directory with no files at any depth. Git does not record empty directories."
 import-unreadable = "{path} cannot be read. Check that you can access it before importing."
+import-private = "{path} lies in Fabrewk's private folder, which assess never reads. Move the private folder out of this repository."
 decisions-absent = "{path} is missing. The import needs it to record the bootstrap's entries."
 decisions-not-utf8 = "{path} contains invalid UTF-8 on line {detail}. Save it as UTF-8 before importing."
 decisions-carriage-return = "{path} contains a carriage return on line {detail}. Use LF line endings without carriage returns."

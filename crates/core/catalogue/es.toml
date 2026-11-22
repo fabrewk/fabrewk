@@ -1084,6 +1084,7 @@ import-not-utf8 = "{path} tiene un nombre que no es UTF-8 válido. Cámbiale el 
 import-too-large = "{path} supera el límite de la importación de 1 MiB por archivo."
 import-empty = "{path} es un directorio sin archivos en ningún nivel. Git no registra directorios vacíos."
 import-unreadable = "No se puede leer {path}. Revisa que puedas acceder antes de importar."
+import-private = "{path} está en la carpeta privada de Fabrewk, que assess nunca lee. Saca la carpeta privada de este repositorio."
 decisions-absent = "Falta {path}. La importación lo necesita para registrar las entradas del bootstrap."
 decisions-not-utf8 = "{path} contiene UTF-8 inválido en la línea {detail}. Guárdalo como UTF-8 antes de importar."
 decisions-carriage-return = "{path} contiene un retorno de carro en la línea {detail}. Usa finales de línea LF sin retornos de carro."
