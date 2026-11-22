@@ -1098,13 +1098,14 @@ points of "Installation, as phase 10's opening fixed it" are cited as D-097's.
 2. **When a plan imports.** `assess --mode adopt` in a repository whose `.brewstillery/` holds `bootstrap/` and no
    record (no event, D-097 point 3) gives a plan that imports; in every other repository nothing here applies. D-097
    point 3's list of what `assess` reads gains, in such a repository: `bootstrap/`, walked without following a link,
-   every regular file's content (for its digest, and `decisions.md`'s for its split); the project file, the
-   maintainer's `settings.toml` and `fermento.md`, for their validation; `STATUS.md`, for its digest; and, for each of
-   these and the alambique, whether it is tracked and has staged or unstaged changes, compared as D-100 compares
-   `AGENTS.md`. Besides D-097 point 4's reasons that still apply (a detached head, an operation in progress, `AGENTS.md`
-   or `CLAUDE.md` as that point says), each of these is a reason that blocks (verdict `none`):
+   every regular file's content (for its digest, and `decisions.md`'s for its split); the project file, the maintainer's
+   `settings.toml` and `fermento.md`, for their validation; `.brewstillery/.gitignore`, when present, for its bytes;
+   `STATUS.md`, for its digest; and the committed state of each of these and of the alambique, as the last reason below
+   says. Besides D-097 point 4's reasons that still apply (a detached head, an operation in progress, `AGENTS.md` or
+   `CLAUDE.md` as that point says), each of these is a reason that blocks (verdict `none`):
    - in `bootstrap/`, an entry that is a link or neither a regular file nor a directory, a name that is not UTF-8, a
-     file over 1 MiB, no `decisions.md`, or a `decisions.md` that is not UTF-8, holds a carriage return or does not
+     file over 1 MiB, a directory that holds no regular file at any depth (Git records none, so C13 would refuse it at
+     once, P11O-3), no `decisions.md`, or a `decisions.md` that is not UTF-8, holds a carriage return or does not
      split as point 3 says, each reason naming the line;
    - a publication other than `published`: the domain is tracked by the product's repository, which the other modes
      would have to ignore (REQ-DOM-7);
@@ -1114,9 +1115,17 @@ points of "Installation, as phase 10's opening fixed it" are cited as D-097's.
      and line, as `SETTINGS_INVALID` does), or holding other than exactly one maintainer, a maestro, whose alias is
      `--alias` and whose key is `--key`'s (their type and data compared, the comment not);
    - `<alias>/settings.toml` absent or not valid as that maintainer's personal file; `<alias>/fermento.md` absent, or
-     its separator not found as REQ-FER-1 says; the alambique absent;
-   - a file the plan keeps or imports, or `STATUS.md`, untracked or with staged or unstaged changes: every byte the
-     import names is the commit's, so the record commit holds only what `apply` writes.
+     its separator not found as REQ-FER-1 says; the alambique absent; a `.brewstillery/.gitignore` present that is
+     not a regular file holding exactly REQ-DOM-4's `local/` and a line end (P11O-4);
+   - a committed state other than the working tree's bytes (P11O-1, P11O-2): for every file under `bootstrap/`, every
+     file the plan keeps and `STATUS.md`, `HEAD`'s tree must hold it as a regular file (mode `100644` or `100755`)
+     whose blob's raw bytes, read with `git cat-file blob` and no conversion, have the SHA-256 of the working tree's
+     raw bytes, and the index entry must be `HEAD`'s (same object, mode and stage, no `assume-unchanged` or
+     `skip-worktree` flag); and `HEAD`'s tree under `.brewstillery/bootstrap/` must list exactly the files the walk
+     finds. D-100's comparison through `git hash-object --path`, which applies Git's content conversions
+     (`core.autocrlf`, the attributes' `text` and `eol`), is not used for these files: one object id there can stand
+     for two different byte strings. So every byte the import names is the commit's, and the record commit holds only
+     what `apply` writes.
    `--lang` is the plan's language and the words' default tag; an import creates no file in it. REQ-INS-8's three
    options are not used, since the alambique is kept.
 3. **The split of `decisions.md`.** Its lines are its bytes split after each `\n`. An entry starts at a line that
@@ -1140,13 +1149,14 @@ points of "Installation, as phase 10's opening fixed it" are cited as D-097's.
    since the events before the first adoption are verified against the maintainers of the project file the plan carries
    (D-097 point 6, P10O-5) and `apply` takes the policy and the signer from it (P10O-4); `keep` for
    `<alias>/settings.toml`, `<alias>/fermento.md` and the alambique, each with its digest; each kept byte for byte (the
-   alambique's digest is the baseline, REQ-INS-8's last sentence); `create` for `.brewstillery/.gitignore` when absent
-   and for `CLAUDE.md` when absent; `block` for `AGENTS.md` and a `CLAUDE.md` present, as D-097 point 5 says, the text
-   above the block kept; `replace` for `STATUS.md`, present and written by hand, with its digest: the one file an import
-   replaces, written over by the view (its bytes stay in Git's history), so that under the lock it must be as the plan
-   found it or as the record as it stands gives it (D-105's rule for a view); the view `RULES.md` by name. No `exclude`
-   and no `repository`, since the publication is `published`. The plan is shown whole, as every plan is: about two
-   hundred lines more, one per entry and per file.
+   alambique's digest is the baseline, REQ-INS-8's last sentence); `keep` for a `.brewstillery/.gitignore` present, as
+   point 2 requires it; `create` for `.brewstillery/.gitignore` when absent and for `CLAUDE.md` when absent; `block` for
+   `AGENTS.md` and a `CLAUDE.md` present, as D-097 point 5 says, the text above the block kept; `replace` for
+   `STATUS.md`, present and written by hand, with its digest: the one file an import replaces, written over by the view
+   (its bytes stay in Git's history), so that under the lock it must be as the plan found it or as the record as it
+   stands gives it (D-105's rule for a view); the view `RULES.md` by name. No `exclude` and no `repository`, since the
+   publication is `published`. The plan is shown whole, as every plan is: about two hundred lines more, one per entry
+   and per file.
 5. **The imported history's events** (section 3). The stream `bootstrap` holds two kinds, both Fabrewk's
    (`{"kind":"fabrewk"}`, unsigned, no words): it transcribes, and each entry's authors stand in its own `Origin` and
    `Who`. Each cites as its `policy` the digest of the project file the plan keeps, as `assessed` does (P10O-5).
@@ -1168,21 +1178,26 @@ points of "Installation, as phase 10's opening fixed it" are cited as D-097's.
    (D-111 point 3), cannot read an imported record. The mark and the seal take the stream as every other.
 6. **`apply` with an import.** D-097 point 6's order, the stream inserted before the adoption: `assessed` and
    `publication-decided`; the plan's files; the entry blocks; the stream `bootstrap`, the opening, each entry, then
-   `bootstrap-imported`; `policy-adopted`, as `adopt` writes it, of the project file kept, its seal holding the
-   stream's head; `alambique-baseline`, the kept alambique's digest (REQ-FER-7: at the bootstrap's import);
-   `installed`, the receipt holding every file `apply` wrote or changed (`.gitignore`, the entry files), the views
-   not in it (D-105); then the views, `STATUS.md` replaced, and the record commit, which in `published` holds the
-   events, the signatures, the views and the receipt's files, with one `Fabrewk-Event:` line per event (REQ-REG-10;
-   174 events at `c58e36c`: the five `apply` writes in `project` and `alambique`, and 169 in `bootstrap`). The
-   maestro signs, with the plan's key and their words, the four person's moves:
-   `assessed` (the plan, so every file's digest and every entry's key and title), `publication-decided`,
-   `policy-adopted` (whose seal holds the stream's head, so every imported event through its chain) and
-   `alambique-baseline`: four signatures, not one per entry. An `apply` stopped before its end is finished as D-097
-   point 7 says: each import's target is as the plan's inputs found it (`PLAN_CHANGED` otherwise, nothing written);
-   the stream's events present must be the first of those the plan gives, each payload equal (`PLAN_CHANGED`
-   otherwise), and only the missing ones are written. Completion is D-097 point 7's. The crash suite runs over
-   `apply` with an import, killed at the stream's first event, at one in its middle, at its last entry, at
-   `bootstrap-imported`, and at the points it already covers.
+   `bootstrap-imported`; `policy-adopted`, as `adopt` writes it, of the project file kept, its seal holding the stream's
+   head; `alambique-baseline`, the kept alambique's digest (REQ-FER-7: at the bootstrap's import); `installed`, the
+   receipt holding every file `apply` wrote or changed (`.gitignore` when created, the entry files), the views not in it
+   (D-105); then the views, `STATUS.md` replaced, and the record commit, which in `published` holds the events, the
+   signatures, the views and the receipt's files, with one `Fabrewk-Event:` line per event (REQ-REG-10; 174 events at
+   `c58e36c`: the five `apply` writes in `project` and `alambique`, and 169 in `bootstrap`). The maestro signs, with the
+   plan's key and their words, the four person's moves: `assessed` (the plan, so every file's digest and every entry's
+   key and title), `publication-decided`, `policy-adopted` (whose seal holds the stream's head, so every imported event
+   through its chain) and `alambique-baseline`: four signatures, not one per entry. Under the lock, fresh or resumed and
+   before any write, `apply` checks again point 2's committed state for the plan's `import.files`, every file it keeps
+   and `STATUS.md` while it is the plan's input: the walk of `bootstrap/` finds exactly `import.files` and `HEAD`'s tree
+   lists exactly them there, each with the plan's digest in the working tree and in its blob, raw (`PLAN_CHANGED`
+   otherwise, nothing written; P11O-1, P11O-3). The record commit is made only on a parent whose tree holds them so: a
+   head moved to one that does not (a commit that removes or changes a file of `bootstrap/` while `apply` runs) is
+   refused `PLAN_CHANGED`, the events staying written and the installation incomplete, and the same `apply` finishes
+   once the person restores them. An `apply` stopped before its end is finished as D-097 point 7 says: each import's
+   target is as the plan's inputs found it (`PLAN_CHANGED` otherwise, nothing written); the stream's events present must
+   be the first of those the plan gives, each payload equal (`PLAN_CHANGED` otherwise), and only the missing ones are
+   written. Completion is D-097 point 7's. The crash suite runs over `apply` with an import, killed at the stream's
+   first event, at one in its middle, at its last entry, at `bootstrap-imported`, and at the points it already covers.
 7. **The read-only check** (C13, section 6). Once the record holds `bootstrap-imported`, `check` reads
    `.brewstillery/bootstrap/`, following no link on the way or at an entry: it must be a directory; every file the event
    lists must be a regular file with that digest; and no other entry may stand there, file, directory or link, at any
@@ -2823,7 +2838,7 @@ Where a criterion names a case or a code, its test in 11.3 or 11.4 is part of th
 | REQ-INS-6 | In `dash`, with a local release signed by a fixture key: exactly one file, `~/.local/bin/fabrewk`, is installed; a changed binary or signature installs nothing; the script has no option that skips verification and no `sudo`; the agent route's last command is `fabrewk assess` | 10 |
 | REQ-INS-7 | `PLATFORM_UNSUPPORTED`'s test; the message lists the supported platforms | 10 |
 | REQ-INS-8 | `apply` with the three answers and with none, in `en` and `es`: the alambique's bytes equal the catalogue's skeleton holding the answers as given; an alambique present is byte-identical after and its digest is the baseline's; `check` passes C7 after `apply` (D-097) | 10 |
-| REQ-INS-9 | F-4: every entry and file imported, each entry's text equal to its bytes in `decisions.md` and its fields the split's; each of point 2's reasons blocks, by a fixture for each (a link in `bootstrap/`, a heading out of order, a label twice, a fenced `## ` line kept inside its entry, a publication other than `published`, a `--tool`, a project file with a second maintainer, a kept file with a change not committed); replay refuses each binding of point 5 broken; `BOOTSTRAP_CHANGED`'s test; `check` passes in this repository after the import; the installed binary is the signed release's (D-113) | 11 |
+| REQ-INS-9 | F-4: every entry and file imported, each entry's text equal to its bytes in `decisions.md` and its fields the split's; each of point 2's reasons blocks, by a fixture for each (a link in `bootstrap/`, a heading out of order, a label twice, a fenced `## ` line kept inside its entry, a publication other than `published`, a `--tool`, a project file with a second maintainer, a kept file with a change not committed, a file of `bootstrap/` whose working tree has CRLF where its blob has LF under `core.autocrlf`, an empty directory in `bootstrap/`, a `.brewstillery/.gitignore` with a second line); a resumed or racing `apply` refuses `PLAN_CHANGED` when a file of `bootstrap/` was removed from the index and committed, its working tree kept (P11O-1); replay refuses each binding of point 5 broken; `BOOTSTRAP_CHANGED`'s test; `check` passes in this repository after the import; the installed binary is the signed release's (D-113) | 11 |
 
 ### SEC
 
