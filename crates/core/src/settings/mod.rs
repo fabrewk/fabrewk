@@ -656,11 +656,21 @@ mod tests {
         );
     }
 
+    /// This repository's project file in its bootstrap form, as `b1627bf` held it, its comments left out.
+    const BOOTSTRAP_FORM: &str = "[project]\nname = \"Fabrewk\"\ncommand = \"fabrewk\"\ndomain = \".brewstillery\"\n\n\
+        [maintainers]\naliases = [\"xel\"]\n\n[layout]\nreservedNames = [\"bootstrap\", \"data\", \"local\", \
+        \"settings.toml\", \"STATUS.md\", \"ALAMBIQUE.md\", \"RULES.md\", \".gitignore\", \"skills\"]\n\n[languages]\n\
+        canonicalDocumentationLanguage = \"en\"\ndocumentationLanguages = [\"en\", \"es-MX\"]\n";
+
     #[test]
-    fn req_dom_3_this_repositorys_bootstrap_keys_are_refused_in_the_first_core() {
+    fn req_dom_3_this_repositorys_project_file_reads_in_its_production_form_and_its_bootstrap_keys_are_refused() {
+        // Point 8.2 of "The bootstrap's import and stage 0" (part 11c): the maestro's edit replaced the bootstrap keys.
         let text =
             std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../.brewstillery/settings.toml")).unwrap();
-        let all = refusals(Level::Project, &text);
+        let s = ok(Level::Project, &text);
+        assert_eq!(s.values["maintainers.xel.role"].value, Val::Str("maestro".into()));
+        assert_eq!(s.values["languages.canonicalDocumentationLanguage"].value, Val::Str("en".into()));
+        let all = refusals(Level::Project, BOOTSTRAP_FORM);
         for key in ["project.command", "project.domain", "maintainers.aliases", "layout"] {
             assert!(
                 all.iter().any(|(c, d)| *c == Code::SettingsInvalid && d.starts_with(&format!("{key} ("))),
