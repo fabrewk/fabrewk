@@ -5955,3 +5955,186 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   answers, 0 corrections, 0 acts outside the chat. Claude's consumption: unknown (not read from the tool in this
   session).
 - The review directories and the clean clone are removed after this entry.
+
+## D-115 — Part 11b: the maestro's answers to the review list before the pre-release
+
+- Status: decided
+- Decided: 2026-11-22
+- Origin: maintainer XEL in session 49's chat, answering the integrator's questions on the review list of
+  `plan.md`'s "Phases 11 to 13": on item 2, "Se quedan (Recomendado)"; on item 5, "Sí, puede ser público"; on item
+  4's mark, "Quitar logo e ícono (Recomendado)"; on item 8, "Firmada con la llave de D-108 (Recomendado)"; on item
+  7, "Reporte privado de GitHub (Recomendado)" and, for issues, "Abiertos".
+- Decision:
+  1. Item 2: the local absolute paths (`/home/xel/…`) in `ALAMBIQUE.md`, `STATUS.md` and six files of `bootstrap/`
+     stay as they are. Every earlier revision holds them, and the history is published unrewritten (D-111 point 9).
+  2. Item 5: the maestro's words quoted from chat and TickBrew's private receipts summarized in
+     `harness-verdicts.md` and `past-defect-cases.md` may be public.
+  3. Item 4: Trail of Bits' mark (`assets/trail-of-bits-mark.svg`) and the two icon lines of `agents/openai.yaml`
+     naming it are removed from the three adapted skills, each notice stating the change; CC BY-SA 4.0 licenses no
+     trademark.
+  4. Item 7: the repository `github.com/fabrewk/fabrewk` is public; vulnerabilities are reported through GitHub's
+     private vulnerability reporting, which the maestro enables at publication and both READMEs name; issues stay
+     open; outside contributions are still not accepted (D-109). No `SECURITY.md`.
+  5. Item 8: the commits stay unsigned; the tag `v0.2.0` is an annotated tag signed with D-108's key
+     (`gpg.format = ssh`), made by the maestro on the release's commit when publishing (part 11c, point 8.1).
+- Reason: the review list's items are the maestro's where they concern what becomes public (D-111 point 4; point 9
+  of "The bootstrap's import and stage 0"). The alternatives offered: for item 2, removing the paths outside
+  `bootstrap/`; for item 5, a review first; for the mark, keeping the unchanged copies; for item 7, a `SECURITY.md`
+  at the root (a new root file) or GitHub's setting alone; issues closed; for item 8, an unsigned annotated tag.
+- Consequences: `.brewstillery/skills/differential-review/`, `property-based-testing/`, `sharp-edges/`;
+  `README.md`, `README.es-MX.md`; part 11c's publication (the settings on GitHub, the signed tag); R-058.
+- Sources: chat of session 49; `plan.md` "Phases 11 to 13"; D-060, D-108, D-109, D-111.
+- Supersedes: none.
+
+## R-058 — Session 49, part 11b: stage 0's release 0.2.0 and the review list
+
+- Status: recorded
+- Date: 2026-11-22
+- Who: integrator Claude Code, `claude-opus-5-5`, effort high; Codex (`codex-cli 0.166.0`, `gpt-6.1-sol`, effort
+  high, `codex exec -s workspace-write` in a scope of 3 GB, with no network), which wrote the part's new human texts
+  (from `target/review-11b-texts/`, reading only) and reviewed the part with the review list's draft (from
+  `target/review-11b/`, a disposable clone at `2816586`, with a copy of the registry); both directories removed after
+  this entry.
+- Start: HEAD `8c4ee6c`, tree clean; the first command at 08:02 (America/Mexico_City).
+- Read: `STATUS.md`, `AGENTS.md`, `plan.md` (row 11, "Phase 11", "Phases 11 to 13"), `core-specification.md` ("The
+  bootstrap's import and stage 0", points 8 to 10), `decisions.md` D-108, D-109, D-111, D-114, R-054, R-057; the
+  skills `verify-part` and `codex-review`; `install.sh`, the READMEs, the manuals, `crates/fabrewk/tests/script.rs`,
+  `tools/budget/src/release.rs`, `crates/core/src/scan.rs`, `cli/check.rs`'s C13, the catalogues' C13, the adapted
+  skills' notices and `skills-evaluation.md` section 6. No credential of the person's was read, and no private folder;
+  the maestro signed in their own terminal.
+- Decided: D-115 (the maestro's answers to the review list's items 2, 4, 5, 7 and 8).
+- Delivered (`3f920c6` to `2816586`):
+  - `3f920c6`: the workspace's version 0.2.0 (`Cargo.toml`, `Cargo.lock`); `install.sh` names `version=0.2.0` and
+    `.../releases/download/v0.2.0`; the READMEs and the installation manuals fetch `.../v0.2.0/install.sh` and name
+    `fabrewk-0.2.0-linux-aarch64`. The allowed-signers line is D-108's, unchanged.
+  - `ff21afd`: 0.2.0 is a pre-release (both READMEs, both installation manuals); the manuals' three lists of `check`'s
+    verifications per language name C13 (`BOOTSTRAP_CHANGED`) and say that `bootstrap/` exists only in Fabrewk's own
+    repository. Codex's texts, checked against `bootstrap.rs`, `cli/check.rs` and the catalogues, applied as written.
+  - `70c5f5e`: Trail of Bits' mark removed from the three adapted skills (D-115 point 3).
+  - `2816586`: both READMEs name GitHub's private vulnerability reporting (D-115 point 4), Codex's text.
+- The review list of "Phases 11 to 13", answered item by item (measured at `2816586`, 330 commits on `main`, the only
+  ref; no tag, stash or other branch):
+  1. The author's address: all 330 commits have one author and committer address, a personal one; it stays (D-111
+     point 9). No other personal address is in any blob or message: only `noreply@anthropic.com` (co-author lines),
+     `noreply@fabrewk.invalid`, fixtures under `example.invalid`, and OpenSSH's key-type names.
+  2. Local absolute paths: `/home/xel` is in 8 tracked files (matching lines, `git grep -c /home/xel`): `ALAMBIQUE.md`
+     3, `STATUS.md` 5, and six files of `bootstrap/`, `decisions.md` 24 (23 with `/home/xel/`), `alambique-audit.md`
+     3, `alambique-original.md` 3, `reference-study.md` 2, `harness-verdicts.md` 1, `plan.md` 1 (the list said five
+     files of `bootstrap/`; `plan.md` is the sixth). They name `TickBrew/tickbrew-harness`, `tickbrew-legacy`,
+     `meta-harness`, `tickbrew`, `/home/xel/Dev/external` (its backups and `tmp`), `~/Dev/tools/dev-clean.sh` and a
+     system maintenance script. Every earlier revision holds them, and the history is published unrewritten, so
+     removing them from the tree would not hide them. The maestro's decision: they stay (D-115 point 1). Other
+     `/home/…` paths in the tree are fixtures (`/home/agent`, `/home/person`, `/home/x`).
+  3. A credential scan of the whole history, installing no tool, over every blob reachable from every ref (`git
+     rev-list --all --objects` filtered by `git cat-file --batch-check` to blobs: 1,824 distinct blobs), every path of
+     every revision (`git ls-tree -r --name-only` over `git rev-list --all`: 231 distinct paths) and every commit
+     message (`git log --all --format='%H%n%B'`, 170,205 bytes):
+     - Fabrewk's own heuristic, `fabrewk_core::scan::suspect` on each blob and on the messages and
+       `scan::suspect_name` on each path's last component, by a scratch program under `target/` depending on
+       `crates/core`: 0 suspected. Fed a private-key line, a `ghp_` token and a `.env` path, it reports all three.
+     - A wider search by pattern (`grep -E` over the same blobs and messages): private-key headers of every kind,
+       AWS `AKIA`/`ASIA` ids, GitHub (`ghp_` and the others, `github_pat_`), Anthropic and OpenAI (`sk-ant-`, `sk-`,
+       `sk-proj-`), Slack (`xox?-`), Google (`AIza`), GitLab (`glpat-`), npm, Hugging Face, JWTs, URLs with a
+       password, and `api_key`, `secret`, `password`, `token` or `bearer` assignments of 12 or more characters. The
+       only matches are private-key header lines in the scan's own tests (`crates/core/tests/candidate.rs`,
+       `table.rs`, `crates/fabrewk/tests/import.rs`, `run.rs`), each followed by a placeholder (`MII`, `b3Blbg==`) or
+       nothing; no base64 body of 40 or more characters follows any header.
+     - Names: no path of any revision is `.env`, `.env.*`, a key file (`id_rsa`, `id_ecdsa`, `id_ed25519`, `*_rsa`,
+       `*_ed25519`, `*_ecdsa`, `.pem`, `.p12`, `.pfx`, `.key`, `.keystore`, `.asc`, `.gpg`, `.jks`, `.kdbx`),
+       `.netrc`, `.npmrc`, `.pypirc`, `.git-credentials`, `credentials*`, `secrets*`, `known_hosts` or
+       `authorized_keys`.
+     - Public keys in content: the release signer's line (D-108), and the settings tests' fixtures in
+       `crates/core/src/settings/mod.rs`: `ana`'s and `bea`'s Ed25519 keys, an RSA key (`const RSA`), and an Ed25519
+       body under the type `ssh-rsa`, one of the refused inputs. No other.
+     The scan runs again over the last bootstrap commit before it is pushed (point 8.3, part 11c).
+  4. Third-party material: the three adapted skills each carry the CC BY-SA 4.0 text as `LICENSE` and a notice naming
+     the creator, source, revision, licence and changes (D-060); `codex-review` and `verify-part` are the
+     integrator's. Trail of Bits' mark, which each held, is removed (D-115 point 3, `70c5f5e`), each notice saying so.
+     `tools/budget/notices/` holds musl's `COPYRIGHT` at 1.2.5 and LLVM libunwind's `LICENSE.TXT` at 23.1.1 (R-054),
+     which the release's notices copy. The study files (`reference-study.md`, `harness-verdicts.md`,
+     `past-defect-cases.md`, `skills-evaluation.md`, `architecture-decisions.md`, `confinement-design.md`) hold no
+     block quotation and no quoted run over 200 characters; `confinement-design.md`'s one fenced block is Fabrewk's
+     own Rust sketch.
+  5. What the record says of others and of private work: `decisions.md` has 114 entries with an `Origin`, 106 of
+     which quote the maestro's words from chat (an `Origin` naming XEL, the maestro or the maintainer and holding a
+     quotation in double quotes); `harness-verdicts.md` and `past-defect-cases.md` summarize TickBrew's private
+     receipts. The maestro confirmed they may be public (D-115 point 2).
+  6. The release's coherence: the script's version, address and allowed-signers line agree with both READMEs and both
+     manuals (held by `req_ins_6_the_agent_route_ends_at_assess_and_the_readmes_name_the_script_s_signers`);
+     `SHA256SUMS` is signed by `xel` (below). `budget release` dates the archive by `HEAD`'s commit, so the tag
+     `v0.2.0` goes on `2816586`, the commit the release was made from. The tag, the release marked pre-release on
+     GitHub and the installation from GitHub's address are part 11c's (point 8.1), recorded there.
+  7. The repository's settings on GitHub (D-115 point 4): public (needed for `install.sh` from
+     `raw.githubusercontent.com` and the release's download without authentication); GitHub's private vulnerability
+     reporting enabled by the maestro at publication and named in both READMEs; issues open; outside contributions
+     not accepted yet (D-109). Applying them is the maestro's act in part 11c.
+  8. Signatures: all 330 commits are unsigned (`%G?` is `N` for each). The tag `v0.2.0` is an annotated tag signed
+     with D-108's key, made by the maestro at publication (D-115 point 5).
+  9. Large or generated files: 215 tracked files, the largest `decisions.md` (522,576 bytes); none is an archive,
+     binary, image or object file (`file --mime-encoding` gives ASCII or UTF-8 for each); `.gitignore` holds
+     `/target` and no tracked path is under it. The generated files tracked on purpose are the command reference
+     (`crates/fabrewk/doc/reference.*.md`) and the completions (`crates/fabrewk/completions/`), compared with a fresh
+     generation by `crates/fabrewk/tests/surface.rs`.
+- Codex's passes, each over the commit named, confirmed blocking findings (non-blocking in brackets):
+  1. `2816586` with the review list's first draft: 1 [2]. P11B-1: the draft's scan counted 1,808 blobs, the count at
+     `3f920c6` where it ran, not at the commit it named (1,824 at `2816586`). P11B-2: the public keys' inventory
+     omitted the settings tests' RSA fixture. P11B-3: "quoted in 114 entries" counted the `Origin` fields, not those
+     quoting. No finding in the tracked diff: 30 selected tests run, every `0.1.0` left a fixture's, the texts true
+     of the code in both languages, the skills' licence conditions met. Corrected in the draft (no tracked file): the
+     scan rerun at `2816586` with its revision and method, the fixture named, 106 of 114.
+  2. `2816586` with the corrected draft: accept, 0 [2]; P11B-1 to P11B-3 closed. P11B-4: `STATUS.md`'s and
+     `decisions.md`'s counts depend on the pattern (`/home/xel` gives 5 and 24, `/home/xel/` 4 and 23). P11B-5: the
+     226 paths `rev-list --objects` gives are one path per object; every revision's paths are 231 (the two removed
+     marks, two `LICENSE` files and an early `brewstillery/xel/settings.toml` path, their blobs already scanned).
+     Corrected above: the pattern stated, and the scan run again over 231 paths at the release's commit, 0 suspected.
+  Every finding was reproduced before its correction. None was in code, so no test was added.
+- Mutation: the part changes no Rust source (`Cargo.toml` and `Cargo.lock` only), so `cargo mutants --in-diff` has
+  no mutant. Four written mutations of what it changed, each run against `crates/fabrewk/tests/script.rs` in the clean
+  clone: `version=0.1.0` in the script (9 tests failed), its `release_url` naming `v0.1.0` (1), a README fetching
+  `v0.1.0/install.sh` (1), the English manual's signer line changed (1). All caught.
+- Verified (`verify-part`), clean clone of `2816586` (and earlier of `ff21afd`, the same results), every step in a
+  user scope of 2 GB with two build jobs: 761 tests passed, 11 ignored; with `fault-injection`, the crash and fault
+  suites, 55, green; the musl release build, `budget check` (the core 12,632 of 12,750; the installer 1,330 of 1,400;
+  the backend 318 of 400; Claude Code's adapter 269 of 600; Codex's 319 of 600; 5 direct runtime crates; 31 in the
+  release build; the binary 3,871,112 bytes), both clippy runs, fmt and `cargo deny` clean; `--version --json` gives
+  0.2.0 with no feature. No idle `pasta` before or after.
+- The release (point 9): made by `budget release` from the clean clone of `2816586` into `target/release-0.2.0/`:
+  `fabrewk-0.2.0-linux-aarch64.tar.gz` (1,788,736 bytes; the binary, the licences, `NOTICE`, both notices files and
+  the completions) and `SHA256SUMS`, which reads
+  `01bf2a3fe07d138891870bd6522050270230ab73f40f3259cde65ccc7040d55f  fabrewk-0.2.0-linux-aarch64.tar.gz`. Made a
+  second time from the same commit, it gives the same `SHA256SUMS`. Both notices files equal a fresh `budget notices`
+  from the clean clone; the archive's binary is the clean clone's musl build. The maestro signed `SHA256SUMS` in their
+  terminal with `ssh-keygen -Y sign -n fabrewk-release -f ~/.ssh/fabrewk_xel_ed25519`; `ssh-keygen -Y verify` with
+  `install.sh`'s own allowed-signers line: `Good "fabrewk-release" signature for xel with ED25519 key
+  SHA256:aX24gH8qQN8AR5J7pJ+gcbhc6O/41G1D8fTikhp7XrM`. `SHA256SUMS.sig`:
+
+      -----BEGIN SSH SIGNATURE-----
+      U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgyk1/DfJjixvsI7nFQIR9FC4+3D
+      pSViJqXtj8xYIcVV8AAAAPZmFicmV3ay1yZWxlYXNlAAAAAAAAAAZzaGE1MTIAAABTAAAA
+      C3NzaC1lZDI1NTE5AAAAQA9uMfoYZ+Cbwn5BD3nPd66CpMzNr+/twqw+j5zsbbfAg5bK21
+      idz8MQ5/vhnfRShVm9GkTDEai7nXWyKzGAiwY=
+      -----END SSH SIGNATURE-----
+
+  Verified by the script's own lines: a copy of `install.sh` whose `release_url` alone points to the release
+  (`file://`), in `dash` under `setsid` with a fixture home and no terminal: exit 0, the signature `xel`'s, the
+  checksum matching, exactly `~/.local/bin/fabrewk` installed, equal to the archive's binary, 0.2.0 with no feature,
+  the temporary directory empty. The same with one byte of the archive changed: refused on the checksum, exit 1,
+  nothing in the home or the temporary directory. The release stays unpublished until point 8.1; `target/release-0.1.0/`
+  is kept, unpublished (D-111 point 3).
+- Plan row 11b's acceptance: REQ-INS-6's criterion in `dash` with 0.2.0 (`script.rs`, 12 cases, and the signed
+  release above); the notices equal a fresh generation; the signature verified by `install.sh`'s own lines; every item
+  of the review list answered, the maestro's (2, 4's mark, 5, 7, 8) by the maestro (D-115); tests green in a clean
+  clone, mutations caught, within the size budget, Codex's review with no confirmed blocking finding open.
+- Measured (point 10; the part's share of the manual arm's sample, D-111 point 2): Codex 2 review passes, confirmed
+  blocking 1, 0 (non-blocking 2, 2), both over `2816586`; tokens (input, of them cached, output) 3,157,582 /
+  3,021,696 / 16,471 and 668,682 / 614,144 / 7,170; Codex ran 7.1 and 3.1 minutes. The texts: two passes, 470,385 /
+  406,144 / 8,044 and 110,531 / 84,736 / 1,745 tokens, 3.1 and 0.8 minutes (14.1 minutes in all). Corrections: 5
+  findings corrected (1 blocking, 4 not), all in the review list's draft, none declared. Mutation: no Rust mutant; 4
+  written mutations, 4 caught. Clean clone: green. Lines: every ring unchanged (the core 12,632 of 12,750, the
+  installer 1,330 of 1,400). Session: from 08:02 to the closing commit, 2026-11-22, America/Mexico_City; most of the
+  span between 08:21 and 12:40 was the wait for the maestro's answers. The maestro's interventions: 7 answers to the
+  integrator's questions (items 2, 5, 4's mark and 8; vulnerability reporting and issues; the signature done), 0
+  corrections, 1 act outside the chat (the signature). Claude's consumption: unknown (not read from the tool in this
+  session).
+- The review directories, the clean clone, the scan's blobs and the installation checks under `target/` are removed
+  after this entry; `target/release-0.2.0/` is kept for the maestro's publication.
