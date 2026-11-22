@@ -38,6 +38,8 @@ pub struct Installer {
     /// `onboard`'s interview (REQ-INS-4): it fills `apply`'s options with the answers, as they come, and gives the
     /// plan's digest once the person said yes and gave their words; none when it stopped, having said so.
     pub interview: fn(&mut Interview, &mut crate::cli::Options) -> Interviewed,
+    /// The split of the bootstrap's `decisions.md` (D-113 points 1 and 3), from which `apply` writes the stream.
+    pub split: crate::bootstrap::Split,
 }
 
 /// What the interview gives: the plan's digest on the person's yes, none when it stopped, or its refusals.

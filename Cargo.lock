@@ -146,6 +146,7 @@ name = "fabrewk-install"
 version = "0.1.0"
 dependencies = [
  "fabrewk-core",
+ "proptest",
  "serde_json",
  "toml",
 ]

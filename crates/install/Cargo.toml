@@ -15,3 +15,7 @@ fabrewk-core = { path = "../core" }
 serde_json = "1"
 # Codex's settings are TOML; the crate is already the core's (D-036), with the same features.
 toml = { version = "1.2", default-features = false, features = ["std", "parse"] }
+
+[dev-dependencies]
+# Property tests of the split of decisions.md (D-040 choice 11, as the core uses it); never shipped.
+proptest = { version = "1", default-features = false, features = ["std"] }

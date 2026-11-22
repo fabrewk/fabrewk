@@ -35,10 +35,11 @@ fn adoptions(record: &Replay) -> Result<Vec<Adopted<'_>>, Vec<Error>> {
         out.push(Adopted { event, digest, settings, seal: seal.collect() });
     }
     // Before the first adoption, the record of an `apply` not complete holds only the `project` stream, opened by
-    // `assessed`: its events are verified against the project file its plan creates (P10O-5), and any other form cites
-    // no adopted policy.
+    // `assessed`, and an import's Fabrewk events (D-113 point 5): its events are verified against the project file its
+    // plan creates or keeps (P10O-5), and any other form cites no adopted policy.
     let first = record.streams.get("project").and_then(|s| s.first()).filter(|e| e.kind == "assessed");
-    if let Some(event) = first.filter(|_| out.is_empty() && record.streams.len() == 1) {
+    let alone = record.streams.keys().all(|s| s == "project" || s == "bootstrap");
+    if let Some(event) = first.filter(|_| out.is_empty() && alone) {
         let text = planned_policy(&event.value["payload"]["plan"]).unwrap_or_default();
         let settings = settings::parse(&event.path, text, Level::Project)?;
         let digest = crate::record::sha256_hex(text.as_bytes());
@@ -47,10 +48,12 @@ fn adoptions(record: &Replay) -> Result<Vec<Adopted<'_>>, Vec<Error>> {
     Ok(out)
 }
 
-/// The project file a plan creates (`fabrewk.plan/1`, D-097 point 5), if it creates one.
+/// The project file a plan creates (`fabrewk.plan/1`, D-097 point 5), or keeps with its content when it imports the
+/// bootstrap (D-113 point 4), if it has one.
 pub fn planned_policy(plan: &serde_json::Value) -> Option<&str> {
     let files = plan["files"].as_array()?;
-    let file = files.iter().find(|f| f["path"] == ".brewstillery/settings.toml" && f["action"] == "create")?;
+    let action = |f: &serde_json::Value| f["action"] == "create" || f["action"] == "keep";
+    let file = files.iter().find(|f| f["path"] == ".brewstillery/settings.toml" && action(f))?;
     file["content"].as_str()
 }
 

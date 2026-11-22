@@ -350,6 +350,108 @@ fn the_crash_suite_over_apply() {
     });
 }
 
+/// The crash suite over F-4's `apply` (D-113 point 6; part 11a): the binary is stopped at every write point before the
+/// stream `bootstrap`, at each of its first event's, at each of an entry's in its middle, of its last entry's and of
+/// `bootstrap-imported`'s, and at every point after it, the record commit's among them. After each stop the record
+/// replays or is refused by codes, `check` reports by codes, a write command refuses `INSTALLATION_INCOMPLETE`, and the
+/// same `apply` finishes it: `check` passes, the stream holds the import once, its texts joined `decisions.md`, and the
+/// record branch holds every file of the domain as it is on disk.
+#[test]
+fn the_crash_suite_over_the_bootstrap_s_import() {
+    let (fx, options) = common::import::importable("crash-import", true);
+    let base = fx.root.parent().unwrap().to_path_buf();
+    let snapshot = base.with_file_name(format!("{}-before", base.file_name().unwrap().to_str().unwrap()));
+    copy(&base, &snapshot);
+    let decisions = std::fs::read_to_string(fx.domain.join("bootstrap/decisions.md")).unwrap();
+    let opts: Vec<&str> = options.iter().map(String::as_str).collect();
+    let doc = fx.run(&[&["assess", "--json"][..], &opts].concat()).doc();
+    let digest = doc["digest"].as_str().unwrap().to_owned();
+    // The stream's events: the opening and each entry, then `bootstrap-imported`; each written at three points, the
+    // first at four, its directory's made before it.
+    let total = doc["plan"]["import"]["entries"].as_array().unwrap().len() + 1;
+    let middle = total / 2;
+    let (mut n, mut phase, mut stopped) = (1, 0, Vec::new());
+    loop {
+        restore(&snapshot, &base);
+        let what = format!("the import stopped at point {n}");
+        let ran = fx.apply_digest(&digest, &options, &[("FABREWK_FAULT_ABORT_AT", &n.to_string())]);
+        if ran.status != -1 {
+            assert_eq!(ran.status, 0, "{what}: {ran:?}");
+            break;
+        }
+        let k = fx.events("bootstrap").len();
+        stopped.push(k);
+        if let Err(errors) = replay(&fx.domain, &PolicyVerifier) {
+            assert!(errors.iter().all(|e| e.code().is_some()), "{what}: {errors:?}");
+        }
+        let ran = fx.run(&["check", "--json"]);
+        assert!(matches!(ran.status, 0 | 3), "{what}: {ran:?}");
+        coded(&ran, "findings", &what);
+        let ran = fx.run(&["discard", "p-00000000", "--say", "Descártala.", "--json"]);
+        assert_eq!(ran.status, 1, "{what}: {ran:?}");
+        coded(&ran, "refusals", &what);
+        let opened = fx.events("project").first().is_some_and(|e| e["kind"] == "assessed");
+        let complete = fx.events("project").iter().any(|e| e["kind"] == "installed") && fx.run(&["check"]).status == 0;
+        if opened && !complete {
+            assert_eq!(ran.doc()["refusals"][0]["code"], "INSTALLATION_INCOMPLETE", "{what}: {ran:?}");
+        }
+        let again = fx.apply_digest(&digest, &options, &[]);
+        assert_eq!(again.status, 0, "{what}: {again:?}");
+        let check = fx.run(&["check"]);
+        assert_eq!(check.status, 0, "{what}: {check:?}");
+        let events = fx.events("bootstrap");
+        assert_eq!(events.len(), total, "{what}");
+        let texts: String = events[..total - 1].iter().map(|e| e["payload"]["text"].as_str().unwrap()).collect();
+        assert_eq!(texts, decisions, "{what}");
+        let kinds: Vec<Value> = fx.events("project").iter().map(|e| e["kind"].clone()).collect();
+        assert_eq!(kinds, ["assessed", "publication-decided", "policy-adopted", "installed"], "{what}");
+        // Every file of the domain committed at the branch's tip with its bytes on disk, read in two Git commands.
+        let mut files = Vec::new();
+        domain_files(&fx.domain, &mut files);
+        let rel: Vec<String> =
+            files.iter().map(|f| f.strip_prefix(&fx.root).unwrap().to_str().unwrap().to_owned()).collect();
+        let held = fx.git(&["ls-tree", "-r", "--format=%(objectname) %(path)", "HEAD", "--", ".brewstillery"]);
+        let held: BTreeMap<&str, &str> = held.lines().filter_map(|l| l.split_once(' ').map(|(o, p)| (p, o))).collect();
+        let mut c = Command::new("git");
+        isolate(&mut c, &fx.home, None);
+        let out = c
+            .current_dir(&fx.root)
+            .args(["hash-object", "--no-filters", "--stdin-paths"])
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .spawn()
+            .unwrap();
+        let disk = {
+            use std::io::Write;
+            let mut out = out;
+            out.stdin.take().unwrap().write_all(rel.join("\n").as_bytes()).unwrap();
+            String::from_utf8(out.wait_with_output().unwrap().stdout).unwrap()
+        };
+        for (path, blob) in rel.iter().zip(disk.lines()) {
+            assert_eq!(held.get(path.as_str()), Some(&blob), "{what}: {path}");
+        }
+        // Once the stream's first two events were covered whole, to an entry in its middle; from there, to its last.
+        let jump = match phase {
+            0 if k == 2 => Some(middle - 2),
+            1 if k == middle + 1 => Some(total - 2 - (middle + 1)),
+            _ => None,
+        };
+        match jump {
+            Some(by) => {
+                n += 3 * by;
+                phase += 1;
+            }
+            None => n += 1,
+        }
+    }
+    eprintln!("the import: {} write points stopped at", stopped.len());
+    for k in [0, 1, middle, middle + 1, total - 2, total - 1, total] {
+        assert!(stopped.contains(&k), "no stop with {k} events of the stream written: {stopped:?}");
+    }
+    open(&snapshot);
+    std::fs::remove_dir_all(&snapshot).unwrap();
+}
+
 /// Every file under the domain but its unversioned area and its own Git directory.
 fn domain_files(dir: &Path, out: &mut Vec<PathBuf>) {
     for entry in std::fs::read_dir(dir).unwrap().flatten() {

@@ -297,6 +297,8 @@ fn keys(text: &str) -> BTreeSet<String> {
 /// Every message the code can render, by key, with a value for each placeholder.
 fn rendered(lang: &str) -> Vec<(String, String)> {
     let params: Vec<(&str, &str)> = [
+        "entries",
+        "files",
         "word",
         "path",
         "check",

@@ -21,7 +21,7 @@ mod tasks;
 mod text;
 mod write;
 
-pub use check::CHECKS;
+pub use check::{CHECKS, credentials};
 pub use decl::{
     COMMANDS, Command, EXITS, Options, PROGRAM_FLAGS, Parsed, SCHEMAS, Usage, VALUES, answer_format, file_format, fish,
     flag_key, help, parse, posix, refusals, synopsis, writes,

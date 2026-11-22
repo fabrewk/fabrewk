@@ -213,6 +213,11 @@ pub fn status(record: &Replay, lang: &str) -> String {
         Some(m) => out += &format!("- {}\n", t("status.mode", &[("mode", &t(&format!("mode.{m}"), &[]))])),
         None => out += &format!("- {}\n", t("status.no-mode", &[])),
     }
+    // The bootstrap's import, once complete (D-113 point 1).
+    if let Some(p) = crate::bootstrap::imported(record).map(|e| &e.value["payload"]) {
+        let files = p["files"].as_array().map_or(0, Vec::len).to_string();
+        out += &format!("- {}\n", t("status.bootstrap", &[("entries", &p["entries"].to_string()), ("files", &files)]));
+    }
     if mode == Some("unpublished") {
         out += &format!("\n> {}\n", t("view.unpublished", &[]));
     }

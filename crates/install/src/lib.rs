@@ -6,9 +6,10 @@
 
 mod effects;
 mod files;
+mod import;
 mod onboard;
 
-use fabrewk_core::cli::{catalogue, say};
+use fabrewk_core::cli::{catalogue, printable, say};
 use fabrewk_core::install::{Asked, Installer, git};
 use fabrewk_core::record::{encode, sha256_hex};
 use fabrewk_core::settings::{Level, is_alias, key_blob};
@@ -18,8 +19,12 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 /// The installer, as the binary wires it.
-pub const INSTALLER: Installer =
-    Installer { assess, answers: |asked| json!(answers(asked)), interview: onboard::interview };
+pub const INSTALLER: Installer = Installer {
+    assess,
+    answers: |asked| json!(answers(asked)),
+    interview: onboard::interview,
+    split: |text| import::split(text).ok(),
+};
 
 /// The domain's directory.
 const DOMAIN: &str = ".brewstillery";
@@ -701,8 +706,11 @@ fn assessed(asked: &Asked) -> Result<(Value, String), Error> {
             next.extend(commands("git config user.signingkey", &[(String::new(), given)]));
         }
     }
-    // The plan's files (point 5), for `adopt`.
+    // The plan's files (point 5), for `adopt`; in a domain that holds `bootstrap/` and no record, an import (D-113).
     let mut files = Vec::new();
+    let importing = mode == "adopt" && !record && kind(root, fabrewk_core::bootstrap::DIR) != "absent";
+    let answered = (alias, key.as_deref(), publication, !asked.options.tools.is_empty());
+    let import = importing.then(|| import::read(root, &g.gitdir, answered, &mut r, &mut reasons)).transpose()?;
     let mut tools = Vec::new();
     for t in answers["tool"].as_array().into_iter().flatten().filter_map(Value::as_str) {
         if let Some(adapter) = asked.adapters.iter().find(|x| x.program.executable == t) {
@@ -712,35 +720,49 @@ fn assessed(asked: &Asked) -> Result<(Value, String), Error> {
     // The directory's name as the plan shows names, so that two never show alike (P10A-65).
     let name = root.file_name().map(shown).unwrap_or_default();
     if mode == "adopt" {
-        let project = files::project(&name, alias, key.as_deref(), tag, &tools);
-        if let (Some(_), Some(_)) = (alias, &key) {
-            let path = Path::new(".brewstillery/settings.toml");
-            if let Err(e) = fabrewk_core::settings::parse(path, &project, Level::Project) {
-                reasons.push(reason("settings-invalid", false, None, e.first().map(Error::detail).as_deref()));
+        let mut create = Vec::new();
+        let gitignore = (format!("{DOMAIN}/.gitignore"), Some(files::GITIGNORE.to_owned()));
+        match &import {
+            // An import keeps the project file, the maestro's own files and the alambique, and replaces `STATUS.md`.
+            Some(i) => {
+                files.extend(i.keep.iter().cloned());
+                create.extend((!i.gitignore).then_some(gitignore));
             }
-        }
-        let mut create = vec![
-            (format!("{DOMAIN}/settings.toml"), Some(project)),
-            (format!("{DOMAIN}/.gitignore"), Some(files::GITIGNORE.to_owned())),
-        ];
-        if let Some(alias) = alias {
-            create.push((format!("{DOMAIN}/{alias}/settings.toml"), Some(files::personal(alias, tag))));
-            create.push((format!("{DOMAIN}/{alias}/fermento.md"), Some(files::fermento(alias, lang))));
-        }
-        let alambique = format!("{DOMAIN}/ALAMBIQUE.md");
-        match r.read(root, &alambique, &alambique, false) {
-            Some(bytes) => files.push(json!({"path": alambique, "action": "keep", "digest": sha256_hex(&bytes)})),
-            None if r.inputs[&alambique]["kind"] == "absent" => {
-                let answered = [a("purpose"), a("audience"), a("excluded")];
-                create.push((alambique, Some(files::alambique(&name, lang, answered))));
+            None => {
+                let project = files::project(&name, alias, key.as_deref(), tag, &tools);
+                if let (Some(_), Some(_)) = (alias, &key) {
+                    let path = Path::new(".brewstillery/settings.toml");
+                    if let Err(e) = fabrewk_core::settings::parse(path, &project, Level::Project) {
+                        reasons.push(reason("settings-invalid", false, None, e.first().map(Error::detail).as_deref()));
+                    }
+                }
+                create.extend([(format!("{DOMAIN}/settings.toml"), Some(project)), gitignore]);
+                if let Some(alias) = alias {
+                    create.push((format!("{DOMAIN}/{alias}/settings.toml"), Some(files::personal(alias, tag))));
+                    create.push((format!("{DOMAIN}/{alias}/fermento.md"), Some(files::fermento(alias, lang))));
+                }
+                let alambique = format!("{DOMAIN}/ALAMBIQUE.md");
+                match r.read(root, &alambique, &alambique, false) {
+                    Some(bytes) => {
+                        files.push(json!({"path": alambique, "action": "keep", "digest": sha256_hex(&bytes)}))
+                    }
+                    None if r.inputs[&alambique]["kind"] == "absent" => {
+                        let answered = [a("purpose"), a("audience"), a("excluded")];
+                        create.push((alambique, Some(files::alambique(&name, lang, answered))));
+                    }
+                    None => reasons.push(reason("not-a-file", true, Some(&alambique), None)),
+                }
             }
-            None => reasons.push(reason("not-a-file", true, Some(&alambique), None)),
         }
         if entries.get("CLAUDE.md") == Some(&None) {
             create.push(("CLAUDE.md".into(), Some(files::CLAUDE.to_owned())));
         }
         for view in ["STATUS.md", "RULES.md"] {
-            create.push((format!("{DOMAIN}/{view}"), None));
+            let path = format!("{DOMAIN}/{view}");
+            match import.as_ref().and_then(|i| i.status.as_ref()).filter(|_| view == "STATUS.md") {
+                Some(digest) => files.push(json!({"path": path, "action": "replace", "digest": digest})),
+                None => create.push((path, None)),
+            }
         }
         if publication == Some("own-repository") {
             create.push((format!("{DOMAIN}/.git"), None));
@@ -800,6 +822,8 @@ fn assessed(asked: &Asked) -> Result<(Value, String), Error> {
     }
     let blocked = reasons.iter().any(|x| x["blocks"] == true);
     let verdict = if blocked { "none" } else { mode };
+    // A plan that imports says so, whatever its verdict; it lists what it imports only when it can be applied.
+    let import = import.map(|i| if verdict == "adopt" { i.plan } else { json!({"entries": [], "files": []}) });
     if verdict != "adopt" {
         files.clear();
     }
@@ -809,6 +833,9 @@ fn assessed(asked: &Asked) -> Result<(Value, String), Error> {
         "answers": answers, "git": {"branch": branch, "signs": signs},
         "inputs": r.inputs.into_values().collect::<Vec<_>>(), "effects": effects, "next": next, "files": files,
     });
+    if let Some(import) = import {
+        plan["import"] = import;
+    }
     if publication == Some("unpublished") {
         plan["warning"] = json!({"title": say(lang, "warning.title", &[]), "text": say(lang, "warning.text", &[])});
     }
@@ -875,7 +902,9 @@ fn render(lang: &str, plan: &Value, digest: &str, apply: &[Value]) -> String {
         let params = [("path", s(&f["path"])), ("branch", s(&f["branch"]))];
         let params: Vec<(&str, &str)> = params.iter().map(|(k, v)| (*k, v.as_str())).collect();
         let present = if f["present"] == true { "-present" } else { "" };
-        out += &format!("  {}\n", t(&format!("action.{action}{present}"), &params));
+        // A kept file other than the alambique is kept byte for byte, as an import keeps it (D-113 point 4).
+        let other = if action == "keep" && !s(&f["path"]).ends_with("/ALAMBIQUE.md") { "-file" } else { "" };
+        out += &format!("  {}\n", t(&format!("action.{action}{present}{other}"), &params));
         let shown = match action.as_str() {
             "create" => s(&f["content"]),
             "block" => s(&f["lines"]),
@@ -883,6 +912,20 @@ fn render(lang: &str, plan: &Value, digest: &str, apply: &[Value]) -> String {
         };
         // Split at each line's end alone, so that a carriage return the content holds is shown too (P10C-13).
         out += &shown.split_terminator('\n').map(|l| format!("      {l}\n")).collect::<String>();
+    }
+    // What an import records, an entry per line, then the files it lists (D-113 point 4).
+    let import = &plan["import"];
+    if !list(&import["entries"]).is_empty() {
+        out += &format!("\n{}:\n", t("import", &[]));
+        for e in list(&import["entries"]) {
+            let line = match e["key"].as_str() {
+                Some(key) => format!("{key} — {}", printable(&s(&e["title"]))),
+                None => t("import-opening", &[]),
+            };
+            out += &format!("  {line}\n");
+        }
+        out += &format!("\n{}:\n", t("import-files", &[]));
+        out += &list(&import["files"]).iter().map(|f| format!("  {}\n", s(&f["path"]))).collect::<String>();
     }
     if let Some(w) = plan.get("warning") {
         out += &format!("\n{}\n\n{}\n", s(&w["title"]), s(&w["text"]).trim_end());

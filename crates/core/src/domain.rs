@@ -21,9 +21,10 @@ const DIRS: [&str; 3] = ["data", "local", "skills"];
 /// Every entry at the domain's top that is not part of it (REQ-DOM-2), in name order: a directory whose name is not an
 /// alias and not reserved is `ALIAS_INVALID`; anything else not listed, a listed name of the wrong kind, and a link
 /// (never followed) are `DOMAIN_UNKNOWN_ENTRY`. `bootstrap/`, and `review/` while review mode is not built, are
-/// reserved and so unknown entries (D-051). In `own-repository` the domain's own repository, `.git` as a directory, is
-/// part of it (D-091). Each is a finding for `check`, never a reason to delete.
-pub fn layout(domain: &Path, mode: Option<Publication>) -> Result<Vec<Error>, Error> {
+/// reserved and so unknown entries (D-051), `bootstrap/` until the record holds its import, `imported`, and then part
+/// of the domain (D-113 point 7). In `own-repository` the domain's own repository, `.git` as a directory, is part of it
+/// (D-091). Each is a finding for `check`, never a reason to delete.
+pub fn layout(domain: &Path, mode: Option<Publication>, imported: bool) -> Result<Vec<Error>, Error> {
     let own = mode == Some(Publication::OwnRepository);
     let mut entries = Vec::new();
     for entry in fs::read_dir(domain).map_err(io_at(domain))? {
@@ -40,6 +41,7 @@ pub fn layout(domain: &Path, mode: Option<Publication>) -> Result<Vec<Error>, Er
             Some(n) if FILES.contains(&n) && kind.is_file() => continue,
             Some(n) if DIRS.contains(&n) && kind.is_dir() => continue,
             Some(".git") if own && kind.is_dir() => continue,
+            Some("bootstrap") if imported && kind.is_dir() => continue,
             Some(n) if kind.is_dir() && is_alias(n) => continue,
             Some(n) if kind.is_dir() && !RESERVED.contains(&n) => alias,
             None if kind.is_dir() => alias,

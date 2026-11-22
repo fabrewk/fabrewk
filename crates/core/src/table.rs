@@ -141,6 +141,7 @@ fn invalid(e: &Event, why: impl Into<String>) -> Error {
 pub fn validate(record: &Replay) -> Result<(), Vec<Error>> {
     let mut errors = current(record).err().unwrap_or_default();
     errors.extend(project(record));
+    errors.extend(crate::bootstrap::validate(record));
     match crate::fermento::proposals(record) {
         Ok(all) => errors.extend(crate::alambique::validate(record, &all)),
         Err(e) => errors.extend(e),

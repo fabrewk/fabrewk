@@ -200,7 +200,7 @@ fn pd_03_schema_1_is_pinned() {
          attempt-started Task Fabrewk\nattempt-ended Task Fabrewk\ncandidate-recorded Task Fabrewk\n\
          check-recorded Task Fabrewk\nreview-recorded Task Fabrewk\ntask-verified Task Fabrewk\n\
          task-halted Task Fabrewk\ntask-accepted Task Person\nmerge-failed Task Fabrewk\n\
-         task-integrated Task Fabrewk\ntask-rejected Task Person\nextension-note Ext Extension"
+         task-integrated Task Fabrewk\ntask-rejected Task Person\nextension-note Ext Extension\nentry-imported Bootstrap Fabrewk\nbootstrap-imported Bootstrap Fabrewk"
     );
 }
 

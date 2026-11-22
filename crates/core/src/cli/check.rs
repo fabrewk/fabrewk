@@ -1,7 +1,7 @@
 //! `fabrewk check` (section 6; part 7d2, D-055): every verification of this phase, each finding with its code, its
 //! severity and its control's label; it exits 3 when any finding is an error. It only reads. A verification that
 //! cannot run, for a tool missing or failing or a file that does not read, is `CHECK_UNKNOWN`, never a pass. C5 to C7
-//! and C12 come with phase 8.
+//! and C12 come with phase 8, C13 with part 11a.
 
 use super::{Cx, FOUND, Failed, Out};
 use crate::code::{Code::*, Error, normal, refuse};
@@ -54,6 +54,7 @@ pub const CHECKS: &[Check] = &[
     Check { id: "C10", codes: &[RecordUncommitted], control: Effective },
     Check { id: "C11", codes: &[PrivateFolderPermissions], control: Effective },
     Check { id: "C12", codes: &[MaintainerUnlisted, FermentoMissing], control: Effective },
+    Check { id: "C13", codes: &[BootstrapChanged], control: Effective },
 ];
 
 /// A control's name in the catalogue and in `--json`.
@@ -150,6 +151,12 @@ fn link(dest: &str) -> Option<&str> {
     (!path.starts_with('/') && !scheme).then_some(path)
 }
 
+/// C9 as `check` runs it (`CREDENTIAL_SUSPECTED`), which an import's plan also reads (D-113 point 2).
+pub fn credentials(domain: &Path) -> Vec<Error> {
+    let cited = cited(domain);
+    crate::scan::domain(domain, &|p: &Path| cited.contains(&normal(p)))
+}
+
 pub(super) fn run(cx: &Cx) -> Result<Out, Failed> {
     let mut found: Vec<(&str, Error)> = Vec::new();
     let d = &cx.domain;
@@ -242,13 +249,20 @@ pub(super) fn run(cx: &Cx) -> Result<Out, Failed> {
         found.extend(walk.err().map(|e| ("C4", unknown(e))));
     }
     // C8: the layout, the ignore file, and the product's ignore rule in the modes that do not publish the domain.
-    match domain::layout(d, mode) {
+    let imported = record.as_ref().is_ok_and(|r| crate::bootstrap::imported(r).is_some());
+    match domain::layout(d, mode, imported) {
         Ok(entries) => found.extend(entries.into_iter().map(|e| ("C8", e))),
         Err(e) => found.push(("C8", unknown(e))),
     }
     found.extend(domain::check_gitignore(d).err().map(|e| ("C8", unknown(e))));
     if let Some(mode) = mode {
         found.extend(domain::check_ignored(d, mode).err().map(|e| ("C8", unknown(e))));
+    }
+    // C13: once imported, `bootstrap/` holds exactly what the import lists (D-113 point 7).
+    match record {
+        Ok(r) => found.extend(crate::bootstrap::check(&cx.root, r).into_iter().map(|e| ("C13", unknown(e)))),
+        Err(_) if !absent => found.push(("C13", refuse(CheckUnknown, Some(d), "the record does not replay"))),
+        Err(_) => {}
     }
     // C7: the alambique is the text a maestro last approved (REQ-FER-7).
     match record {
@@ -287,8 +301,7 @@ pub(super) fn run(cx: &Cx) -> Result<Out, Failed> {
         }
     }
     // C9: what looks like a credential, reading only what is cited in a maintainer's directory.
-    let cited = cited(d);
-    found.extend(crate::scan::domain(d, &|p: &Path| cited.contains(&normal(p))).into_iter().map(|e| ("C9", e)));
+    found.extend(credentials(d).into_iter().map(|e| ("C9", e)));
     // C10: the record's files committed where the mode commits.
     if let Some(repo) = &repo {
         match record::uncommitted(repo) {

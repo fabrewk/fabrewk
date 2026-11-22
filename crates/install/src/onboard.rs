@@ -1,6 +1,6 @@
 //! `onboard`'s interview (REQ-INS-4, D-097 point 8; part 10c): the language first, then, in it, the mode, the
 //! publication with point 9's warning and its exits, the alias, the key with Git's commands to sign with it, the tools
-//! and, when no alambique exists, REQ-INS-8's three questions; then the assessment with those answers, the whole plan,
+//! (unless the plan imports the bootstrap, D-113) and, when no alambique exists, REQ-INS-8's three questions; then the assessment with those answers, the whole plan,
 //! the explicit yes and the person's words. An answer outside a question's choices, an empty one where an answer is
 //! needed, or the end of input, at any question, applies nothing, says so, and gives no plan.
 
@@ -59,8 +59,9 @@ fn asked(i: &mut Interview, o: &mut Options) -> Result<Option<String>, Error> {
     let Some(tag) = tag.filter(|t| known(t)) else { return stop(i, "en") };
     let lang = catalogue(&tag.to_ascii_lowercase());
     o.answers.insert("lang", tag);
-    // Where `assess` refuses (no repository, an include of the private folder), nothing more is asked.
-    assessed(i, o)?;
+    // Where `assess` refuses (no repository, an include of the private folder), nothing more is asked; where its plan
+    // imports the bootstrap, the tools are the project file's, and not asked (D-113 point 2).
+    let imports = assessed(i, o)?.0["plan"].get("import").is_some();
     let q = |k: &str| say(lang, &format!("onboard.{k}"), &[]);
     let Some(mode) = choose(i, &q("mode"), &["adopt", "review"])? else { return stop(i, lang) };
     o.answers.insert("mode", mode);
@@ -94,7 +95,11 @@ fn asked(i: &mut Interview, o: &mut Options) -> Result<Option<String>, Error> {
         put(i, &format!("{}\n{lines}", q("sign")))?;
     }
     let names: Vec<&str> = i.adapters.iter().map(|a| a.program.executable).collect();
-    let Some(tools) = ask(i, &format!("{} ({})", q("tools"), names.join(", ")))? else { return stop(i, lang) };
+    let tools = match imports {
+        true => Some(String::new()),
+        false => ask(i, &format!("{} ({})", q("tools"), names.join(", ")))?,
+    };
+    let Some(tools) = tools else { return stop(i, lang) };
     // Choices in any case (P10C-3).
     for t in tools.to_lowercase().split(|c: char| c.is_whitespace() || c == ',').filter(|t| !t.is_empty()) {
         if !names.contains(&t) {

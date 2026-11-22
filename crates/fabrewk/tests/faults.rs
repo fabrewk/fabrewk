@@ -1638,3 +1638,74 @@ fn p10b_11_a_link_made_at_the_temporary_directory_before_the_lock_is_not_followe
     assert_eq!(fs::read_dir(&outside).unwrap().count(), 2);
     assert!(!fx.domain.join("data").exists());
 }
+
+/// P11O-1 (D-113 point 6): a file of `bootstrap/` removed from the index and committed, its working tree kept, while
+/// an `apply` of the import is stopped, waits for the lock, or waits for its record commit: the resumed or racing
+/// `apply` refuses `PLAN_CHANGED`, writing nothing before its events, and leaving its events written and the
+/// installation incomplete after them; once the file is committed again, the same `apply` finishes.
+#[test]
+fn p11o_1_a_file_of_bootstrap_untracked_while_apply_runs_is_plan_changed() {
+    use common::import::importable;
+    let untrack = |fx: &Fx| {
+        fx.git(&["rm", "-q", "--cached", "--", ".brewstillery/bootstrap/plan.md"]);
+        fx.git(&["commit", "-q", "-m", "untrack"]);
+    };
+    let args = |digest: &str, options: &[String]| -> Vec<String> {
+        let mut all = vec!["apply".to_owned(), digest.to_owned()];
+        all.extend(options.iter().cloned());
+        all.extend(["--say", "Lo importo.", "--json"].map(String::from));
+        all
+    };
+    let digest = |fx: &Fx, options: &[String]| {
+        let opts: Vec<&str> = options.iter().map(String::as_str).collect();
+        fx.run(&[&["assess", "--json"][..], &opts].concat()).doc()["digest"].as_str().unwrap().to_owned()
+    };
+    // Stopped after its first events, then resumed.
+    let (fx, options) = importable("p11o-1-resumed", false);
+    let d = digest(&fx, &options);
+    let mut n = 1;
+    while fx.events("project").len() < 2 {
+        let ran = fx.apply_digest(&d, &options, &[("FABREWK_FAULT_ABORT_AT", &n.to_string())]);
+        assert_eq!(ran.status, -1, "{ran:?}");
+        n += 1;
+    }
+    assert!(fx.events("bootstrap").is_empty());
+    untrack(&fx);
+    let ran = fx.apply_digest(&d, &options, &[]);
+    assert_eq!((ran.status, ran.doc()["refusals"][0]["code"].clone()), (1, json!("PLAN_CHANGED")), "{ran:?}");
+    assert_eq!((fx.events("project").len(), fx.events("bootstrap").len()), (2, 0));
+    // Racing, before the lock: nothing written.
+    let (fx, options) = importable("p11o-1-lock", false);
+    let d = digest(&fx, &options);
+    let dir = fx.root.parent().unwrap().join("pause");
+    fs::create_dir_all(&dir).unwrap();
+    let all = args(&d, &options);
+    let child = paused(&fx, &all.iter().map(String::as_str).collect::<Vec<_>>(), "before-lock", &dir);
+    untrack(&fx);
+    let ran = resume(child, "before-lock", &dir);
+    assert_eq!(ran.status, 1, "{ran:?}");
+    assert!(ran.stdout.contains("PLAN_CHANGED"), "{ran:?}");
+    assert!(!fx.domain.join("data").exists());
+    // Racing, before the record commit: the events written, the installation incomplete, then finished.
+    let (fx, options) = importable("p11o-1-commit", false);
+    let d = digest(&fx, &options);
+    let dir = fx.root.parent().unwrap().join("pause");
+    fs::create_dir_all(&dir).unwrap();
+    let child = paused(&fx, &all_of(&args(&d, &options)), "before-import-check", &dir);
+    untrack(&fx);
+    let ran = resume(child, "before-import-check", &dir);
+    assert_eq!(ran.status, 1, "{ran:?}");
+    assert!(ran.stdout.contains("PLAN_CHANGED"), "{ran:?}");
+    assert_eq!(fx.events("bootstrap").last().unwrap()["kind"], "bootstrap-imported");
+    let check = fx.run(&["check", "--json"]);
+    assert!(check.stdout.contains("INSTALLATION_INCOMPLETE"), "{check:?}");
+    fx.git(&["add", "--", ".brewstillery/bootstrap/plan.md"]);
+    fx.git(&["commit", "-q", "-m", "track"]);
+    let again = fx.apply_digest(&d, &options, &[]);
+    assert_eq!(again.status, 0, "{again:?}");
+    assert_eq!(fx.run(&["check"]).status, 0);
+}
+
+fn all_of(args: &[String]) -> Vec<&str> {
+    args.iter().map(String::as_str).collect()
+}

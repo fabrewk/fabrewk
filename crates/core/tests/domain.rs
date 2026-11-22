@@ -24,7 +24,7 @@ fn findings(domain: &Path) -> Vec<(String, Code)> {
 
 /// Each finding of the layout as (name, code), under the publication mode `mode`.
 fn findings_in(domain: &Path, mode: Option<Publication>) -> Vec<(String, Code)> {
-    let found = domain::layout(domain, mode).unwrap();
+    let found = domain::layout(domain, mode, false).unwrap();
     let name = |e: &fabrewk_core::Error| match e {
         fabrewk_core::Error::Refused { path: Some(p), .. } => p.file_name().unwrap().to_string_lossy().into_owned(),
         other => panic!("{other:?}"),
@@ -339,7 +339,7 @@ fn req_dom_5_write_commands_rebuild_the_cache_and_reading_ones_leave_it_absent()
             let r = replay(&f.domain, &f.verifier()).unwrap();
             check_mark(&f.domain, &r).unwrap();
             detect::detect(&f.domain, &eff, &[], path.as_deref());
-            domain::layout(&f.domain, Some(Publication::Published)).unwrap();
+            domain::layout(&f.domain, Some(Publication::Published), false).unwrap();
             domain::check_gitignore(&f.domain).unwrap();
             domain::check_ignored(&f.domain, Publication::Published).unwrap();
             fabrewk_core::record::walk_history(&Repo::for_domain(&f.domain, Publication::Published).unwrap(), "main")

@@ -60,6 +60,7 @@ Documentos con --json: `fabrewk.check/1`
 | C10 | Los archivos del registro están confirmados donde el modo de publicación los confirma. | `RECORD_UNCOMMITTED` | efectivo |
 | C11 | La carpeta privada da acceso solo a su dueño. | `PRIVATE_FOLDER_PERMISSIONS` | efectivo |
 | C12 | Cada directorio de mantenedor tiene un fermento y está listado en la política. | `MAINTAINER_UNLISTED`, `FERMENTO_MISSING` | efectivo |
+| C13 | Una vez importado el bootstrap, bootstrap/ tiene exactamente los archivos que lista la importación, byte por byte. | `BOOTSTRAP_CHANGED` | efectivo |
 
 ## `fabrewk assess [--mode <mode>] [--publication <mode>] [--alias <alias>] [--key <file>] [--tool <name>]… [--lang <tag>] [--purpose <text>] [--audience <text>] [--excluded <text>] [--json]`
 

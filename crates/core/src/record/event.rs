@@ -17,6 +17,7 @@ pub enum StreamKind {
     Stage,
     Task,
     Ext,
+    Bootstrap,
 }
 
 /// Who may record a kind: a person (signed, with words), Fabrewk, an agent, any actor but a person (an agent, Fabrewk
@@ -31,7 +32,7 @@ pub enum Class {
 }
 
 use Class::{Agent, Extension, Fabrewk, NotPerson, Person};
-use StreamKind::{Alambique, Ext, Fermento, Project, Rules, Stage, Task};
+use StreamKind::{Alambique, Bootstrap, Ext, Fermento, Project, Rules, Stage, Task};
 
 /// Every kind of schema 1, the stream it is recorded in, and its actor (core-specification section 3).
 pub const KINDS: &[(&str, StreamKind, Class)] = &[
@@ -65,6 +66,8 @@ pub const KINDS: &[(&str, StreamKind, Class)] = &[
     ("task-integrated", Task, Fabrewk),
     ("task-rejected", Task, Person),
     ("extension-note", Ext, Extension),
+    ("entry-imported", Bootstrap, Fabrewk),
+    ("bootstrap-imported", Bootstrap, Fabrewk),
 ];
 
 /// The fields of every event of schema 1; a person's event has `say` besides.
@@ -82,6 +85,7 @@ pub fn stream_kind(name: &str) -> Option<StreamKind> {
         "project" => Project,
         "alambique" => Alambique,
         "rules" => Rules,
+        "bootstrap" => Bootstrap,
         _ if name.strip_prefix("fermento-").is_some_and(is_name) => Fermento,
         _ if name.strip_prefix("stage-").is_some_and(|id| is_id(id, 's')) => Stage,
         _ if name.strip_prefix("task-").is_some_and(|id| is_id(id, 't')) => Task,
@@ -227,8 +231,11 @@ pub(crate) fn check(v: &Value, stream: &str, seq: u64) -> Result<Class, (Code, &
     if kind == "publication-decided" {
         publication_payload(&o["payload"])?;
     }
-    if kind == "assessed" || kind == "installed" {
+    if kind == "assessed" || kind == "installed" || kind == "bootstrap-imported" {
         installation_payload(kind, &o["payload"])?;
+    }
+    if kind == "entry-imported" {
+        entry_payload(&o["payload"])?;
     }
     if !crate::task::shape(kind, &o["payload"]) || !crate::fermento::shape(kind, &o["payload"]) {
         return Err((Unknown, "payload"));
@@ -248,13 +255,30 @@ fn publication_payload(p: &Value) -> Result<(), (Code, &'static str)> {
     Ok(())
 }
 
+/// `entry-imported`'s payload (phase 11, D-113 point 5): exactly `key` and `title` (strings, or both `null` for the
+/// opening), `fields` (`[label, value]` pairs of strings) and `text` (a string).
+fn entry_payload(p: &Value) -> Result<(), (Code, &'static str)> {
+    let o = p.as_object().filter(|o| o.len() == 4);
+    let field = |f: &str| o.and_then(|o| o.get(f));
+    let pair = |f: &Value| f.as_array().is_some_and(|a| a.len() == 2 && a.iter().all(Value::is_string));
+    let named = matches!((field("key"), field("title")), (Some(Value::String(_)), Some(Value::String(_))))
+        || (field("key").is_some_and(Value::is_null) && field("title").is_some_and(Value::is_null));
+    let fields = field("fields").and_then(Value::as_array).is_some_and(|f| f.iter().all(pair));
+    match named && fields && field("text").is_some_and(Value::is_string) {
+        true => Ok(()),
+        false => Err((Code::RecordVersionUnknown, "payload")),
+    }
+}
+
 /// The installation's payloads (part 10b, D-097 point 6): `assessed`'s is exactly `plan` (the plan `assess` gave, an
 /// object, which holds the verdict and its reasons) and `digest` (the SHA-256 of its canonical bytes, its identity);
 /// `installed`'s, exactly `plan` (that digest) and `files` (the receipt: each file written or changed, `path` as the plan
-/// names it and `digest` of its bytes after). A malformed payload is `RECORD_VERSION_UNKNOWN`; a digest that is not the
-/// plan's is `RECORD_BROKEN`.
+/// names it and `digest` of its bytes after); `bootstrap-imported`'s, exactly `plan`, `entries` (an integer) and `files`
+/// (D-113 point 5). A malformed payload is `RECORD_VERSION_UNKNOWN`; a digest that is not the plan's is `RECORD_BROKEN`.
 fn installation_payload(kind: &str, p: &Value) -> Result<(), (Code, &'static str)> {
-    let o = p.as_object().filter(|o| o.len() == 2);
+    let imported = kind == "bootstrap-imported";
+    let o = p.as_object().filter(|o| o.len() == 2 + usize::from(imported));
+    let o = o.filter(|o| !imported || o.get("entries").is_some_and(Value::is_u64));
     let digest = o.and_then(|o| o.get(if kind == "assessed" { "digest" } else { "plan" })?.as_str());
     let file = |f: &Value| {
         let f = f.as_object().filter(|f| f.len() == 2);
@@ -455,6 +479,80 @@ mod tests {
         }
         let other = json!({"content": "other", "digest": digest, "heads": {}, "widened": []});
         assert_eq!(event(other), Err(Code::RecordBroken));
+    }
+
+    #[test]
+    fn the_bootstrap_s_payloads_are_exactly_their_fields_of_their_types() {
+        let event = |kind: &str, payload: Value| {
+            let d = Draft {
+                kind: kind.into(),
+                actor: json!({"kind": "fabrewk"}),
+                policy: "a".repeat(64),
+                instance: "i".into(),
+                say: None,
+                payload,
+            };
+            check(&d.build("bootstrap", 1, None), "bootstrap", 1).map(|_| ()).map_err(|e| e.0)
+        };
+        let entry = json!({"key": "D-001", "title": "One", "fields": [["Status", "x"]], "text": "## D-001 — One\n"});
+        let opening = json!({"key": null, "title": null, "fields": [], "text": ""});
+        assert_eq!((event("entry-imported", entry.clone()), event("entry-imported", opening)), (Ok(()), Ok(())));
+        let bad = |field: &str, v: Value| {
+            let mut p = entry.clone();
+            p[field] = v;
+            p
+        };
+        let mut extra = entry.clone();
+        extra["x"] = json!(1);
+        let mut short = entry.clone();
+        short.as_object_mut().unwrap().remove("text");
+        for p in [
+            extra,
+            short,
+            bad("key", json!(null)),
+            bad("title", json!(null)),
+            bad("key", json!(1)),
+            bad("text", json!(null)),
+            bad("fields", json!({})),
+            bad("fields", json!([["Status"]])),
+            bad("fields", json!([["Status", "x", "y"]])),
+            bad("fields", json!([["Status", 1]])),
+            bad("fields", json!(["Status"])),
+        ] {
+            assert_eq!(event("entry-imported", p.clone()), Err(Code::RecordVersionUnknown), "{p}");
+        }
+        let files = json!([{"path": "a", "digest": "b".repeat(64)}]);
+        let done = json!({"plan": "c".repeat(64), "entries": 3, "files": files});
+        assert_eq!(event("bootstrap-imported", done.clone()), Ok(()));
+        for (field, v) in [
+            ("entries", json!(-1)),
+            ("entries", json!("3")),
+            ("plan", json!("c")),
+            ("files", json!([{"path": "a"}])),
+            ("files", json!({})),
+            ("x", json!(1)),
+        ] {
+            let mut p = done.clone();
+            p[field] = v;
+            assert_eq!(event("bootstrap-imported", p.clone()), Err(Code::RecordVersionUnknown), "{p}");
+        }
+        let mut short = done.clone();
+        short.as_object_mut().unwrap().remove("entries");
+        assert_eq!(event("bootstrap-imported", short), Err(Code::RecordVersionUnknown));
+        // Neither kind stands in another stream, nor another kind in this one.
+        let d = Draft {
+            kind: "installed".into(),
+            actor: json!({"kind": "fabrewk"}),
+            policy: "a".repeat(64),
+            instance: "i".into(),
+            say: None,
+            payload: json!({"plan": "c".repeat(64), "files": []}),
+        };
+        assert_eq!(
+            check(&d.build("bootstrap", 1, None), "bootstrap", 1).map_err(|e| e.0),
+            Err(Code::RecordTransitionInvalid)
+        );
+        assert_eq!(stream_kind("bootstrap"), Some(Bootstrap));
     }
 
     #[test]

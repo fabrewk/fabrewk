@@ -5,6 +5,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub mod adapter;
 pub mod alambique;
+pub mod bootstrap;
 pub mod candidate;
 pub mod cli;
 mod code;

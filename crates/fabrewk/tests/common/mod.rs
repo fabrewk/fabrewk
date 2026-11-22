@@ -5,6 +5,7 @@
 #![allow(dead_code)]
 
 pub mod flow;
+pub mod import;
 
 use fabrewk_core::record::{Draft, KeySigner, Say, Session, nonce, sha256_hex, subject_stream};
 use serde_json::{Value, json};

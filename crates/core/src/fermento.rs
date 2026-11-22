@@ -40,7 +40,7 @@ pub(crate) fn lines(text: &str) -> Vec<(usize, &str)> {
 /// Whether each line lies in a fenced code block, its fences included: a run of three backticks or tildes opens one
 /// after at most three spaces (a backtick fence's info string holds no backtick), and a run of the same mark at least
 /// as long, with only white space after it, closes it; one never closed runs to the end.
-pub(crate) fn fenced(lines: &[&str]) -> Vec<bool> {
+pub fn fenced(lines: &[&str]) -> Vec<bool> {
     let mut open: Option<(char, usize)> = None;
     let mut out = Vec::with_capacity(lines.len());
     for line in lines {

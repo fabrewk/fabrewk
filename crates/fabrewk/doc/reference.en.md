@@ -60,6 +60,7 @@ Documents with --json: `fabrewk.check/1`
 | C10 | The record's files are committed where the publication mode commits them. | `RECORD_UNCOMMITTED` | effective |
 | C11 | The private folder gives access to its owner only. | `PRIVATE_FOLDER_PERMISSIONS` | effective |
 | C12 | Every maintainer directory has a fermento and is listed in the policy. | `MAINTAINER_UNLISTED`, `FERMENTO_MISSING` | effective |
+| C13 | Once the bootstrap is imported, bootstrap/ holds exactly the files the import lists, byte for byte. | `BOOTSTRAP_CHANGED` | effective |
 
 ## `fabrewk assess [--mode <mode>] [--publication <mode>] [--alias <alias>] [--key <file>] [--tool <name>]… [--lang <tag>] [--purpose <text>] [--audience <text>] [--excluded <text>] [--json]`
 

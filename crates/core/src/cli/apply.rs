@@ -4,9 +4,10 @@
 //! (`MODE_NOT_AVAILABLE`), a key Git does not sign with that is not the plan's (`ROLE_FORBIDDEN`) and words that are
 //! not the person's. Then, under the domain's lock, the installation's entry to the write path (P10O-4): `assessed` and
 //! `publication-decided`; the plan's files, the entry blocks, the domain's own repository and the exclude line;
-//! `policy-adopted`, `alambique-baseline` and `installed` with the receipt; the views and the record commit. An `apply`
-//! stopped before its end is finished by the same command, from the plan its `assessed` holds, writing only what is
-//! missing; no file it did not write is ever overwritten.
+//! `policy-adopted`, `alambique-baseline` and `installed` with the receipt; the views and the record commit. A plan
+//! that imports the bootstrap writes the stream `bootstrap` before the adoption, whose seal holds it (D-113 point 6).
+//! An `apply` stopped before its end is finished by the same command, from the plan its `assessed` holds, writing only
+//! what is missing; no file it did not write is ever overwritten.
 
 use super::write::{self, Written};
 use super::{Command, Cx, Failed, Options, Out};
@@ -107,28 +108,43 @@ fn targets(root: &Path, plan: &Value, record: Option<&Replay>) -> Result<(), Err
         let found =
             input.is_some_and(|i| (i["kind"] == "absent" && absent) || (now.is_some() && i["digest"] == json!(now)));
         let written = now.is_some() && f["content"].as_str().map(|c| sha256_hex(c.as_bytes())) == now;
+        let named = |e: &Error| match e {
+            Error::Refused { path: p, .. } => p.as_deref() == Some(path.as_path()),
+            Error::Io { path: p, .. } => p == &path,
+        };
+        let fresh = |r| !crate::view::stale(&root.join(".brewstillery"), r).iter().any(named);
         let ok = match f["action"].as_str() {
             Some("create" | "block") => found || written,
+            // The one file an import replaces: as the plan found it, or the view an earlier `apply` wrote (D-113 point 4).
+            Some("replace") => found || record.is_some_and(fresh),
             Some("keep") => now.is_some() && f["digest"] == json!(now),
             Some("exclude") => {
                 found || bytes.is_some_and(|b| b.split(|c| *c == b'\n').any(|l| l == b"/.brewstillery/"))
             }
             Some("repository") => absent || meta.is_ok_and(|m| m.is_dir()),
             // A view is absent, or what the record as it stands gives, which an earlier `apply` wrote (P10B-2).
-            _ => {
-                let named = |e: &Error| match e {
-                    Error::Refused { path: p, .. } => p.as_deref() == Some(path.as_path()),
-                    Error::Io { path: p, .. } => p == &path,
-                };
-                let fresh = |r| !crate::view::stale(&root.join(".brewstillery"), r).iter().any(named);
-                absent || record.is_some_and(fresh)
-            }
+            _ => absent || record.is_some_and(fresh),
         };
         if !ok {
             return Err(refused());
         }
     }
     Ok(())
+}
+
+/// The committed state an import relies on (D-113 points 2 and 6): the plan's `import.files`, every file it keeps, and
+/// `STATUS.md` while it holds what the plan found, each raw in `HEAD`'s tree, the index and the working tree, and
+/// `HEAD`'s tree listing exactly the imported files under `bootstrap/` (`PLAN_CHANGED` otherwise).
+fn committed(root: &Path, plan: &Value) -> Result<(), Error> {
+    let digest = |f: &Value| Some((f["path"].as_str()?.to_owned(), f["digest"].as_str()?.to_owned()));
+    let now = |f: &Value| fs::read(root.join(f["path"].as_str().unwrap_or_default())).ok().map(|b| sha256_hex(&b));
+    let found = |f: &&Value| f["action"] == "keep" || (f["action"] == "replace" && f["digest"] == json!(now(f)));
+    let files = plan["files"].as_array().into_iter().flatten().filter(found);
+    let set = files.chain(plan["import"]["files"].as_array().into_iter().flatten()).filter_map(digest).collect();
+    match crate::bootstrap::uncommitted(root, None, &set, crate::bootstrap::DIR)?.first() {
+        Some(p) => Err(changed(&format!("{p} is not, raw, what HEAD and the index hold as the plan found it"))),
+        None => Ok(()),
+    }
 }
 
 /// The installation's entry to the write path (P10O-4, see the module's description); gives what it wrote and the
@@ -176,8 +192,31 @@ fn install(
         record.iter().flat_map(|r| r.streams.values().flatten()).map(|e| (e.stream.clone(), e.kind.clone())).collect();
     let has = |stream: &str, kind: &str| present.iter().any(|(s, k)| s == stream && k == kind);
     targets(&cx.root, plan, record.as_ref())?;
-    // Every person's event missing is made and signed before anything is written.
+    // An import's files committed and its stream as the plan gives it, any events of it present its first (point 6).
+    let import = plan["import"].is_object();
+    let stream = match import {
+        true => committed(&cx.root, plan)
+            .and_then(|()| crate::bootstrap::planned(&cx.root, plan, digest, cx.installer.split))?,
+        false => Vec::new(),
+    };
+    let held = record.iter().flat_map(|r| r.streams.get("bootstrap")).flatten().collect::<Vec<_>>();
+    if held.len() > stream.len() || held.iter().zip(&stream).any(|(e, p)| e.value["payload"] != *p) {
+        return Err(changed("the record's bootstrap stream is not the import the plan gives").into());
+    }
+    // Every person's event missing is made and signed before anything is written; the import's events before them,
+    // so that the adoption's seal holds the stream's last.
     let (instance, pending) = crate::machine::prepare_instance(&folder)?;
+    let fabrewk = json!({"kind": "fabrewk"});
+    let (mut head, mut imports, last) = (session.head("bootstrap")?, Vec::new(), stream.len());
+    for (i, payload) in stream.into_iter().enumerate().skip(held.len()) {
+        let kind = if i + 1 == last { "bootstrap-imported" } else { "entry-imported" };
+        let (actor, policy, instance) = (fabrewk.clone(), policy.digest.clone(), instance.clone());
+        let draft = Draft { kind: kind.into(), actor, policy, instance, say: None, payload };
+        let p = session.prepare("bootstrap", head.as_ref(), &draft, None)?;
+        head = Some(p.head().clone());
+        imports.push(p);
+    }
+    let seal = head.filter(|_| import).map(|h| json!({"bootstrap": {"digest": h.digest, "seq": h.seq}}));
     let alambique = plan["files"].as_array().into_iter().flatten().find(|f| f["path"] == ".brewstillery/ALAMBIQUE.md");
     let baseline = alambique.and_then(|f| {
         f["digest"].as_str().map(str::to_owned).or_else(|| Some(sha256_hex(f["content"].as_str()?.as_bytes())))
@@ -192,7 +231,7 @@ fn install(
         (
             "project",
             "policy-adopted",
-            json!({"content": policy.text, "digest": policy.digest, "heads": {}, "widened": []}),
+            json!({"content": policy.text, "digest": policy.digest, "heads": seal.unwrap_or(json!({})), "widened": []}),
         ),
         ("alambique", "alambique-baseline", json!({"digest": baseline})),
     ];
@@ -255,6 +294,9 @@ fn install(
     }
     // The mode's checks, once the exclude line and the domain's repository are in place.
     crate::domain::check_ignored(&cx.domain, mode)?;
+    for p in imports {
+        written.push(("bootstrap".to_owned(), session.write(p)?));
+    }
     for (stream, p) in later {
         written.push((stream.to_owned(), session.write(p)?));
     }
@@ -266,7 +308,6 @@ fn install(
             files.push(json!({"path": rel, "digest": sha256_hex(&bytes)}));
         }
         let payload = json!({"plan": digest, "files": files});
-        let fabrewk = json!({"kind": "fabrewk"});
         let draft = Draft {
             kind: "installed".into(),
             actor: fabrewk,
@@ -284,14 +325,23 @@ fn install(
     let views = crate::view::write(&cx.domain, &after)?;
     // The alambique kept is the approved text of departure, which the baseline names: committed with it, so that the
     // domain's files are whole in the commit (point 6) and a later approval starts from the committed text.
+    // An import's files too, unchanged, so that a branch moved to a commit that changes one of them is a race and never
+    // the record commit's parent (D-113 point 6); a name the record commit cannot stage is left to the check below.
     let kept = plan["files"].as_array().into_iter().flatten().filter(|f| f["action"] == "keep");
+    let imported = plan["import"]["files"].as_array().into_iter().flatten();
+    let kept = kept.chain(imported.filter(|f| f["path"].as_str().is_some_and(|p| !p.contains(['\n', '\t']))));
     let kept: Vec<String> = kept.filter_map(|f| f["path"].as_str().map(str::to_owned)).collect();
-    let committed = receipt.iter().chain(&kept).filter(|r| match mode {
+    let commits = receipt.iter().chain(&kept).filter(|r| match mode {
         Publication::Published => true,
         Publication::OwnRepository => r.starts_with(".brewstillery/"),
         Publication::Unpublished => false,
     });
-    session.install(committed.map(|r| cx.root.join(r)).collect())?;
+    session.install(commits.map(|r| cx.root.join(r)).collect())?;
+    // The record commit's parent holds the import's files as the plan found them (P11O-1).
+    if import {
+        record::fault::pause("before-import-check");
+        committed(&cx.root, plan)?;
+    }
     let commit = session.finish_held(&PolicyVerifier, &views)?;
     write::caches(cx, &session, machine.as_ref(), &[])?;
     let recovered = session.take_notes();
