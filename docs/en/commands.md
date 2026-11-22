@@ -11,7 +11,7 @@ summary, its options, its file's format where it takes one, and its refusals. Co
 | --- | --- |
 | `fabrewk status [<id>]` | The record's health, the policy in force and the state of each stage and task; with an identifier, that stage or task with its events and the digest a decision on it cites. |
 | `fabrewk config [<key>]` | Every effective setting with its source, the changes not adopted, the maintainers' keys, what this machine has and every control. |
-| `fabrewk check` | Verifies the settings, the policy, the record, the domain, the credentials and the private folder; exits 3 on an error, 0 on warnings alone. |
+| `fabrewk check` | Verifies the settings, the policy, the record, the domain, the credentials and the private folder; exits 3 on an error, 0 on warnings alone. C13 checks that `.brewstillery/bootstrap/` still contains exactly the imported files, byte for byte, after the import (`BOOTSTRAP_CHANGED`). That record of Fabrewk's construction by hand exists only in Fabrewk's own repository, never in a project Fabrewk serves. |
 | `fabrewk assess [<options>]` | Assesses the repository, writing nothing: the verdict, its reasons and the plan, with its digest and the `apply` command. |
 
 ## The installation

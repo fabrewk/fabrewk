@@ -9,8 +9,8 @@ Agents work confined on tasks a person authorized; every person's decision is si
 The names come from a distillery: Brewstillery is the project's distillery, each maestro prepares a fermento,
 and the alambique distils what the project must be. Only maestros approve what enters it.
 
-Version **0.2.0** supports **Linux on ARM64** only. Review mode is not built yet: Fabrewk can show a plan for it,
-but cannot apply it.
+Version **0.2.0** is a pre-release. It supports **Linux on ARM64** only. Review mode is not built yet: Fabrewk can
+show a plan for it, but cannot apply it.
 
 ## Install
 

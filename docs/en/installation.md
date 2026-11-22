@@ -7,7 +7,7 @@ questions on the terminal and runs both for you.
 
 ## What you need
 
-- Linux on ARM64 (`aarch64`). It is the only platform Fabrewk is tested on today; the script refuses any other one
+- Version **0.2.0** is a pre-release for Linux on ARM64 (`aarch64`) only. The script refuses any other platform
   with `PLATFORM_UNSUPPORTED` and the list of supported platforms.
 - For the script: `curl`, `ssh-keygen` (OpenSSH), `sha256sum`, `tar` and `gzip`. If one is missing the script says
   `TOOL_MISSING`, names it and stops; it never installs a tool by itself.
@@ -147,7 +147,10 @@ answer is recorded in your own words.
 
 ### After the installation
 
-- `fabrewk check` verifies the settings, the record and the domain.
+- `fabrewk check` verifies the settings, the record and the domain. In Fabrewk's own repository, C13 also checks
+  that `.brewstillery/bootstrap/` still contains exactly the imported files, byte for byte, after the import
+  (`BOOTSTRAP_CHANGED`). That directory records Fabrewk's construction by hand; it never exists in a project
+  Fabrewk serves.
 - `fabrewk status` shows the state of the work.
 - The project file declares no model and no profile yet: a maestro adds them to `.brewstillery/settings.toml` and
   adopts it again with `fabrewk adopt --say '<words>'`. See [Working with Fabrewk](working.md).

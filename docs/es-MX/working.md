@@ -95,6 +95,11 @@ escribe.
   privada; sale con 3 cuando encuentra un error; solo advertencias, como una configuración aún sin adoptar, salen con
   0.
 
+`.brewstillery/bootstrap/` registra la construcción del propio Fabrewk a mano. Existe solo en el repositorio del
+propio Fabrewk, nunca en un proyecto al que Fabrewk sirve. C13 verifica: "Después de la importación, bootstrap/
+contiene exactamente los archivos importados, byte por byte, sin enlaces ni directorios vacíos." Las diferencias se
+reportan como `BOOTSTRAP_CHANGED`.
+
 Todo comando integrado salvo `onboard` acepta `--json`, que imprime un documento con un campo `schema`, para agentes y
 scripts. Todo comando integrado acepta `--help`, que imprime texto. [Los comandos](commands.md) los enumera todos.
 

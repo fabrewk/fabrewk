@@ -11,7 +11,7 @@ uno con sus opciones, los movimientos del registro que puede causar, sus documen
 | --- | --- |
 | `fabrewk status [<id>]` | La salud del registro, la política vigente y el estado de cada etapa y tarea; con un identificador, esa etapa o tarea con sus eventos y el digest que cita una decisión sobre ella. |
 | `fabrewk config [<clave>]` | Cada valor efectivo de la configuración con su origen, los cambios sin adoptar, las llaves de los mantenedores, lo que tiene este equipo y cada control. |
-| `fabrewk check` | Verifica la configuración, la política, el registro, el dominio, las credenciales y la carpeta privada; sale con 3 ante un error, con 0 si solo hay advertencias. |
+| `fabrewk check` | Verifica la configuración, la política, el registro, el dominio, las credenciales y la carpeta privada; sale con 3 ante un error, con 0 si solo hay advertencias. C13 verifica que `.brewstillery/bootstrap/` siga conteniendo exactamente los archivos importados, byte por byte, después de la importación (`BOOTSTRAP_CHANGED`). Ese registro de la construcción de Fabrewk a mano existe solo en el repositorio del propio Fabrewk, nunca en un proyecto al que Fabrewk sirve. |
 | `fabrewk assess [<opciones>]` | Evalúa el repositorio sin escribir nada: el veredicto, sus razones y el plan, con su digest y el comando `apply`. |
 
 ## La instalación

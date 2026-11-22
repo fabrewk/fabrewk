@@ -88,6 +88,10 @@ A task that changes a path it may not change, or that leaves a suspected credent
 - `fabrewk check` verifies the settings, the policy, the record, the domain, the credentials and the private folder;
   it exits 3 when it finds an error; warnings alone, such as settings not adopted yet, exit 0.
 
+`.brewstillery/bootstrap/` records Fabrewk's own construction by hand. It exists only in Fabrewk's own repository,
+never in a project Fabrewk serves. C13 verifies: "After the import, bootstrap/ contains exactly the imported files,
+byte for byte, with no links or empty directories." Differences are reported as `BOOTSTRAP_CHANGED`.
+
 Every built-in command but `onboard` takes `--json`, which prints one document with a `schema` field, for agents and
 scripts. Every built-in command takes `--help`, which prints text. [The commands](commands.md) lists them all.
 

@@ -7,8 +7,8 @@ apply`, que un maestro ejecuta en su propia terminal, con sus propias palabras, 
 
 ## Qué necesitas
 
-- Linux en ARM64 (`aarch64`). Es la única plataforma en la que Fabrewk se prueba hoy; el script rechaza cualquier
-  otra con `PLATFORM_UNSUPPORTED` y la lista de plataformas soportadas.
+- La versión **0.2.0** es una versión preliminar solo para Linux en ARM64 (`aarch64`). El script rechaza cualquier
+  otra plataforma con `PLATFORM_UNSUPPORTED` y la lista de plataformas soportadas.
 - Para el script: `curl`, `ssh-keygen` (OpenSSH), `sha256sum`, `tar` y `gzip`. Si falta alguno, el script dice
   `TOOL_MISSING`, lo nombra y se detiene; nunca instala una herramienta por su cuenta.
 - En el repositorio: Git y una llave SSH con la que Git firme (`gpg.format = ssh` y `user.signingkey`). Cada
@@ -152,7 +152,10 @@ se registra con tus propias palabras.
 
 ### Después de la instalación
 
-- `fabrewk check` verifica la configuración, el registro y el dominio.
+- `fabrewk check` verifica la configuración, el registro y el dominio. En el repositorio del propio Fabrewk, C13
+  también verifica que `.brewstillery/bootstrap/` siga conteniendo exactamente los archivos importados, byte por
+  byte, después de la importación (`BOOTSTRAP_CHANGED`). Esa carpeta registra la construcción de Fabrewk a mano;
+  nunca existe en un proyecto al que Fabrewk sirve.
 - `fabrewk status` muestra el estado del trabajo.
 - El archivo del proyecto aún no declara ningún modelo ni perfil: un maestro los agrega a
   `.brewstillery/settings.toml` y lo adopta de nuevo con `fabrewk adopt --say '<palabras>'`. Consulta

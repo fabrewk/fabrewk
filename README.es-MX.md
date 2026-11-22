@@ -10,8 +10,8 @@ una persona se firma con su llave SSH.
 Los nombres vienen de una destilería: Brewstillery es la destilería del proyecto, cada maestro prepara su fermento
 y el alambique destila lo que el proyecto debe ser. Solo los maestros aprueban qué entra.
 
-La versión **0.2.0** soporta únicamente **Linux en ARM64**. El modo de revisión aún no está construido: Fabrewk
-puede mostrar un plan para él, pero no aplicarlo.
+La versión **0.2.0** es una versión preliminar. Soporta únicamente **Linux en ARM64**. El modo de revisión aún no
+está construido: Fabrewk puede mostrar un plan para él, pero no aplicarlo.
 
 ## Instalar
 
