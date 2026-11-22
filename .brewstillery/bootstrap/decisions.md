@@ -5843,3 +5843,115 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   maestro's interventions: 2 answers (five questions), 0 corrections, 0 acts outside the chat. Claude's consumption:
   unknown (not read from the tool in this session).
 - The review directory is removed after this entry.
+
+## R-057 — Session 48, part 11a: the bootstrap's import
+
+- Status: recorded
+- Date: 2026-11-22
+- Who: integrator Claude Code, `claude-opus-5-5`, effort high; Codex (`codex-cli 0.166.0`, `gpt-6.1-sol`, effort
+  high, `codex exec -s workspace-write` in a scope of 3 GB, with no network), which wrote the part's new human texts
+  (from `target/review-11a-texts/`, reading only) and reviewed the part (from `target/review-11a/`, a disposable
+  clone brought to each commit reviewed, with a copy of the registry); both directories removed after this entry.
+- Start: HEAD `3038b12`, tree clean.
+- Read: `STATUS.md`, `AGENTS.md`, `plan.md` (rows 11 to 13, "Parts" for phase 11), `xel/fermento.md` (no pending
+  point; separator found once), both settings files; `core-specification.md` INS (REQ-INS-1 to REQ-INS-9 and "The
+  bootstrap's import and stage 0, as phase 11's opening fixed them", points 1 to 10), sections 3, 6, 11.4 and 11.5,
+  "Amended at phase 9's opening"; `decisions.md` D-111 to D-114, R-055, R-056; `architecture-decisions.md`; the
+  skills `verify-part`, `codex-review`, `differential-review` and `property-based-testing`; the code of
+  `record/event.rs`, `record/replay.rs`, `record/git.rs`, `record/store.rs`, `table.rs`, `identity.rs`, `install.rs`,
+  `domain.rs`, `view.rs`, `fermento.rs`, `cli/apply.rs`, `cli/check.rs`, `cli/write.rs`, `crates/install/src/`
+  (`lib.rs`, `onboard.rs`, `scan.rs`) and the tests' fixtures (`crates/fabrewk/tests/common/`, `faults.rs`,
+  `crash.rs`). No credential of the person's was read, and no private folder.
+- Decided: nothing new; the part builds D-113.
+- Delivered (`28565d3` to `743b7f3`):
+  - `crates/core/src/bootstrap.rs`: the walk of `bootstrap/` (no link followed, no file over 1 MiB read, the
+    installer's private folder never read), the committed state compared by raw bytes (`HEAD`'s tree and blob, the
+    index at stage 0 with tag `H`, the working tree's executable bit, a path that is not UTF-8 kept), the planned
+    stream checked under the lock, replay's binding (point 5) and C13.
+  - `crates/install/src/import.rs`: the split of `decisions.md` (point 3) and the import plan's reading and reasons
+    (points 1 and 2): `import-*`, `decisions-*` with the line, `uncommitted`.
+  - The stream `bootstrap` with `entry-imported` and `bootstrap-imported`; the first adoption's seal
+    `heads.bootstrap`; `planned_policy` taking `keep`; the adoptions' fallback allowing `bootstrap` before the
+    first adoption.
+  - `apply`: `replace` for `STATUS.md`; the import's events written after the ignored check and before the person's
+    later events, resumed from any prefix whose payloads equal the plan's; the committed state checked again under
+    the lock and once more before the record commit, which guards `bootstrap/` (a path changed there makes the
+    compare-and-swap fail, mapped to `PLAN_CHANGED`).
+  - C13 with `BOOTSTRAP_CHANGED`; C8 and the domain's layout accepting `bootstrap/` once imported; the status view's
+    line; `onboard` with no tools question when importing; the catalogue's keys in both languages; the reference
+    regenerated (C13's row).
+  - Tests: `crates/core/tests/bootstrap.rs` (replay in memory, every prefix, the seal, each binding broken alone),
+    `crates/fabrewk/tests/import.rs` (F-4, `BOOTSTRAP_CHANGED`'s cases, every reason, onboard), the import's fault
+    cases in `faults.rs`, `the_crash_suite_over_the_bootstrap_s_import` in `crash.rs` (78 points), two `proptest`
+    properties of the split (a generated document round-trips; the texts joined are the file).
+- The integrator's interpretations, none contradicting a requirement:
+  1. The plan's `import` is present whatever the verdict, its lists empty unless the verdict is `adopt`, so a
+     blocked plan still says it was an import.
+  2. The kept files carry their `digest`, and the project file its `content` too, so replay and `apply` compare the
+     file the plan found.
+  3. The record commit guards `bootstrap/`: a change there between the last check and the commit fails the
+     compare-and-swap and is refused `PLAN_CHANGED`, not `RECORD_COMMIT_RACE`.
+  4. A directory under `bootstrap/` is "empty" when the walk finds nothing under it at any depth, neither a file
+     nor an entry it reports; each such directory is reported, the outer ones too.
+  5. C13 is `CHECK_UNKNOWN` when the record does not replay, since the stream it compares is not known.
+  6. `apply` prints one line per event, the import's included.
+  7. A file or directory of the installer's private folder found under `bootstrap/` is reported `import-private` and
+     blocks, without being read (added for P11A-5; its text is the integrator's, which Codex checked at pass 4).
+  8. `core-specification.md`'s "All codes, in one list" lacked `BOOTSTRAP_CHANGED`, which D-113 adds; added (a
+     clerical fix).
+- Declared residual, accepted by Codex: the import's `import-credential` reads only what `assess` reads (the files of
+  `bootstrap/`, the kept files, the names found); a credential in `skills/`, in a file the record cites, or in a
+  maintainer's material it does not read is found by `check` (C9) after the import, as for any project.
+- The texts (6.45): Codex wrote every new human text (the plan's reasons, `kind.*`, C13, `BOOTSTRAP_CHANGED`, the
+  status line) from the code and D-113; the integrator checked each against the code and applied them as written
+  (`2251e3f`).
+- The manual trial, in a disposable clone of this repository with a fixture home: `assess` gave `adopt` with 171
+  entries (the opening, D-001 to D-114, R-001 to R-056) and 11 files; `apply` wrote 172 events in `bootstrap` and 177
+  in all and committed; `check` passed; a second `apply` wrote nothing; each C13 case (a file changed, added,
+  removed) was reported `BOOTSTRAP_CHANGED`.
+- Codex's passes, each over the commit named, confirmed blocking findings (non-blocking in brackets):
+  1. `2251e3f`: 3. P11A-1: a project file that is not UTF-8 was adopted as lossy text. P11A-2: a file added or
+     changed under `bootstrap/` after the last check and before the record commit was committed unseen. P11A-3: the
+     credential reason read `local/`, files over 1 MiB, and followed the domain's link. Corrected in `8f02077`.
+  2. `8f02077`: 1. P11A-4: a path under `bootstrap/` that is not UTF-8 was dropped from Git's listing, so the
+     committed state passed. Corrected in `b90e4a5`.
+  3. `b90e4a5`: 1 [2]. P11A-5: the walk read the installer's private folder. P11A-6: with no alias, the plan was
+     blocked instead of incomplete. P11A-7: C13 reported removals under an unreadable directory. Corrected in
+     `59bc334`.
+  4. `59bc334`: accept, 0 [2]. P11A-8: with no alias, every alias directory was exempted, so a second maintainer's
+     passed. P11A-9: no test held the resume's working-tree guard (an untracked file). Corrected in `743b7f3`.
+  5. `743b7f3`, a narrow pass over that commit alone: accept, 0; P11A-8 and P11A-9 confirmed closed, each new test
+     failing with its correction undone (the installer's file at `743b7f3^`; the guard disabled in a scratch copy).
+  The third pass did not lower the count; the fourth did, so no two retries passed without progress. Every finding
+  was reproduced before its correction; each new test failed without it.
+- Mutation over `3038b12..743b7f3` (`cargo-mutants` 27.1.0, `--in-diff`, the core, the binary and the installer,
+  `--test-workspace true --features fabrewk-core/fault-injection -j 2 --timeout 300`, in a 2 GB scope; the tests
+  selected: each library's and `import`, `faults`, `apply`, `install`, `onboard`, `surface`, `bootstrap`, `record`,
+  `domain`, `identity`, `table`; `crash`, whose run takes minutes per mutant, left out, its import case kept in the
+  suite's run): 333 mutants in 3 hours, 299 caught, 32 unviable, 0 missed, 2 timeouts. Both timed out alone too
+  (`-j 1 --timeout 600`), a loop caught by the timeout: `visit`'s `m.is_file()` made `true` reads a FIFO and waits,
+  while `f_4_…` fails; the split's `i += 1` made `*=` never leaves a line that is not a field (the split's own unit
+  tests hang, shown by hand). None missed, none equivalent. Both reruns' scopes were killed for memory after the
+  timed-out mutant's outcome was written (the first by the build directory `cargo-mutants` keeps in `/tmp`, which is
+  memory here; the second, with it under `target/`, by the hung tests), so a long rerun wants `TMPDIR` under
+  `target/` and one mutant at a time.
+- Verified (`verify-part`), clean clone of `743b7f3`, every step in a user scope of 2 GB with two build jobs: 761
+  tests passed, 11 ignored; with `fault-injection`, the crash and fault suites, 55, green; the musl release build,
+  `budget check` (the core 12,632 of 12,750; the installer 1,330 of 1,400; the backend 318 of 400; Claude Code's
+  adapter 269 of 600; Codex's 319 of 600; 5 direct runtime crates; 31 in the release build; the binary 3,871,112
+  bytes), both clippy runs, fmt and `cargo deny` clean; `--version --json` gives 0.1.0 with no feature. No idle
+  `pasta` before or after.
+- Seen in passing, not this part's: the installer's unit tests (`crates/install/src/lib.rs`, `tests::dir`, part
+  10a) leave their directories `fabrewk-install-*` in the temporary directory, about 2 MB a run; removed by hand.
+- Measured (point 10; the part's share of the manual arm's sample, D-111 point 2): Codex 5 review passes, confirmed
+  blocking 3, 1, 1, 0, 0 (non-blocking 0, 0, 2, 2, 0); tokens per pass (input, of them cached, output) 5,806,528 /
+  5,653,632 / 21,873; 6,679,854 / 6,529,280 / 20,261; 5,500,388 / 5,333,120 / 21,134; 5,008,775 / 4,861,696 / 22,685;
+  3,489,939 / 3,391,744 / 12,826; Codex ran 9.6, 10.3, 9.2, 9.8 and 8.2 minutes (47.1 in all). The texts: one pass,
+  573,261 / 514,688 / 10,289 tokens, 4.0 minutes. Corrections: 9 findings corrected (5 blocking, 4 not), none declared
+  but the credential residual. Mutation: 333 mutants, 0 missed. Clean clone: green. Lines: the core from 12,312 to
+  12,632 of 12,750 (+320), the installer from 1,073 to 1,330 of 1,400 (+257), the others unchanged; the opening's
+  estimate was 150 to 220 and 130 to 180, both exceeded, within the ceilings. Session: from 21:29 (the first command
+  after `3038b12`) to the closing commit, 2026-11-21 to 2026-11-22, America/Mexico_City. The maestro's interventions: 0
+  answers, 0 corrections, 0 acts outside the chat. Claude's consumption: unknown (not read from the tool in this
+  session).
+- The review directories and the clean clone are removed after this entry.
