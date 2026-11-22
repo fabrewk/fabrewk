@@ -58,3 +58,7 @@ and the maestro's `fabrewk approve`); this file then keeps only the entry block 
   recorded decision, never an agent's (AD-4, AD-5, D-042).
 - **Not yet decided or not yet due; do not create** any structure the alambique, the bootstrap record and the
   registry have not fixed.
+
+<!-- fabrewk:entry begin -->
+This repository is administered by Fabrewk. An agent starts at .brewstillery/STATUS.md, which says the state of the work and what to read next.
+<!-- fabrewk:entry end -->
