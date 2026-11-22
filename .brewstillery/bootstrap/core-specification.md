@@ -9,7 +9,8 @@ part 6a, corrected in place and listed in section 11.1. Codex reviews both parts
 together; then the maintainer approves the text (plan row 6). Until that approval nothing here is frozen. After it, a
 change to a requirement is a maestro's recorded decision that names the work it affects (6.25).
 
-**How to read it.** "The first core" is what phases 7 to 10 build; "the pilot" is phases 11 and 12. A requirement is
+**How to read it.** "The first core" is what phases 7 to 10 build; phase 11 builds the bootstrap's import and stage
+0, the hand-built release 0.2.0 (REQ-INS-9, D-111, D-113); "the pilot" is phase 12, Fabrewk's self-construction. A requirement is
 `REQ-<area>-<n>` and says what must hold; it names a mechanism only where a decided AD already fixed it. A refusal code
 is `UPPER_SNAKE` and is listed once, in section 7. Event kinds are `kebab-case`. Each requirement cites the alambique
 points and the architecture decisions (AD-n, in `architecture-decisions.md`) it serves. Names of commands, keys,
@@ -106,11 +107,12 @@ names, organization and domain, and the trademark check, are not code.
 | 6.45 Documentation for people and agents | I | REQ-CLI-1, REQ-VIEW-2 | Fabrewk's manuals: phase 10. |
 | 6.46 Portability | I | REQ-BUD-3, REQ-INS-7 | Linux x86-64, macOS ARM64, Windows: each when its tests pass on it (decided, AD-4). Project containers: A, after the pilot. |
 | 6.47 Supervision and outside collaboration | I | REQ-VIEW-1, REQ-VIEW-4, REQ-REG-6 | — |
-| 6.48 The pilot | I | Sections 11 to 13; phases 11 and 12 | Not code: the pilot's specification (phase 11) uses the requirements here. |
+| 6.48 The pilot | I | Sections 11 to 13; phase 12 | Not code: the pilot's specification (phase 12's opening, D-111) uses the requirements here. The pilot is Fabrewk's self-construction (6.53). |
 | 6.49 Extensions [decidido] | I | REQ-EXT-1 to 5 | Built in phase 9, with confinement, which the contract needs. |
 | 6.50 Central server [proyectado] | L | REQ-REG-12 | Decided as a later stage. The first core records the instance in every event and keeps the schema versioned. |
 | 6.51 Private folder [decidido] | I | REQ-SEC-4, REQ-REG-12 | Preferences common to a machine's projects: deferred (decided). |
 | 6.52 Semantic search [proyectado] | L | — | After the pilot, as an extension (decided). |
+| 6.53 Self-construction by stages [decidido] | I | REQ-INS-9; phases 11 and 12 | Added at phase 11's opening (D-111, D-113). Stage 0 is the hand-built 0.2.0 that imports the bootstrap (phase 11); stage 1 is built by Fabrewk, the pilot (phase 12). |
 
 Every point classified I has at least one requirement; every deferral has its reason.
 
@@ -165,7 +167,8 @@ ignored. The exclude line is `/.brewstillery/`, added once to the file `git rev-
 - **REQ-REG-1.** The record is a set of event files under `.brewstillery/data/events/<stream>/`, named
   `<seq>-<digest16>.json`, where `seq` is the event's position in its stream, six digits with leading zeros, and
   `digest16` the first 16 hexadecimal digits of the file's SHA-256. Streams: `project`, `alambique`,
-  `rules`, `fermento-<alias>`, `stage-<id>`, `task-<id>`, `ext-<name>`. A stage, task or proposal identifier is a letter, a
+  `rules`, `fermento-<alias>`, `stage-<id>`, `task-<id>`, `ext-<name>`, and `bootstrap`, the imported history, only
+  where REQ-INS-9 imports it (D-113). A stage, task or proposal identifier is a letter, a
   hyphen and the first 8 hexadecimal digits of the digest of the payload that creates it, which holds a random nonce of
   16 bytes (`s-…`, `t-…`, `p-…`); `check` refuses two subjects with one identifier (`RECORD_ID_COLLISION`). A proposal's identifier is instead
   the first 8 hexadecimal digits of the digest of its fermento's alias and its payload without `id`, so that the same
@@ -531,7 +534,7 @@ ignored. The exclude line is `/.brewstillery/`, added once to the file `git rev-
   with the rules' new text, and regenerates `RULES.md` (REQ-VIEW-2). The two targets' digests are independent. (AD-12,
   AD-13)
 - **REQ-FER-7.** `check` compares the alambique with the last incorporated digest (the first is recorded at `apply`;
-  in this repository, at the bootstrap's import). A difference is `ALAMBIQUE_UNAPPROVED`: stages do not close and tasks
+  in this repository, by the `apply` that imports the bootstrap, REQ-INS-9, D-113). A difference is `ALAMBIQUE_UNAPPROVED`: stages do not close and tasks
   are not accepted until a maestro signs `approve alambique` (recording the difference as an edit) or reverts it. (6.8,
   AD-13)
 - **REQ-FER-8.** No proposal state is written by hand anywhere; fermento and alambique only show what the record says.
@@ -787,6 +790,12 @@ texts are (P7D3B-2); the documents carry each text as it is, JSON escaping it.
   `alambique-baseline` records its digest: it is the approved alambique of departure. An alambique present is kept
   byte for byte and its digest is the baseline. On the agent's route the agent asks the same three questions in chat
   and passes the answers as given, drafting nothing. (§1, D-066)
+- **REQ-INS-9 (added at phase 11's opening, D-111, D-113).** In a repository whose domain holds `bootstrap/` and no
+  record (Fabrewk's own, D-005), `assess` gives a plan that imports it: every entry of `bootstrap/decisions.md` an event
+  holding its fields and its text, fenced blocks inside entries respected, and every file of `bootstrap/` by its path
+  and digest. `apply` records that history before the first adoption, whose seal holds it, and keeps the files the
+  maestros wrote byte for byte; from then `check` fails on any byte changed, added or removed in `bootstrap/`
+  (`BOOTSTRAP_CHANGED`). (§2, 6.26, 6.29, 6.53, D-005, D-111)
 
 **Installation, as phase 10's opening fixed it (D-097).** What the parts of phase 10 build; Codex reviews it before any
 code. Where a point below and a sentence above differ, the point holds.
@@ -1073,6 +1082,200 @@ then the toolchain's libraries (D-108 point 4), refusing a `rustc` other than th
 LLVM or a musl other than the texts kept are for. The READMEs' preset prompt is their one ```` ```text ```` block,
 its commands its lines indented by four spaces, the last `fabrewk assess`, none `fabrewk apply` (section 12's "the
 agent route's last command" read so). The READMEs say that outside contributions are not accepted yet (D-109).
+
+**The bootstrap's import and stage 0, as phase 11's opening fixed them (D-111, D-113).** What the parts of phase 11
+build and do; Codex reviews it before any code. Where a point below and a sentence above differ, the point holds. The
+points of "Installation, as phase 10's opening fixed it" are cited as D-097's.
+
+1. **Where it lives.** The import is an installation's plan, not a command of its own: `assess` gives it, `apply`
+   carries it out, `onboard` reaches it by its yes, so that stage 0 is installed and imports by the route any person
+   takes (6.53). The installer's ring (`crates/install`) holds what `assess` reads of `bootstrap/`, the split of
+   `decisions.md` (point 3), the import's reasons and its part of the plan; the core holds the stream `bootstrap` and
+   its two kinds, their payloads' validation and the replay's binding (point 5), `apply`'s writing of the stream
+   (point 6), the read-only check (point 7), C8's reading of `bootstrap/`, and the status view's line on the import.
+   The split reads fences with the core's reader, the one REQ-FER-1 uses. The ceilings are the core's 12,750 and the
+   installer's 1,400 (D-113), measured again at each part.
+2. **When a plan imports.** `assess --mode adopt` in a repository whose `.brewstillery/` holds `bootstrap/` and no
+   record (no event, D-097 point 3) gives a plan that imports; in every other repository nothing here applies. D-097
+   point 3's list of what `assess` reads gains, in such a repository: `bootstrap/`, walked without following a link,
+   every regular file's content (for its digest, and `decisions.md`'s for its split); the project file, the
+   maintainer's `settings.toml` and `fermento.md`, for their validation; `STATUS.md`, for its digest; and, for each of
+   these and the alambique, whether it is tracked and has staged or unstaged changes, compared as D-100 compares
+   `AGENTS.md`. Besides D-097 point 4's reasons that still apply (a detached head, an operation in progress, `AGENTS.md`
+   or `CLAUDE.md` as that point says), each of these is a reason that blocks (verdict `none`):
+   - in `bootstrap/`, an entry that is a link or neither a regular file nor a directory, a name that is not UTF-8, a
+     file over 1 MiB, no `decisions.md`, or a `decisions.md` that is not UTF-8, holds a carriage return or does not
+     split as point 3 says, each reason naming the line;
+   - a publication other than `published`: the domain is tracked by the product's repository, which the other modes
+     would have to ignore (REQ-DOM-7);
+   - a `--tool`: an import keeps the project file's tools, so `onboard` does not ask them when its first assessment's
+     plan imports;
+   - the project file absent, not a regular file, or not valid as a project file (SET; the reason names the key path
+     and line, as `SETTINGS_INVALID` does), or holding other than exactly one maintainer, a maestro, whose alias is
+     `--alias` and whose key is `--key`'s (their type and data compared, the comment not);
+   - `<alias>/settings.toml` absent or not valid as that maintainer's personal file; `<alias>/fermento.md` absent, or
+     its separator not found as REQ-FER-1 says; the alambique absent;
+   - a file the plan keeps or imports, or `STATUS.md`, untracked or with staged or unstaged changes: every byte the
+     import names is the commit's, so the record commit holds only what `apply` writes.
+   `--lang` is the plan's language and the words' default tag; an import creates no file in it. REQ-INS-8's three
+   options are not used, since the alambique is kept.
+3. **The split of `decisions.md`.** Its lines are its bytes split after each `\n`. An entry starts at a line that
+   begins with `## ` and lies in no fenced code block, and runs to the next such line or the file's end; the text
+   before the first entry is the opening. An entry's first line must be `## <key> — <title>` and a line end: the key
+   `D-` or `R-` and three or more digits, the separator a space, U+2014 and a space, the title not empty; each series
+   numbered from 1 in the file's order with no gap and no repeat. An entry's fields are the items of the entry's
+   top-level list whose label is one of `Status`, `Decided`, `Date`, `Origin`, `Who`, `Decision`, `Reason`,
+   `Consequences`, `Sources`, `Supersedes` (the fields the file's opening names, with those its entries use besides):
+   a line outside fences that starts with `- <label>:` followed by a space or the line's end; the value is the rest
+   of that line after the colon and its one space, then each following line that starts with two spaces and lies in
+   no fence and opens none, joined by `\n`, without the last line's end. An item with any other label, or none, is in
+   the text alone. Every entry has `Status`; no label stands twice in one entry. Any of these failing is point 2's
+   first reason. The opening's and the entries' texts, in order, are the file's bytes. Measured at `c58e36c`: 167
+   entries (D-001 to D-112, R-001 to R-055), each with `Status`, no label twice, and R-002's two fenced blocks, one
+   holding a `## ` line that the split skips.
+4. **The plan.** D-097 point 5's plan, with `import` besides: `entries` (each entry's `key` and `title`, in order) and
+   `files` (each regular file of `bootstrap/`, `{"path","digest"}`, the path relative to the repository's root as the
+   plan writes every path, sorted by its bytes), equal to the plan's inputs under `bootstrap/`; its inputs hold every
+   file it reads with its digest. Its files, by action: `keep` for `.brewstillery/settings.toml` with its exact content,
+   since the events before the first adoption are verified against the maintainers of the project file the plan carries
+   (D-097 point 6, P10O-5) and `apply` takes the policy and the signer from it (P10O-4); `keep` for
+   `<alias>/settings.toml`, `<alias>/fermento.md` and the alambique, each with its digest; each kept byte for byte (the
+   alambique's digest is the baseline, REQ-INS-8's last sentence); `create` for `.brewstillery/.gitignore` when absent
+   and for `CLAUDE.md` when absent; `block` for `AGENTS.md` and a `CLAUDE.md` present, as D-097 point 5 says, the text
+   above the block kept; `replace` for `STATUS.md`, present and written by hand, with its digest: the one file an import
+   replaces, written over by the view (its bytes stay in Git's history), so that under the lock it must be as the plan
+   found it or as the record as it stands gives it (D-105's rule for a view); the view `RULES.md` by name. No `exclude`
+   and no `repository`, since the publication is `published`. The plan is shown whole, as every plan is: about two
+   hundred lines more, one per entry and per file.
+5. **The imported history's events** (section 3). The stream `bootstrap` holds two kinds, both Fabrewk's
+   (`{"kind":"fabrewk"}`, unsigned, no words): it transcribes, and each entry's authors stand in its own `Origin` and
+   `Who`. Each cites as its `policy` the digest of the project file the plan keeps, as `assessed` does (P10O-5).
+   - `entry-imported`, exactly `key`, `title` (both `null` for the opening, else the entry's), `fields` (an array of
+     `[label, value]` pairs of strings, in the entry's order; empty for the opening) and `text` (the opening's or the
+     entry's bytes, exactly). The stream's first event is the opening; then one per entry, in the file's order.
+   - `bootstrap-imported`, last, exactly `plan` (the digest `assessed` holds), `entries` (the number of
+     `entry-imported` before it, the opening included) and `files` (the plan's `import.files`).
+   A payload of either kind missing a field, holding an unknown one or a field of the wrong type is
+   `RECORD_VERSION_UNKNOWN`. Replay holds the stream, each failure `RECORD_TRANSITION_INVALID`: it stands only where
+   the `project` stream opens with an `assessed` whose plan imports; it holds `entry-imported` events, then one
+   `bootstrap-imported`, and nothing after it; each `entry-imported` is the plan's at its place (the opening first,
+   then `import.entries`' key and title in order); `bootstrap-imported`'s `plan`, `entries` and `files` are the plan's;
+   the texts, joined in order, have the SHA-256 that `files` gives `.brewstillery/bootstrap/decisions.md`, so the
+   entries are that file's bytes with no file read; the first `policy-adopted`'s seal holds the stream at its
+   `bootstrap-imported`, and no event of it lies beyond that seal. While the installation is not complete, a prefix
+   of the stream replays, as D-105 says of the `project` stream's opening. Schema 1 gains these kinds and the stream;
+   a binary that does not know them refuses them as schema 1 says (`RECORD_VERSION_UNKNOWN`), so 0.1.0, unpublished
+   (D-111 point 3), cannot read an imported record. The mark and the seal take the stream as every other.
+6. **`apply` with an import.** D-097 point 6's order, the stream inserted before the adoption: `assessed` and
+   `publication-decided`; the plan's files; the entry blocks; the stream `bootstrap`, the opening, each entry, then
+   `bootstrap-imported`; `policy-adopted`, as `adopt` writes it, of the project file kept, its seal holding the
+   stream's head; `alambique-baseline`, the kept alambique's digest (REQ-FER-7: at the bootstrap's import);
+   `installed`, the receipt holding every file `apply` wrote or changed (`.gitignore`, the entry files), the views
+   not in it (D-105); then the views, `STATUS.md` replaced, and the record commit, which in `published` holds the
+   events, the signatures, the views and the receipt's files, with one `Fabrewk-Event:` line per event (REQ-REG-10;
+   174 events at `c58e36c`: the five `apply` writes in `project` and `alambique`, and 169 in `bootstrap`). The
+   maestro signs, with the plan's key and their words, the four person's moves:
+   `assessed` (the plan, so every file's digest and every entry's key and title), `publication-decided`,
+   `policy-adopted` (whose seal holds the stream's head, so every imported event through its chain) and
+   `alambique-baseline`: four signatures, not one per entry. An `apply` stopped before its end is finished as D-097
+   point 7 says: each import's target is as the plan's inputs found it (`PLAN_CHANGED` otherwise, nothing written);
+   the stream's events present must be the first of those the plan gives, each payload equal (`PLAN_CHANGED`
+   otherwise), and only the missing ones are written. Completion is D-097 point 7's. The crash suite runs over
+   `apply` with an import, killed at the stream's first event, at one in its middle, at its last entry, at
+   `bootstrap-imported`, and at the points it already covers.
+7. **The read-only check** (C13, section 6). Once the record holds `bootstrap-imported`, `check` reads
+   `.brewstillery/bootstrap/`, following no link on the way or at an entry: it must be a directory; every file the event
+   lists must be a regular file with that digest; and no other entry may stand there, file, directory or link, at any
+   depth, an empty directory included. Each difference is `BOOTSTRAP_CHANGED` (new, error), naming the path and whether
+   it was changed, added or removed. An entry that cannot be read is `CHECK_UNKNOWN`; with a record that does not
+   replay, C13 is `CHECK_UNKNOWN`. Once the record holds `bootstrap-imported`, `bootstrap/` is part of the domain for
+   C8; before, it stays `DOMAIN_UNKNOWN_ENTRY` (D-051). C13 reads the working tree: a commit that changes `bootstrap/`
+   and a later one that restores it are in Git's history and are no finding, since REQ-REG-8's walk covers `data/` alone
+   (declared). Only `check` reports it; no write command refuses on it, since only a person edits the domain (agents
+   work on a copy without it, AD-1).
+8. **Before and after the import** (part 11c; D-111 points 3, 4 and 6). In this order:
+   1. The maestro publishes the repository and the release 0.2.0 on GitHub as a pre-release (D-111 point 4), after
+      the review list (point 9), and installs it in this repository with `install.sh` from GitHub's address, as any
+      person would; the integrator compares the installed `~/.local/bin/fabrewk` with the signed archive's binary. The
+      script's offer of `onboard` is answered no until the last bootstrap commit.
+   2. This repository's settings in their production form, the maestro's edit in their own commit with no AI
+      co-author (section 8's "This repository"): the bootstrap keys removed, the maestro and the tools declared, no
+      model and no profile, which plan row 12's `adopt` adds. The text the integrator drafts for the maestro, with
+      the key D-108 made for `xel` (one public identity: events in the namespace `fabrewk`, the release in
+      `fabrewk-release`), whose Git `user.signingkey` and `gpg.format = ssh` the maestro sets, as `apply` requires
+      (D-055):
+
+          # Fabrewk project settings: the policy a maestro adopts with Fabrewk (`fabrewk adopt`). A change takes
+          # effect only when a maestro adopts it. Commented keys are proposals, not decisions.
+
+          [project]
+          name = "Fabrewk"
+
+          [maintainers.xel]
+          role = "maestro"
+          key = "<the public key line of D-108's key>"
+
+          [languages]
+          canonicalDocumentationLanguage = "en"
+          documentationLanguages = ["en", "es-MX"]
+
+          [tools.claude]
+          adapter = "claude-code"
+          providers = ["anthropic"]
+
+          [tools.codex]
+          adapter = "codex"
+          providers = ["openai"]
+
+          [providers.anthropic]
+          allowed = true
+
+          [providers.openai]
+          allowed = true
+
+      `xel/settings.toml` is valid as it stands and is kept.
+   3. The last hand-built commit, the integrator's on the maestro's approval of each text: the fermento's separator
+      replaced by the catalogue's `es` rendering for `xel`, the marker line included (AD-12), the input above it and
+      the answer below it byte for byte; `AGENTS.md` and `CLAUDE.md` in the form they keep after the import, above the
+      block `apply` adds (point 8.6); `STATUS.md`'s last hand-written version; `plan.md` as it is imported (D-111
+      point 6); and the bootstrap's last entries, recording everything up to the installation and point 8.4's
+      rehearsal. Nothing in `bootstrap/` changes after this commit. Before it, a rehearsal (point 8.4) runs on the
+      commit that holds points 8.2 and 8.3 but the entries.
+   4. The rehearsal: in a disposable clone, with a fixture home and a fixture maestro's key in place of the maestro's,
+      committed in the clone, the installed binary runs `assess`, `apply` with the import, then `check`, which must
+      pass; a byte changed, added and removed in `bootstrap/` must each fail it. The maestro's key is never used by an
+      agent.
+   5. The import: the maestro runs `fabrewk onboard` (or `assess` and the `apply` it prints) at the repository's
+      top: the plan is shown whole; their yes and words apply it. The bootstrap closes there (D-111 point 6): from
+      then the decisions are the record's own, `bootstrap/` is read-only (point 7), `STATUS.md` is the generated view
+      and D-022's closing rule gives way to Fabrewk's (AD-11). `check` at the record commit is the import's evidence,
+      which anyone reproduces; where the pilot's specification and the notes after the import live is phase 12's
+      opening's to decide (D-111 points 6 and 7), not an entry of `bootstrap/`.
+   6. After the import, stage 0's first moves, each recorded by Fabrewk: `RULES.md` opens with the catalogue's base
+      rules; the project rules `AGENTS.md` still holds move into the stream `rules` through Fabrewk's own route, a
+      point of the maestro's fermento, `sweep`, a proposal for target `rules` and the maestro's `approve` (REQ-FER-6);
+      then the maestro's approved edit leaves `AGENTS.md` with what an entry file holds (REQ-DOM-6, AD-12).
+9. **Stage 0's release and the review list** (part 11b; D-111 point 4). The workspace's version becomes 0.2.0;
+   `install.sh` names `v0.2.0` and the same allowed-signers line (D-108); the READMEs and the manuals name 0.2.0 where
+   they name 0.1.0 and say it is a pre-release; the manuals' list of `check`'s verifications gains C13, and say that
+   `bootstrap/` exists only in Fabrewk's own repository. `budget release` and `budget notices` are unchanged; the
+   notices are generated again. The release is built, signed by `xel` with D-108's key in `fabrewk-release`, and kept
+   unpublished until point 8.1. The review list of `plan.md`'s "Phases 11 to 13" is answered item by item in part
+   11b's record, before the publication and before the import, since `bootstrap/` cannot change after it: item 2's
+   paths in `bootstrap/` stand in entries the append-only rule keeps unchanged (D-005), so the maestro decides whether
+   they stay; item 3's scan runs over every revision (`git rev-list --all`), with Fabrewk's own scan and a search for
+   private keys, tokens and environment files, installing no tool, and again over the last bootstrap commit (point
+   8.3) before it is pushed.
+10. **What phase 11 measures** (D-111 point 2: the manual arm's one sample measured as the pilot measures). Each part's
+    R entry records, under `Measured`: Codex's passes, each with its commit and its confirmed blocking findings, and
+    the tokens its JSON stream reports; the corrections, and the findings declared; the mutation run's mutants
+    (caught, missed at the first run, unviable, timed out); the clean clone's result; each ring's counted lines before
+    and after; the session's start and end (`date` at the start and at the closing commit) and the minutes Codex ran;
+    the maestro's interventions in chat, counted as answers to the integrator's questions, corrections of the
+    integrator, and acts outside it (a publication, a signature, a commit of their own); Claude's consumption as the
+    maestro reads it from the tool, or `unknown`. Part 11c sums the phase. Point 8.5's import and point 8.6's moves
+    are measured in the record itself, by its events' times and the maestro's words; their sum goes with the pilot's
+    report (phase 12).
 
 ### SEC: confinement, credentials and controls
 
@@ -1769,7 +1972,8 @@ absent; an extension that then fails to start is `TOOL_FAILED`, whose words say 
   400; installer and assessment 1,200; 8 direct runtime crates; 50 crates in the release lock file; a stripped release
   binary of 8 MB). A maestro freezes the budget after measuring phase 7's skeleton, before any feature; raising it later
   is a maestro's recorded decision with its reason. The core's ceiling was raised to 7,500 after part 7d1 was
-  measured (D-054), then to 8,000 (D-074), 11,000 (D-075), 12,000 (D-086) and 12,500 (D-097). (AD-5, D-038)
+  measured (D-054), then to 8,000 (D-074), 11,000 (D-075), 12,000 (D-086), 12,500 (D-097) and 12,750 (D-113); the
+  installer's to 1,400 (D-113). (AD-5, D-038)
 - **REQ-BUD-3.** The MSRV is in `Cargo.toml` as `rust-version`; edition 2024; release builds for
   `aarch64-unknown-linux-musl`. (AD-4)
 - **REQ-BUD-4.** Every runtime crate has a recorded reason approved by a maestro; `Cargo.lock` is committed; every
@@ -1814,6 +2018,8 @@ named are fixed in phase 7 with the code and recorded in this file.
 | `task-<id>` | `task-integrated` | fabrewk | old and new branch heads |
 | `task-<id>` | `task-rejected` | person, signed | reasons in their words, where the branch is |
 | `ext-<name>` | `extension-note` | extension | text (records nothing else) |
+| `bootstrap` | `entry-imported` | fabrewk | the opening or one entry of `bootstrap/decisions.md`: key, title, fields, text (phase 11, D-113) |
+| `bootstrap` | `bootstrap-imported` | fabrewk | the plan's digest, the number of entries, every file of `bootstrap/` with its digest (phase 11, D-113) |
 
 **Schema 1's envelope, as part 7b fixed it (D-047).** Recorded here as this section asks; the payloads beyond the
 creating nonce are fixed by the part that first builds each kind.
@@ -1894,6 +2100,10 @@ creating nonce are fixed by the part that first builds each kind.
   working tree or a subdirectory it refuses `NOT_A_REPOSITORY`, since there the domain, its lock and the index are
   another copy.
 
+- The stream `bootstrap` and its two kinds, as phase 11's opening fixed them (D-113): their payloads, their order and
+  their binding to the plan are point 5 of "The bootstrap's import and stage 0" (INS); the first `policy-adopted`'s
+  seal holds the stream whole.
+
 - `attempt-ended`'s `usage`, as phase 9's opening fixed it (D-076, S-5): exactly `seconds` (an integer or `null`) and
   `tokens` (`null`, or exactly `input`, `output` and `cached`, each an integer or `null`). The rest of the payloads
   of phase 9's kinds is fixed by the part that first builds each.
@@ -1942,7 +2152,8 @@ allow from the task's state is refused (`MOVE_NOT_ALLOWED`); the same holds for 
 never recorded: a pending proposal whose bound point, alambique digest or drafted text no longer matches.
 
 **Project.** `apply` writes, in order, `assessed`, `publication-decided`, `policy-adopted`, `alambique-baseline` and
-`installed`. Later `policy-adopted` and `publication-decided` events need a maestro.
+`installed`; a plan that imports the bootstrap writes the stream `bootstrap` between `publication-decided` and
+`policy-adopted` (D-113). Later `policy-adopted` and `publication-decided` events need a maestro.
 
 ## 5. Commands
 
@@ -1994,12 +2205,13 @@ Read-only; prints every finding with its code and severity, and exits 3 if any i
 | C10 | Files Fabrewk owns are committed where the mode commits | `RECORD_UNCOMMITTED` | error | effective |
 | C11 | The private folder's permissions | `PRIVATE_FOLDER_PERMISSIONS` | error | effective |
 | C12 | Every maintainer directory has a fermento and is listed in the policy | `MAINTAINER_UNLISTED`, `FERMENTO_MISSING` | error | effective |
+| C13 | Once the bootstrap is imported, `bootstrap/` holds exactly the files the import lists, byte for byte (D-113) | `BOOTSTRAP_CHANGED` | error | effective for the working tree |
 
 A check that cannot run (a tool missing, Git history unreadable) reports `CHECK_UNKNOWN` as an error; an unknown
 result is never a pass (6.43).
 
 As part 7d2 fixed it (D-053, D-055): `check` verifies C1 to C4 and C8 to C11; C5, C6, C7 and C12 were declared with
-phase 8 (C6 and C12 came with part 8a, C7 with 8b, C5 with 8c), when views, separators and the alambique's approval exist. Warnings (`DOMAIN_UNKNOWN_ENTRY`,
+phase 8 (C6 and C12 came with part 8a, C7 with 8b, C5 with 8c), when views, separators and the alambique's approval exist; C13 comes with part 11a (D-113). Warnings (`DOMAIN_UNKNOWN_ENTRY`,
 `POLICY_PENDING`) exit 0 when they are the only findings. C1 reads the project file, every `<alias>/settings.toml`
 and `machine.toml`; C2 compares the file with the policy in force; C3 reports each code the replay gives; C4 reports
 `RECORD_ABSENT`, the history walk where the mode commits, and the mark; C10 reports the record's files the record
@@ -2036,6 +2248,7 @@ the requirements above:
 | Code | When | Next step |
 | --- | --- | --- |
 | `KEY_UNKNOWN` | `config <key>` names no declared key | `fabrewk config` |
+| `BOOTSTRAP_CHANGED` | `check` finds a file of `bootstrap/` changed, added or removed after the import (REQ-INS-9) | restore it from Git: `bootstrap/` is read-only |
 | `TERMINAL_REQUIRED` | `onboard` without a terminal | the agent route: `fabrewk assess` |
 | `NOT_A_REPOSITORY` | not inside a Git working tree | run it at the repository's root |
 | `PROPOSAL_UNKNOWN` | no such proposal | `fabrewk status` |
@@ -2127,8 +2340,9 @@ while the path and version are the same (never for a path that is not UTF-8); a 
 effective set is the catalogued tools that are present.
 
 **This repository.** `project.command`, `project.domain`, `maintainers.aliases` and `layout.reservedNames` are bootstrap
-keys: the first core does not declare them, so they are refused there. They are replaced at production (phase 13),
-by a maestro's edit of the settings, with `[maintainers.xel]` and its key.
+keys: the first core does not declare them, so they are refused there. They are replaced before the bootstrap's
+import (phase 11, part 11c; D-111, D-113), by the maestro's edit of the settings, with `[maintainers.xel]` and the key
+of D-108; point 8.2 of "The bootstrap's import and stage 0" (INS) holds the text drafted for it.
 
 ## 9. What phase 5 left to phase 6
 
@@ -2342,6 +2556,7 @@ One test per code (11.2 rule 4), with the requirement that defines the code and 
 | `ATTEMPT_ENDED` | REQ-RUN-1 | A second `attempt-ended` for one attempt | 7 |
 | `ATTEMPT_REPLACED` | REQ-RUN-5 | A result for an attempt a later one replaced (PD-08) | 9 |
 | `BASE_MOVED` | REQ-GATE-8, REQ-TASK-3 | The product tree changed after acceptance (PD-13); a dependent task's `run` after another product change followed its dependency's integration | 9 |
+| `BOOTSTRAP_CHANGED` | REQ-INS-9 | After an import in a disposable copy of this repository: a byte of `bootstrap/decisions.md` changed, a file added, a file removed, an empty directory added, a file replaced by a link to its own bytes, each alone, at `check`; and none of them before an import, where `bootstrap/` stays `DOMAIN_UNKNOWN_ENTRY` (D-113) | 11 |
 | `BUDGET_EXHAUSTED` | REQ-TASK-5, REQ-RUN-2 | `dispatches` spent; `minutes` spent by a fake that sleeps past the limit | 9 |
 | `CHECK_DUPLICATE` | REQ-GATE-1 | A stage and the project defining one check name differently (PD-24) | 7 |
 | `CHECK_UNKNOWN` | Section 6 | `check` with `git` absent from `PATH`; with the Git history unreadable; with a domain file it must scan unreadable (C9) | 7 |
@@ -2441,6 +2656,12 @@ One test per code (11.2 rule 4), with the requirement that defines the code and 
   signature, mark, view, commit, ref update and working tree update. After each kill: replay is valid or refused by a
   code, never by a raw error; no task stays `running` after the next write command; nothing is dispatched without a
   person's move recorded after the kill; no event already committed is lost. This is PD-08's property and 6.41's test.
+- **F-4, the bootstrap's import (D-113).** In a disposable copy of this repository, its `bootstrap/` as committed and
+  the other files in their production form with a fixture maestro's key: `assess` gives `adopt` with the import;
+  `apply` records it; replay gives one `entry-imported` per entry, the opening first, whose texts joined are
+  `decisions.md`'s bytes and whose fields are the split's; `check` exits 0; a second `apply` writes nothing; then
+  `BOOTSTRAP_CHANGED`'s cases. The crash suite runs over F-4's `apply` at the points D-113 names (INS, "The
+  bootstrap's import and stage 0", point 6), each kill finished by the same `apply`.
 
 ### 11.6 Mutation, size and dependencies
 
@@ -2602,6 +2823,7 @@ Where a criterion names a case or a code, its test in 11.3 or 11.4 is part of th
 | REQ-INS-6 | In `dash`, with a local release signed by a fixture key: exactly one file, `~/.local/bin/fabrewk`, is installed; a changed binary or signature installs nothing; the script has no option that skips verification and no `sudo`; the agent route's last command is `fabrewk assess` | 10 |
 | REQ-INS-7 | `PLATFORM_UNSUPPORTED`'s test; the message lists the supported platforms | 10 |
 | REQ-INS-8 | `apply` with the three answers and with none, in `en` and `es`: the alambique's bytes equal the catalogue's skeleton holding the answers as given; an alambique present is byte-identical after and its digest is the baseline's; `check` passes C7 after `apply` (D-097) | 10 |
+| REQ-INS-9 | F-4: every entry and file imported, each entry's text equal to its bytes in `decisions.md` and its fields the split's; each of point 2's reasons blocks, by a fixture for each (a link in `bootstrap/`, a heading out of order, a label twice, a fenced `## ` line kept inside its entry, a publication other than `published`, a `--tool`, a project file with a second maintainer, a kept file with a change not committed); replay refuses each binding of point 5 broken; `BOOTSTRAP_CHANGED`'s test; `check` passes in this repository after the import; the installed binary is the signed release's (D-113) | 11 |
 
 ### SEC
 
@@ -2667,5 +2889,12 @@ A criterion assigned to two phases is first met with what the earlier one builds
   dispatch per provider, preflight first. REQ-RUN-10 and the amendments of D-075 and D-076. Cut into 9a to 9i (D-075).
 - **Phase 10 (installation).** INS (REQ-INS-8 included, D-097), DOM-1, DOM-6, SEC-6, BUD-5's release notices; F-1 and F-2
   from a real `apply`, the test helper's project events retired; the crash suite over `apply`. Cut into 10a to 10d (D-097).
-- **Phases 11 and 12 (the pilot).** The pilot's specification picks its six provoked refusals (6.48, D-009) from 11.4
-  and holds both arms to the same measures.
+- **Phase 11 (the bootstrap's import and stage 0).** REQ-INS-9 and "The bootstrap's import and stage 0" (INS, D-113):
+  the stream `bootstrap`, C13 and `BOOTSTRAP_CHANGED`, F-4 and the crash suite over it; the release 0.2.0; the review
+  list; then the maestro's publication, installation from GitHub and import, after which `check` passes in this
+  repository. Measured as D-111 point 2 asks (point 10). Cut into 11a to 11c (D-113).
+- **Phase 12 (the pilot).** The pilot's specification picks its six provoked refusals (6.48; `plan.md`'s "Phases 11
+  to 13") from 11.4 and holds both arms to the measures of D-111 point 2; its first task is `run <stage>` as section
+  5 states it (D-111 point 5).
+- **Phase 13 (production).** Declared by the maestro if the pilot passes; `check` still fails on any change in
+  `bootstrap/` (plan row 13).
