@@ -1709,3 +1709,62 @@ fn p11o_1_a_file_of_bootstrap_untracked_while_apply_runs_is_plan_changed() {
 fn all_of(args: &[String]) -> Vec<&str> {
     args.iter().map(String::as_str).collect()
 }
+
+/// P11A-2 (D-113 point 6): a branch moved, while an importing `apply` waits for its record commit, to a commit that adds
+/// a file to `bootstrap/`, or that changes one named with a tab while its working tree is put back: the record commit
+/// is not made on it, `PLAN_CHANGED`, the events written and the installation incomplete; once the branch holds the
+/// imported files again, the same `apply` finishes.
+#[test]
+fn p11a_2_a_branch_moved_under_bootstrap_before_the_record_commit_is_never_its_parent() {
+    use common::import::importable;
+    let tab = ".brewstillery/bootstrap/a\tb.md";
+    type Step<'a> = &'a dyn Fn(&Fx);
+    let cases: [(&str, Step, Step); 2] = [
+        (
+            "added",
+            &|fx| {
+                fs::write(fx.domain.join("bootstrap/new.md"), "x\n").unwrap();
+                fx.git(&["add", "--", ".brewstillery/bootstrap/new.md"]);
+                fx.git(&["commit", "-q", "-m", "added"]);
+            },
+            &|fx| {
+                fx.git(&["rm", "-q", "--", ".brewstillery/bootstrap/new.md"]);
+                fx.git(&["commit", "-q", "-m", "removed"]);
+            },
+        ),
+        (
+            "tab",
+            &|fx| {
+                fs::write(fx.root.join(tab), "changed\n").unwrap();
+                fx.git(&["add", "--", tab]);
+                fx.git(&["commit", "-q", "-m", "changed"]);
+                fs::write(fx.root.join(tab), "x\n").unwrap();
+            },
+            &|fx| {
+                fx.git(&["add", "--", tab]);
+                fx.git(&["commit", "-q", "-m", "restored"]);
+            },
+        ),
+    ];
+    for (name, race, restore) in cases {
+        let (fx, options) = importable(&format!("p11a-2-{name}"), false);
+        fs::write(fx.root.join(tab), "x\n").unwrap();
+        fx.commit("tab");
+        let opts: Vec<&str> = options.iter().map(String::as_str).collect();
+        let d = fx.run(&[&["assess", "--json"][..], &opts].concat()).doc()["digest"].as_str().unwrap().to_owned();
+        let dir = fx.root.parent().unwrap().join("pause");
+        fs::create_dir_all(&dir).unwrap();
+        let args: Vec<&str> = [&["apply", &d][..], &opts, &["--say", "Lo importo.", "--json"]].concat();
+        let child = paused(&fx, &args, "before-commit", &dir);
+        race(&fx);
+        let ran = resume(child, "before-commit", &dir);
+        assert_eq!(ran.status, 1, "{name}: {ran:?}");
+        assert!(ran.stdout.contains("PLAN_CHANGED"), "{name}: {ran:?}");
+        assert!(fx.git(&["log", "-1", "--format=%s"]) != "fabrewk: record", "{name}");
+        assert!(fx.run(&["check", "--json"]).stdout.contains("INSTALLATION_INCOMPLETE"), "{name}");
+        restore(&fx);
+        let again = fx.apply_digest(&d, &options, &[]);
+        assert_eq!(again.status, 0, "{name}: {again:?}");
+        assert_eq!(fx.run(&["check"]).status, 0, "{name}");
+    }
+}

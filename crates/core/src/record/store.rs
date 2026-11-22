@@ -45,6 +45,8 @@ pub struct Session {
     notes: Vec<String>,
     /// The installation's files the record commit takes, staged before the branch moves (see [`Session::install`]).
     staged: Vec<PathBuf>,
+    /// The paths the record commit watches besides its own files (see [`Session::guard`]).
+    guarded: Vec<String>,
 }
 
 /// Ending a session releases the lock on its open file description, not only this descriptor: a process another
@@ -123,8 +125,8 @@ impl Session {
             fault::point();
             fs::remove_file(leftover).map_err(io_at(leftover))?;
         }
-        let (appended, notes, staged) = (Vec::new(), Vec::new(), Vec::new());
-        Ok(Session { domain: domain.to_path_buf(), _lock: lock, appended, git, record, notes, staged })
+        let (appended, notes, staged, guarded) = (Vec::new(), Vec::new(), Vec::new(), Vec::new());
+        Ok(Session { domain: domain.to_path_buf(), _lock: lock, appended, git, record, notes, staged, guarded })
     }
 
     /// The record as replayed when the command began, or at its last [`Session::refresh`]; `None` if there was none.
@@ -287,7 +289,15 @@ impl Session {
             // refusal says so (D-065); the next write command commits them first (REQ-REG-10).
             let message = git::record_message(&digests);
             let (start, notes) = (start.as_deref(), &mut self.notes);
-            let commit = git::commit_record(repo, &self.domain, branch, start, (&files, &self.staged), &message, notes);
+            let commit = git::commit_record(
+                repo,
+                &self.domain,
+                branch,
+                start,
+                (&files, &self.staged, &self.guarded),
+                &message,
+                notes,
+            );
             Some(commit.map_err(|e| match e {
                 Error::Refused { code, path, detail } => Error::Refused {
                     code,
@@ -338,6 +348,12 @@ impl Session {
         Ok(())
     }
 
+    /// Paths, relative to the repository's root, under which a branch moved before the record commit must change
+    /// nothing, as for the commit's own files: an import's `bootstrap/` (D-113 point 6).
+    pub fn guard(&mut self, paths: Vec<String>) {
+        self.guarded = paths;
+    }
+
     /// What failed in Git that this session's commits went on from, taken (D-089).
     pub fn take_notes(&mut self) -> Vec<String> {
         std::mem::take(&mut self.notes)
@@ -365,8 +381,15 @@ impl Session {
             return Ok(None);
         }
         let files = [file.to_path_buf()];
-        let commit =
-            git::commit_record(repo, &self.domain, branch, start.as_deref(), (&files, &[]), message, &mut self.notes)?;
+        let commit = git::commit_record(
+            repo,
+            &self.domain,
+            branch,
+            start.as_deref(),
+            (&files, &[], &[]),
+            message,
+            &mut self.notes,
+        )?;
         *start = Some(commit.clone());
         // The branch has moved; if the person's index could not follow (another Git held it), it still holds the text
         // before, which the next `git commit` would take for a reversion: say so, with the commit made.
@@ -405,7 +428,7 @@ impl Session {
         }
         let message = git::record_message(&digests);
         let (base, notes) = (start.as_deref(), &mut self.notes);
-        let commit = git::commit_record(repo, &self.domain, branch, base, (&files, &[]), &message, notes)?;
+        let commit = git::commit_record(repo, &self.domain, branch, base, (&files, &[], &[]), &message, notes)?;
         *start = Some(commit.clone());
         Ok(Some(commit))
     }

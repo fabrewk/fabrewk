@@ -8,7 +8,7 @@ use super::{Reading, reason};
 use fabrewk_core::bootstrap::{self, DECISIONS, DIR};
 use fabrewk_core::record::{sha256_hex, subject_digest};
 use fabrewk_core::settings::{self, Level, key_blob};
-use fabrewk_core::{Code, Error, identity};
+use fabrewk_core::{Code, Error, identity, scan};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -116,6 +116,7 @@ pub(super) fn read(
     for (path, what) in &walk.odd {
         say(&format!("import-{what}"), true, Some(path), None);
     }
+    let mut read: BTreeMap<String, Vec<u8>> = walk.files.clone();
     for (path, bytes) in &walk.files {
         let digest = sha256_hex(bytes);
         r.inputs.insert(path.clone(), json!({"path": path, "kind": "file", "digest": digest}));
@@ -150,6 +151,7 @@ pub(super) fn read(
         match (bytes, r.inputs[&rel]["kind"].as_str()) {
             (Some(b), _) => {
                 set.insert(rel.clone(), sha256_hex(&b));
+                read.insert(rel.clone(), b.clone());
                 keep.push(json!({"path": rel, "action": "keep", "digest": sha256_hex(&b)}));
                 return Some(b);
             }
@@ -159,7 +161,11 @@ pub(super) fn read(
         None
     };
     let file = ".brewstillery/settings.toml";
-    let project = kept(r, file.into(), &mut say).map(|b| String::from_utf8_lossy(&b).into_owned());
+    let bytes = kept(r, file.into(), &mut say);
+    let project = bytes.map(String::from_utf8).transpose().unwrap_or_else(|_| {
+        say("import-project-invalid", true, Some(file), Some("line 1: not UTF-8"));
+        None
+    });
     if let Some(text) = &project {
         match settings::parse(&root.join(file), text, Level::Project) {
             Err(e) => say("import-project-invalid", true, Some(file), e.first().map(Error::detail).as_deref()),
@@ -197,10 +203,17 @@ pub(super) fn read(
         say("import-gitignore", true, Some(gitignore), None);
     }
     let status = ".brewstillery/STATUS.md";
-    let status = r.read(root, status, status, false).map(|b| sha256_hex(&b));
+    let status = r.read(root, status, status, false).map(|b| {
+        read.insert(".brewstillery/STATUS.md".into(), b.clone());
+        sha256_hex(&b)
+    });
     set.extend(status.clone().map(|d| (".brewstillery/STATUS.md".to_owned(), d)));
-    // What `check` would report right after the import, which it does not change (P11O-7).
-    for entry in std::fs::read_dir(&domain).map_err(|e| Error::Io { path: domain.clone(), error: e })?.flatten() {
+    // What `check` would report right after the import, which it does not change (P11O-7), within what `assess`
+    // reads: the domain's top entries, when it is a directory and no link, and C9's heuristic over the files read and
+    // the names under `bootstrap/` (P11A-3).
+    let listed = super::kind(root, ".brewstillery") == "directory";
+    let top = listed.then(|| std::fs::read_dir(&domain)).transpose();
+    for entry in top.map_err(|e| Error::Io { path: domain.clone(), error: e })?.into_iter().flatten().flatten() {
         let name = entry.file_name();
         let ours = ["bootstrap", "skills", "data", "local"].iter().chain(&alias).any(|n| name == *n);
         if entry.file_type().is_ok_and(|t| t.is_dir()) && !ours {
@@ -212,13 +225,15 @@ pub(super) fn read(
         _ => String::new(),
     };
     let mode = Some(fabrewk_core::record::Publication::Published);
-    for e in fabrewk_core::domain::layout(&domain, mode, true)? {
+    for e in listed.then(|| fabrewk_core::domain::layout(&domain, mode, true)).transpose()?.into_iter().flatten() {
         if e.code() == Some(Code::DomainUnknownEntry) {
             say("import-unknown", false, Some(&rel(&e)), None);
         }
     }
-    for e in fabrewk_core::cli::credentials(&domain) {
-        say("import-credential", true, Some(&rel(&e)), None);
+    let name = |p: &str| scan::suspect_name(p.rsplit('/').next().unwrap_or(p));
+    let suspected = read.iter().filter(|(p, b)| name(p) || scan::suspect(b).is_some()).map(|(p, _)| p);
+    for path in suspected.chain(walk.odd.iter().map(|(p, _)| p).filter(|p| name(p))) {
+        say("import-credential", true, Some(path), None);
     }
     for path in bootstrap::uncommitted(root, Some(gitdir), &set, DIR)? {
         say("uncommitted", true, Some(&path), None);

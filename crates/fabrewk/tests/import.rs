@@ -251,6 +251,18 @@ fn req_ins_9_each_of_point_2_s_reasons_blocks_the_import() {
         std::fs::write(fx.domain.join("settings.toml"), "[project]\nname = 1\n").unwrap();
         fx.commit("invalid");
     });
+    // P11A-1: bytes that are not UTF-8 are no project file, never another text adopted in its place.
+    blocks("project-not-utf8", "import-project-invalid", &[], &|fx| {
+        let mut bytes = std::fs::read(fx.domain.join("settings.toml")).unwrap();
+        bytes.extend(b"# \xff\n");
+        std::fs::write(fx.domain.join("settings.toml"), bytes).unwrap();
+        fx.commit("not utf-8");
+    });
+    blocks("domain-link", "import-link", &[], &|fx| {
+        let elsewhere = fx.root.parent().unwrap().join("domain");
+        std::fs::rename(&fx.domain, &elsewhere).unwrap();
+        std::os::unix::fs::symlink(&elsewhere, &fx.domain).unwrap();
+    });
     blocks("personal-invalid", "import-personal-invalid", &[], &|fx| {
         std::fs::write(fx.domain.join("xel/settings.toml"), "[maintainer]\nalias = \"ana\"\n").unwrap();
         fx.commit("mismatch");
@@ -367,4 +379,29 @@ fn req_ins_9_a_file_of_bootstrap_named_with_a_tab_is_imported_and_committed() {
     assert_eq!(ran.status, 0, "{ran:?}");
     assert_eq!(fx.run(&["check"]).status, 0);
     assert_eq!(fx.git(&["status", "--porcelain"]), "");
+}
+
+#[test]
+fn p11a_3_the_import_s_credential_reason_reads_only_what_assess_reads() {
+    // `local/` is never an input: a key there does not block.
+    let (fx, options) = importable("p11a-3-local", false);
+    std::fs::create_dir_all(fx.domain.join("local/cache")).unwrap();
+    std::fs::write(fx.domain.join("local/cache/probe.txt"), "-----BEGIN OPENSSH PRIVATE KEY-----\n").unwrap();
+    let doc = assess(&fx, &options, &[]);
+    assert_eq!(doc["plan"]["verdict"], "adopt", "{}", doc["plan"]["reasons"]);
+    // Nothing beyond 1 MiB is read: a key past it is no reason, the size is.
+    let (fx, options) = importable("p11a-3-large", false);
+    let mut large = vec![b'a'; (1 << 20) + 1];
+    large.extend(b"\n-----BEGIN OPENSSH PRIVATE KEY-----\n");
+    std::fs::write(fx.domain.join("bootstrap/large.md"), large).unwrap();
+    fx.commit("large");
+    let reasons = assess(&fx, &options, &[])["plan"]["reasons"].clone();
+    let keys: Vec<&str> = reasons.as_array().unwrap().iter().map(|r| r["reason"].as_str().unwrap()).collect();
+    assert!(keys.contains(&"import-too-large") && !keys.contains(&"import-credential"), "{reasons}");
+    // A name C9 takes for a credential's, in `bootstrap/`, blocks without its content read.
+    let (fx, options) = importable("p11a-3-name", false);
+    std::fs::write(fx.domain.join("bootstrap/id_ed25519"), "nothing\n").unwrap();
+    fx.commit("name");
+    let reasons = assess(&fx, &options, &[])["plan"]["reasons"].clone();
+    assert!(reasons.as_array().unwrap().iter().any(|r| r["reason"] == "import-credential"), "{reasons}");
 }

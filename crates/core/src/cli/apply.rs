@@ -325,11 +325,7 @@ fn install(
     let views = crate::view::write(&cx.domain, &after)?;
     // The alambique kept is the approved text of departure, which the baseline names: committed with it, so that the
     // domain's files are whole in the commit (point 6) and a later approval starts from the committed text.
-    // An import's files too, unchanged, so that a branch moved to a commit that changes one of them is a race and never
-    // the record commit's parent (D-113 point 6); a name the record commit cannot stage is left to the check below.
     let kept = plan["files"].as_array().into_iter().flatten().filter(|f| f["action"] == "keep");
-    let imported = plan["import"]["files"].as_array().into_iter().flatten();
-    let kept = kept.chain(imported.filter(|f| f["path"].as_str().is_some_and(|p| !p.contains(['\n', '\t']))));
     let kept: Vec<String> = kept.filter_map(|f| f["path"].as_str().map(str::to_owned)).collect();
     let commits = receipt.iter().chain(&kept).filter(|r| match mode {
         Publication::Published => true,
@@ -337,12 +333,19 @@ fn install(
         Publication::Unpublished => false,
     });
     session.install(commits.map(|r| cx.root.join(r)).collect())?;
-    // The record commit's parent holds the import's files as the plan found them (P11O-1).
+    // The record commit's parent holds the import's files as the plan found them (P11O-1): checked now, and a branch
+    // moved after to a commit that changes anything in `bootstrap/` is refused as the plan changed (point 6).
     if import {
         record::fault::pause("before-import-check");
         committed(&cx.root, plan)?;
+        session.guard(vec![crate::bootstrap::DIR.to_owned()]);
     }
-    let commit = session.finish_held(&PolicyVerifier, &views)?;
+    let commit = match session.finish_held(&PolicyVerifier, &views) {
+        Err(e) if import && e.code() == Some(Code::RecordCommitRace) => {
+            Err(committed(&cx.root, plan).err().unwrap_or(e))
+        }
+        other => other,
+    }?;
     write::caches(cx, &session, machine.as_ref(), &[])?;
     let recovered = session.take_notes();
     Ok(Some((Written { events: written, commit, ran: Value::Null, recovered }, receipt)))

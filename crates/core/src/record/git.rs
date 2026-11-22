@@ -585,14 +585,16 @@ pub(crate) fn record_message(digests: &[String]) -> String {
 /// failed in Git that it went on from is pushed on `notes`, each naming its evidence (D-088, D-089). The files of
 /// `staged`, an installation's, are staged in the person's index before the branch moves, each only where the index
 /// carries no staged change (equal to the base's entry, or absent where the base has none), and are not touched
-/// after; the others are brought to the commit once the branch has moved (D-097 point 7).
+/// after; the others are brought to the commit once the branch has moved (D-097 point 7). A path of `guarded`, relative to
+/// the repository's root, is watched as the commit's files are: a branch moved to a commit that changes anything under
+/// it is a race, never the commit's parent (D-113 point 6).
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn commit_record(
     repo: &Repo,
     domain: &Path,
     branch: &str,
     start: Option<&str>,
-    (files, staged): (&[PathBuf], &[PathBuf]),
+    (files, staged, guarded): (&[PathBuf], &[PathBuf], &[String]),
     message: &str,
     notes: &mut Vec<String>,
 ) -> Result<String, Error> {
@@ -624,7 +626,8 @@ pub(crate) fn commit_record(
     std::fs::create_dir_all(&tmp).map_err(io_at(&tmp))?;
     let index = tmp.join("record-index");
     let mut earlier = Vec::new();
-    let result = attempt(repo, branch, start, &rel, (&entries, &own), message, &index, &mut earlier);
+    let watched: Vec<&str> = rel.iter().copied().chain(guarded.iter().map(String::as_str)).collect();
+    let result = attempt(repo, branch, start, &watched, (&entries, &own), message, &index, &mut earlier);
     let _ = std::fs::remove_file(&index);
     match result {
         Ok(commit) => {
