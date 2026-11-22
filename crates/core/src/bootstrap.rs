@@ -108,10 +108,16 @@ pub fn uncommitted(
     if crate::install::git(root, gitdir, &["rev-parse", "-q", "--verify", "HEAD^{commit}"], b"")?.0 != Some(0) {
         return Ok(files.keys().cloned().collect());
     }
-    // `<mode> <type> <id>\t<path>` and `<tag> <mode> <id> <stage>\t<path>`, by path.
+    // `<mode> <type> <id>\t<path>` and `<tag> <mode> <id> <stage>\t<path>`, by path; a path that is not UTF-8, which
+    // no file of `files` is, kept with a NUL no path holds, so that it is never taken for one nor dropped (P11A-4).
     let listed = |out: Vec<u8>| -> BTreeMap<String, Vec<String>> {
-        let entries = out.split(|b| *b == 0).filter_map(|e| std::str::from_utf8(e).ok()?.split_once('\t'));
-        entries.map(|(meta, path)| (path.to_owned(), meta.split(' ').map(str::to_owned).collect())).collect()
+        let entries = out.split(|b| *b == 0).filter_map(|e| {
+            let at = e.iter().position(|b| *b == b'\t')?;
+            let path = std::str::from_utf8(&e[at + 1..])
+                .map_or_else(|_| String::from_utf8_lossy(&e[at + 1..]) + "\0", Into::into);
+            Some((path.into_owned(), String::from_utf8_lossy(&e[..at]).split(' ').map(str::to_owned).collect()))
+        });
+        entries.collect()
     };
     let paths: Vec<&str> = files.keys().map(String::as_str).chain([under]).collect();
     let tree = listed(git(&[&["ls-tree", "-r", "-z", "--full-tree", "HEAD", "--"][..], &paths].concat())?);

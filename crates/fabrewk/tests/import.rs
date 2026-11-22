@@ -309,6 +309,14 @@ fn req_ins_9_each_of_point_2_s_reasons_blocks_the_import() {
         fx.git(&["add", "--", ".brewstillery/bootstrap/plan.md"]);
         std::fs::write(b(fx).join("plan.md"), "# Plan\n").unwrap();
     });
+    // P11A-4: a file `HEAD` holds under `bootstrap/` whose name is not UTF-8, gone from the working tree.
+    blocks("not-utf8-in-head", "uncommitted", &[], &|fx| {
+        use std::os::unix::ffi::OsStrExt;
+        let name = b(fx).join(std::ffi::OsStr::from_bytes(b"hidden-\xff.md"));
+        std::fs::write(&name, "x\n").unwrap();
+        fx.commit("hidden");
+        std::fs::remove_file(name).unwrap();
+    });
     blocks("removed-from-index", "uncommitted", &[], &|fx| {
         fx.git(&["rm", "-q", "--cached", "--", ".brewstillery/bootstrap/plan.md"]);
         fx.git(&["commit", "-q", "-m", "untrack"]);
