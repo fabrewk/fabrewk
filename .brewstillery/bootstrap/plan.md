@@ -15,7 +15,7 @@ integrator, with Codex checking its fidelity against the archived original (D-03
 in session 11: AD-4, AD-5 and AD-7 rewritten and AD-12 to AD-15 added for what D-032 still needed; Codex accepted the
 file at its second pass (R-018). The maintainer decided AD-4 to AD-15 as recommended (D-036), and Codex re-checked
 the decided file (R-019). Phase 5 is closed (D-037). Phase 6 is split into parts 6a and 6b, and the size budget is frozen at phase 7's start (D-038, section "Parts"). Codex
-accepted both parts at its fifth pass (R-021); the maestro approved the text and phase 6 is closed (D-040). Phase 7 is split into parts 7a to 7d (D-041, section "Parts"); every part was accepted and phase 7 is closed (D-070). Phase 8 was split into 8a, 8b and 8c (D-072); all were accepted and phase 8 is closed (D-077). Phase 9 opened with its design and its cut into 9a to 9i (D-075, D-076, section "Parts"); all were accepted and phase 9 is closed (D-096). Phase 10 opened with its cut into 10a to 10d, the installer's ring and the core's ceiling at 12,500 (D-097, section "Parts"); Codex accepted the opening at its fifth pass and the maestro approved it (R-049, D-098). Parts 10a to 10d are accepted (R-051 to R-054) and phase 10 is closed (D-110). Phase 11 was recast before it started: the pilot is Fabrewk's self-construction, and rows 11 to 13 were rewritten (D-111).
+accepted both parts at its fifth pass (R-021); the maestro approved the text and phase 6 is closed (D-040). Phase 7 is split into parts 7a to 7d (D-041, section "Parts"); every part was accepted and phase 7 is closed (D-070). Phase 8 was split into 8a, 8b and 8c (D-072); all were accepted and phase 8 is closed (D-077). Phase 9 opened with its design and its cut into 9a to 9i (D-075, D-076, section "Parts"); all were accepted and phase 9 is closed (D-096). Phase 10 opened with its cut into 10a to 10d, the installer's ring and the core's ceiling at 12,500 (D-097, section "Parts"); Codex accepted the opening at its fifth pass and the maestro approved it (R-049, D-098). Parts 10a to 10d are accepted (R-051 to R-054) and phase 10 is closed (D-110). Phase 11 was recast before it started: the pilot is Fabrewk's self-construction, and rows 11 to 13 were rewritten (D-111). Phase 11 opened with its design, its cut into 11a to 11c and the ceilings at 12,750 and 1,400 (D-113, section "Parts"); Codex accepted the opening at its fourth pass and the maestro approved it (R-056, D-114).
 
 **Rule for every phase (alambique 6.48, D-003).** A phase that does not pass is corrected and retried; it never
 ends the project. Before each retry the progress measure is fixed (proposed: confirmed blocking findings, and
@@ -139,6 +139,8 @@ maestro's acts and the import. The design all three build or do is "The bootstra
 below by number. The core's ceiling is 12,750 and the installer's 1,400 (D-113), measured again at each part. Every
 part runs on Opus 5.5, effort high; Codex (GPT-6.1 Sol), effort high, reviews each part that delivers code or text a
 person reads, and writes the human texts (plan row 10's rule). Each part's R entry records point 10's measures.
+Codex reviewed the opening before any code and accepted it at its fourth pass, confirmed blocking 4, 2, 1, 0 (R-056);
+the maestro approved it (D-114).
 
 | Part | Delivers | Inputs | Acceptance (checkable) | State |
 | --- | --- | --- | --- | --- |

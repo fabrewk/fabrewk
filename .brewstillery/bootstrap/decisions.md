@@ -5720,3 +5720,126 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
 - Applied: `ALAMBIQUE.md` (D-112), `AGENTS.md`'s "Bootstrap record", `STATUS.md`'s "Evidence" and "Latest and next",
   `plan.md` (the opening's sentence, rows 11 to 13, "Phases 11 to 13").
 - `target/release-0.1.0/` stays, unpublished (D-111 point 3). The review directory is removed after this entry.
+
+## D-113 — Phase 11 opened: the import inside `assess` and `apply`, the core at 12,750 and the installer at 1,400, three parts, the maestro's one key
+
+- Status: decided
+- Decided: 2026-11-21
+- Origin: maintainer XEL in session 47's chat, answering the integrator's four questions when phase 11 started: on
+  where the import enters, "Dentro de assess/apply (Recomendado)"; on the ceilings, "Núcleo 12,750; instalador
+  1,400 (Recomendado)"; on the cut, "Tres partes (Recomendado)"; on the key that signs the maestro's events, "La
+  misma llave de D-108 (Recomendado)".
+- Decision:
+  1. The bootstrap's import is an installation's plan, not a command of its own: in a repository whose domain holds
+     `bootstrap/` and no record, `assess` gives a plan that imports it, `apply` carries it out and `onboard` reaches
+     it by its yes, so stage 0 is installed and imports by the route any person takes (6.53). The installer's ring
+     holds what `assess` reads of `bootstrap/`, the split of `decisions.md`, the import's reasons and its part of the
+     plan; the core holds the stream `bootstrap` and its two kinds, their validation and replay's binding, `apply`'s
+     writing of it, the read-only check C13 (`BOOTSTRAP_CHANGED`), C8's reading and the status view's line.
+  2. The core's ceiling is 12,750 counted lines and the installer's 1,400 (`tools/budget`), measured again at each
+     part. The core counted 12,312 and the installer 1,073; the import was projected at +150 to +220 in the core and
+     +130 to +180 in the installer.
+  3. Phase 11 is cut into three parts (D-019): 11a the import's code; 11b stage 0's release 0.2.0 and the review list;
+     11c the maestro's acts and the import. Each runs on Opus 5.5, effort high; Codex (GPT-6.1 Sol), effort high,
+     reviews each part that delivers code or text a person reads (plan row 11).
+  4. The maestro's events are signed with the key D-108 made for `xel`, which signs the release: one public identity,
+     the record's signatures in the namespace `fabrewk` and the release's in `fabrewk-release`. It is
+     `maintainers.xel.key` in the settings' production form, and Git's `user.signingkey`, which `apply` requires
+     (D-055).
+- Reason: D-111 point 3 (stage 0 installed as any person installs it; `apply` already holds the resume, the
+  signatures, the lock and the record commit the import needs); the size measured and projected; D-019 (the inputs
+  separate: the code, the release, the maestro's acts); one key fewer to keep and publish. The alternatives offered: a
+  command `fabrewk import` in the core, or a ring of its own `crates/bootstrap`; the core kept at 12,500, or the
+  ceilings decided at the part's measure; two or four parts; a key apart for the events.
+- Consequences: `core-specification.md` (REQ-INS-9 and "The bootstrap's import and stage 0", points 1 to 10; "How to
+  read it", section 1's 6.48 and 6.53 rows, REQ-REG-1, REQ-FER-7, REQ-BUD-2, sections 3, 4, 6, 7, 8, 11.4, 11.5, 12
+  and 13); `plan.md` (phase 11's parts); `tools/budget/src/budget.rs` and its two tests.
+- Sources: chat of session 47; D-005, D-019, D-055, D-097, D-105, D-108, D-111; AD-5, AD-12; `plan.md` row 11;
+  `core-specification.md`; `crates/core/src/record/event.rs`, `table.rs`, `cli/apply.rs`, `cli/check.rs`,
+  `domain.rs`, `view.rs`, `fermento.rs`; `crates/install/src/lib.rs`; `tools/budget/src/budget.rs`.
+- Supersedes: D-097 point 2 for the core's ceiling; AD-5's 1,200 for the installer; AD-12 only where it moves the
+  bootstrap's rules to `RULES.md` and gives the fermento its marker line "at production (phase 13)" (both now at the
+  import, phase 11, point 8 of the design); `core-specification.md` section 8's "replaced at production (phase 13)".
+
+## D-114 — Phase 11's opening approved
+
+- Status: decided
+- Decided: 2026-11-21
+- Origin: maintainer XEL in session 47's chat, after Codex accepted the opening at its fourth pass: "Apruebo el texto
+  (Recomendado)".
+- Decision: the amendments of phase 11's opening to `core-specification.md` and phase 11's parts in `plan.md` are
+  approved as Codex accepted them (commit `e2beb6c`). Among them, shown to the maestro before the approval: the
+  maestro signs four moves (`assessed`, `publication-decided`, `policy-adopted`, whose seal holds the 169 imported
+  events, and `alambique-baseline`), the entries being Fabrewk's unsigned events, each bound by its payload's digest
+  in the signed plan; what blocks an import (bytes or a mode differing from `HEAD` and the index, compared raw; an
+  empty directory, a link, a `.gitignore` that differs; another maintainer's directory; a file C9 reports; a
+  `--tool`; a publication other than `published`); `STATUS.md` the one file an import replaces; `AGENTS.md`'s text
+  kept with the block added, its project rules moved into `rules` after the import by Fabrewk's own route; C13
+  reported by `check` alone, over the working tree; part 11c's order (publication, installation from GitHub, the
+  maestro's settings, the last hand-built commit, a rehearsal with a fixture key, the import by the maestro); after
+  the import, `check` at the record commit is its evidence, and where the pilot's specification and the later notes
+  live is phase 12's opening's; the review list's item 2 is the maestro's to decide in part 11b, before the
+  publication. Part 11a starts in the next session.
+- Reason: the plan's rule for every phase; D-098's precedent (a phase's opening reviewed before any code, then
+  approved).
+- Consequences: `plan.md`, `STATUS.md`, `tools/budget/src/budget.rs` and its tests; R-056.
+- Sources: chat of session 47; R-056; D-113.
+- Supersedes: none.
+
+## R-056 — Session 47, phase 11's opening
+
+- Status: recorded
+- Date: 2026-11-21
+- Who: integrator Claude Code, `claude-opus-5-5`, effort high; reviewer Codex (`codex-cli 0.166.0`, `gpt-6.1-sol`,
+  effort high, `codex exec -s workspace-write` in a memory-capped scope, from `target/review-11-opening/`, a
+  disposable clone with no network, removed after).
+- Start: HEAD `c58e36c`, tree clean.
+- Read: `STATUS.md`, `AGENTS.md`, `plan.md` (rows 10 to 13, "Parts" for phases 10 to 13), `xel/fermento.md` (no
+  pending point; separator found once), both settings files; `ALAMBIQUE.md`'s passages on the bootstrap, 6.48 and
+  6.53; `decisions.md` D-097, D-098, R-049, D-111, D-112, R-055 and its opening; `core-specification.md` "How to read
+  it", sections 1, 2 (REG, FER-1 to FER-7, INS, BUD), 3, 6, 7, 8, 11.4, 11.5, 12 (INS), 13;
+  `architecture-decisions.md` AD-1's and AD-12's passages on the import and the rules; the skills `codex-review`
+  and `differential-review`; the code of `record/event.rs`, `record/replay.rs`, `table.rs` (`project`),
+  `cli/apply.rs`, `cli/check.rs` (C6, C9, C12), `domain.rs`, `view.rs`, `fermento.rs` (`fenced`),
+  `crates/core/catalogue/es.toml` (the separator), `crates/install/src/lib.rs` (the 1 MiB limit),
+  `record/git.rs` (the index's staging), `tools/budget`. Ran, in a disposable clone of this repository with a
+  fixture home, the current binary's `check` (exit 3: four `SETTINGS_INVALID` for the bootstrap keys,
+  `POLICY_ABSENT`, `RECORD_ABSENT`, `DOMAIN_UNKNOWN_ENTRY` for `bootstrap/`, `GITIGNORE_CHANGED`, `SEPARATOR_MISSING`)
+  and `assess --alias xel` (`none`: the project file, the personal file, the fermento and `STATUS.md` present); and
+  `assess` with both tools in an empty fixture repository, for the project file it generates. Split `decisions.md`
+  at `c58e36c` by a script of the integrator's: 167 entries, D-001 to D-112 and R-001 to R-055, each series
+  contiguous, every entry with `Status`, no closed label twice, R-002's fenced `## ` line skipped, the opening and
+  the entries joined equal to the file. No credential of the person's was read, and no private folder.
+- Decided: D-113 (the four answers), D-114 (the approval).
+- Codex's passes, each over the commit named, confirmed blocking findings by count:
+  1. `4f38371`: 4 (P11O-1 to P11O-4): a resume did not recheck that the imported files were still committed (a
+     `git rm --cached` committed between the kill and the resume); D-100's comparison through `git hash-object
+     --path` hides a CRLF working tree over an LF blob; an empty directory in `bootstrap/` passed `assess` and failed
+     C13 at once; a `.brewstillery/.gitignore` present had no action and failed C8. Corrected in `1b2d12c`: the
+     committed state compared by raw bytes with `HEAD`'s blob and the index, at `assess` and again under the lock,
+     and the record commit's parent required to hold them; an empty directory blocks; a `.gitignore` present kept
+     only when exact.
+  2. `1b2d12c`: 2 (P11O-5, P11O-6): a kept file made executable and not staged made a resumed `apply` refuse its own
+     staging (`apply.rs` commits the kept files with the working tree's mode, `git.rs`); replay bound each entry by
+     key and title only, so a field changed or a text moved between entries replayed. Corrected in `573b7a2`: the
+     working tree's executable bit must be `HEAD`'s mode; the plan binds each `entry-imported`'s payload digest,
+     which replay compares.
+  3. `573b7a2`: 1 (P11O-7): a second maintainer's directory passed `assess` and failed C12 right after the import.
+     Corrected in `e2beb6c`: what `check` would report after the import and the import does not change blocks the
+     plan (another directory at the domain's top, a file C9 reports).
+  4. `e2beb6c`: 0, accept; P11O-1 to P11O-7 confirmed closed.
+  Each finding was checked against the text and the code it cited before its correction; all were confirmed. No
+  code of the import was written, so no test or mutation run applied; the corrections are text.
+- Applied after the approval: the ceilings in `tools/budget/src/budget.rs` (core 12,750, installer 1,400) and its
+  two tests (`tests/budget.rs`, `tests/counter.rs`); `cargo test -p budget` green with the rustup toolchain;
+  `budget count`: core 12,312 of 12,750, installer 1,073 of 1,400, the others unchanged.
+- Measured (as point 10 of "The bootstrap's import and stage 0" asks; the opening's share of the manual arm's
+  sample, D-111 point 2): Codex 4 passes, confirmed
+  blocking 4, 2, 1, 0; tokens per pass (input, of them cached, output) 2,334,229 / 2,179,072 / 15,843; 2,797,462 /
+  2,648,576 / 17,336; 2,383,268 / 2,230,784 / 14,563; 1,928,692 / 1,790,848 / 14,239; Codex ran 6.5, 6.9, 6.0 and 5.9
+  minutes (25.3 in all). Corrections: 7 findings corrected, none declared. Mutation and clean clone: not applicable
+  (no code but the ceilings). Lines: unchanged in every ring (core 12,312, installer 1,073); the ceilings raised.
+  Session: from 19:54 (the first file the session wrote) to the closing commit, 2026-11-21, America/Mexico_City. The
+  maestro's interventions: 2 answers (five questions), 0 corrections, 0 acts outside the chat. Claude's consumption:
+  unknown (not read from the tool in this session).
+- The review directory is removed after this entry.

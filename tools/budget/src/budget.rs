@@ -17,10 +17,10 @@ impl RingKind {
     /// The ceiling in counted lines (REQ-BUD-1's unit).
     pub const fn limit(self) -> usize {
         match self {
-            RingKind::Core => 12_500,
+            RingKind::Core => 12_750,
             RingKind::ToolAdapter => 600,
             RingKind::Confinement => 400,
-            RingKind::Installer => 1_200,
+            RingKind::Installer => 1_400,
         }
     }
 }
