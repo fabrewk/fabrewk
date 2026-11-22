@@ -115,3 +115,7 @@ las bibliotecas enlazadas: la biblioteca estándar de Rust, musl libc y LLVM lib
 
 Todavía no se aceptan contribuciones externas. Cuando se abran, entrarán bajo la misma licencia con la que
 salgan; entonces se decidirá si se pide un sign-off DCO.
+
+Reporta las vulnerabilidades en privado mediante "Report a vulnerability" en la pestaña "Security" de
+[github.com/fabrewk/fabrewk](https://github.com/fabrewk/fabrewk/security). No abras un issue público para reportar una
+vulnerabilidad.

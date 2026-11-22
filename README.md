@@ -111,3 +111,7 @@ linked Rust standard library, musl libc and LLVM libunwind.
 
 Outside contributions are not accepted yet. When they open, contributions will come in under the same licence
 they go out under; whether to require a DCO sign-off will be decided then.
+
+Report vulnerabilities privately through "Report a vulnerability" on the "Security" tab of
+[github.com/fabrewk/fabrewk](https://github.com/fabrewk/fabrewk/security). Do not open a public issue for a
+vulnerability.
