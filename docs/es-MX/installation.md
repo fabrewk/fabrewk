@@ -27,13 +27,13 @@ Confiar en el origen de la versión y en sus firmantes les da autoridad total so
 
 Léelo primero y luego ejecútalo (funciona en fish y en cualquier shell POSIX):
 
-    curl --proto '=https' --tlsv1.2 -fsSLO https://raw.githubusercontent.com/fabrewk/fabrewk/v0.1.0/install.sh
+    curl --proto '=https' --tlsv1.2 -fsSLO https://raw.githubusercontent.com/fabrewk/fabrewk/v0.2.0/install.sh
     less install.sh
     sh install.sh
 
 O pásalo directo a `sh`:
 
-    curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/fabrewk/fabrewk/v0.1.0/install.sh | sh
+    curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/fabrewk/fabrewk/v0.2.0/install.sh | sh
 
 Los firmantes de la versión, como el script los escribe, en el formato de firmantes permitidos de OpenSSH:
 
@@ -54,8 +54,8 @@ actualizaciones por su cuenta y no envía telemetría.
 ### Autocompletado
 
 El paquete trae los archivos de autocompletado en el `completions/` de su carpeta; el script no los instala. Para
-usarlos, extrae el paquete (`tar -xzf fabrewk-0.1.0-linux-aarch64.tar.gz`) y copia, desde
-`fabrewk-0.1.0-linux-aarch64/completions/`:
+usarlos, extrae el paquete (`tar -xzf fabrewk-0.2.0-linux-aarch64.tar.gz`) y copia, desde
+`fabrewk-0.2.0-linux-aarch64/completions/`:
 
 - fish: `fabrewk.fish` a `~/.config/fish/completions/fabrewk.fish`;
 - bash: `fabrewk.sh` a `~/.local/share/bash-completion/completions/fabrewk`;

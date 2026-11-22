@@ -27,13 +27,13 @@ Trusting the release's source and its signers grants them full authority over wh
 
 Read it first, then run it (this works in fish and in any POSIX shell):
 
-    curl --proto '=https' --tlsv1.2 -fsSLO https://raw.githubusercontent.com/fabrewk/fabrewk/v0.1.0/install.sh
+    curl --proto '=https' --tlsv1.2 -fsSLO https://raw.githubusercontent.com/fabrewk/fabrewk/v0.2.0/install.sh
     less install.sh
     sh install.sh
 
 Or pipe it into `sh` directly:
 
-    curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/fabrewk/fabrewk/v0.1.0/install.sh | sh
+    curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/fabrewk/fabrewk/v0.2.0/install.sh | sh
 
 The release signers, as the script writes them in OpenSSH's allowed-signers form:
 
@@ -53,8 +53,8 @@ for updates by itself and sends no telemetry.
 ### Completions
 
 The archive holds the completion files in its directory's `completions/`; the script does not install them. To use
-them, extract the archive (`tar -xzf fabrewk-0.1.0-linux-aarch64.tar.gz`) and copy, from
-`fabrewk-0.1.0-linux-aarch64/completions/`:
+them, extract the archive (`tar -xzf fabrewk-0.2.0-linux-aarch64.tar.gz`) and copy, from
+`fabrewk-0.2.0-linux-aarch64/completions/`:
 
 - fish: `fabrewk.fish` to `~/.config/fish/completions/fabrewk.fish`;
 - bash: `fabrewk.sh` to `~/.local/share/bash-completion/completions/fabrewk`;

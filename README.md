@@ -9,7 +9,7 @@ Agents work confined on tasks a person authorized; every person's decision is si
 The names come from a distillery: Brewstillery is the project's distillery, each maestro prepares a fermento,
 and the alambique distils what the project must be. Only maestros approve what enters it.
 
-Version **0.1.0** supports **Linux on ARM64** only. Review mode is not built yet: Fabrewk can show a plan for it,
+Version **0.2.0** supports **Linux on ARM64** only. Review mode is not built yet: Fabrewk can show a plan for it,
 but cannot apply it.
 
 ## Install
@@ -18,7 +18,7 @@ You need `curl`, OpenSSH's `ssh-keygen`, `sha256sum`, `tar` and `gzip`. Download
 these commands work in fish and in a POSIX shell:
 
 ```sh
-curl --proto '=https' --tlsv1.2 -fsSLO https://raw.githubusercontent.com/fabrewk/fabrewk/v0.1.0/install.sh
+curl --proto '=https' --tlsv1.2 -fsSLO https://raw.githubusercontent.com/fabrewk/fabrewk/v0.2.0/install.sh
 less install.sh
 sh install.sh
 ```
@@ -26,7 +26,7 @@ sh install.sh
 Or pipe it into `sh`:
 
 ```sh
-curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/fabrewk/fabrewk/v0.1.0/install.sh | sh
+curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/fabrewk/fabrewk/v0.2.0/install.sh | sh
 ```
 
 The script verifies the signature of `SHA256SUMS` against its allowed signers, then the archive's checksum. It
@@ -41,11 +41,11 @@ Trusting the release's source and its signers grants them full authority over wh
 Copy this prompt into any agent's chat:
 
 ```text
-Install Fabrewk 0.1.0 and prepare its onboarding plan for my repository. Stop before applying it.
+Install Fabrewk 0.2.0 and prepare its onboarding plan for my repository. Stop before applying it.
 
 Install the binary outside the repository, in a temporary directory. Download the script, read it in full, and
 only then run it; never pipe it into a shell:
-    curl --proto '=https' --tlsv1.2 -fsSLO https://raw.githubusercontent.com/fabrewk/fabrewk/v0.1.0/install.sh
+    curl --proto '=https' --tlsv1.2 -fsSLO https://raw.githubusercontent.com/fabrewk/fabrewk/v0.2.0/install.sh
     less install.sh
     sh install.sh
 
@@ -84,7 +84,7 @@ See the [installation manual](docs/en/installation.md#install-the-program) for c
 ### Completions and removal
 
 Completion files stay in the archive; the script does not install them. After extracting
-`fabrewk-0.1.0-linux-aarch64.tar.gz`, use its `fabrewk-0.1.0-linux-aarch64/completions/` directory:
+`fabrewk-0.2.0-linux-aarch64.tar.gz`, use its `fabrewk-0.2.0-linux-aarch64/completions/` directory:
 
 - Copy `fabrewk.fish` to `~/.config/fish/completions/fabrewk.fish`.
 - Copy `fabrewk.sh` to `~/.local/share/bash-completion/completions/fabrewk` for bash; for zsh, source that file

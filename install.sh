@@ -1,7 +1,7 @@
 #!/bin/sh
 # Installs Fabrewk's command, one file: ~/.local/bin/fabrewk. POSIX sh; read it before you run it.
 #
-#   curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/fabrewk/fabrewk/v0.1.0/install.sh | sh
+#   curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/fabrewk/fabrewk/v0.2.0/install.sh | sh
 #
 # It installs the version written below and nothing else. It downloads that version's archive, its checksum file
 # and the checksum file's signature; it verifies the signature with `ssh-keygen -Y verify` against the signers
@@ -14,8 +14,8 @@
 
 set -eu
 
-version=0.1.0
-release_url=https://github.com/fabrewk/fabrewk/releases/download/v0.1.0
+version=0.2.0
+release_url=https://github.com/fabrewk/fabrewk/releases/download/v0.2.0
 allowed_signers='xel namespaces="fabrewk-release" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMpNfw3yY4sb7CO5xUCEfRQuPtw6UlYial7Y/MWCHFVf xel@fabrewk'
 namespace=fabrewk-release
 supported=linux-aarch64

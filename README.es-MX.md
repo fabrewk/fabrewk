@@ -10,7 +10,7 @@ una persona se firma con su llave SSH.
 Los nombres vienen de una destilería: Brewstillery es la destilería del proyecto, cada maestro prepara su fermento
 y el alambique destila lo que el proyecto debe ser. Solo los maestros aprueban qué entra.
 
-La versión **0.1.0** soporta únicamente **Linux en ARM64**. El modo de revisión aún no está construido: Fabrewk
+La versión **0.2.0** soporta únicamente **Linux en ARM64**. El modo de revisión aún no está construido: Fabrewk
 puede mostrar un plan para él, pero no aplicarlo.
 
 ## Instalar
@@ -19,7 +19,7 @@ Necesitas `curl`, `ssh-keygen` de OpenSSH, `sha256sum`, `tar` y `gzip`. Descarga
 estos comandos funcionan en fish y en una shell POSIX:
 
 ```sh
-curl --proto '=https' --tlsv1.2 -fsSLO https://raw.githubusercontent.com/fabrewk/fabrewk/v0.1.0/install.sh
+curl --proto '=https' --tlsv1.2 -fsSLO https://raw.githubusercontent.com/fabrewk/fabrewk/v0.2.0/install.sh
 less install.sh
 sh install.sh
 ```
@@ -27,7 +27,7 @@ sh install.sh
 O pásalo a `sh`:
 
 ```sh
-curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/fabrewk/fabrewk/v0.1.0/install.sh | sh
+curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/fabrewk/fabrewk/v0.2.0/install.sh | sh
 ```
 
 El script verifica la firma de `SHA256SUMS` contra sus firmantes permitidos y luego la suma del paquete. Instala
@@ -42,11 +42,11 @@ Confiar en el origen de la versión y en sus firmantes les da autoridad total so
 Copia este prompt en el chat de cualquier agente:
 
 ```text
-Instala Fabrewk 0.1.0 y prepara su plan de incorporación para mi repositorio. Detente antes de aplicarlo.
+Instala Fabrewk 0.2.0 y prepara su plan de incorporación para mi repositorio. Detente antes de aplicarlo.
 
 Instala el binario fuera del repositorio, en un directorio temporal. Descarga el script, léelo completo y solo
 entonces ejecútalo; nunca lo pases por una tubería a una shell:
-    curl --proto '=https' --tlsv1.2 -fsSLO https://raw.githubusercontent.com/fabrewk/fabrewk/v0.1.0/install.sh
+    curl --proto '=https' --tlsv1.2 -fsSLO https://raw.githubusercontent.com/fabrewk/fabrewk/v0.2.0/install.sh
     less install.sh
     sh install.sh
 
@@ -87,7 +87,7 @@ Consulta cómo verificar una versión a mano en el [manual de instalación](docs
 ### Autocompletado y eliminación
 
 Los archivos de autocompletado se quedan en el paquete; el script no los instala. Después de extraer
-`fabrewk-0.1.0-linux-aarch64.tar.gz`, usa su directorio `fabrewk-0.1.0-linux-aarch64/completions/`:
+`fabrewk-0.2.0-linux-aarch64.tar.gz`, usa su directorio `fabrewk-0.2.0-linux-aarch64/completions/`:
 
 - Copia `fabrewk.fish` a `~/.config/fish/completions/fabrewk.fish`.
 - Copia `fabrewk.sh` a `~/.local/share/bash-completion/completions/fabrewk` para bash; para zsh, carga ese archivo
