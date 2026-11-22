@@ -166,12 +166,15 @@ pub(super) fn read(
         say("import-project-invalid", true, Some(file), Some("line 1: not UTF-8"));
         None
     });
+    // The project file's one maestro, whose directory is no other maintainer's when no alias is given (P11A-8).
+    let mut sole = None;
     if let Some(text) = &project {
         match settings::parse(&root.join(file), text, Level::Project) {
             Err(e) => say("import-project-invalid", true, Some(file), e.first().map(Error::detail).as_deref()),
             Ok(s) => {
                 let one = match &identity::maintainers(&s)[..] {
                     [m] => {
+                        sole = Some(m.alias.clone());
                         m.role == "maestro"
                             && alias.is_none_or(|a| a == m.alias)
                             && key.is_none_or(|k| key_blob(k) == key_blob(&m.key))
@@ -215,9 +218,9 @@ pub(super) fn read(
     let top = listed.then(|| std::fs::read_dir(&domain)).transpose();
     for entry in top.map_err(|e| Error::Io { path: domain.clone(), error: e })?.into_iter().flatten().flatten() {
         let name = entry.file_name();
-        // With no alias given, the plan is incomplete and a maintainer's directory is not told from another's yet.
-        let ours = ["bootstrap", "skills", "data", "local"].iter().chain(&alias).any(|n| name == *n)
-            || (alias.is_none() && name.to_str().is_some_and(fabrewk_core::settings::is_alias));
+        // With no alias given, the plan is incomplete, and the project file's one maestro's directory is theirs.
+        let own = alias.or(sole.as_deref());
+        let ours = ["bootstrap", "skills", "data", "local"].iter().chain(&own).any(|n| name == *n);
         if entry.file_type().is_ok_and(|t| t.is_dir()) && !ours {
             say("import-directory", true, Some(&format!(".brewstillery/{}", name.to_string_lossy())), None);
         }

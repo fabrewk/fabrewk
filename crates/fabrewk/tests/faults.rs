@@ -1670,6 +1670,12 @@ fn p11o_1_a_file_of_bootstrap_untracked_while_apply_runs_is_plan_changed() {
         n += 1;
     }
     assert!(fx.events("bootstrap").is_empty());
+    // P11A-9: a file added to `bootstrap/`'s working tree alone, which the walk finds under the lock.
+    fs::write(fx.domain.join("bootstrap/untracked.md"), "x\n").unwrap();
+    let ran = fx.apply_digest(&d, &options, &[]);
+    assert_eq!((ran.status, ran.doc()["refusals"][0]["code"].clone()), (1, json!("PLAN_CHANGED")), "{ran:?}");
+    assert_eq!((fx.events("project").len(), fx.events("bootstrap").len()), (2, 0));
+    fs::remove_file(fx.domain.join("bootstrap/untracked.md")).unwrap();
     untrack(&fx);
     let ran = fx.apply_digest(&d, &options, &[]);
     assert_eq!((ran.status, ran.doc()["refusals"][0]["code"].clone()), (1, json!("PLAN_CHANGED")), "{ran:?}");

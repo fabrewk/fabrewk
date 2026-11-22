@@ -442,6 +442,13 @@ fn p11a_6_without_the_alias_the_import_s_plan_is_incomplete_not_blocked() {
     let doc = assess(&fx, &pairs.concat(), &[]);
     assert_eq!(doc["plan"]["verdict"], "adopt", "{}", doc["plan"]["reasons"]);
     assert_eq!(doc["plan"]["incomplete"], json!(["alias"]));
+    // P11A-8: another maintainer's directory still blocks.
+    std::fs::create_dir_all(fx.domain.join("stranger")).unwrap();
+    std::fs::write(fx.domain.join("stranger/notes.md"), "x\n").unwrap();
+    fx.commit("stranger");
+    let doc = assess(&fx, &pairs.concat(), &[]);
+    let blocked = doc["plan"]["reasons"].as_array().unwrap().iter().any(|r| r["reason"] == "import-directory");
+    assert!(doc["plan"]["verdict"] == "none" && blocked, "{}", doc["plan"]["reasons"]);
 }
 
 #[test]
