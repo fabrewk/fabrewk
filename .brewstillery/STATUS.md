@@ -7,9 +7,9 @@ view generated from that registry. Technical files are in English by default (D-
 
 **Phases 0 to 7 are closed (D-037, D-040, D-070). Phase 7 (the first code) was split into parts 7a, 7b, 7c1, 7c2a,
 7c2b, 7d1, 7d2, 7s, 7d3a and 7d3b (D-041, D-047, D-048, D-050, D-053, D-059, D-062), the last the task commands
-(D-068, D-069, R-034); phase 8, the core's part 2, was split into 8a, 8b and 8c (D-072) and all three are closed, and so is the phase (D-077); phase 9 (confinement, the adapters and the run) was cut into parts 9a to 9i (D-075, D-076), all accepted, and it is closed (D-096); phase 10, installation, opened with its cut into parts 10a to 10d, Codex's review of its design and the maestro's approval (D-097, D-098, R-049); part 10a, `assess` and its plan, is accepted, at Codex's twentieth pass (D-099 to D-104, R-050, R-051), part 10b, `apply`, at its seventh (D-105, D-106, R-052), part 10c, `onboard`, at its sixth (D-107, R-053), and part 10d, the script, the signed release 0.1.0, the READMEs and the manuals, at its fourth (D-108, D-109, R-054); phase 10 is closed (D-110). Phase 11 was recast before it started: the pilot is Fabrewk's self-construction, stage 0 a hand-built 0.2.0 that imports the bootstrap (D-111, D-112). Phase 11 opened with the import's design, its cut into parts 11a to 11c and the ceilings at 12,750 and 1,400; Codex accepted it at its fourth pass and the maestro approved it (D-113, D-114, R-056); part 11a, the import's code, is accepted at Codex's fifth pass (R-057); part 11b, stage 0's release 0.2.0 and the review list, at its second (D-115, R-058); part 11c, the publication and the import, is next.** The repository holds the first code at its root: a
+(D-068, D-069, R-034); phase 8, the core's part 2, was split into 8a, 8b and 8c (D-072) and all three are closed, and so is the phase (D-077); phase 9 (confinement, the adapters and the run) was cut into parts 9a to 9i (D-075, D-076), all accepted, and it is closed (D-096); phase 10, installation, opened with its cut into parts 10a to 10d, Codex's review of its design and the maestro's approval (D-097, D-098, R-049); part 10a, `assess` and its plan, is accepted, at Codex's twentieth pass (D-099 to D-104, R-050, R-051), part 10b, `apply`, at its seventh (D-105, D-106, R-052), part 10c, `onboard`, at its sixth (D-107, R-053), and part 10d, the script, the signed release 0.1.0, the READMEs and the manuals, at its fourth (D-108, D-109, R-054); phase 10 is closed (D-110). Phase 11 was recast before it started: the pilot is Fabrewk's self-construction, stage 0 a hand-built 0.2.0 that imports the bootstrap (D-111, D-112). Phase 11 opened with the import's design, its cut into parts 11a to 11c and the ceilings at 12,750 and 1,400; Codex accepted it at its fourth pass and the maestro approved it (D-113, D-114, R-056); part 11a, the import's code, is accepted at Codex's fifth pass (R-057); part 11b, stage 0's release 0.2.0 and the review list, at its second (D-115, R-058); part 11c, the publication and the import, is done up to the import (D-116, R-059): this is the last hand-written version of this file, which the import replaces with the view Fabrewk generates from its record.** The repository holds the first code at its root: a
 Cargo workspace with one crate per ring (`crates/core`, `crates/fabrewk`, the binary, which runs the core's command
-surface, `crates/confine-bwrap`, the confinement backend for Linux, `crates/adapter-claude`, Claude Code's adapter, `crates/adapter-codex`, Codex's, and `crates/install`, the installation) and the size counter `tools/budget`, which also makes the release and its third-party notices (`budget release`, `budget notices`), the licence files, `deny.toml`, a root `.gitignore` with `/target`, the installation script `install.sh`, `README.md`, `README.es-MX.md` and the manuals in `docs/en/` and `docs/es-MX/`. The workspace's version is 0.2.0; the release `target/release-0.2.0/` (ignored by Git), made from `2816586`, is signed by the maestro and not yet published (R-058); 0.1.0's, `target/release-0.1.0/`, stays unpublished (D-108, D-111).
+surface, `crates/confine-bwrap`, the confinement backend for Linux, `crates/adapter-claude`, Claude Code's adapter, `crates/adapter-codex`, Codex's, and `crates/install`, the installation) and the size counter `tools/budget`, which also makes the release and its third-party notices (`budget release`, `budget notices`), the licence files, `deny.toml`, a root `.gitignore` with `/target`, the installation script `install.sh`, `README.md`, `README.es-MX.md` and the manuals in `docs/en/` and `docs/es-MX/`. The workspace's version is 0.2.0, published by the maestro at `github.com/fabrewk/fabrewk` as a pre-release, the tag `v0.2.0` signed with D-108's key on `2816586` (R-059); 0.1.0's release, `target/release-0.1.0/`, stays unpublished (D-108, D-111).
 The record is built in `crates/core/src/record/`, the settings in `crates/core/src/settings/`, identity in
 `identity.rs`, the private folder and the machine file in `machine.rs`, detection and profiles in `detect.rs`, the
 domain's layout in `domain.rs`, the transition table in `table.rs`, the payloads and pattern guards in `task.rs`, the
@@ -17,7 +17,7 @@ credential scan in `scan.rs`, the bootstrap's walk, committed state, replay's bi
 `crates/core/catalogue/` (`en`, `es`); `fabrewk status`, `fabrewk config`, `fabrewk check` and `fabrewk assess` (the installation's reading, verdict and plan, through the installer's contract in `crates/core/src/install.rs`; the bootstrap's import plan and the split of `decisions.md` in `crates/install/src/import.rs`) read, `fabrewk apply` (the installation's execution, in `crates/core/src/cli/apply.rs`) writes, `fabrewk onboard` (the installer's interview on the terminal, `crates/install/src/onboard.rs`, whose yes is `apply` in the same process) writes after the person's yes and words, and `fabrewk
 adopt`, `fabrewk propose`, `fabrewk authorize`, `fabrewk reject`, `fabrewk sweep`, `fabrewk discard`, `fabrewk approve`, `fabrewk close`, `fabrewk run` (round after round of the builder, the checks and the reviewer, to a verified task or a halt) and `fabrewk accept` (an acceptance and its integration) write, and `fabrewk <name>` runs a permitted extension confined and applies its requests, through one
 write path in `crates/core/src/cli/write.rs`. The skills the maestro approved are in `.brewstillery/skills/`, listed in `AGENTS.md`. The core counts 12,632 of 12,750 lines (D-113), the installer 1,330 of 1,400 (D-113), the backend 318 of 400, Claude Code's adapter 269 of 600 and Codex's 319 of 600, formatted at width 120 (D-049, D-054, D-074, D-075). No `data/` exists in this
-repository, whose project file still holds bootstrap keys, so `fabrewk check` here reports them. The domain is
+repository until the import; the project file is in its production form (point 8.2), and `fabrewk assess` here gives a plan that imports `bootstrap/`. The domain is
 `.brewstillery/`, hidden (D-032).
 
 ## Read first
@@ -622,23 +622,32 @@ read-only.
   mutant; 4 written mutations caught. Clean clone of `2816586` green. The release `target/release-0.2.0/` made from
   `2816586`, reproducible, its notices equal to a fresh generation, `SHA256SUMS` signed by the maestro and verified
   by `install.sh`'s own lines, unpublished. Every ring unchanged. No credential of the person's was read.
-- **Next: part 11c, the publication and the import** (plan "Phase 11", row 11c; point 8 of "The bootstrap's import
-  and stage 0"): the maestro publishes the repository at `github.com/fabrewk/fabrewk` (public, private vulnerability
-  reporting on, issues open; D-115) and 0.2.0 as a pre-release with the three files of `target/release-0.2.0/`
-  (`SHA256SUMS` reads `01bf2a3f…d55f`), the tag `v0.2.0` annotated and signed with D-108's key on `2816586`, the
-  release's commit (`budget release` dates the archive by it); before the push, the history's scan of R-058 item 3
-  runs again over the last bootstrap commit; then the installation with `install.sh` from GitHub's address (its offer
-  of `onboard` answered no), the binary compared with the signed archive's; the production settings (the maestro's
-  edit, point 8.2); the last hand-built commit (point 8.3); the rehearsal (point 8.4); the import by the maestro
-  (point 8.5); stage 0's first moves (point 8.6); the phase measured (point 10).
-- **Start prompt:** `Eres el integrador de Fabrewk; fase 11, parte 11c: la publicación del repositorio y de 0.2.0
-  como pre-release, la instalación desde GitHub, la configuración de producción, el último commit a mano, el ensayo
-  y la importación del bootstrap por el maestro; empieza por .brewstillery/STATUS.md`. Model and effort: Claude Code
-  on Opus 5.5 (`claude-opus-5-5`), effort high; Codex GPT-6.1 Sol, effort high, writes and reviews the texts a person
-  reads (plan row 11). Read the skills `verify-part` and `codex-review` first. When waiting for Codex, wait on the
-  launching command itself, and check the commit named in each prompt against `git log` before launching. The
-  publication, the tag's signature, the settings' edit and the import are the maestro's acts; the maestro's key is
-  never used by an agent.
+- **Part 11c done up to the import (session 50, R-059, D-116).** Before the push, the credential scan of R-058
+  item 3 ran again over every revision through `b1627bf` (1,827 blobs, 231 paths, every message): nothing but the
+  scan's own fixtures. The maestro made the organization `fabrewk`, published the repository (public, issues open,
+  private vulnerability reporting on), the tag `v0.2.0` (annotated, signed with D-108's key, on `2816586`) and the
+  pre-release `v0.2.0` with the three files of `target/release-0.2.0/`, each equal byte for byte to the local file;
+  `install.sh` as `raw.githubusercontent.com` serves it equals the tracked one. Installed by the maestro with
+  `install.sh` from GitHub's address, the offer of `onboard` answered no: `~/.local/bin/fabrewk` equals the signed
+  archive's binary. The settings in their production form, the maestro's commit (point 8.2); the one test that read
+  this repository's bootstrap keys now reads the production form (`50cd87b`, P11C-1), the suites green in a clean clone. The last hand-built
+  commit (point 8.3): the fermento's separator as the catalogue's `es` rendering for `xel`, `AGENTS.md` in its form
+  after the import, this file, `plan.md` and D-116 and R-059, the texts approved by the maestro and reviewed by
+  Codex. The rehearsal (point 8.4) in a disposable clone with a fixture maestro's key: `assess` gives `adopt`,
+  `apply` records 180 events, `check` passes, and fails with `BOOTSTRAP_CHANGED` on a byte changed, a file added, a
+  file removed and an empty directory in `bootstrap/`. A defect of 0.2.0 found: an import writes the entry block in
+  `--lang`'s language, not in the project file's canonical one (REQ-DOM-6); the maestro imports with `--lang en`,
+  and its correction is a task of stage 1 (D-116). No credential of the person's was read.
+- **Next: the import, by the maestro** (point 8.5), in their terminal (fish), at the repository's top, with the plan
+  read whole before the yes; then `fabrewk check`, which must pass, and stage 0's first moves (point 8.6), each
+  recorded by Fabrewk:
+
+      cd /home/xel/Dev/Fabrewk/fabrewk
+      fabrewk assess --publication published --alias xel --key /home/xel/.ssh/fabrewk_xel_ed25519.pub --lang en
+
+  then the `fabrewk apply` it prints, with the maestro's own words in `--say` and `--say-lang es-MX`. From the
+  import on, this file is the view Fabrewk generates, `bootstrap/` is read-only, and the handover is given in chat
+  (`AGENTS.md`).
 
 Carried without blocking, with destinations, in D-013. A phase that does not pass is corrected and retried; it
 never ends the project (D-003).

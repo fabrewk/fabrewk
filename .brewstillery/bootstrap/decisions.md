@@ -6138,3 +6138,145 @@ Tu texto se conservó; solo cambió donde hoy hay una decisión tuya:
   session).
 - The review directories, the clean clone, the scan's blobs and the installation checks under `target/` are removed
   after this entry; `target/release-0.2.0/` is kept for the maestro's publication.
+
+## D-116 — Part 11c: the last hand-built texts, and the import with `--lang en`
+
+- Status: decided
+- Decided: 2026-11-22
+- Origin: maintainer XEL in session 50's chat, answering the integrator's questions: on the fermento's separator and
+  `AGENTS.md`'s form after the import, "Apruebo ambos"; on the import's language, "en, palabras es-MX (Recomendado)".
+- Decision:
+  1. The fermento's separator is the catalogue's `es` rendering for `xel`, the marker line included (AD-12); the input
+     above it and the answer below it stay byte for byte.
+  2. `AGENTS.md` takes the form it keeps after the import, above the entry block `apply` adds, until stage 0's first
+     moves (point 8.6) move its rules into the stream `rules`: the authority is the maestro's recorded moves; `data/` is
+     the registry and `STATUS.md` and `RULES.md` its views; the alambique is edited through a proposal and `fabrewk
+     approve`, the fermento's answer written only by `fabrewk sweep`; `bootstrap/` is read-only and `fabrewk check`
+     reports any change; the bootstrap's decisions, imported, stay in force until a decision of the record supersedes
+     them; closing is AD-11's, which replaces D-022; the handover is given in chat. `CLAUDE.md` is unchanged.
+  3. The maestro imports with `fabrewk assess` and the `fabrewk apply` it prints, `--lang en` and their words with
+     `--say-lang es-MX`, so that the entry block is in the canonical documentation language REQ-DOM-6 names.
+  4. 0.2.0 writes an import's entry block in `--lang`'s language, not the kept project file's canonical one, against
+     REQ-DOM-6 (`crates/install/src/lib.rs`, `files::block(lang)`). Its correction, with a test of an import whose
+     `--lang` differs from the project file's canonical language, is a task of stage 1.
+- Reason: point 8.3 of "The bootstrap's import and stage 0" (each text on the maestro's approval); REQ-DOM-6 and AD-3
+  (the entry block in the canonical language). The alternatives offered: for the language, `onboard` in `es-MX`, its
+  entry block in Spanish inside English files until stage 1 corrects it.
+- Consequences: `.brewstillery/xel/fermento.md`, `AGENTS.md`; the import's command (`STATUS.md`'s last hand-written
+  version); stage 1's tasks gain the correction of point 4.
+- Sources: chat of session 50; `core-specification.md` REQ-DOM-6 and "The bootstrap's import and stage 0", points 8.3 to
+  8.6; AD-11, AD-12; `crates/install/src/lib.rs`, `files.rs`; the rehearsal (R-059).
+- Supersedes: none.
+
+## R-059 — Session 50, part 11c up to the import: the publication, the installation, the settings, the rehearsal
+
+- Status: recorded
+- Date: 2026-11-22
+- Who: integrator Claude Code, `claude-opus-5-5`, effort high; Codex (`codex-cli 0.166.0`, `gpt-6.1-sol`, effort high,
+  `codex exec -s workspace-write` in a scope of 3 GB, then 2 GB, with no network, from `target/review-11c/`, a
+  disposable clone with commits of its own and a copy of the registry; removed after this entry), which reviewed the
+  part's texts.
+- Start: HEAD `b1627bf`, tree clean; the first command at 13:16 (America/Mexico_City).
+- Read: `STATUS.md`, `AGENTS.md`, `plan.md` (row 11, "Phase 11", "Phases 11 to 13"), `core-specification.md` ("The
+  bootstrap's import and stage 0", points 1 to 10; REQ-DOM-6, REQ-REG-10, REQ-REG-11), `decisions.md` D-108, D-111,
+  D-115, R-058; `architecture-decisions.md` AD-11, AD-12; the skills `verify-part` and `codex-review`; `install.sh`, the
+  READMEs, `crates/core/src/fermento.rs`, `crates/core/catalogue/es.toml`'s and `en.toml`'s separator, entry, sweep and
+  approve texts, `crates/install/src/files.rs`, `crates/install/src/lib.rs`'s entry block. No credential of the person's
+  was read, and no private folder; the maestro signed and published in their own terminal.
+- Decided: D-116.
+- The history's scan before the push (point 9; R-058 item 3's method), over every revision through `b1627bf` (331
+  commits): 1,827 distinct blobs, every commit message (170,676 bytes) and the 231 paths of every revision. Fabrewk's
+  own heuristic (`fabrewk_core::scan::suspect` and `suspect_name`, by a scratch program under `target/`): 0 suspected;
+  fed a private-key line, a `ghp_` token and a `.env` path, it reports all three. The wider pattern search: only
+  private-key header lines in the scan's own tests, none followed by a body of 40 or more base64 characters, and 24
+  lines assigning to a Rust variable named `secret` in tests (`secret = f.domain.join`, `secret = fx.domain.join`,
+  `secret = private.join`). No suspected name. The three blobs new since R-058 are `b1627bf`'s `STATUS.md`,
+  `decisions.md` and `plan.md`. The last bootstrap commit is scanned the same way before it is pushed, its staged blobs
+  and its message before it is made; nothing in `bootstrap/` can record it after, so its result is in that commit's
+  message.
+- The publication (point 8.1; D-115 point 4), the maestro's acts in their terminal, on the integrator's commands: the
+  organization `fabrewk` made on GitHub; the repository `github.com/fabrewk/fabrewk` made public from this repository
+  with `main` at `b1627bf`, its description "An open-source meta-harness for building software with AI agents."; issues
+  enabled; private vulnerability reporting enabled (the API gives `{"enabled":true}`); `gpg.format ssh` and
+  `user.signingkey` set in this repository's Git configuration to D-108's public key file; the annotated tag `v0.2.0` on
+  `2816586`, message "Fabrewk 0.2.0, stage 0 (pre-release)", signed: `git tag -v` with an allowed-signers file holding
+  D-108's key gives `Good "git" signature for xel with ED25519 key SHA256:aX24gH8qQN8AR5J7pJ+gcbhc6O/41G1D8fTikhp7XrM`;
+  the release `v0.2.0`, "Fabrewk 0.2.0", marked pre-release, not a draft, with `fabrewk-0.2.0-linux-aarch64.tar.gz`
+  (1,788,736 bytes), `SHA256SUMS` (101) and `SHA256SUMS.sig` (310); its notes are paragraphs of `README.md` copied as
+  they are (the description, the pre-release, the installation, contributions and vulnerability reporting), no new text.
+  The integrator downloaded the three files from `github.com/fabrewk/fabrewk/releases/download/v0.2.0/` and `install.sh`
+  from `raw.githubusercontent.com/fabrewk/fabrewk/v0.2.0/install.sh`: each equal byte for byte to
+  `target/release-0.2.0/`'s and to the tracked `install.sh`.
+- The installation (point 8.1): the maestro downloaded `install.sh` from GitHub's address into a temporary directory,
+  read it, and ran it with `sh` at this repository's top; its offer of `onboard` answered no. `~/.local/bin/fabrewk`
+  (3,871,112 bytes, SHA-256 `865fae91…2bde`) equals the binary of the archive downloaded from GitHub, byte for byte;
+  `--version --json` gives 0.2.0 with no feature.
+- The settings (point 8.2): the maestro's commit `b63b9e4`, alone, authored by them, with no AI co-author:
+  `.brewstillery/settings.toml` in the production form the specification drafts, with D-108's public key line; the
+  bootstrap keys (`project.command`, `project.domain`, `maintainers.aliases`, `layout`) removed; `xel/settings.toml`
+  unchanged. Tried before the commit with the installed binary in a disposable clone: `assess` accepted the project
+  file, the fermento's old separator the one reason that blocked.
+- The last hand-built commit (point 8.3), on the maestro's approval of each text (D-116): the fermento's separator;
+  `AGENTS.md`; `STATUS.md`'s last hand-written version; `plan.md` (the overview, row 11c's state); D-116 and this entry.
+  `CLAUDE.md` unchanged. Nothing in `bootstrap/` changes after this commit.
+- The rehearsal (point 8.4), by the installed binary, in a disposable clone of the working tree holding points 8.2 and
+  8.3 but D-116 and this entry, committed in the clone, with a fixture home and a fixture maestro's Ed25519 key in the
+  project file and in the clone's `user.signingkey`, the agents' environment markers and `SSH_AUTH_SOCK` unset for its
+  commands alone: the clone commit `9f92868` over `50cd87b`. `assess --publication published --alias xel --key <fixture>
+  --lang en` gave `adopt`, no reason, 174 imported texts (the opening and 173 entries, D-116 and this entry not yet
+  there) and 11 files; `apply` with its digest, `--lang en` and words with `--say-lang es-MX` recorded 180 events in one
+  record commit (175 in the stream `bootstrap`, then `assessed`, `publication-decided`, `policy-adopted`,
+  `alambique-baseline` and `installed`), the tree clean after it; `check` passed with no warning; `status`: the record
+  replays, 3 streams, 180 events, the project file adopted. A byte changed in `plan.md`, a file `extra.md` added and
+  `harness-verdicts.md` removed each made `check` fail (exit 3) with `BOOTSTRAP_CHANGED`, naming the path and "changed",
+  "added" or "removed"; restored, `check` passed again. An earlier rehearsal over the drafts, before `b63b9e4`, gave the
+  same, and an empty directory added in `bootstrap/` failed it too. The entry block in `AGENTS.md` and `CLAUDE.md` is in
+  English with `--lang en`. Codex's second pass assessed the tree with D-116 and this entry: `adopt`, 176 texts.
+- Codex's passes over the part's texts (`AGENTS.md`, the fermento, `STATUS.md`, `plan.md`, D-116 and this entry's
+  draft), each over the clone commit named, confirmed blocking findings (non-blocking in brackets):
+  1. `b084855` (the texts, the settings as the draft): reject, 1 [0]. P11C-1: R-059 said no test reads the settings or
+     `bootstrap/`, while `settings::tests::req_dom_3_…` reads the real `settings.toml` and failed once the bootstrap
+     keys were gone (reproduced: 0 passed, 1 failed). Corrected by `50cd87b` and this entry's suites paragraph.
+  2. `7fb1ded` (over `50cd87b`, the corrected texts): accept, 0 [1]; P11C-1 closed: the settings tests 18 passed, the
+     corrected test failing on the bootstrap form and passing on the production form; the real `decisions.md`'s split,
+     the domain's scan, the import tests (F-4 over the committed `bootstrap/`) and the crash suite over the import (78
+     points) passed, and again with the import's files and entry blocks added to a copy. P11C-2: the measures still said
+     "no clean clone needed"; corrected below.
+  Every finding was reproduced before its correction.
+- The suites and mutation: the part changes no code of the binary. The maestro's edit of the settings (point 8.2) broke
+  one test that reads this repository's project file, `req_dom_3`, which required its bootstrap keys refused (P11C-1,
+  above); `50cd87b` makes it require the real file to read in its production form and the four keys refused in the
+  bootstrap form `b1627bf` held, written in the test; it failed without the correction and passes with it. The other
+  tests that read this repository's files (`decisions.md`'s split, the committed `bootstrap/` of the import's fixtures,
+  the domain's credential scan, `install.sh`, the specification's tables) pass on the part's tree. Verified
+  (`verify-part`) in a clean clone of `50cd87b` with the part's texts committed in the clone, every step in a user scope
+  of 2 GB with two build jobs: 761 tests passed, 11 ignored; with `fault-injection`, the crash and fault suites, 55,
+  green; the musl release build, equal byte for byte to the installed binary; `budget check` (every ring as above, 5
+  direct runtime crates, 31 in the release build, the binary 3,871,112 bytes); both clippy runs, fmt and `cargo deny`
+  clean. No idle `pasta` before or after. The correction is a test, so `cargo mutants --in-diff` has no mutant.
+- Plan row 11c's acceptance, as far as it can be met before the import: the installed binary is the signed release's;
+  the rehearsal's `check` passes and fails on each change in `bootstrap/`. After the import, `check` in this repository
+  and stage 0's first moves are recorded by Fabrewk, not here (D-111 point 6).
+- Measured (point 10; phase 11, the manual arm's one sample measured as the pilot measures, D-111 point 2):
+  - This part up to the import: Codex 2 review passes, confirmed blocking 1, 0 (non-blocking 0, 1), over `b084855` and
+    `7fb1ded`; tokens (input, of them cached, output) 2,038,057 / 1,929,216 / 11,262 and 3,500,745 / 3,376,384 / 18,723;
+    Codex ran 4.9 and 8.5 minutes (13.4 in all). Corrections: 2 findings corrected (1 blocking, 1 not), none declared;
+    no mutant (the correction is a test); the clean clone green (above); every ring unchanged (the core 12,632 of
+    12,750, the installer 1,330 of 1,400, the backend 318 of 400, Claude Code's adapter 269 of 600, Codex's 319 of 600).
+    Session: from 13:16 to the closing commit, 2026-11-22, America/Mexico_City. The maestro's interventions: 2 answers
+    to the integrator's questions (the texts approved; the import's language), 0 corrections, 3 acts outside the chat
+    (the publication: the organization, the repository and its settings, the signed tag and the pre-release; the
+    installation; the settings' commit). Claude's consumption: unknown (not read from the tool in this session).
+  - The phase, its parts summed (R-056 for the opening, R-057, R-058 and this entry): Codex 13 review passes (4, 5, 2,
+    2), confirmed blocking 7, 5, 1, 1: 14 in all; and 3 passes writing texts (R-057 1, R-058 2); tokens over all 16
+    passes 46,448,378 / 44,565,760 / 234,464; Codex ran 103.9 minutes. Corrections: 23 findings corrected, none declared
+    but R-057's credential residual. Mutation: 333 mutants, 0 missed (R-057); 4 written mutations caught (R-058). Every
+    clean clone green. Lines: the core from 12,312 to 12,632 of 12,750 (+320), the installer from 1,073 to 1,330 of
+    1,400 (+257), the backend and both adapters unchanged. The maestro's interventions before the import: 11 answers, 0
+    corrections, 4 acts outside the chat (R-058's signature and this part's three). Sessions 47 to 50, 2026-11-21 to
+    2026-11-22. Claude's consumption: unknown in every part.
+  - Points 8.5 and 8.6 are measured in the record itself, by its events' times and the maestro's words; their sum goes
+    with the pilot's report (phase 12).
+- The import (point 8.5) is the maestro's, after this commit: `fabrewk assess --publication published --alias xel --key
+  /home/xel/.ssh/fabrewk_xel_ed25519.pub --lang en`, then the `fabrewk apply` it prints with their words and `--say-lang
+  es-MX` (D-116 point 3). From it on the decisions are the record's own.

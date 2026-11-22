@@ -10,9 +10,10 @@ Sin propuestas ni pendientes vigentes.
 
 
 
+<!-- fabrewk:fermento-separator v1 -->
 ################################################################################
-##  ▼▼▼  FIN DE LA ENTRADA DE XEL — RESPUESTAS DE LOS AGENTES DEBAJO  ▼▼▼
-##  El mantenedor no edita a partir de esta línea.
+## ▼▼▼ FIN DE LA ENTRADA DE xel — RESPUESTAS DE LOS AGENTES DEBAJO ▼▼▼
+## El mantenedor no edita a partir de esta línea.
 ################################################################################
 
 ## Respuesta del integrador
