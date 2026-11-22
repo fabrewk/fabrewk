@@ -6,8 +6,11 @@ Mi entrada es exclusivamente mía. Lo que cite desde aquí (capturas, PDF, otros
 
 ## Propuestas y pendientes
 
-Sin propuestas ni pendientes vigentes.
-
+1. Mover las reglas del proyecto que quedan en AGENTS.md al flujo rules, y luego dejar AGENTS.md solo con el bloque de entrada.
+2. Defecto: firmar con una llave protegida por frase de paso falla con un TOOL_FAILED que no dice por qué.
+3. Defecto: el bloque de entrada de una importación sale en el idioma de --lang (ya registrado en D-116).
+4. Que la importación a mano costó demasiados pasos y errores: copiar el resumen, la confusión con <…> en fish, --say poco claro. Un arnés debería evitar eso.
+5. Que las palabras de la importación las redactó el integrador, contra la regla base 7.
 
 
 <!-- fabrewk:fermento-separator v1 -->
