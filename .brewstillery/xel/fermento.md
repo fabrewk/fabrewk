@@ -6,11 +6,10 @@ Mi entrada es exclusivamente mía. Lo que cite desde aquí (capturas, PDF, otros
 
 ## Propuestas y pendientes
 
-1. Mover las reglas del proyecto que quedan en AGENTS.md al flujo rules, y luego dejar AGENTS.md solo con el bloque de entrada.
-2. Defecto: firmar con una llave protegida por frase de paso falla con un TOOL_FAILED que no dice por qué.
-3. Defecto: el bloque de entrada de una importación sale en el idioma de --lang (ya registrado en D-116).
-4. Que la importación a mano costó demasiados pasos y errores: copiar el resumen, la confusión con <…> en fish, --say poco claro. Un arnés debería evitar eso.
-5. Que las palabras de la importación las redactó el integrador, contra la regla base 7.
+1. Pendiente: Que la importación a mano costó demasiados pasos y errores: copiar el resumen, la confusión con <…> en fish, --say poco claro. Un arnés debería evitar eso.
+2. Pendiente: Que las palabras de la importación las redactó el integrador, contra la regla base 7.
+
+3. Propuesta: Quiero autonomía de los agentes con una sola firma por proyecto, y auditar desde el fermento y/o chat.  La idea es que los agentes sean libres de correr TODO EL PROCESO de desarrollo con la idea de que el Maestro tenga que tocar casi para nada la terminal ni comandos con flags complejas, esto rompe por completo la idea de usar agentes para facilitar el trabajo y regresa al usuario (maestro) a tener que memorizar, aplicar y construir commandos de cadenas complejas con firmados extraños.  La idea de un arnés es el de facilitar la existencia al desarrollador dejandolo solo como revisor, auditor y promotor de ideas.   Los comandos creados en el binario de Fabrewk deben estar diseñados para que los agentes los usen con fluidez y menor uso de tokens posible y si algo se complica, que el usuario o maestro pueda entenderlos con facilidad.  A futuro también deben poder ser usados por modulos "front-end" como el web que permita monitorear o realizar tareas de auditoría de los fermentos, alambiques, hosts builders, etc...
 
 
 <!-- fabrewk:fermento-separator v1 -->
