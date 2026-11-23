@@ -295,7 +295,7 @@ impl Dispatch {
 
 /// The guards of `run-started` for `stream`, in the table's order (REQ-TASK-1): DEPENDENCY_OPEN, BASE_MOVED,
 /// LOCK_HELD, REQ-RUN-2 (the profiles, the tools as the cell shows them, the required checks, the rounds, the budget, the
-/// reviewer's provider, the packet's size) and ALAMBIQUE_UNAPPROVED; a halting code among them stops the evaluation and
+/// reviewer's provider, the packet's size), ALAMBIQUE_UNAPPROVED and FORMULA_UNAPPROVED; a halting code among them stops the evaluation and
 /// halts the run. CONFINEMENT_UNAVAILABLE comes under the lock. Gives the `run-started` the person signs, its head filled
 /// when it is made, and its authorization too with `fresh` (the widenings an authorization the same command writes
 /// names, after which nothing is spent), and what writes the run.
@@ -323,7 +323,10 @@ pub(super) fn start(
             "BASE_MOVED" => base = self::base(cx, record, stream)?,
             "REQ-RUN-2" => d = Some(prepare(cx, record, policy, stream, fresh, state(stream))?),
             "ALAMBIQUE_UNAPPROVED" if d.as_ref().is_some_and(|d: &Dispatch| d.halt.is_none()) => {
-                crate::alambique::check(record, &cx.domain)?
+                crate::alambique::check(record, &cx.domain, &crate::alambique::ALAMBIQUE)?
+            }
+            "FORMULA_UNAPPROVED" if d.as_ref().is_some_and(|d: &Dispatch| d.halt.is_none()) => {
+                crate::alambique::check(record, &cx.domain, &crate::alambique::FORMULA)?
             }
             _ => {}
         }

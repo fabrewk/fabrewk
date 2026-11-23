@@ -183,7 +183,8 @@ fn req_reg_2_order_comes_from_prev_not_time() {
 
 #[test]
 fn pd_03_schema_1_is_pinned() {
-    // Any change to an event's fields must raise `schema` (REQ-REG-9); this pin fails first.
+    // Any change to an event's fields must raise `schema` (REQ-REG-9); this pin fails first. A new kind is no change of
+    // fields: the formula's four (formula 1a) are schema 1's, as the bootstrap's two were (D-113).
     assert_eq!(
         FIELDS,
         ["actor", "at", "fabrewk", "instance", "kind", "payload", "policy", "prev", "schema", "seq", "stream"]
@@ -193,7 +194,9 @@ fn pd_03_schema_1_is_pinned() {
         pinned.join("\n"),
         "assessed Project Person\npublication-decided Project Person\npolicy-adopted Project Person\n\
          installed Project Fabrewk\nalambique-baseline Alambique Person\nproposal-incorporated Alambique Person\n\
-         proposal-incorporated Rules Person\ndirect-edit-approved Alambique Person\nsweep-recorded Fermento Agent\n\
+         proposal-incorporated Rules Person\ndirect-edit-approved Alambique Person\n\
+         formula-imported Formula Fabrewk\nformula-approved Formula Person\nproposal-incorporated Formula Person\n\
+         cut-recorded Formula Fabrewk\nsweep-recorded Fermento Agent\n\
          proposal-recorded Fermento Agent\nproposal-withdrawn Fermento Fabrewk\nproposal-discarded Fermento Person\n\
          stage-proposed Stage NotPerson\nstage-authorized Stage Person\nstage-closed Stage Person\n\
          task-proposed Task NotPerson\ntask-authorized Task Person\nrun-started Task Person\n\

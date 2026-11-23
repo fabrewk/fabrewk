@@ -188,9 +188,10 @@ impl Appender<'_> {
     }
 }
 
-/// The alambique's approval (REQ-FER-5): the digest of the file as the plan saw it, the text to
-/// put there (`None` when the person's own is approved) and the message of the commit that holds it alone.
+/// The alambique's or the formula's approval (REQ-FER-5; formula 1a): which, the digest of the file as the plan saw it,
+/// the text to put there (`None` when the person's own is approved) and the message of the commit that holds it alone.
 pub(super) struct Edit {
+    pub doc: &'static alambique::Doc,
     pub before: String,
     pub bytes: Option<Vec<u8>>,
     pub message: String,
@@ -424,7 +425,7 @@ fn held<T>(
     // of it, in the record branch's tip and the person's index; it is checked again once the events are written.
     let repo = Repo::for_domain(&cx.domain, mode);
     let unchanged = |edit: &Edit| -> Result<(), Error> {
-        alambique::unchanged(&cx.domain, repo.as_ref(), &edit.before, edit.bytes.is_some()).map(drop)
+        alambique::unchanged(&cx.domain, repo.as_ref(), &edit.before, edit.bytes.is_some(), edit.doc).map(drop)
     };
     if let Some(a) = &planned.alambique {
         crate::record::fault::pause("before-alambique");
@@ -465,7 +466,7 @@ fn held<T>(
     // precede (REQ-REG-10).
     if let Some(a) = &planned.alambique {
         let late = &late("the next approval shows what was decided");
-        let path = cx.domain.join(alambique::FILE);
+        let path = cx.domain.join(a.doc.file);
         unchanged(a).map_err(late)?;
         // The new events must replay before anything depends on them in a commit (PD-46).
         session.replayable(&PolicyVerifier).map_err(late)?;

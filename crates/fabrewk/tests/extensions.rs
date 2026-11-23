@@ -125,7 +125,7 @@ fn req_ext_1_a_permitted_present_extension_runs_and_nothing_else_does() {
     // present and permitted.
     install(&fx, "status", "touch \"$HOME/ran\"");
     let ran = fx.run(&["status", "--json"]);
-    assert_eq!((ran.status, ran.doc()["schema"].as_str()), (0, Some("fabrewk.status/3")), "{ran:?}");
+    assert_eq!((ran.status, ran.doc()["schema"].as_str()), (0, Some("fabrewk.status/4")), "{ran:?}");
     assert!(!area(&fx, "status").exists());
     // With a record that does not replay, a present extension's permission cannot be read: the record's refusal; an
     // absent one is still an unknown command.
@@ -193,7 +193,7 @@ fn req_ext_2_an_extension_sees_the_four_variables_and_reads_the_status() {
     );
     assert_eq!(fs::read_to_string(home.join("pwd")).unwrap(), format!("{}\n", root.display()));
     let status: Value = serde_json::from_slice(&fs::read(home.join("status")).unwrap()).unwrap();
-    assert_eq!(status["schema"], "fabrewk.status/3", "{status}");
+    assert_eq!(status["schema"], "fabrewk.status/4", "{status}");
     // The same record, read from inside; only what `local/` holds is hidden there.
     let mut outside = fx.run(&["status", "--json"]).doc();
     outside["local"] = json!({"evidence": 0, "tmp": 0});

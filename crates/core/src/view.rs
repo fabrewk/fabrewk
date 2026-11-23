@@ -78,7 +78,9 @@ pub(crate) fn tasks_of<'a>(record: &'a Replay, id: &str) -> Vec<(&'a String, &'a
 }
 
 /// The decisions that wait, in the order of the streams: the stage to authorize or close, the tasks to authorize, run,
-/// retry or accept, the proposals to approve, and the sweeps a stage needs before it closes (REQ-VIEW-1, PD-33).
+/// retry or accept, the proposals to approve, the sweeps a stage needs before it closes (REQ-VIEW-1, PD-33), and the
+/// audit of a cut of the formula the integrator reported (formula 1a point 5), which the maestro makes in the chat or
+/// in their fermento.
 pub fn waits(record: &Replay) -> Vec<Wait> {
     let states = table::current(record).unwrap_or_default();
     let state = |n: &str| states.get(n).copied().unwrap_or_default();
@@ -167,6 +169,31 @@ pub fn waits(record: &Replay) -> Vec<Wait> {
         let since = recorded.map(at).unwrap_or_default();
         wait(Who::Maestro, "proposal", &p.id, since, p.alias.clone(), &[cmd("approve", &p.id), cmd("discard", &p.id)]);
     }
+    if let Some(e) = alambique::cut(record).filter(|e| e.value["payload"]["reported"] == true) {
+        wait(Who::Maestro, "cut-audit", text(e, "cut"), at(e), text(e, "title").to_owned(), &[]);
+    }
+    out
+}
+
+/// The formula's lines, in `lang` (formula 1a point 5): its last approval, the cut in progress or reported, and that an
+/// agent reads it next; or that the project has none.
+pub fn formula(record: &Replay, lang: &str) -> Vec<String> {
+    let t = |key: &str, params: &[(&str, &str)]| say(lang, &format!("view.formula-{key}"), params);
+    let events = record.streams.get(alambique::FORMULA.stream).map(Vec::as_slice).unwrap_or_default();
+    let Some(last) = events.iter().rev().find(|e| e.kind != "cut-recorded") else { return vec![t("none", &[])] };
+    let digest = alambique::approved(record, &alambique::FORMULA).unwrap_or_default();
+    let (commit, alias) = (text(last, "commit"), last.value["actor"]["alias"].as_str().unwrap_or(text(last, "alias")));
+    let (short, at_) = (commit.get(..12).unwrap_or_default(), at(last));
+    let params = [("digest", digest.get(..12).unwrap_or_default()), ("alias", alias), ("at", &at_), ("commit", short)];
+    let mut out = vec![t(if last.kind == "formula-imported" { "imported" } else { "approved" }, &params)];
+    out.push(match alambique::cut(record) {
+        Some(c) => {
+            let key = if c.value["payload"]["reported"] == true { "reported" } else { "open" };
+            t(key, &[("id", text(c, "cut")), ("title", text(c, "title")), ("phase", text(c, "phase")), ("at", &at(c))])
+        }
+        None => t("no-cut", &[]),
+    });
+    out.push(t("next", &[]));
     out
 }
 
@@ -221,6 +248,8 @@ pub fn status(record: &Replay, lang: &str) -> String {
     if mode == Some("unpublished") {
         out += &format!("\n> {}\n", t("view.unpublished", &[]));
     }
+    out += &format!("\n## {}\n\n", t("view.formula", &[]));
+    out += &formula(record, lang).iter().map(|l| format!("- {l}\n")).collect::<String>();
     out += &format!("\n## {}\n\n", t("view.stages", &[]));
     let stages: Vec<_> = record.streams.iter().filter(|(n, _)| stream_kind(n) == Some(StreamKind::Stage)).collect();
     if stages.is_empty() {

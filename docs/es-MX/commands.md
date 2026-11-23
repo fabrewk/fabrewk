@@ -33,7 +33,7 @@ y opcionalmente `--say-lang <etiqueta>`, su idioma; cada una se niega dentro de 
 | `fabrewk run <id> --say <palabras>` | Ejecuta, aislada, una tarea autorizada, o la siguiente de una etapa, ronda tras ronda, hasta una tarea verificada o una detención; termina la integración de una tarea aceptada. |
 | `fabrewk accept <tarea> --seen <digest> --say <palabras>` | Acepta el candidato de una tarea tal como lo mostró `status` y lo integra. |
 | `fabrewk reject <tarea> --say <palabras>` | Rechaza una tarea, diciendo por qué. |
-| `fabrewk approve <propuesta> --say <palabras>` | Aprueba una propuesta y aplica su edición al alambique; `approve alambique` aprueba el alambique tal como está. |
+| `fabrewk approve <propuesta> --say <palabras>` | Aprueba una propuesta y aplica su edición al alambique o a la fórmula; `approve alambique` y `approve formula` aprueban ese archivo tal como está. |
 | `fabrewk discard <propuesta> --say <palabras>` | Descarta una propuesta pendiente, diciendo por qué. |
 | `fabrewk close <etapa> --say <palabras>` | Cierra una etapa cuyo trabajo terminó. |
 
@@ -43,6 +43,8 @@ y opcionalmente `--say-lang <etiqueta>`, su idioma; cada una se niega dentro de 
 | --- | --- |
 | `fabrewk propose <archivo>` | Registra una etapa y sus tareas, o tareas para una etapa, desde un archivo JSON. |
 | `fabrewk sweep <alias> --answer <archivo>` | Registra la respuesta del integrador al fermento de un mantenedor y la escribe debajo del separador. |
+| `fabrewk import <commit>` | Registra como primera aprobación de la fórmula el commit firmado de un maestro que cambia solo `FORMULA.md`, una vez que Git verifica la firma contra la llave de un maestro de la política vigente. |
+| `fabrewk cut <corte> [--report]` | Registra el corte de la fórmula aprobada que abre el integrador, o con `--report` el corte en curso terminado, para la auditoría del maestro. |
 
 ## El programa solo, y las extensiones
 

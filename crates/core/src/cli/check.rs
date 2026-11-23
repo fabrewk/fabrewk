@@ -44,7 +44,7 @@ pub const CHECKS: &[Check] = &[
     Check { id: "C4", codes: &[RecordAbsent, RecordRollback, MarkInvalid], control: Effective },
     Check { id: "C5", codes: &[ViewStale], control: Effective },
     Check { id: "C6", codes: &[SeparatorMissing, SeparatorAmbiguous, SeparatorDamaged], control: Effective },
-    Check { id: "C7", codes: &[AlambiqueUnapproved], control: Effective },
+    Check { id: "C7", codes: &[AlambiqueUnapproved, FormulaUnapproved], control: Effective },
     Check {
         id: "C8",
         codes: &[DomainUnknownEntry, AliasInvalid, GitignoreChanged, DomainNotIgnored],
@@ -264,9 +264,12 @@ pub(super) fn run(cx: &Cx) -> Result<Out, Failed> {
         Err(_) if !absent => found.push(("C13", refuse(CheckUnknown, Some(d), "the record does not replay"))),
         Err(_) => {}
     }
-    // C7: the alambique is the text a maestro last approved (REQ-FER-7).
+    // C7: the alambique and the formula are the texts a maestro last approved (REQ-FER-7; formula 1a point 4).
     match record {
-        Ok(r) => found.extend(alambique::check(r, d).err().map(|e| ("C7", unknown(e)))),
+        Ok(r) => {
+            let docs = [&alambique::ALAMBIQUE, &alambique::FORMULA];
+            found.extend(docs.iter().filter_map(|doc| alambique::check(r, d, doc).err()).map(|e| ("C7", unknown(e))));
+        }
         Err(_) if !absent => found.push(("C7", refuse(CheckUnknown, Some(d), "the record does not replay"))),
         Err(_) => {}
     }

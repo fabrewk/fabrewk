@@ -12,7 +12,7 @@ Muestra la salud del registro, la política vigente y el estado de cada etapa y 
 
 Movimientos que puede causar: ninguno.
 
-Documentos con --json: `fabrewk.status/3`, `fabrewk.subject/4`
+Documentos con --json: `fabrewk.status/4`, `fabrewk.subject/4`
 
 ## `fabrewk config [<key>] [--json]`
 
@@ -54,7 +54,7 @@ Documentos con --json: `fabrewk.check/1`
 | C4 | El registro existe y no ha retrocedido: efectivo donde se recorre la historia de Git, cooperativo en un solo equipo. | `RECORD_ABSENT`, `RECORD_ROLLBACK`, `MARK_INVALID` | efectivo |
 | C5 | STATUS.md y RULES.md son lo que da una generación nueva a partir del registro. | `VIEW_STALE` | efectivo |
 | C6 | Cada fermento tiene su separador una sola vez fuera de bloques de código, dentro de una versión que Fabrewk escribe. | `SEPARATOR_MISSING`, `SEPARATOR_AMBIGUOUS`, `SEPARATOR_DAMAGED` | efectivo |
-| C7 | El alambique es el texto que un maestro aprobó por última vez. | `ALAMBIQUE_UNAPPROVED` | efectivo |
+| C7 | El alambique y la fórmula son los textos que un maestro aprobó por última vez. | `ALAMBIQUE_UNAPPROVED`, `FORMULA_UNAPPROVED` | efectivo |
 | C8 | Las entradas del dominio, los alias, su archivo de ignorados y la regla de ignorados del producto. | `DOMAIN_UNKNOWN_ENTRY`, `ALIAS_INVALID`, `GITIGNORE_CHANGED`, `DOMAIN_NOT_IGNORED` | efectivo |
 | C9 | Ningún archivo parece una credencial: una heurística. | `CREDENTIAL_SUSPECTED` | cooperativo |
 | C10 | Los archivos del registro están confirmados donde el modo de publicación los confirma. | `RECORD_UNCOMMITTED` | efectivo |
@@ -362,6 +362,7 @@ Rechazos
 - `BASE_MOVED`: El producto en la punta de la rama del registro no es el que dejaron la base de la tarea o la última integración de sus dependencias.
 - `LOCK_HELD`: Otro comando de Fabrewk tiene el candado del registro de este repositorio, u otra tarea está en ejecución: un escritor y una ejecución a la vez.
 - `ALAMBIQUE_UNAPPROVED`: El alambique no es el texto que un maestro aprobó por última vez: cambió a mano, o nunca se aprobó.
+- `FORMULA_UNAPPROVED`: La fórmula no es el texto que un maestro aprobó por última vez: cambió, o nunca se aprobó.
 - `RECORD_ABSENT`: Aquí no hay registro.
 - `INSTALLATION_INCOMPLETE`: Aquí empezó un apply que no terminó, así que ningún otro comando puede escribir hasta que termine.
 - `POLICY_ABSENT`: No hay una política adoptada, así que no hay configuración efectiva ni mantenedores.
@@ -412,6 +413,7 @@ Rechazos
 - `TASK_CHANGED`: La tarea, o el head de su flujo, cambió después de mostrarse.
 - `EVIDENCE_STALE`: La identidad de un check ya no coincide: cambió el árbol de producto del candidato, la definición del check, la política, la versión de una herramienta nombrada o la plataforma.
 - `ALAMBIQUE_UNAPPROVED`: El alambique no es el texto que un maestro aprobó por última vez: cambió a mano, o nunca se aprobó.
+- `FORMULA_UNAPPROVED`: La fórmula no es el texto que un maestro aprobó por última vez: cambió, o nunca se aprobó.
 - `PROTECTED_PATH`: Los archivos permitidos, o la copia del agente, alcanzan una ruta protegida (.git o .brewstillery).
 - `PROTECTED_PATH_WILDCARD`: Un comodín entre los archivos permitidos coincide con una ruta o un nombre protegidos.
 - `LANE_VIOLATION`: La copia del agente cambia un archivo fuera de los archivos permitidos de la tarea, una ruta que no es texto válido, o deja una entrada que no es un archivo, un enlace ni un directorio.
@@ -517,6 +519,7 @@ Rechazos
 - `LOCK_HELD`: Otro comando de Fabrewk tiene el candado del registro de este repositorio, u otra tarea está en ejecución: un escritor y una ejecución a la vez.
 - `WIDENING_UNNAMED`: Un cambio amplía la autoridad sin nombrarse.
 - `ALAMBIQUE_UNAPPROVED`: El alambique no es el texto que un maestro aprobó por última vez: cambió a mano, o nunca se aprobó.
+- `FORMULA_UNAPPROVED`: La fórmula no es el texto que un maestro aprobó por última vez: cambió, o nunca se aprobó.
 - `ROUNDS_EXHAUSTED`: Las rondas de revisión de la tarea desde su autorización están gastadas; no se empieza ninguna ronda más.
 - `BUDGET_EXHAUSTED`: Los despachos, minutos o tokens de la tarea o de su etapa están gastados, o no se puede saber lo gastado; no se despacha nada más.
 - `PROVIDER_MISSING`: review.differentProvider es require, y el proveedor del perfil de revisión es el del constructor, o su herramienta no está.
@@ -587,7 +590,7 @@ El archivo de la respuesta: un objeto con estos campos
         key: texto
       result: dígitos hexadecimales
 
-La unidad de una edición es la apertura (kind opening), una sección (kind section, n), un punto (kind point, n y m) o una regla (kind rule, n; un texto null la quita); target es alambique o rules, y una edición de rules lleva solo unidades de regla.```
+La unidad de una edición es la apertura (kind opening), una sección (kind section, n), un punto (kind point, n y m), una regla (kind rule, n; un texto null la quita) o el texto completo de la fórmula (kind formula); target es alambique, rules o formula, una edición de rules lleva solo unidades de regla y una de la fórmula su única unidad formula.```
 
 Rechazos
 
@@ -601,6 +604,92 @@ Rechazos
 - `POINT_CHANGED`: Un punto de la respuesta no existe en el fermento, cambió desde que se leyó, o no tiene recomendación.
 - `INPUT_UNCOMMITTED`: La entrada del fermento difiere de la que está en un commit, y el commit del barrido llevaría tu edición.
 - `INPUT_CHANGED`: La entrada del fermento cambió mientras corría el barrido.
+- `RECORD_ABSENT`: Aquí no hay registro.
+- `INSTALLATION_INCOMPLETE`: Aquí empezó un apply que no terminó, así que ningún otro comando puede escribir hasta que termine.
+- `POLICY_ABSENT`: No hay una política adoptada, así que no hay configuración efectiva ni mantenedores.
+- `RECORD_BROKEN`: El registro está roto: sus archivos no forman una sola cadena sin cortes.
+- `RECORD_DIGEST_MISMATCH`: El contenido de un archivo de evento no es el que su nombre registra.
+- `RECORD_NONCANONICAL`: Un archivo de evento no está en forma canónica, así que no se puede confiar en su resumen.
+- `RECORD_FORK`: Dos eventos ocupan el mismo lugar de un flujo: dos clones escribieron ahí.
+- `RECORD_TRANSITION_INVALID`: Un evento está donde la tabla de transiciones no lo permite.
+- `ATTEMPT_ENDED`: El registro termina un intento que no está abierto.
+- `RECORD_SIGNATURE_INVALID`: El evento de una persona no está firmado con la llave y el rol que la política da a quien firma.
+- `RECORD_VERSION_UNKNOWN`: Un evento no es de un esquema que esta versión de Fabrewk conozca.
+- `RECORD_ID_COLLISION`: Dos etapas o dos tareas recibieron el mismo identificador.
+- `RECORD_ROLLBACK`: El registro perdió eventos que tenía antes: un retroceso.
+- `MARK_INVALID`: La marca del registro de este equipo (local/cache/heads.json) está dañada o nombra un evento que el registro no tiene en ese lugar.
+- `CHECK_UNKNOWN`: Una verificación no pudo correr, así que su resultado es desconocido, y un resultado desconocido nunca es un pase.
+- `DOMAIN_NOT_IGNORED`: El repositorio del producto no ignora .brewstillery/, así que un commit ahí lo publicaría.
+- `NOT_A_REPOSITORY`: Esta no es la raíz del árbol de trabajo principal del repositorio.
+- `HEAD_DETACHED`: El head de Git no nombra ninguna rama, así que no hay rama del registro.
+- `PRIVATE_FOLDER_PERMISSIONS`: La carpeta privada da acceso a alguien más que su dueño, así que Fabrewk no la lee.
+- `SETTINGS_INVALID`: Un archivo de ajustes no se lee o no valida.
+- `LOCK_HELD`: Otro comando de Fabrewk tiene el candado del registro de este repositorio, u otra tarea está en ejecución: un escritor y una ejecución a la vez.
+- `RECORD_HEAD_MOVED`: Algo escribió en el registro sin su candado mientras corría este comando; este comando no escribió nada.
+- `RECORD_COMMIT_RACE`: La rama se movió mientras Fabrewk confirmaba el registro; sus eventos están escritos pero no confirmados.
+- `TOOL_FAILED`: Una herramienta externa falló; lo que imprimió se guarda como evidencia y nunca se muestra aquí.
+- `TOOL_MISSING`: Una herramienta que esto necesita no está en este equipo.
+
+## `fabrewk import <commit> [--json]`
+
+Registra como primera aprobación de la fórmula el commit firmado de un maestro que cambia solo FORMULA.md, una vez que Git lo verifica contra la llave de un maestro de la política vigente; no pide palabras ni hace una firma nueva.
+
+- `<commit>`: El commit, como Git lo nombra.
+- `--json`: Da la salida como un solo documento JSON con un campo schema.
+- `--help`: Muestra esta ayuda.
+
+Movimientos que puede causar: `formula-imported` (aprobación de la fórmula importada).
+
+Documentos con --json: `fabrewk.imported/1`
+
+Rechazos
+
+- `MOVE_NOT_ALLOWED`: La tabla de transiciones no permite este movimiento desde el estado del sujeto.
+- `FORMULA_BRIDGE_INVALID`: El commit no es el puente de la fórmula: no está en la historia de la rama del registro, cambia más que FORMULA.md o no la cambia, o Git no verifica su firma contra la llave de un maestro de la política vigente.
+- `RECORD_ABSENT`: Aquí no hay registro.
+- `INSTALLATION_INCOMPLETE`: Aquí empezó un apply que no terminó, así que ningún otro comando puede escribir hasta que termine.
+- `POLICY_ABSENT`: No hay una política adoptada, así que no hay configuración efectiva ni mantenedores.
+- `RECORD_BROKEN`: El registro está roto: sus archivos no forman una sola cadena sin cortes.
+- `RECORD_DIGEST_MISMATCH`: El contenido de un archivo de evento no es el que su nombre registra.
+- `RECORD_NONCANONICAL`: Un archivo de evento no está en forma canónica, así que no se puede confiar en su resumen.
+- `RECORD_FORK`: Dos eventos ocupan el mismo lugar de un flujo: dos clones escribieron ahí.
+- `RECORD_TRANSITION_INVALID`: Un evento está donde la tabla de transiciones no lo permite.
+- `ATTEMPT_ENDED`: El registro termina un intento que no está abierto.
+- `RECORD_SIGNATURE_INVALID`: El evento de una persona no está firmado con la llave y el rol que la política da a quien firma.
+- `RECORD_VERSION_UNKNOWN`: Un evento no es de un esquema que esta versión de Fabrewk conozca.
+- `RECORD_ID_COLLISION`: Dos etapas o dos tareas recibieron el mismo identificador.
+- `RECORD_ROLLBACK`: El registro perdió eventos que tenía antes: un retroceso.
+- `MARK_INVALID`: La marca del registro de este equipo (local/cache/heads.json) está dañada o nombra un evento que el registro no tiene en ese lugar.
+- `CHECK_UNKNOWN`: Una verificación no pudo correr, así que su resultado es desconocido, y un resultado desconocido nunca es un pase.
+- `DOMAIN_NOT_IGNORED`: El repositorio del producto no ignora .brewstillery/, así que un commit ahí lo publicaría.
+- `NOT_A_REPOSITORY`: Esta no es la raíz del árbol de trabajo principal del repositorio.
+- `HEAD_DETACHED`: El head de Git no nombra ninguna rama, así que no hay rama del registro.
+- `PRIVATE_FOLDER_PERMISSIONS`: La carpeta privada da acceso a alguien más que su dueño, así que Fabrewk no la lee.
+- `SETTINGS_INVALID`: Un archivo de ajustes no se lee o no valida.
+- `LOCK_HELD`: Otro comando de Fabrewk tiene el candado del registro de este repositorio, u otra tarea está en ejecución: un escritor y una ejecución a la vez.
+- `RECORD_HEAD_MOVED`: Algo escribió en el registro sin su candado mientras corría este comando; este comando no escribió nada.
+- `RECORD_COMMIT_RACE`: La rama se movió mientras Fabrewk confirmaba el registro; sus eventos están escritos pero no confirmados.
+- `TOOL_FAILED`: Una herramienta externa falló; lo que imprimió se guarda como evidencia y nunca se muestra aquí.
+- `TOOL_MISSING`: Una herramienta que esto necesita no está en este equipo.
+
+## `fabrewk cut <cut> [--report] [--json]`
+
+Registra el corte de la fórmula aprobada que abre el integrador, o con --report el corte en curso terminado, para la auditoría del maestro; no autoriza nada.
+
+- `<cut>`: El corte, por el identificador que da su título en FORMULA.md (como 1a).
+- `--report`: Reporta terminado el corte en curso, para la auditoría del maestro; sin ella, el corte se abre.
+- `--json`: Da la salida como un solo documento JSON con un campo schema.
+- `--help`: Muestra esta ayuda.
+
+Movimientos que puede causar: `cut-recorded` (corte registrado).
+
+Documentos con --json: `fabrewk.cut/1`
+
+Rechazos
+
+- `FORMULA_UNAPPROVED`: La fórmula no es el texto que un maestro aprobó por última vez: cambió, o nunca se aprobó.
+- `CUT_UNKNOWN`: Ningún título de la fórmula aprobada nombra ese corte.
+- `MOVE_NOT_ALLOWED`: La tabla de transiciones no permite este movimiento desde el estado del sujeto.
 - `RECORD_ABSENT`: Aquí no hay registro.
 - `INSTALLATION_INCOMPLETE`: Aquí empezó un apply que no terminó, así que ningún otro comando puede escribir hasta que termine.
 - `POLICY_ABSENT`: No hay una política adoptada, así que no hay configuración efectiva ni mantenedores.
@@ -677,15 +766,15 @@ Rechazos
 
 ## `fabrewk approve <proposal> --say <words> [--say-lang <tag>] [--json]`
 
-Un maestro aprueba una propuesta, que aplica su edición y hace commit del alambique solo, o aprueba el alambique como está, diciendo por qué.
+Un maestro aprueba una propuesta, que aplica su edición y hace commit del alambique o de la fórmula solos, o aprueba el alambique o la fórmula como están, diciendo por qué.
 
-- `<proposal>`: Una propuesta, por su identificador (p-…), o la palabra alambique.
+- `<proposal>`: Una propuesta, por su identificador (p-…), o la palabra alambique o formula.
 - `--say <words>`: Tus propias palabras para esta decisión, guardadas tal cual y firmadas. Se rechazan las copiadas de un ejemplo, como «Estoy de acuerdo.».
 - `--say-lang <tag>`: La etiqueta de idioma de tus palabras; por omisión, tu languages.agentInteraction.
 - `--json`: Da la salida como un solo documento JSON con un campo schema.
 - `--help`: Muestra esta ayuda.
 
-Movimientos que puede causar: `proposal-incorporated` (propuesta incorporada), `direct-edit-approved` (edición directa aprobada), `alambique-baseline` (base del alambique).
+Movimientos que puede causar: `proposal-incorporated` (propuesta incorporada), `direct-edit-approved` (edición directa aprobada), `alambique-baseline` (base del alambique), `formula-approved` (fórmula aprobada).
 
 Documentos con --json: `fabrewk.approved/2`
 
@@ -701,6 +790,9 @@ Rechazos
 - `ALAMBIQUE_CHANGED`: El alambique, en el árbol de trabajo, en el índice o en el último commit, no es el texto del que se redactó la propuesta.
 - `ALAMBIQUE_UNAPPROVED`: El alambique no es el texto que un maestro aprobó por última vez: cambió a mano, o nunca se aprobó.
 - `ALAMBIQUE_MISSING`: No hay ALAMBIQUE.md, o no es un archivo regular al que se llegue sin enlaces, o no es texto válido.
+- `FORMULA_CHANGED`: La fórmula, en el árbol de trabajo, en el índice o en el último commit, no es el texto desde el que se redactó la propuesta.
+- `FORMULA_UNAPPROVED`: La fórmula no es el texto que un maestro aprobó por última vez: cambió, o nunca se aprobó.
+- `FORMULA_MISSING`: No hay FORMULA.md, o no es un archivo regular al que se llega sin un enlace, o no es texto válido.
 - `UNIT_AMBIGUOUS`: Una unidad de la edición está dos veces o ninguna en el alambique, o dos unidades se traslapan, o una regla que quita no existe.
 - `RECORD_ABSENT`: Aquí no hay registro.
 - `INSTALLATION_INCOMPLETE`: Aquí empezó un apply que no terminó, así que ningún otro comando puede escribir hasta que termine.
@@ -752,6 +844,7 @@ Rechazos
 - `STAGE_OPEN_TASKS`: Una tarea de la etapa no ha terminado: no está ni integrada ni rechazada.
 - `SWEEP_MISSING`: El fermento de un mantenedor no se barrió después de que terminó la última tarea de la etapa.
 - `ALAMBIQUE_UNAPPROVED`: El alambique no es el texto que un maestro aprobó por última vez: cambió a mano, o nunca se aprobó.
+- `FORMULA_UNAPPROVED`: La fórmula no es el texto que un maestro aprobó por última vez: cambió, o nunca se aprobó.
 - `RECORD_UNCOMMITTED`: Algunos archivos del registro no están confirmados en la rama del registro.
 - `RECORD_ABSENT`: Aquí no hay registro.
 - `INSTALLATION_INCOMPLETE`: Aquí empezó un apply que no terminó, así que ningún otro comando puede escribir hasta que termine.

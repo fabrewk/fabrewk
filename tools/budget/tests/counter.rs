@@ -187,7 +187,7 @@ fn req_bud_1_counts_per_ring() {
     ];
     let counts = count_rings(&f.0, &rings).unwrap();
     let measures: Vec<_> = counts.iter().map(|c| (c.name, c.lines, c.files, c.limit())).collect();
-    assert_eq!(measures, [("core", 3, 2, 12_750), ("adapter", 2, 1, 600)]);
+    assert_eq!(measures, [("core", 3, 2, 13_100), ("adapter", 2, 1, 600)]);
 }
 
 #[test]

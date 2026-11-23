@@ -13,6 +13,7 @@ mod close;
 mod config;
 mod decl;
 mod ext;
+mod formula;
 mod propose;
 mod run;
 mod status;
@@ -337,6 +338,8 @@ pub fn main(args: Vec<OsString>, wired: Wired) -> i32 {
                         "sweep" => sweep::sweep(&cx, arg.as_deref().unwrap_or_default(), &options),
                         "discard" => sweep::discard(&cx, arg.as_deref().unwrap_or_default(), &options),
                         "approve" => approve::approve(&cx, arg.as_deref().unwrap_or_default(), &options),
+                        "import" => formula::import(&cx, arg.as_deref().unwrap_or_default()),
+                        "cut" => formula::cut(&cx, arg.as_deref().unwrap_or_default(), &options),
                         "close" => close::close(&cx, arg.as_deref().unwrap_or_default(), &options),
                         _ => check::run(&cx),
                     },

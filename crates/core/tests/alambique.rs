@@ -314,25 +314,27 @@ fn req_fer_6_a_rules_proposal_is_recorded_in_the_stream_rules_with_the_rules_the
 fn req_fer_7_the_text_last_approved_is_the_baseline_a_result_or_a_direct_edit() {
     let f = Fixture::new("approved", false);
     let record = |f: &Fixture| f.replay_or_empty();
-    assert_eq!(alambique::approved(&record(&f)), None);
+    assert_eq!(alambique::approved(&record(&f), &alambique::ALAMBIQUE), None);
     let (a, b, c) = (digest(1), digest(2), digest(3));
     let sweep = agent("sweep-recorded", json!({"input": H, "points": [], "heads": {}, "skills": []}));
     put(&f, "fermento-xel", &[sweep, proposal("p-aaaaaaaa", "alambique", &a, &b, point_unit())]).unwrap();
     put(&f, "alambique", &[person("alambique-baseline", json!({"digest": a}))]).unwrap();
-    assert_eq!(alambique::approved(&record(&f)), Some(a));
+    assert_eq!(alambique::approved(&record(&f), &alambique::ALAMBIQUE), Some(a));
     put(&f, "alambique", &[person("proposal-incorporated", json!({"id": "p-aaaaaaaa", "result": b}))]).unwrap();
-    assert_eq!(alambique::approved(&record(&f)), Some(b.clone()));
+    assert_eq!(alambique::approved(&record(&f), &alambique::ALAMBIQUE), Some(b.clone()));
     let hunk = json!({"from": 1, "removed": null, "added": ["x"]});
     put(&f, "alambique", &[person("direct-edit-approved", json!({"old": b, "new": c, "difference": hunk}))]).unwrap();
-    assert_eq!(alambique::approved(&record(&f)), Some(c));
+    assert_eq!(alambique::approved(&record(&f), &alambique::ALAMBIQUE), Some(c));
 }
 
 #[test]
 fn req_fer_7_c7_passes_with_nothing_on_either_side_and_refuses_every_other_difference() {
     let f = Fixture::new("check", false);
     let file = f.domain.join("ALAMBIQUE.md");
-    let unapproved = |f: &Fixture| alambique::check(&f.replay_or_empty(), &f.domain).map_err(|e| e.code());
-    let why = |f: &Fixture| alambique::check(&f.replay_or_empty(), &f.domain).unwrap_err().detail();
+    let unapproved =
+        |f: &Fixture| alambique::check(&f.replay_or_empty(), &f.domain, &alambique::ALAMBIQUE).map_err(|e| e.code());
+    let why =
+        |f: &Fixture| alambique::check(&f.replay_or_empty(), &f.domain, &alambique::ALAMBIQUE).unwrap_err().detail();
     // Nothing approved and no file: nothing to approve.
     assert_eq!(unapproved(&f), Ok(()));
     // A file nothing approved.

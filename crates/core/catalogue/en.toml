@@ -59,6 +59,7 @@ say-lang = "The language tag of your words; by default, your languages.agentInte
 widen = "Names a widening of authority this move makes, by its key path; give it once for each."
 seen = "The digest that status printed of what you read; if the subject changed since, the move is refused."
 then-run = "Starts the run in the same command, after the authorization."
+report = "Reports the cut in progress done, for the maestro's audit; without it, the cut is opened."
 answer = "The JSON file with the integrator's answer; its format is below."
 mode = "adopt, for Fabrewk to administer the repository, or review, to only review it; by default, adopt."
 publication = "Whether the maintainers publish .brewstillery/: published (with the product), own-repository (a repository of its own) or unpublished."
@@ -142,7 +143,7 @@ tasks = "tasks: a list of one task or more, each an object with these fields"
 name = "a name for the task, which a later task of the file may give among its dependencies"
 optional = "(optional)"
 answer = "The answer file: an object with these fields"
-answer-note = "An edit's unit is the opening (kind opening), a section (kind section, n), a point (kind point, n and m) or a rule (kind rule, n; a text of null removes it); target is alambique or rules, and a rules edit holds rule units only."
+answer-note = "An edit's unit is the opening (kind opening), a section (kind section, n), a point (kind point, n and m), a rule (kind rule, n; a text of null removes it) or the formula's whole text (kind formula); target is alambique, rules or formula, a rules edit holds rule units only and a formula edit its one formula unit."
 
 [type]
 about = "The types of the fields of propose's file; {of} is the type a list or a map holds"
@@ -297,7 +298,7 @@ finding = "{check} ({severity}, {control}): {about}"
 passed = "The check passed with no error; warnings: {warnings}."
 failed = "The check found problems; errors: {errors}, warnings: {warnings}."
 C6 = "Each fermento has its separator exactly once outside fenced code blocks, inside a rendering Fabrewk writes."
-C7 = "The alambique is the text a maestro last approved."
+C7 = "The alambique and the formula are the texts a maestro last approved."
 C12 = "Every maintainer directory has a fermento and is listed in the policy."
 C13 = "After the import, bootstrap/ contains exactly the imported files, byte for byte, with no links or empty directories."
 
@@ -315,6 +316,8 @@ cooperative = "cooperative"
 about = "What each guard of the transition table verifies (REQ-SEC-5)"
 "ALAMBIQUE_CHANGED" = "the alambique has not changed since the proposal was drafted"
 "ALAMBIQUE_UNAPPROVED" = "the alambique equals its last approved version"
+"FORMULA_CHANGED" = "the formula has not changed since the proposal was drafted"
+"FORMULA_UNAPPROVED" = "the formula equals its last approved version"
 "ATTEMPT_ENDED" = "an attempt ends once, and only an open one"
 "BASE_MOVED" = "the product has not moved since the base the task was made on"
 "CHECK_DUPLICATE" = "no check is defined twice, differently"
@@ -379,6 +382,8 @@ waits-none = "Nothing waits for anyone."
 local = "Fabrewk's work areas hold: local/evidence/ {evidence}, local/tmp/ {tmp}."
 size = "{bytes} bytes"
 size-unknown = "an unknown size (a directory cannot be read)"
+formula = "The formula:"
+formula-unapproved = "FORMULA.md is not the text a maestro last approved: no run starts, no task is accepted and no stage closes until a maestro approves it or it is reverted."
 
 [mode]
 about = "The publication modes"
@@ -435,6 +440,9 @@ task-rejected = "task rejected"
 extension-note = "extension's note"
 entry-imported = "bootstrap entry imported"
 bootstrap-imported = "bootstrap imported"
+formula-imported = "formula's approval imported"
+formula-approved = "formula approved"
+cut-recorded = "cut recorded"
 
 [role]
 about = "The maintainers' roles"
@@ -977,8 +985,27 @@ arg = "The proposal, by its identifier (p-…)."
 
 [command.approve]
 about = "The command that approves a proposal or the alambique's direct edit"
-summary = "A maestro approves a proposal, which applies its edit and commits the alambique alone, or approves the alambique as it stands, saying why."
-arg = "A proposal, by its identifier (p-…), or the word alambique."
+summary = "A maestro approves a proposal, which applies its edit and commits the alambique or the formula alone, or approves the alambique or the formula as it stands, saying why."
+arg = "A proposal, by its identifier (p-…), or the word alambique or formula."
+
+[command.import]
+about = "The command that imports the formula's approval made by a signed commit"
+summary = "Records as the formula's first approval a maestro's signed commit of FORMULA.md alone, once Git verifies it against a maestro's key in the policy in force; it takes no words and makes no new signature."
+arg = "The commit, as Git names it."
+
+[command.cut]
+about = "The command that records the cut of the formula in progress"
+summary = "Records the cut of the approved formula that the integrator opens, or with --report the cut in progress done, for the maestro's audit; it authorizes nothing."
+arg = "The cut, by the identifier its heading gives in FORMULA.md (as 1a)."
+
+[import]
+about = "What import reports"
+done = "Imported the formula's first approval: the commit {commit}, signed by the maestro {alias}; the formula approved is {digest}."
+
+[cut]
+about = "What cut reports"
+opened = "Opened the cut {id} of the formula, {title} ({phase})."
+reported = "Reported the cut {id} of the formula, {title}, done: it waits for the maestro's audit, in the chat or in the fermento."
 
 [sweep]
 about = "What sweep reports"
@@ -994,6 +1021,8 @@ alambique = "Approved the proposal {id}: the alambique is now {digest}."
 rules = "Approved the proposal {id}: the project rules are now {digest}. RULES.md follows with the views."
 direct = "Approved the alambique's direct edit: it is now {digest}."
 baseline = "Recorded the alambique's baseline: {digest}."
+formula = "Approved the proposal {id}: the formula is now {digest}."
+formula-direct = "Approved the formula as it stands: it is now {digest}."
 
 [fermento]
 about = "Words of the fermento's separator and of the answer a sweep writes"
@@ -1031,6 +1060,7 @@ stale = "stale: the point changed since it was drafted"
 about = "What a proposal edits"
 alambique = "the alambique"
 rules = "the project's rules"
+formula = "the formula"
 
 [fermento.unit]
 about = "Which unit of the alambique, or which rule, a drafted text replaces"
@@ -1038,6 +1068,7 @@ opening = "The opening, replaced whole:"
 section = "Section {n}, replaced whole:"
 point = "Point {n}.{m}, replaced whole:"
 rule = "Rule R{n}"
+formula = "The formula, its whole text:"
 
 [code.ANSWER_INVALID]
 about = "A sweep's answer file that does not have its shape, or would break the separator (REQ-FER-3)"
@@ -1085,6 +1116,33 @@ about = "The alambique differs from its last approved version (REQ-FER-7, C7)"
 reason = "The alambique is not the text a maestro last approved: it changed by hand, or it was never approved."
 next = "A maestro reads the change and approves it, or reverts it:"
 run = "fabrewk approve alambique"
+
+[code.FORMULA_CHANGED]
+about = "The formula is not the text a proposal starts from (formula 1a)"
+reason = "The formula, in the working tree, in the index or in the last commit, is not the text the proposal was drafted from."
+next = "Commit or revert the change to the formula, ask for a new sweep of the point and approve the proposal it records; nothing was written."
+
+[code.FORMULA_MISSING]
+about = "There is no formula to approve (formula 1a)"
+reason = "There is no FORMULA.md, or it is not a regular file reached without a link, or it is not valid text."
+next = "The integrator writes the formula in FORMULA.md; nothing was written."
+
+[code.FORMULA_UNAPPROVED]
+about = "The formula differs from its last approved version (formula 1a, C7)"
+reason = "The formula is not the text a maestro last approved: it changed, or it was never approved."
+next = "A maestro reads the change and approves it, or it is reverted:"
+run = "fabrewk approve formula"
+
+[code.FORMULA_BRIDGE_INVALID]
+about = "A commit that is not a maestro's signed approval of the formula (formula 1a)"
+reason = "The commit is not the formula's bridge: it is not in the record branch's history, it changes more than FORMULA.md or not it, or Git does not verify its signature against a maestro's key in the policy in force."
+next = "Name the maestro's signed commit of FORMULA.md alone, or have a maestro approve the formula:"
+run = "fabrewk approve formula"
+
+[code.CUT_UNKNOWN]
+about = "A cut the approved formula does not have (formula 1a)"
+reason = "No heading of the approved formula names that cut."
+next = "Name a cut by the identifier its heading gives in FORMULA.md, as 1a; nothing was written."
 
 [code.PROPOSAL_STALE]
 about = "A proposal that no longer matches the text it was drafted from (REQ-FER-5, REQ-FER-6)"
@@ -1139,6 +1197,14 @@ integrator = "Waiting for the integrator (an agent)"
 integrator-none = "Nothing waits for the integrator."
 integrated = "Last integrated work"
 integrated-none = "Nothing has been integrated yet."
+formula = "The formula"
+formula-none = "The project has no approved formula: its integrator proposes one in FORMULA.md, and a maestro approves it."
+formula-imported = "Approved: digest {digest}, imported from the commit {commit} that the maestro {alias} signed, at {at}."
+formula-approved = "Approved: digest {digest}, by {alias} at {at}."
+formula-open = "Cut in progress: {id}, {title} ({phase}), opened at {at}."
+formula-reported = "Cut {id}, {title} ({phase}), reported done at {at}: it waits for the maestro's audit."
+formula-no-cut = "No cut of the formula has been opened."
+formula-next = "An agent reads FORMULA.md next: the agents follow the approved formula to the letter."
 integrated-line = "Task {id} was integrated at {at}: {goal}"
 usage = "Usage"
 usage-none = "No dispatch has been recorded."
@@ -1161,6 +1227,7 @@ task-verified = "Task {id} is verified: a maestro accepts it or rejects it. Wait
 task-merge = "Task {id} is accepted and its integration failed ({detail}): a maestro runs it again, which finishes it, or authorizes it again. Waiting since {since}."
 proposal = "Proposal {id} of the fermento of {detail}: a maestro approves it or discards it. Waiting since {since}."
 sweep = "The fermento of {id} is to be swept: the tasks of stage {detail} ended after its last sweep. Waiting since {since}."
+cut-audit = "Cut {id} of the formula, {detail}, was reported done: the maestro audits it and accepts it, rejects it or asks for changes, in the chat or in the fermento. Waiting since {since}."
 
 [rules.base]
 about = "The base rules of every project Fabrewk serves, which RULES.md opens with (REQ-VIEW-2; D-074)"

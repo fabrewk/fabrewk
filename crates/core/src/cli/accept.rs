@@ -311,7 +311,7 @@ fn then(merge: Merge) -> Then {
 
 /// `accept`'s plan: the move (from `verified`, or from a waiting state with the record branch at the candidate), the
 /// person and their words, then `task-accepted`'s guards (REQ-GATE-7's `--seen`, `EVIDENCE_STALE`,
-/// `ALAMBIQUE_UNAPPROVED`) and the integration's preconditions, each refusing before the signature (D-087 point 1).
+/// `ALAMBIQUE_UNAPPROVED`, `FORMULA_UNAPPROVED`) and the integration's preconditions, each refusing before the signature (D-087 point 1).
 fn plan(cx: &Cx, id: &str, options: &Options, record: &Replay) -> Result<Plan<String>, Failed> {
     let policy = write::state(cx, record)?.policy;
     let (_, stream) = tasks::resolve(record, id, false, "accept")?;
@@ -336,7 +336,8 @@ fn plan(cx: &Cx, id: &str, options: &Options, record: &Replay) -> Result<Plan<St
                 }
             }
             "EVIDENCE_STALE" => evidence = merge.evidence()?,
-            "ALAMBIQUE_UNAPPROVED" => crate::alambique::check(record, &cx.domain)?,
+            "ALAMBIQUE_UNAPPROVED" => crate::alambique::check(record, &cx.domain, &crate::alambique::ALAMBIQUE)?,
+            "FORMULA_UNAPPROVED" => crate::alambique::check(record, &cx.domain, &crate::alambique::FORMULA)?,
             _ => {}
         }
         Ok(())

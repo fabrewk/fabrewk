@@ -17,19 +17,19 @@ use std::sync::LazyLock;
 const TABLE: &str = "
 task | task-proposed | - | proposed | anyone | STAGE_CLOSED~ TASK_INVALID~ PROTECTED_PATH~ PROTECTED_PATH_WILDCARD~
 task | task-authorized ^stage-authorized | proposed halted verified accepted | authorized | maestro say | ROLE_FORBIDDEN WORDS_MISSING WORDS_COPIED~ TASK_CHANGED PROTECTED_PATH PROTECTED_PATH_WILDCARD WIDENING_UNNAMED LIMIT_UNOBSERVABLE
-task | run-started +attempt-started | authorized verified | running | maestro say | POLICY_ABSENT DEPENDENCY_OPEN BASE_MOVED LOCK_HELD~ REQ-RUN-2~ ALAMBIQUE_UNAPPROVED CONFINEMENT_UNAVAILABLE
+task | run-started +attempt-started | authorized verified | running | maestro say | POLICY_ABSENT DEPENDENCY_OPEN BASE_MOVED LOCK_HELD~ REQ-RUN-2~ ALAMBIQUE_UNAPPROVED FORMULA_UNAPPROVED CONFINEMENT_UNAVAILABLE
 task | attempt-ended candidate-recorded check-recorded review-recorded | running | running | fabrewk | ATTEMPT_ENDED LANE_VIOLATION PROTECTED_PATH CREDENTIAL_SUSPECTED~ REVIEW_INVALID
 task | task-verified | running | verified | fabrewk | REQ-GATE-5
 task | task-halted | authorized running | halted | fabrewk | REQ-TASK-5
-task | task-accepted | authorized halted verified | accepted | maestro say | REQ-GATE-7 EVIDENCE_STALE ALAMBIQUE_UNAPPROVED
+task | task-accepted | authorized halted verified | accepted | maestro say | REQ-GATE-7 EVIDENCE_STALE ALAMBIQUE_UNAPPROVED FORMULA_UNAPPROVED
 task | task-integrated | accepted | integrated | fabrewk | REQ-GATE-8 BASE_MOVED WORKTREE_DIRTY EVIDENCE_STALE
 task | merge-failed | accepted | accepted | fabrewk |
 task | task-rejected | proposed authorized halted verified accepted | rejected | maestro say | MERGE_IN_PROGRESS
 stage | stage-proposed | - | proposed | anyone | TASK_INVALID~ CHECK_DUPLICATE~
 stage | stage-authorized | proposed | authorized | maestro say | ROLE_FORBIDDEN WORDS_MISSING WORDS_COPIED~ TASK_CHANGED CHECK_DUPLICATE PROTECTED_PATH PROTECTED_PATH_WILDCARD WIDENING_UNNAMED LIMIT_UNOBSERVABLE
-stage | stage-closed | authorized | closed | maestro say | STAGE_OPEN_TASKS SWEEP_MISSING ALAMBIQUE_UNAPPROVED RECORD_UNCOMMITTED
+stage | stage-closed | authorized | closed | maestro say | STAGE_OPEN_TASKS SWEEP_MISSING ALAMBIQUE_UNAPPROVED FORMULA_UNAPPROVED RECORD_UNCOMMITTED
 proposal | proposal-recorded | - | pending | agent | REQ-FER-3
-proposal | proposal-incorporated | pending | incorporated | maestro say | PROPOSAL_STALE ALAMBIQUE_CHANGED ALAMBIQUE_UNAPPROVED UNIT_AMBIGUOUS
+proposal | proposal-incorporated | pending | incorporated | maestro say | PROPOSAL_STALE ALAMBIQUE_CHANGED ALAMBIQUE_UNAPPROVED FORMULA_CHANGED FORMULA_UNAPPROVED UNIT_AMBIGUOUS
 proposal | proposal-discarded | pending | discarded | maestro say |
 proposal | proposal-withdrawn | pending | withdrawn | fabrewk |
 ";

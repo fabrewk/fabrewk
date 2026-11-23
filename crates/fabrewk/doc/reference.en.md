@@ -12,7 +12,7 @@ Shows the record's health, the policy in force and the state of each stage and t
 
 Moves it may cause: none.
 
-Documents with --json: `fabrewk.status/3`, `fabrewk.subject/4`
+Documents with --json: `fabrewk.status/4`, `fabrewk.subject/4`
 
 ## `fabrewk config [<key>] [--json]`
 
@@ -54,7 +54,7 @@ Documents with --json: `fabrewk.check/1`
 | C4 | The record is present and has not rolled back: effective where Git's history is walked, cooperative on one machine. | `RECORD_ABSENT`, `RECORD_ROLLBACK`, `MARK_INVALID` | effective |
 | C5 | STATUS.md and RULES.md are what a fresh generation from the record gives. | `VIEW_STALE` | effective |
 | C6 | Each fermento has its separator exactly once outside fenced code blocks, inside a rendering Fabrewk writes. | `SEPARATOR_MISSING`, `SEPARATOR_AMBIGUOUS`, `SEPARATOR_DAMAGED` | effective |
-| C7 | The alambique is the text a maestro last approved. | `ALAMBIQUE_UNAPPROVED` | effective |
+| C7 | The alambique and the formula are the texts a maestro last approved. | `ALAMBIQUE_UNAPPROVED`, `FORMULA_UNAPPROVED` | effective |
 | C8 | The domain's entries, the aliases, its ignore file, and the product's ignore rule. | `DOMAIN_UNKNOWN_ENTRY`, `ALIAS_INVALID`, `GITIGNORE_CHANGED`, `DOMAIN_NOT_IGNORED` | effective |
 | C9 | No file looks like a credential: a heuristic. | `CREDENTIAL_SUSPECTED` | cooperative |
 | C10 | The record's files are committed where the publication mode commits them. | `RECORD_UNCOMMITTED` | effective |
@@ -362,6 +362,7 @@ Refusals
 - `BASE_MOVED`: The product at the record branch's head is not the one the task's base, or the last of its dependencies' integrations, left.
 - `LOCK_HELD`: Another Fabrewk command holds the lock of this repository's record, or another task is running: one writer and one run at a time.
 - `ALAMBIQUE_UNAPPROVED`: The alambique is not the text a maestro last approved: it changed by hand, or it was never approved.
+- `FORMULA_UNAPPROVED`: The formula is not the text a maestro last approved: it changed, or it was never approved.
 - `RECORD_ABSENT`: There is no record here.
 - `INSTALLATION_INCOMPLETE`: An apply began here and did not finish, so no other command may write until it does.
 - `POLICY_ABSENT`: No policy is adopted, so there is no effective configuration and no maintainer.
@@ -412,6 +413,7 @@ Refusals
 - `TASK_CHANGED`: The task, or its stream's head, changed after it was shown.
 - `EVIDENCE_STALE`: A check's identity no longer matches: the candidate's product tree, the check's definition, the policy, a named tool's version or the platform changed.
 - `ALAMBIQUE_UNAPPROVED`: The alambique is not the text a maestro last approved: it changed by hand, or it was never approved.
+- `FORMULA_UNAPPROVED`: The formula is not the text a maestro last approved: it changed, or it was never approved.
 - `PROTECTED_PATH`: The allowed files, or the agent's copy, reach a protected path (.git or .brewstillery).
 - `PROTECTED_PATH_WILDCARD`: A wildcard among the allowed files matches a protected path or name.
 - `LANE_VIOLATION`: The agent's copy changes a file outside the task's allowed files, a path that is not valid text, or leaves an entry that is not a file, a link or a directory.
@@ -517,6 +519,7 @@ Refusals
 - `LOCK_HELD`: Another Fabrewk command holds the lock of this repository's record, or another task is running: one writer and one run at a time.
 - `WIDENING_UNNAMED`: A change widens authority without being named.
 - `ALAMBIQUE_UNAPPROVED`: The alambique is not the text a maestro last approved: it changed by hand, or it was never approved.
+- `FORMULA_UNAPPROVED`: The formula is not the text a maestro last approved: it changed, or it was never approved.
 - `ROUNDS_EXHAUSTED`: The task's review rounds since its authorization are spent; no round more is started.
 - `BUDGET_EXHAUSTED`: The task's or its stage's dispatches, minutes or tokens are spent, or what was spent cannot be known; nothing more is dispatched.
 - `PROVIDER_MISSING`: review.differentProvider is require, and the review profile's provider is the builder's, or its tool is absent.
@@ -587,7 +590,7 @@ The answer file: an object with these fields
         key: text
       result: hexadecimal digits
 
-An edit's unit is the opening (kind opening), a section (kind section, n), a point (kind point, n and m) or a rule (kind rule, n; a text of null removes it); target is alambique or rules, and a rules edit holds rule units only.```
+An edit's unit is the opening (kind opening), a section (kind section, n), a point (kind point, n and m), a rule (kind rule, n; a text of null removes it) or the formula's whole text (kind formula); target is alambique, rules or formula, a rules edit holds rule units only and a formula edit its one formula unit.```
 
 Refusals
 
@@ -601,6 +604,92 @@ Refusals
 - `POINT_CHANGED`: A point of the answer does not exist in the fermento, changed since it was read, or has no recommendation.
 - `INPUT_UNCOMMITTED`: The fermento's input differs from the committed one, and the sweep's commit would carry your edit.
 - `INPUT_CHANGED`: The fermento's input changed while the sweep ran.
+- `RECORD_ABSENT`: There is no record here.
+- `INSTALLATION_INCOMPLETE`: An apply began here and did not finish, so no other command may write until it does.
+- `POLICY_ABSENT`: No policy is adopted, so there is no effective configuration and no maintainer.
+- `RECORD_BROKEN`: The record is broken: its files are not one unbroken chain.
+- `RECORD_DIGEST_MISMATCH`: An event file's content is not the one its name records.
+- `RECORD_NONCANONICAL`: An event file is not in canonical form, so its digest cannot be trusted.
+- `RECORD_FORK`: Two events stand at the same place of one stream: two clones wrote there.
+- `RECORD_TRANSITION_INVALID`: An event stands where the transition table does not allow it.
+- `ATTEMPT_ENDED`: The record ends an attempt that is not open.
+- `RECORD_SIGNATURE_INVALID`: A person's event is not signed by the key and role the policy gives its signer.
+- `RECORD_VERSION_UNKNOWN`: An event is not of a schema this version of Fabrewk knows.
+- `RECORD_ID_COLLISION`: Two stages or two tasks were given the same identifier.
+- `RECORD_ROLLBACK`: The record lost events it held before: a rollback.
+- `MARK_INVALID`: This machine's mark of the record (local/cache/heads.json) is damaged or names an event the record does not hold there.
+- `CHECK_UNKNOWN`: A verification could not run, so its result is unknown, and an unknown result is never a pass.
+- `DOMAIN_NOT_IGNORED`: The product's repository does not ignore .brewstillery/, so a commit there would publish it.
+- `NOT_A_REPOSITORY`: This is not the root of the repository's main working tree.
+- `HEAD_DETACHED`: Git's head names no branch, so there is no record branch.
+- `PRIVATE_FOLDER_PERMISSIONS`: The private folder gives access to someone other than its owner, so Fabrewk does not read it.
+- `SETTINGS_INVALID`: A settings file does not read or validate.
+- `LOCK_HELD`: Another Fabrewk command holds the lock of this repository's record, or another task is running: one writer and one run at a time.
+- `RECORD_HEAD_MOVED`: Something wrote in the record without its lock while this command ran; this command wrote nothing.
+- `RECORD_COMMIT_RACE`: The branch moved while Fabrewk committed the record; its events are written but not committed.
+- `TOOL_FAILED`: An external tool failed; what it printed is kept as evidence, never shown here.
+- `TOOL_MISSING`: A tool this needs is not on this machine.
+
+## `fabrewk import <commit> [--json]`
+
+Records as the formula's first approval a maestro's signed commit of FORMULA.md alone, once Git verifies it against a maestro's key in the policy in force; it takes no words and makes no new signature.
+
+- `<commit>`: The commit, as Git names it.
+- `--json`: Gives the output as one JSON document with a schema field.
+- `--help`: Shows this help.
+
+Moves it may cause: `formula-imported` (formula's approval imported).
+
+Documents with --json: `fabrewk.imported/1`
+
+Refusals
+
+- `MOVE_NOT_ALLOWED`: The transition table does not allow this move from the subject's state.
+- `FORMULA_BRIDGE_INVALID`: The commit is not the formula's bridge: it is not in the record branch's history, it changes more than FORMULA.md or not it, or Git does not verify its signature against a maestro's key in the policy in force.
+- `RECORD_ABSENT`: There is no record here.
+- `INSTALLATION_INCOMPLETE`: An apply began here and did not finish, so no other command may write until it does.
+- `POLICY_ABSENT`: No policy is adopted, so there is no effective configuration and no maintainer.
+- `RECORD_BROKEN`: The record is broken: its files are not one unbroken chain.
+- `RECORD_DIGEST_MISMATCH`: An event file's content is not the one its name records.
+- `RECORD_NONCANONICAL`: An event file is not in canonical form, so its digest cannot be trusted.
+- `RECORD_FORK`: Two events stand at the same place of one stream: two clones wrote there.
+- `RECORD_TRANSITION_INVALID`: An event stands where the transition table does not allow it.
+- `ATTEMPT_ENDED`: The record ends an attempt that is not open.
+- `RECORD_SIGNATURE_INVALID`: A person's event is not signed by the key and role the policy gives its signer.
+- `RECORD_VERSION_UNKNOWN`: An event is not of a schema this version of Fabrewk knows.
+- `RECORD_ID_COLLISION`: Two stages or two tasks were given the same identifier.
+- `RECORD_ROLLBACK`: The record lost events it held before: a rollback.
+- `MARK_INVALID`: This machine's mark of the record (local/cache/heads.json) is damaged or names an event the record does not hold there.
+- `CHECK_UNKNOWN`: A verification could not run, so its result is unknown, and an unknown result is never a pass.
+- `DOMAIN_NOT_IGNORED`: The product's repository does not ignore .brewstillery/, so a commit there would publish it.
+- `NOT_A_REPOSITORY`: This is not the root of the repository's main working tree.
+- `HEAD_DETACHED`: Git's head names no branch, so there is no record branch.
+- `PRIVATE_FOLDER_PERMISSIONS`: The private folder gives access to someone other than its owner, so Fabrewk does not read it.
+- `SETTINGS_INVALID`: A settings file does not read or validate.
+- `LOCK_HELD`: Another Fabrewk command holds the lock of this repository's record, or another task is running: one writer and one run at a time.
+- `RECORD_HEAD_MOVED`: Something wrote in the record without its lock while this command ran; this command wrote nothing.
+- `RECORD_COMMIT_RACE`: The branch moved while Fabrewk committed the record; its events are written but not committed.
+- `TOOL_FAILED`: An external tool failed; what it printed is kept as evidence, never shown here.
+- `TOOL_MISSING`: A tool this needs is not on this machine.
+
+## `fabrewk cut <cut> [--report] [--json]`
+
+Records the cut of the approved formula that the integrator opens, or with --report the cut in progress done, for the maestro's audit; it authorizes nothing.
+
+- `<cut>`: The cut, by the identifier its heading gives in FORMULA.md (as 1a).
+- `--report`: Reports the cut in progress done, for the maestro's audit; without it, the cut is opened.
+- `--json`: Gives the output as one JSON document with a schema field.
+- `--help`: Shows this help.
+
+Moves it may cause: `cut-recorded` (cut recorded).
+
+Documents with --json: `fabrewk.cut/1`
+
+Refusals
+
+- `FORMULA_UNAPPROVED`: The formula is not the text a maestro last approved: it changed, or it was never approved.
+- `CUT_UNKNOWN`: No heading of the approved formula names that cut.
+- `MOVE_NOT_ALLOWED`: The transition table does not allow this move from the subject's state.
 - `RECORD_ABSENT`: There is no record here.
 - `INSTALLATION_INCOMPLETE`: An apply began here and did not finish, so no other command may write until it does.
 - `POLICY_ABSENT`: No policy is adopted, so there is no effective configuration and no maintainer.
@@ -677,15 +766,15 @@ Refusals
 
 ## `fabrewk approve <proposal> --say <words> [--say-lang <tag>] [--json]`
 
-A maestro approves a proposal, which applies its edit and commits the alambique alone, or approves the alambique as it stands, saying why.
+A maestro approves a proposal, which applies its edit and commits the alambique or the formula alone, or approves the alambique or the formula as it stands, saying why.
 
-- `<proposal>`: A proposal, by its identifier (p-…), or the word alambique.
+- `<proposal>`: A proposal, by its identifier (p-…), or the word alambique or formula.
 - `--say <words>`: Your own words for this decision, kept verbatim and signed. Words copied from an example, such as “I agree.”, are refused.
 - `--say-lang <tag>`: The language tag of your words; by default, your languages.agentInteraction.
 - `--json`: Gives the output as one JSON document with a schema field.
 - `--help`: Shows this help.
 
-Moves it may cause: `proposal-incorporated` (proposal incorporated), `direct-edit-approved` (direct edit approved), `alambique-baseline` (alambique's baseline).
+Moves it may cause: `proposal-incorporated` (proposal incorporated), `direct-edit-approved` (direct edit approved), `alambique-baseline` (alambique's baseline), `formula-approved` (formula approved).
 
 Documents with --json: `fabrewk.approved/2`
 
@@ -701,6 +790,9 @@ Refusals
 - `ALAMBIQUE_CHANGED`: The alambique, in the working tree, in the index or in the last commit, is not the text the proposal was drafted from.
 - `ALAMBIQUE_UNAPPROVED`: The alambique is not the text a maestro last approved: it changed by hand, or it was never approved.
 - `ALAMBIQUE_MISSING`: There is no ALAMBIQUE.md, or it is not a regular file reached without a link, or it is not valid text.
+- `FORMULA_CHANGED`: The formula, in the working tree, in the index or in the last commit, is not the text the proposal was drafted from.
+- `FORMULA_UNAPPROVED`: The formula is not the text a maestro last approved: it changed, or it was never approved.
+- `FORMULA_MISSING`: There is no FORMULA.md, or it is not a regular file reached without a link, or it is not valid text.
 - `UNIT_AMBIGUOUS`: A unit of the edit is found twice or not at all in the alambique, or two units overlap, or a rule it removes does not exist.
 - `RECORD_ABSENT`: There is no record here.
 - `INSTALLATION_INCOMPLETE`: An apply began here and did not finish, so no other command may write until it does.
@@ -752,6 +844,7 @@ Refusals
 - `STAGE_OPEN_TASKS`: A task of the stage has not ended: it is neither integrated nor rejected.
 - `SWEEP_MISSING`: A maintainer's fermento was not swept after the last task of the stage ended.
 - `ALAMBIQUE_UNAPPROVED`: The alambique is not the text a maestro last approved: it changed by hand, or it was never approved.
+- `FORMULA_UNAPPROVED`: The formula is not the text a maestro last approved: it changed, or it was never approved.
 - `RECORD_UNCOMMITTED`: Some of the record's files are not committed on the record branch.
 - `RECORD_ABSENT`: There is no record here.
 - `INSTALLATION_INCOMPLETE`: An apply began here and did not finish, so no other command may write until it does.

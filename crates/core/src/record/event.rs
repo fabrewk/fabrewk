@@ -13,6 +13,7 @@ pub enum StreamKind {
     Project,
     Alambique,
     Rules,
+    Formula,
     Fermento,
     Stage,
     Task,
@@ -32,7 +33,7 @@ pub enum Class {
 }
 
 use Class::{Agent, Extension, Fabrewk, NotPerson, Person};
-use StreamKind::{Alambique, Bootstrap, Ext, Fermento, Project, Rules, Stage, Task};
+use StreamKind::{Alambique, Bootstrap, Ext, Fermento, Formula, Project, Rules, Stage, Task};
 
 /// Every kind of schema 1, the stream it is recorded in, and its actor (core-specification section 3).
 pub const KINDS: &[(&str, StreamKind, Class)] = &[
@@ -44,6 +45,11 @@ pub const KINDS: &[(&str, StreamKind, Class)] = &[
     ("proposal-incorporated", Alambique, Person),
     ("proposal-incorporated", Rules, Person),
     ("direct-edit-approved", Alambique, Person),
+    // The formula (FORMULA.md, formula 1a): its approvals, its first imported from a signed commit, and its cuts.
+    ("formula-imported", Formula, Fabrewk),
+    ("formula-approved", Formula, Person),
+    ("proposal-incorporated", Formula, Person),
+    ("cut-recorded", Formula, Fabrewk),
     ("sweep-recorded", Fermento, Agent),
     ("proposal-recorded", Fermento, Agent),
     ("proposal-withdrawn", Fermento, Fabrewk),
@@ -85,6 +91,7 @@ pub fn stream_kind(name: &str) -> Option<StreamKind> {
         "project" => Project,
         "alambique" => Alambique,
         "rules" => Rules,
+        "formula" => Formula,
         "bootstrap" => Bootstrap,
         _ if name.strip_prefix("fermento-").is_some_and(is_name) => Fermento,
         _ if name.strip_prefix("stage-").is_some_and(|id| is_id(id, 's')) => Stage,

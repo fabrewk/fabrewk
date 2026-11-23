@@ -151,13 +151,14 @@ pub fn points(input: &str) -> Vec<Point> {
     out
 }
 
-/// The unit kinds an edit replaces whole (REQ-FER-6).
-const UNITS: &[&str] = &["opening", "section", "point", "rule"];
+/// The unit kinds an edit replaces whole (REQ-FER-6): the formula's is its whole text (formula 1a).
+const UNITS: &[&str] = &["opening", "section", "point", "rule", "formula"];
+const TARGETS: &[&str] = &["alambique", "rules", "formula"];
 const POINT_REF: T = T::Obj(&[("number", T::Count), ("digest", T::Hex(64))]);
 const UNIT: T = T::Obj(&[("kind", T::One(UNITS)), ("?n", T::Count), ("?m", T::Count), ("text", T::Nullable(&T::Text))]);
 const KEY: T = T::Obj(&[("point", T::Text), ("key", T::Text)]);
 const EDIT: T = T::Obj(&[
-    ("target", T::One(&["alambique", "rules"])),
+    ("target", T::One(TARGETS)),
     ("base", T::Hex(64)),
     ("units", T::List(&UNIT)),
     ("keys", T::List(&KEY)),
@@ -177,7 +178,7 @@ const SWEEP: T = T::Obj(&[
 const RECORDED: T = T::Obj(&[
     ("id", T::Id('p')),
     ("point", POINT_REF),
-    ("target", T::One(&["alambique", "rules"])),
+    ("target", T::One(TARGETS)),
     ("base", T::Hex(64)),
     ("units", T::List(&UNIT)),
     ("keys", T::List(&KEY)),
@@ -187,6 +188,10 @@ const BASELINE: T = T::Obj(&[("digest", T::Hex(64))]);
 const HUNK: T =
     T::Obj(&[("from", T::Count), ("removed", T::Nullable(&T::List(&T::Value))), ("added", T::List(&T::Value))]);
 const DIRECT: T = T::Obj(&[("old", T::Hex(64)), ("new", T::Hex(64)), ("difference", HUNK)]);
+const IMPORTED: T = T::Obj(&[("commit", T::Hex(40)), ("digest", T::Hex(64)), ("alias", T::Text)]);
+const APPROVED: T = T::Obj(&[("old", T::Nullable(&T::Hex(64))), ("digest", T::Hex(64))]);
+const CUT: T =
+    T::Obj(&[("cut", T::Text), ("phase", T::Text), ("title", T::Text), ("reported", T::Bool), ("formula", T::Hex(64))]);
 const INCORPORATED: T = T::Obj(&[("id", T::Id('p')), ("result", T::Hex(64)), ("?rules", T::Map(&T::Text))]);
 const WITHDRAWN: T = T::Obj(&[("id", T::Id('p')), ("why", T::One(&["point-gone"]))]);
 const DISCARDED: T = T::Obj(&[("id", T::Id('p'))]);
@@ -209,20 +214,21 @@ fn invalid(why: impl Into<String>) -> Error {
 }
 
 /// An edit's content beyond its shape: at least one unit, each of a kind its target takes with the numbers its kind
-/// needs and a text (a rule alone may be removed, with `null`), no unit twice.
+/// needs and a text (a rule alone may be removed, with `null`), no unit twice; the formula's one unit is its text.
 pub(crate) fn edit(e: &Value) -> Result<(), Error> {
     let units = e["units"].as_array().map(Vec::as_slice).unwrap_or_default();
-    let rules = e["target"] == "rules";
+    let (rules, formula) = (e["target"] == "rules", e["target"] == "formula");
     let mut seen = BTreeSet::new();
     for u in units {
         let (kind, n, m) = (u["kind"].as_str().unwrap_or_default(), u.get("n"), u.get("m"));
         let numbers = match kind {
-            "opening" => n.is_none() && m.is_none(),
+            "opening" | "formula" => n.is_none() && m.is_none(),
             "point" => n.is_some() && m.is_some(),
             _ => n.is_some() && m.is_none(),
         };
         let key = (kind, n.and_then(Value::as_u64), m.and_then(Value::as_u64));
-        if !numbers || (kind == "rule") != rules || (u["text"].is_null() && kind != "rule") || !seen.insert(key) {
+        let wrong = (kind == "rule") != rules || (kind == "formula") != formula;
+        if !numbers || wrong || (u["text"].is_null() && kind != "rule") || !seen.insert(key) {
             return Err(invalid(format!(
                 "units: {u} is not a unit of the {} once",
                 e["target"].as_str().unwrap_or("")
@@ -253,6 +259,9 @@ pub fn check(kind: &str, p: &Value) -> Result<(), Error> {
         "proposal-incorporated" => &INCORPORATED,
         "alambique-baseline" => &BASELINE,
         "direct-edit-approved" => &DIRECT,
+        "formula-imported" => &IMPORTED,
+        "formula-approved" => &APPROVED,
+        "cut-recorded" => &CUT,
         _ => return Ok(()),
     };
     content(schema, kind, p)?;
@@ -320,11 +329,12 @@ fn bad(e: &Event, why: impl Into<String>) -> Error {
 }
 
 /// Every proposal of the record and its state, held to the table: recorded once, in a fermento's stream; withdrawn or
-/// discarded only from pending, in that same stream; incorporated only from pending, in `alambique` or `rules`.
+/// discarded only from pending, in that same stream; incorporated only from pending, in `alambique`, `rules` or
+/// `formula`.
 pub fn proposals(record: &Replay) -> Result<BTreeMap<String, Proposal>, Vec<Error>> {
     let (mut out, mut errors) = (BTreeMap::new(), Vec::new());
     let fermentos = record.streams.iter().filter(|(s, _)| stream_kind(s) == Some(StreamKind::Fermento));
-    let decided = record.streams.iter().filter(|(s, _)| matches!(s.as_str(), "alambique" | "rules"));
+    let decided = record.streams.iter().filter(|(s, _)| matches!(s.as_str(), "alambique" | "rules" | "formula"));
     for (stream, events) in fermentos.chain(decided) {
         let alias = stream.strip_prefix("fermento-").unwrap_or_default();
         for e in events.iter().filter(|e| e.kind.starts_with("proposal-") || e.kind == "sweep-recorded") {

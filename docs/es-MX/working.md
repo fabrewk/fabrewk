@@ -12,6 +12,9 @@ opciones y sus rechazos, en la [referencia de comandos](../../crates/fabrewk/doc
   publica, una línea en `.git/info/exclude`.
 - **El alambique**, `.brewstillery/ALAMBIQUE.md`, describe lo que el proyecto debe ser. Nadie lo edita directamente:
   sus cambios vienen de los fermentos, y solo un maestro aprueba lo que entra.
+- **La fórmula**, `.brewstillery/FORMULA.md`, es la hoja de ruta del proyecto: las fases, subfases y cortes que el
+  integrador propone a partir del alambique, y que un maestro aprueba. Un proyecto no tiene ninguna hasta que su
+  integrador propone una.
 - **Un fermento**, `.brewstillery/<alias>/fermento.md`, es el archivo propio de cada mantenedor, con lo que quiere
   agregar, quitar o discutir. El mantenedor escribe arriba de su separador; los agentes responden debajo.
 - **El registro**, en `.brewstillery/data/`, guarda cada evento como un archivo inmutable: propuestas,
@@ -60,6 +63,23 @@ control, marcado como efectivo o cooperativo.
 4. Un alambique editado a mano no está aprobado hasta que un maestro lo aprueba tal como está: `fabrewk approve
    alambique --say '<palabras>'`. Mientras no está aprobado, no empieza ninguna ejecución ni se acepta ninguna tarea
    (`ALAMBIQUE_UNAPPROVED`).
+
+## La fórmula
+
+1. El integrador escribe la fórmula en `FORMULA.md`, o redacta una edición suya en la respuesta de un fermento, como
+   para el alambique (target `formula`, cuya única unidad es su texto completo).
+2. Un maestro la aprueba con un solo movimiento firmado: `fabrewk approve formula --say '<palabras>'` para el archivo
+   tal como está, o `fabrewk approve <propuesta> --say '<palabras>'` para una edición redactada; cualquiera de los dos
+   confirma solo la fórmula. El registro guarda cada versión aprobada por su digest.
+3. Una fórmula aprobada antes de que Fabrewk pudiera registrarlo, con el commit firmado del maestro que cambia solo
+   `FORMULA.md`, se importa como su primera aprobación con `fabrewk import <commit>`, que no pide palabras ni hace una
+   firma nueva: Git verifica la firma del commit contra la llave de un maestro de la política vigente.
+4. Mientras `FORMULA.md` difiere de su última aprobación, no empieza ninguna ejecución, no se acepta ninguna tarea y
+   no se cierra ninguna etapa (`FORMULA_UNAPPROVED`); `fabrewk check` lo informa.
+5. El integrador registra el corte en el que trabaja, `fabrewk cut <corte>` (el identificador de su título, como
+   `1a`), y lo reporta terminado para la auditoría del maestro con `fabrewk cut <corte> --report`; el maestro lo
+   audita en el chat o en su fermento. `fabrewk status` y `STATUS.md` muestran la aprobación de la fórmula, el corte
+   en curso o la auditoría que espera, y nombran `FORMULA.md` como lo siguiente que lee un agente.
 
 ## El ciclo de una tarea
 

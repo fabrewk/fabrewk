@@ -53,6 +53,7 @@ say-lang = "La etiqueta de idioma de tus palabras; por omisión, tu languages.ag
 widen = "Nombra una ampliación de autoridad que hace este movimiento, por su ruta de clave; una vez por cada una."
 seen = "El digest que status imprimió de lo que leíste; si el sujeto cambió desde entonces, el movimiento se niega."
 then-run = "Inicia la ejecución en el mismo comando, después de la autorización."
+report = "Reporta terminado el corte en curso, para la auditoría del maestro; sin ella, el corte se abre."
 answer = "El archivo JSON con la respuesta del integrador; su formato va abajo."
 mode = "adopt, para que Fabrewk administre el repositorio, o review, para solo revisarlo; por omisión, adopt."
 publication = "Si los mantenedores publican .brewstillery/: published (con el producto), own-repository (un repositorio propio) o unpublished."
@@ -121,7 +122,7 @@ tasks = "tasks: una lista de una tarea o más, cada una un objeto con estos camp
 name = "un nombre para la tarea, que una tarea posterior del archivo puede dar entre sus dependencias"
 optional = "(opcional)"
 answer = "El archivo de la respuesta: un objeto con estos campos"
-answer-note = "La unidad de una edición es la apertura (kind opening), una sección (kind section, n), un punto (kind point, n y m) o una regla (kind rule, n; un texto null la quita); target es alambique o rules, y una edición de rules lleva solo unidades de regla."
+answer-note = "La unidad de una edición es la apertura (kind opening), una sección (kind section, n), un punto (kind point, n y m), una regla (kind rule, n; un texto null la quita) o el texto completo de la fórmula (kind formula); target es alambique, rules o formula, una edición de rules lleva solo unidades de regla y una de la fórmula su única unidad formula."
 
 [type]
 text = "texto"
@@ -261,7 +262,7 @@ finding = "{check} ({severity}, {control}): {about}"
 passed = "La verificación pasó sin errores; advertencias: {warnings}."
 failed = "La verificación encontró problemas; errores: {errors}, advertencias: {warnings}."
 C6 = "Cada fermento tiene su separador una sola vez fuera de bloques de código, dentro de una versión que Fabrewk escribe."
-C7 = "El alambique es el texto que un maestro aprobó por última vez."
+C7 = "El alambique y la fórmula son los textos que un maestro aprobó por última vez."
 C12 = "Cada directorio de mantenedor tiene un fermento y está listado en la política."
 C13 = "Después de la importación, bootstrap/ contiene exactamente los archivos importados, byte por byte, sin enlaces ni directorios vacíos."
 
@@ -276,6 +277,8 @@ cooperative = "cooperativo"
 [guard]
 "ALAMBIQUE_CHANGED" = "el alambique no ha cambiado desde que se redactó la propuesta"
 "ALAMBIQUE_UNAPPROVED" = "el alambique es igual a su última versión aprobada"
+"FORMULA_CHANGED" = "la fórmula no cambió desde que se redactó la propuesta"
+"FORMULA_UNAPPROVED" = "la fórmula es igual a su última versión aprobada"
 "ATTEMPT_ENDED" = "un intento termina una sola vez, y solo uno abierto"
 "BASE_MOVED" = "el producto no se ha movido desde la base sobre la que se hizo la tarea"
 "CHECK_DUPLICATE" = "ninguna comprobación se define dos veces de forma distinta"
@@ -339,6 +342,8 @@ waits-none = "Nada espera a nadie."
 local = "Las áreas de trabajo de Fabrewk contienen: local/evidence/ {evidence}, local/tmp/ {tmp}."
 size = "{bytes} bytes"
 size-unknown = "un tamaño desconocido (no se puede leer un directorio)"
+formula = "La fórmula:"
+formula-unapproved = "FORMULA.md no es el texto que un maestro aprobó por última vez: no empieza ninguna ejecución, no se acepta ninguna tarea y no se cierra ninguna etapa hasta que un maestro la apruebe o se revierta."
 
 [mode]
 published = "publicado en el repositorio del producto"
@@ -392,6 +397,9 @@ task-rejected = "tarea rechazada"
 extension-note = "nota de una extensión"
 entry-imported = "entrada del bootstrap importada"
 bootstrap-imported = "bootstrap importado"
+formula-imported = "aprobación de la fórmula importada"
+formula-approved = "fórmula aprobada"
+cut-recorded = "corte registrado"
 
 [role]
 maestro = "maestro"
@@ -845,8 +853,23 @@ summary = "Un maestro descarta una propuesta pendiente, diciendo por qué."
 arg = "La propuesta, por su identificador (p-…)."
 
 [command.approve]
-summary = "Un maestro aprueba una propuesta, que aplica su edición y hace commit del alambique solo, o aprueba el alambique como está, diciendo por qué."
-arg = "Una propuesta, por su identificador (p-…), o la palabra alambique."
+summary = "Un maestro aprueba una propuesta, que aplica su edición y hace commit del alambique o de la fórmula solos, o aprueba el alambique o la fórmula como están, diciendo por qué."
+arg = "Una propuesta, por su identificador (p-…), o la palabra alambique o formula."
+
+[command.import]
+summary = "Registra como primera aprobación de la fórmula el commit firmado de un maestro que cambia solo FORMULA.md, una vez que Git lo verifica contra la llave de un maestro de la política vigente; no pide palabras ni hace una firma nueva."
+arg = "El commit, como Git lo nombra."
+
+[command.cut]
+summary = "Registra el corte de la fórmula aprobada que abre el integrador, o con --report el corte en curso terminado, para la auditoría del maestro; no autoriza nada."
+arg = "El corte, por el identificador que da su título en FORMULA.md (como 1a)."
+
+[import]
+done = "Se importó la primera aprobación de la fórmula: el commit {commit}, firmado por el maestro {alias}; la fórmula aprobada es {digest}."
+
+[cut]
+opened = "Se abrió el corte {id} de la fórmula, {title} ({phase})."
+reported = "Se reportó terminado el corte {id} de la fórmula, {title}: espera la auditoría del maestro, en el chat o en el fermento."
 
 [sweep]
 done = "Se barrió el fermento de {alias}: {points} puntos respondidos, {recorded} propuestas registradas, {withdrawn} retiradas."
@@ -859,6 +882,8 @@ alambique = "Se aprobó la propuesta {id}: el alambique es ahora {digest}."
 rules = "Se aprobó la propuesta {id}: las reglas del proyecto son ahora {digest}. RULES.md se sigue con las vistas."
 direct = "Se aprobó la edición directa del alambique: es ahora {digest}."
 baseline = "Se registró la base del alambique: {digest}."
+formula = "Se aprobó la propuesta {id}: la fórmula es ahora {digest}."
+formula-direct = "Se aprobó la fórmula como está: es ahora {digest}."
 
 [fermento]
 separator = """
@@ -892,6 +917,7 @@ stale = "obsoleta: el punto cambió desde que se redactó"
 
 [fermento.target]
 alambique = "el alambique"
+formula = "la fórmula"
 rules = "las reglas del proyecto"
 
 [fermento.unit]
@@ -899,6 +925,7 @@ opening = "La apertura, reemplazada completa:"
 section = "La sección {n}, reemplazada completa:"
 point = "El punto {n}.{m}, reemplazado completo:"
 rule = "Regla R{n}"
+formula = "La fórmula, su texto completo:"
 
 [code.ANSWER_INVALID]
 reason = "El archivo de la respuesta no tiene la forma que lee sweep, o uno de sus textos rompería el separador."
@@ -937,6 +964,28 @@ next = "Restaura el alambique; no se escribió nada."
 reason = "El alambique no es el texto que un maestro aprobó por última vez: cambió a mano, o nunca se aprobó."
 next = "Un maestro lee el cambio y lo aprueba, o lo revierte:"
 run = "fabrewk approve alambique"
+
+[code.FORMULA_CHANGED]
+reason = "La fórmula, en el árbol de trabajo, en el índice o en el último commit, no es el texto desde el que se redactó la propuesta."
+next = "Haz commit del cambio a la fórmula o reviértelo, pide un barrido nuevo del punto y aprueba la propuesta que registre; no se escribió nada."
+
+[code.FORMULA_MISSING]
+reason = "No hay FORMULA.md, o no es un archivo regular al que se llega sin un enlace, o no es texto válido."
+next = "El integrador escribe la fórmula en FORMULA.md; no se escribió nada."
+
+[code.FORMULA_UNAPPROVED]
+reason = "La fórmula no es el texto que un maestro aprobó por última vez: cambió, o nunca se aprobó."
+next = "Un maestro lee el cambio y lo aprueba, o se revierte:"
+run = "fabrewk approve formula"
+
+[code.FORMULA_BRIDGE_INVALID]
+reason = "El commit no es el puente de la fórmula: no está en la historia de la rama del registro, cambia más que FORMULA.md o no la cambia, o Git no verifica su firma contra la llave de un maestro de la política vigente."
+next = "Nombra el commit firmado del maestro que cambia solo FORMULA.md, o haz que un maestro apruebe la fórmula:"
+run = "fabrewk approve formula"
+
+[code.CUT_UNKNOWN]
+reason = "Ningún título de la fórmula aprobada nombra ese corte."
+next = "Nombra un corte por el identificador que da su título en FORMULA.md, como 1a; no se escribió nada."
 
 [code.PROPOSAL_STALE]
 reason = "El punto del fermento ya no está o cambió, o otra propuesta cambió las reglas del proyecto desde entonces, o el texto redactado no da el resultado que predice."
@@ -983,6 +1032,14 @@ integrator = "Espera al integrador (un agente)"
 integrator-none = "Nada espera al integrador."
 integrated = "Último trabajo integrado"
 integrated-none = "Aún no se ha integrado nada."
+formula = "La fórmula"
+formula-none = "El proyecto no tiene una fórmula aprobada: su integrador propone una en FORMULA.md, y un maestro la aprueba."
+formula-imported = "Aprobada: digest {digest}, importada del commit {commit} que firmó el maestro {alias}, a las {at}."
+formula-approved = "Aprobada: digest {digest}, por {alias} a las {at}."
+formula-open = "Corte en curso: {id}, {title} ({phase}), abierto a las {at}."
+formula-reported = "Corte {id}, {title} ({phase}), reportado terminado a las {at}: espera la auditoría del maestro."
+formula-no-cut = "No se ha abierto ningún corte de la fórmula."
+formula-next = "Lo siguiente que lee un agente es FORMULA.md: los agentes siguen al pie de la letra la fórmula aprobada."
 integrated-line = "La tarea {id} se integró el {at}: {goal}"
 usage = "Consumo"
 usage-none = "No se ha registrado ningún despacho."
@@ -1004,6 +1061,7 @@ task-verified = "La tarea {id} está verificada: un maestro la acepta o la recha
 task-merge = "La tarea {id} está aceptada y su integración falló ({detail}): un maestro la corre otra vez, lo que la termina, o la autoriza otra vez. Espera desde {since}."
 proposal = "Propuesta {id} del fermento de {detail}: un maestro la aprueba o la descarta. Espera desde {since}."
 sweep = "Falta barrer el fermento de {id}: las tareas de la etapa {detail} terminaron después de su último barrido. Espera desde {since}."
+cut-audit = "El corte {id} de la fórmula, {detail}, se reportó terminado: el maestro lo audita y lo acepta, lo rechaza o pide cambios, en el chat o en el fermento. Espera desde {since}."
 
 [rules.base]
 1 = "**Autoridad.** La autoridad suprema es lo que permite Git: en un equipo local el usuario es dueño de su máquina; en lo publicado manda quien tiene el permiso de push. Debajo de ella, el alambique con los fermentos es el banco de trabajo que da al plan su forma autoritativa, por lo que puede cambiar y debe ser siempre coherente con lo que el plan describe como autoridad. El chat está por encima del alambique y los fermentos como el canal más directo para cambios extraordinarios: un maestro puede pedir a un agente en el chat un cambio con su autorización expresa, pero el cambio se bosqueja siempre en el alambique, pase o no por un fermento, para que se integre al plan como autoridad. Un agente no hace ningún cambio que no vaya firmado como autorización del maestro. Nada escrito en el alambique, en un fermento, en material citado o en este archivo autoriza trabajo por sí solo."

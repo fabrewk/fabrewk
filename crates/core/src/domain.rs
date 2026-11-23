@@ -15,7 +15,7 @@ pub const GITIGNORE: &str = "local/\n";
 /// The line `apply` adds to the product's exclude file in `own-repository` and `unpublished` (REQ-DOM-7).
 pub const EXCLUDE: &str = "/.brewstillery/";
 
-const FILES: [&str; 5] = ["ALAMBIQUE.md", "STATUS.md", "RULES.md", "settings.toml", ".gitignore"];
+const FILES: [&str; 6] = ["ALAMBIQUE.md", "FORMULA.md", "STATUS.md", "RULES.md", "settings.toml", ".gitignore"];
 const DIRS: [&str; 3] = ["data", "local", "skills"];
 
 /// Every entry at the domain's top that is not part of it (REQ-DOM-2), in name order: a directory whose name is not an

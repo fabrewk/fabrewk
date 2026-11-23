@@ -1,6 +1,7 @@
-//! The alambique and the project rules (REQ-FER-5 to REQ-FER-7; part 8b, D-073): the units an edit replaces whole, the
-//! rules the stream `rules` holds, the digest of the last approved text, the difference a direct edit records, and the
-//! replay's checks of the two streams. A fence is read as the fermento's finder reads it (D-072).
+//! The alambique, the project rules and the formula (REQ-FER-5 to REQ-FER-7; part 8b, D-073; formula 1a): the units
+//! an edit replaces whole, the rules the stream `rules` holds, the digest of the last approved text of the alambique and
+//! of the formula, the difference a direct edit records, the formula's cuts, and the replay's checks of the three
+//! streams. A fence is read as the fermento's finder reads it (D-072).
 
 use crate::code::{Code, Error, io_at, refuse, unlinked};
 use crate::fermento::{Proposal, fenced, heading, lines};
@@ -9,8 +10,34 @@ use serde_json::{Value, json};
 use std::collections::BTreeMap;
 use std::path::Path;
 
-/// The alambique's file in the domain.
-pub const FILE: &str = "ALAMBIQUE.md";
+/// A text a maestro approves: its file in the domain, the stream of its approvals, and the codes of a file missing, one
+/// that is not the text an edit starts from, and one that is not the text last approved.
+#[derive(Debug)]
+pub struct Doc {
+    pub file: &'static str,
+    pub stream: &'static str,
+    pub missing: Code,
+    pub changed: Code,
+    pub unapproved: Code,
+}
+
+/// The alambique (REQ-FER-5 to REQ-FER-7).
+pub const ALAMBIQUE: Doc = Doc {
+    file: "ALAMBIQUE.md",
+    stream: "alambique",
+    missing: Code::AlambiqueMissing,
+    changed: Code::AlambiqueChanged,
+    unapproved: Code::AlambiqueUnapproved,
+};
+
+/// The formula, the project's roadmap (formula 1a): a project has none until its integrator proposes one.
+pub const FORMULA: Doc = Doc {
+    file: "FORMULA.md",
+    stream: "formula",
+    missing: Code::FormulaMissing,
+    changed: Code::FormulaChanged,
+    unapproved: Code::FormulaUnapproved,
+};
 
 /// The project rules: `R<n>` and its text (REQ-FER-6).
 pub type Rules = BTreeMap<String, String>;
@@ -121,51 +148,50 @@ pub fn apply_rules(base: &Rules, units: &[Value]) -> Result<Rules, Error> {
     Ok(out)
 }
 
-/// The digest of the text a maestro last approved: the baseline, an incorporated proposal's result or a direct edit's
-/// new digest, whichever is last; `None` before any.
-pub fn approved(record: &Replay) -> Option<String> {
-    let field = |kind: &str| match kind {
-        "alambique-baseline" => Some("digest"),
-        "proposal-incorporated" => Some("result"),
-        "direct-edit-approved" => Some("new"),
-        _ => None,
+/// The digest of the text a maestro last approved: the alambique's baseline, an incorporated proposal's result, a
+/// direct edit's new digest, or the formula's imported or approved digest, whichever is last; `None` before any. A cut
+/// names no digest of its own.
+pub fn approved(record: &Replay, doc: &Doc) -> Option<String> {
+    let events = record.streams.get(doc.stream)?;
+    let digest = |e: &Event| -> Option<String> {
+        ["new", "result", "digest"].iter().find_map(|f| Some(e.value["payload"][f].as_str()?.to_owned()))
     };
-    let events = record.streams.get("alambique")?;
-    events.iter().rev().find_map(|e| Some(e.value["payload"][field(&e.kind)?].as_str()?.to_owned()))
+    events.iter().rev().find_map(digest)
 }
 
-/// The alambique's bytes, `None` when there is no file; a file that is not regular, or is reached through a link, is
-/// `ALAMBIQUE_MISSING`.
-pub fn read(domain: &Path) -> Result<Option<Vec<u8>>, Error> {
-    let path = domain.join(FILE);
+/// The file's bytes, `None` when there is no file; a file that is not regular, or is reached through a link, is
+/// refused with the document's `missing` code.
+pub fn read(domain: &Path, doc: &Doc) -> Result<Option<Vec<u8>>, Error> {
+    let path = domain.join(doc.file);
     match std::fs::symlink_metadata(&path) {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(e) => return Err(io_at(&path)(e)),
-        Ok(m) if !m.is_file() || !unlinked(domain, FILE) => {
-            return Err(refuse(Code::AlambiqueMissing, Some(&path), "not a regular file, or reached through a link"));
+        Ok(m) if !m.is_file() || !unlinked(domain, doc.file) => {
+            return Err(refuse(doc.missing, Some(&path), "not a regular file, or reached through a link"));
         }
         Ok(_) => {}
     }
     std::fs::read(&path).map(Some).map_err(io_at(&path))
 }
 
-/// The alambique's bytes once it is the text that digests to `before`: the file must be, and with `strict` and a
-/// `repo` (a mode that commits) so must the record branch's tip and the person's index, which an edit starts from and a
-/// commit of the file alone would otherwise overwrite. Anything else is `ALAMBIQUE_CHANGED`.
-pub fn unchanged(domain: &Path, repo: Option<&Repo>, before: &str, strict: bool) -> Result<Vec<u8>, Error> {
-    let changed = |why: &str| refuse(Code::AlambiqueChanged, Some(&domain.join(FILE)), why.to_owned());
-    let bytes = match read(domain) {
+/// The file's bytes once it is the text that digests to `before`: the file must be, and with `strict` and a `repo` (a
+/// mode that commits) so must the record branch's tip and the person's index, which an edit starts from and a commit
+/// of the file alone would otherwise overwrite. Anything else is the document's `changed` code.
+pub fn unchanged(domain: &Path, repo: Option<&Repo>, before: &str, strict: bool, doc: &Doc) -> Result<Vec<u8>, Error> {
+    let changed = |why: &str| refuse(doc.changed, Some(&domain.join(doc.file)), why.to_owned());
+    let bytes = match read(domain, doc) {
         Ok(Some(bytes)) => bytes,
-        Ok(None) | Err(Error::Refused { code: Code::AlambiqueMissing, .. }) => {
-            return Err(changed("there is no alambique to start from"));
+        Err(Error::Refused { code, .. }) if code == doc.missing => {
+            return Err(changed("there is no file to start from"));
         }
+        Ok(None) => return Err(changed("there is no file to start from")),
         Err(e) => return Err(e),
     };
     if sha256_hex(&bytes) != before {
         return Err(changed("the file is not the text the command starts from"));
     }
     if let Some(repo) = repo.filter(|_| strict) {
-        let held = [committed(repo, Path::new(FILE))?, staged(repo, Path::new(FILE))?];
+        let held = [committed(repo, Path::new(doc.file))?, staged(repo, Path::new(doc.file))?];
         if held.iter().any(|h| h.as_deref() != Some(bytes.as_slice())) {
             return Err(changed("the last commit or the index holds another text"));
         }
@@ -173,22 +199,52 @@ pub fn unchanged(domain: &Path, repo: Option<&Repo>, before: &str, strict: bool)
     Ok(bytes)
 }
 
-/// The alambique equals the text a maestro last approved (C7, REQ-FER-7): with no file and nothing approved it does;
-/// a file never approved, a changed one, or one approved and gone is `ALAMBIQUE_UNAPPROVED`.
-pub fn check(record: &Replay, domain: &Path) -> Result<(), Error> {
-    let path = domain.join(FILE);
-    let file = read(domain).map_err(|e| match e {
-        Error::Refused { detail, .. } => refuse(Code::AlambiqueUnapproved, Some(&path), detail),
+/// The file equals the text a maestro last approved (C7, REQ-FER-7; formula 1a point 4): with no file and nothing
+/// approved it does; a file never approved, a changed one, or one approved and gone is the document's `unapproved` code
+/// (`ALAMBIQUE_UNAPPROVED`, `FORMULA_UNAPPROVED`).
+pub fn check(record: &Replay, domain: &Path, doc: &Doc) -> Result<(), Error> {
+    let path = domain.join(doc.file);
+    let file = read(domain, doc).map_err(|e| match e {
+        Error::Refused { detail, .. } => refuse(doc.unapproved, Some(&path), detail),
         other => other,
     })?;
-    let (now, approved) = (file.map(|b| sha256_hex(&b)), approved(record));
+    let (now, approved) = (file.map(|b| sha256_hex(&b)), approved(record, doc));
     let why = match (&approved, &now) {
         (a, n) if a == n => return Ok(()),
         (None, _) => "it was never approved",
         (_, None) => "it was approved and the file is gone",
         _ => "it differs from the last approved text",
     };
-    Err(refuse(Code::AlambiqueUnapproved, Some(&path), why))
+    Err(refuse(doc.unapproved, Some(&path), why))
+}
+
+/// A cut of the formula (formula 1a point 5): its identifier, its title and the phase it is in.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Cut {
+    pub id: String,
+    pub title: String,
+    pub phase: String,
+}
+
+/// The cuts of a formula's text, in order: each heading `### <id>. <title>` outside fences, `<id>` without spaces,
+/// with the text of the level-2 heading above it as its phase.
+pub fn cuts(text: &str) -> Vec<Cut> {
+    let t: Vec<&str> = lines(text).into_iter().map(|l| l.1).collect();
+    let fence = fenced(&t);
+    let (mut phase, mut out) = ("", Vec::new());
+    for (_, line) in t.iter().enumerate().filter(|(i, _)| !fence[*i]) {
+        phase = line.strip_prefix("## ").map_or(phase, str::trim);
+        let head = line.strip_prefix("### ").and_then(|h| h.split_once(". ")).filter(|(id, _)| !id.contains(' '));
+        if let Some((id, title)) = head.filter(|(id, _)| !id.is_empty()) {
+            out.push(Cut { id: id.to_owned(), title: title.trim().to_owned(), phase: phase.to_owned() });
+        }
+    }
+    out
+}
+
+/// The last cut the record holds, opened or reported (formula 1a point 5).
+pub fn cut(record: &Replay) -> Option<&Event> {
+    record.streams.get(FORMULA.stream)?.iter().rev().find(|e| e.kind == "cut-recorded")
 }
 
 /// What a direct edit changed, as one hunk: the first line that differs (from 1), the lines of the old text removed
@@ -242,6 +298,28 @@ pub fn validate(record: &Replay, proposals: &BTreeMap<String, Proposal>) -> Vec<
             Ok(())
         })();
         errors.extend(step.err());
+    }
+    // The formula's stream: an import only as its first event; each approval from the digest last approved, and to
+    // another; each incorporated proposal for the formula from it, with its result; a cut only of the formula approved.
+    let mut approved: Option<String> = None;
+    for (i, e) in record.streams.get(FORMULA.stream).into_iter().flatten().enumerate() {
+        let (p, field) = (&e.value["payload"], |k: &str| e.value["payload"][k].as_str().map(str::to_owned));
+        let ok = match e.kind.as_str() {
+            "formula-imported" => i == 0,
+            "formula-approved" => field("old") == approved && field("digest") != approved,
+            "cut-recorded" => approved.is_some() && field("formula") == approved,
+            _ => proposals.get(p["id"].as_str().unwrap_or_default()).is_some_and(|q| {
+                q.payload["target"] == "formula"
+                    && q.payload["base"].as_str() == approved.as_deref()
+                    && q.payload["result"] == p["result"]
+            }),
+        };
+        if !ok {
+            let why = "the import comes first, an approval or a proposal starts from the text last approved, a cut \
+                       cites it";
+            errors.push(invalid(e, why));
+        }
+        approved = field("digest").or(field("result")).or(approved);
     }
     let mut held = Rules::new();
     for e in record.streams.get("rules").into_iter().flatten() {

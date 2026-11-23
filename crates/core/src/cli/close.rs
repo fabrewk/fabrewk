@@ -1,7 +1,8 @@
 //! `fabrewk close <stage> --say <words>` (REQ-TASK-6; part 8c, D-074): a maestro's signed move that closes an authorized
 //! stage when every guard of section 4's `stage-closed` row holds, in the table's order: no task still open
 //! (`STAGE_OPEN_TASKS`), every maintainer's fermento swept after the stage's last task ended (`SWEEP_MISSING`), the
-//! alambique as last approved (`ALAMBIQUE_UNAPPROVED`, the function `run` and `check` call) and the record committed
+//! alambique and the formula as last approved (`ALAMBIQUE_UNAPPROVED`, `FORMULA_UNAPPROVED`, the function `run` and
+//! `check` call) and the record committed
 //! where the mode commits (`RECORD_UNCOMMITTED`). The event binds the stage and its head and lists the sweeps it relied
 //! on.
 
@@ -58,7 +59,8 @@ pub(super) fn close(cx: &Cx, id: &str, options: &Options) -> Result<Out, Failed>
                 }
                 Ok(())
             }
-            "ALAMBIQUE_UNAPPROVED" => alambique::check(record, &cx.domain),
+            "ALAMBIQUE_UNAPPROVED" => alambique::check(record, &cx.domain, &alambique::ALAMBIQUE),
+            "FORMULA_UNAPPROVED" => alambique::check(record, &cx.domain, &alambique::FORMULA),
             "RECORD_UNCOMMITTED" => {
                 let repo = Repo::for_domain(&cx.domain, st.mode);
                 let files = repo.map(|r| record::uncommitted(&r)).transpose()?.unwrap_or_default();

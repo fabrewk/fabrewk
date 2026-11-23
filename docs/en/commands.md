@@ -33,7 +33,7 @@ Each takes `--say '<words>'`, your own words, recorded as written and signed wit
 | `fabrewk run <id> --say <words>` | Runs an authorized task, or a stage's next one, confined, round after round, to a verified task or a halt; finishes the integration of an accepted task. |
 | `fabrewk accept <task> --seen <digest> --say <words>` | Accepts a task's candidate as `status` showed it and integrates it. |
 | `fabrewk reject <task> --say <words>` | Rejects a task, saying why. |
-| `fabrewk approve <proposal> --say <words>` | Approves a proposal, applying its edit to the alambique; `approve alambique` approves the alambique as it stands. |
+| `fabrewk approve <proposal> --say <words>` | Approves a proposal, applying its edit to the alambique or the formula; `approve alambique` and `approve formula` approve that file as it stands. |
 | `fabrewk discard <proposal> --say <words>` | Discards a pending proposal, saying why. |
 | `fabrewk close <stage> --say <words>` | Closes a stage whose work has ended. |
 
@@ -43,6 +43,8 @@ Each takes `--say '<words>'`, your own words, recorded as written and signed wit
 | --- | --- |
 | `fabrewk propose <file>` | Records a stage and its tasks, or tasks for a stage, from a JSON file. |
 | `fabrewk sweep <alias> --answer <file>` | Records the integrator's answer to a maintainer's fermento and writes it below the separator. |
+| `fabrewk import <commit>` | Records as the formula's first approval a maestro's signed commit of `FORMULA.md` alone, once Git verifies the signature against a maestro's key in the policy in force. |
+| `fabrewk cut <cut> [--report]` | Records the cut of the approved formula the integrator opens, or with `--report` the cut in progress done, for the maestro's audit. |
 
 ## The program alone, and extensions
 

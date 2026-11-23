@@ -25,8 +25,8 @@ fn text_of<'a>(e: &'a Event, field: &str) -> &'a str {
 
 fn overview(cx: &Cx) -> Result<Out, Failed> {
     let mut doc = json!({
-        "schema": "fabrewk.status/3", "record": "absent", "problems": [], "policy": null, "mode": null, "local": null,
-        "stages": [], "waiting": [], "next": [],
+        "schema": "fabrewk.status/4", "record": "absent", "problems": [], "policy": null, "mode": null, "local": null,
+        "formula": null, "stages": [], "waiting": [], "next": [],
     });
     let mut text = String::new();
     let mut next: Vec<String> = vec![];
@@ -50,6 +50,7 @@ fn overview(cx: &Cx) -> Result<Out, Failed> {
             if let Some(pending) = record_lines(cx, record, &mut doc, &mut text) {
                 next.extend(pending.then(|| "fabrewk config".to_owned()));
             }
+            next.extend(formula(cx, record, &mut doc, &mut text));
             next.extend(waiting(cx, record, &mut doc, &mut text));
         }
     }
@@ -70,6 +71,31 @@ fn overview(cx: &Cx) -> Result<Out, Failed> {
     text += &cx.next(&next.iter().map(String::as_str).collect::<Vec<_>>());
     doc["next"] = json!(next);
     Ok(Out::new(doc, text))
+}
+
+/// The formula's state (formula 1a point 5): its lines as `STATUS.md` gives them, then whether `FORMULA.md` is the
+/// text last approved, which only a command that reads the file can say; gives `approve formula` for a maestro when
+/// it is not.
+fn formula(cx: &Cx, record: &Replay, doc: &mut Value, text: &mut String) -> Option<String> {
+    let f = &crate::alambique::FORMULA;
+    *text += &format!("{}\n", cx.t("status.formula", &[]));
+    *text += &view::formula(record, cx.lang).iter().map(|l| format!("  {l}\n")).collect::<String>();
+    let file = crate::alambique::check(record, &cx.domain, f).err().map(|e| e.detail());
+    if file.is_some() {
+        *text += &format!("  {}\n", cx.t("status.formula-unapproved", &[]));
+    }
+    let cut = crate::alambique::cut(record).map(|e| {
+        let p = &e.value["payload"];
+        let at = &e.value["at"];
+        json!({"id": p["cut"], "phase": p["phase"], "title": p["title"], "reported": p["reported"], "at": at})
+    });
+    let approved = crate::alambique::approved(record, f);
+    doc["formula"] = json!({"approved": approved, "unapproved": file, "cut": cut});
+    let maestro =
+        cx.policy.as_ref().zip(cx.person.as_deref()).is_some_and(|(p, a)| {
+            identity::maintainers(&p.settings).iter().any(|m| m.alias == a && m.role == "maestro")
+        });
+    (file.is_some() && maestro).then(|| "fabrewk approve formula".to_owned())
 }
 
 /// How many bytes the files under `dir` hold (REQ-DOM-5, S-3), following no link, however deep; an absent directory

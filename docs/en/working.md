@@ -12,6 +12,9 @@ in the [command reference](../../crates/fabrewk/doc/reference.en.md).
   published, one line in `.git/info/exclude`.
 - **The alambique**, `.brewstillery/ALAMBIQUE.md`, describes what the project must be. Nobody edits it directly: its
   changes come from the fermentos, and only a maestro approves what enters it.
+- **The formula**, `.brewstillery/FORMULA.md`, is the project's roadmap: the phases, subphases and cuts the
+  integrator proposes from the alambique, which a maestro approves. A project has none until its integrator proposes
+  one.
 - **A fermento**, `.brewstillery/<alias>/fermento.md`, is each maintainer's own file, with what they want to add,
   remove or discuss. The maintainer writes above its separator; agents answer below it.
 - **The record**, under `.brewstillery/data/`, holds every event as an immutable file: proposals, authorizations,
@@ -57,6 +60,23 @@ as effective or cooperative.
    '<words>'`. A proposal goes stale when its point, the alambique or its text change.
 4. An alambique edited by hand is not approved until a maestro approves it as it stands: `fabrewk approve alambique
    --say '<words>'`. While it is not approved, no run starts and no task is accepted (`ALAMBIQUE_UNAPPROVED`).
+
+## The formula
+
+1. The integrator writes the formula in `FORMULA.md`, or drafts an edit of it in a fermento's answer, as for the
+   alambique (target `formula`, whose one unit is its whole text).
+2. A maestro approves it with one signed move: `fabrewk approve formula --say '<words>'` for the file as it stands,
+   or `fabrewk approve <proposal> --say '<words>'` for a drafted edit; either commits the formula alone. The record
+   keeps each approved version by its digest.
+3. A formula approved before Fabrewk could record it, by the maestro's signed commit of `FORMULA.md` alone, is
+   imported as its first approval with `fabrewk import <commit>`, which takes no words and makes no new signature:
+   Git verifies the commit's signature against a maestro's key in the policy in force.
+4. While `FORMULA.md` differs from its last approval, no run starts, no task is accepted and no stage closes
+   (`FORMULA_UNAPPROVED`); `fabrewk check` reports it.
+5. The integrator records the cut it works on, `fabrewk cut <cut>` (its heading's identifier, as `1a`), and reports
+   it done for the maestro's audit with `fabrewk cut <cut> --report`; the maestro audits it in the chat or in their
+   fermento. `fabrewk status` and `STATUS.md` show the formula's approval, the cut in progress or the audit that
+   waits, and name `FORMULA.md` as what an agent reads next.
 
 ## The cycle of a task
 

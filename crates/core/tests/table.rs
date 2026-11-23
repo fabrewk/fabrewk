@@ -17,6 +17,11 @@ use serde_json::{Value, json};
 use std::fs;
 use std::path::Path;
 
+/// The guards the formula's subphase 1a adds to section 4's (FORMULA.md, "Requirements": a phase's additions supersede
+/// the specification where they add): the formula approved wherever the alambique must be, and a formula proposal's
+/// base.
+const FORMULA_1A: [&str; 2] = ["FORMULA_CHANGED", "FORMULA_UNAPPROVED"];
+
 fn spec() -> String {
     fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../.brewstillery/bootstrap/core-specification.md"))
         .unwrap()
@@ -76,8 +81,18 @@ fn req_task_1_the_table_is_section_4() {
         assert_eq!(ticks(c[3]), [m.to], "{row}");
         assert!(c[4].starts_with(m.who), "{row}");
         assert_eq!(c[4].contains("--say"), m.say, "{row}");
-        let names: Vec<&str> = m.guards.iter().map(|g| g.name).collect();
+        let names: Vec<&str> = m.guards.iter().map(|g| g.name).filter(|g| !FORMULA_1A.contains(g)).collect();
         assert_eq!(guards(c[5]), names, "{row}");
+    }
+    // Formula 1a: FORMULA_UNAPPROVED stands right after ALAMBIQUE_UNAPPROVED in every row that has it, and only there;
+    // FORMULA_CHANGED only in a proposal's incorporation, before it.
+    for m in table::moves() {
+        let names: Vec<&str> = m.guards.iter().map(|g| g.name).collect();
+        let at = |n: &str| names.iter().position(|g| *g == n);
+        let after = at("ALAMBIQUE_UNAPPROVED").map(|i| i + 1 + usize::from(m.kinds[0] == "proposal-incorporated"));
+        assert_eq!(at("FORMULA_UNAPPROVED"), after, "{:?}", m.kinds);
+        let changed = (m.kinds[0] == "proposal-incorporated").then(|| at("ALAMBIQUE_UNAPPROVED").unwrap() + 1);
+        assert_eq!(at("FORMULA_CHANGED"), changed, "{:?}", m.kinds);
     }
     // Stages and proposals, from their paragraphs: each state and the move that reaches it.
     let prose = section.replace('\n', " ");
@@ -87,7 +102,8 @@ fn req_task_1_the_table_is_section_4() {
     let close = table::find("stage", "stage-closed").unwrap();
     let req = &spec[spec.find("**REQ-TASK-6.**").unwrap() + "**REQ-TASK-6.**".len()..];
     let req = &req[..req.find("\n- **").unwrap()];
-    assert_eq!(close.guards.iter().map(|g| g.name).collect::<Vec<_>>(), guards(req));
+    let close: Vec<&str> = close.guards.iter().map(|g| g.name).filter(|g| !FORMULA_1A.contains(g)).collect();
+    assert_eq!(close, guards(req));
     // Every subject's states, as section 4 names them.
     let states = |s: &str| table::states(s).into_iter().collect::<Vec<_>>();
     assert_eq!(
@@ -105,7 +121,9 @@ fn req_sec_5_every_guard_is_a_code_or_a_requirement_and_has_a_label() {
     let codes = &codes[..codes.find("\n\n").unwrap()];
     for m in table::moves() {
         for g in &m.guards {
-            let known = codes.contains(&format!("`{}`", g.name)) || spec.contains(&format!("**{}.**", g.name));
+            let known = codes.contains(&format!("`{}`", g.name))
+                || spec.contains(&format!("**{}.**", g.name))
+                || FORMULA_1A.contains(&g.name);
             assert!(known, "{}: {} is neither a code nor a requirement", m.kinds[0], g.name);
         }
     }
