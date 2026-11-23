@@ -20,35 +20,45 @@ Mi entrada es exclusivamente mía. Lo que cite desde aquí (capturas, PDF, otros
 
 ## Respuesta del integrador
 
-**1. Mover a las reglas del proyecto lo que queda en AGENTS.md y dejarlo solo con el bloque de entrada.**
+**1. La importación a mano costó demasiados pasos y errores.**
 
-Nada que aclarar: aprobaste las diez reglas, que ya están en RULES.md, y AGENTS.md quedó solo con su bloque de entrada. Quita este punto.
+Nada que aclarar si estás de acuerdo en que la propuesta del punto 3 lo absorbe: cuando el maestro deja de teclear comandos, desaparecen copiar el resumen del plan, los marcadores entre ángulos que fish lee como redirecciones y la opción de las palabras poco clara. Lo que quede de esos defectos en los comandos que siguen usando las personas va como tareas de la etapa 1 replanteada. Quita este punto cuando apruebes la propuesta del punto 3.
 
-Destino: Resuelto: las reglas del proyecto y AGENTS.md.
+Destino: La edición del alambique del punto 3 y tareas de la etapa 1 replanteada.
 
-**2. Firmar con una llave protegida por frase de paso falla con un error de herramienta que no dice por qué.**
+**2. Las palabras de la importación las redactó el integrador, contra la regla base de los movimientos de una persona.**
 
-Nada que aclarar: en el chat elegiste el rechazo claro. La tarea propuesta hace que Fabrewk, cuando la llave está protegida por frase de paso y el agente de SSH no la tiene, rechace antes de escribir nada, con un motivo propio que nombra la llave y dice cómo seguir: cargarla con ssh-add y repetir el movimiento. Fabrewk nunca pide ni lee la frase de paso. Quita este punto cuando hayas leído la tarea.
+Nada que aclarar: queda como constancia del incidente. Con la propuesta del punto 3, tus decisiones salen de tu fermento, escritas por ti, y ya no hay palabras que dictar en la terminal; esa es la corrección de fondo. Si además quieres un control en el código, dilo; solo podría rechazar palabras que copian un ejemplo, no saber quién las escribió.
 
-Destino: Una tarea de la etapa 1, ya propuesta.
+Destino: El informe del piloto.
 
-**3. El bloque de entrada de una importación sale en el idioma de la opción de idioma, no en el de la documentación.**
+**3. Autonomía de los agentes con una sola firma por proyecto, y el maestro como revisor, auditor y promotor de ideas desde el fermento o el chat.**
 
-Nada que aclarar: la tarea ya está propuesta. El bloque saldrá en el idioma canónico de la documentación del archivo del proyecto, sea cual sea la opción de idioma, con una prueba de una importación en la que ambos difieren. Quita este punto.
+Redacté el punto 6.24 del alambique con lo que pides; sustituye el actual, que admitía autorizaciones anticipadas pero dejaba cada movimiento en tu terminal. Una aclaración sobre el chat: lo que obliga queda escrito en tu fermento, porque tu commit firmado es la prueba de que fuiste tú; una decisión solo en el chat no tendría más prueba que la palabra del agente. Si quieres que el chat obligue por sí solo, dilo y lo redacto con esa limitación declarada. Para que tus commits se firmen solos hace falta configurar Git una vez y tener la llave cargada en el agente de SSH en cada sesión. Aprobar esta edición es la última vez que tecleas un movimiento: el mecanismo actual es el único que puede cambiar la regla. Después, la etapa 1 se replantea con este mecanismo como su primera tarea, y las tres tareas ya propuestas quedan detrás.
 
-Destino: Una tarea de la etapa 1, ya propuesta.
+Destino: El alambique, punto 6.24; después, la etapa 1 y las reglas base que hoy exigen la firma de cada movimiento.
 
-**4. La importación a mano costó demasiados pasos y errores.**
+### Propuestas para un maestro
 
-Separa el punto en defectos concretos, uno por línea, cada uno con lo que esperas: que copiar el resumen del plan no haga falta; que los comandos impresos con marcadores entre ángulos funcionen en fish (ahí se leen como redirecciones) o no los traigan; que la ayuda de las palabras diga para qué sirven y cómo darlas. Di también si el arnés que pides es una mejora de la instalación guiada por preguntas o algo distinto. La etapa 1 propuesta no los incluye todavía.
+**Punto 3, una propuesta para el alambique (pendiente)**
 
-Destino: Tareas nuevas de la etapa 1 para los defectos; el alambique si lo que pides es un principio, como que todo comando impreso se pueda pegar tal cual en el shell del mantenedor.
+Para aprobarla, un maestro corre esto, diciendo por qué con --say:
 
-**5. Las palabras de la importación las redactó el integrador, contra la regla base de los movimientos de una persona.**
+    fabrewk approve p-0a3c5e55
 
-Di qué quieres que resulte: solo dejar constancia del incidente, o un control que lo impida. La regla base ya lo prohíbe; un control en el código no puede saber quién escribió las palabras, solo rechazar las que copian un ejemplo. Si es constancia, va al informe del piloto.
+Para descartarla, un maestro corre esto, diciendo por qué con --say:
 
-Destino: El informe del piloto; una tarea solo si propones un control concreto.
+    fabrewk discard p-0a3c5e55
+
+El punto 6.24, reemplazado completo:
+
+```
+**6.24. Autonomía de los agentes y autoridad humana [decidido]:** Los agentes corren el proceso de desarrollo completo: proponen, planean, construyen, revisan, verifican e integran, y Fabrewk registra cada paso con el agente que lo dio. El maestro firma con su llave una sola vez por proyecto una delegación que fija los límites de esa autonomía: tareas, rutas, comandos, recursos, presupuesto, proveedores y acciones Git. Dentro de ella nada le pide otra firma ni un comando; fuera de ella, una ampliación de alcance, riesgo o recursos, o una autorización extraordinaria, pide una firma nueva. El maestro queda como revisor, auditor y promotor de ideas: acepta, rechaza o modifica desde su fermento, y su commit de ese fermento, firmado por Git con su llave sin que teclee nada, es lo que liga cada decisión a él; en el chat conversa, aclara y pide, y lo que deba obligar queda escrito en el fermento. Ningún paso obliga al maestro a memorizar, construir ni teclear comandos en la terminal. Los comandos de Fabrewk se diseñan para que los agentes los usen con fluidez y el menor consumo de tokens posible, y para que una persona los entienda con facilidad cuando algo se complica; los mismos contratos servirán a interfaces como el tablero web (6.50) para monitorear y auditar fermentos, alambique, equipos y builders.
+```
+
+Clave de estado: el punto 6.24 pasa a decidido.
+
+Referencia: p-0a3c5e55
 
 ### Skills que las herramientas cargan desde fuera del proyecto
 
