@@ -204,6 +204,11 @@ fn formula_1a_2_refusals_of_a_formula_proposal() {
     two["units"] = json!([{"kind": "formula", "text": new}, {"kind": "formula", "text": "x"}]);
     let ran = sweep(&fx, two);
     assert_eq!((ran.status, ran.doc()["refusals"][0]["code"].as_str()), (1, Some("ANSWER_INVALID")), "{ran:?}");
+    // A formula unit that names a number, as a section or a point does.
+    let mut numbered = formula_edit(FORMULA, &new);
+    numbered["units"] = json!([{"kind": "formula", "n": 1, "text": new}]);
+    let ran = sweep(&fx, numbered);
+    assert_eq!((ran.status, ran.doc()["refusals"][0]["code"].as_str()), (1, Some("ANSWER_INVALID")), "{ran:?}");
     fs::remove_file(fx.root.join("answer.json")).unwrap();
     assert_eq!(before, fx.snapshot());
     // The formula changed since the proposal was drafted: FORMULA_CHANGED, then FORMULA_UNAPPROVED once that change is
@@ -221,6 +226,11 @@ fn formula_1a_2_refusals_of_a_formula_proposal() {
     let id = ran.doc()["proposals"][0].as_str().unwrap().to_owned();
     fx.commit("answer");
     refused(&fx, &["approve", &id, "--say", SAY], "FORMULA_UNAPPROVED", 1, "es");
+    // A directory where the formula stands is no text to start from.
+    fs::remove_file(path(&fx)).unwrap();
+    fs::create_dir(path(&fx)).unwrap();
+    let e = refused(&fx, &["approve", &id, "--say", SAY], "FORMULA_CHANGED", 1, "es");
+    assert!(e["detail"].as_str().unwrap().contains("no file to start from"), "{e}");
 }
 
 // ---- Point 3: the bridge -----------------------------------------------------------------------------------------------
@@ -429,6 +439,48 @@ fn verified_task_after_approval(fx: &Fx) -> String {
 }
 
 #[test]
+fn formula_1a_4_a_halt_of_req_run_2_comes_before_formula_unapproved() {
+    // A stage of two dispatches: its first task's builder and reviewer spend them, so its second halts at REQ-RUN-2,
+    // which the table lists before FORMULA_UNAPPROVED, even with the formula changed since its approval.
+    let fx = Fx::builder("formula-run-halt", "published", &format!("{WRITES}{SUCCESS}"));
+    fs::write(path(&fx), FORMULA).unwrap();
+    ok(&approve(&fx, "formula"));
+    let head = fx.git(&["rev-parse", "HEAD"]);
+    let stage = json!({"lang": "en", "goal": "Build it.", "budget": {"dispatches": 2, "minutes": 120}, "checks": {}, "settings": {}});
+    let task = |goal: &str| {
+        json!({
+            "lang": "en", "goal": goal, "requirements": [{"text": "It builds.", "criterion": "it builds"}],
+            "base": head, "dependencies": [], "allowed": ["src/**"], "profiles": {"build": "build", "review": "review"},
+            "checks": [], "limits": {"rounds": 3, "dispatches": 6, "minutes": 120}, "delegationLanguage": "en",
+            "settings": {},
+        })
+    };
+    fs::write(
+        fx.root.join("plan.json"),
+        serde_json::to_vec(&json!({"stage": stage, "tasks": [task("One."), task("Two.")]})).unwrap(),
+    )
+    .unwrap();
+    let ran = fx.run(&["propose", "plan.json", "--json"]);
+    fs::remove_file(fx.root.join("plan.json")).unwrap();
+    ok(&ran);
+    let ids: Vec<String> = (0..2).map(|i| ran.doc()["tasks"][i]["id"].as_str().unwrap().to_owned()).collect();
+    let stage = ran.doc()["stage"]["id"].as_str().unwrap().to_owned();
+    let digest = fx.run(&["status", &stage, "--json"]).doc()["shown"]["digest"].as_str().unwrap().to_owned();
+    ok(&fx.run(&["authorize", &stage, "--seen", &digest, "--say", SAY]));
+    ok(&fx.run(&["run", &ids[0], "--say", SAY]));
+    assert_eq!(fx.events(&format!("task-{}", ids[0])).pop().unwrap()["kind"], "task-verified");
+    let second = &ids[1];
+    fs::write(path(&fx), format!("{FORMULA}\nChanged.\n")).unwrap();
+    let ran = fx.run(&["run", second, "--say", SAY, "--json"]);
+    assert_eq!(ran.status, 4, "{ran:?}");
+    let last = fx.events(&format!("task-{second}")).pop().unwrap();
+    assert_eq!(
+        (last["kind"].as_str(), last["payload"]["code"].as_str()),
+        (Some("task-halted"), Some("BUDGET_EXHAUSTED"))
+    );
+}
+
+#[test]
 fn formula_1a_4_an_unapproved_formula_stops_close() {
     let fx = approved("formula-close");
     let stage = json!({"lang": "en", "goal": "Build it.", "budget": {"dispatches": 6, "minutes": 120}, "checks": {}, "settings": {}});
@@ -489,6 +541,8 @@ fn formula_1a_5_status_shows_the_formula_the_cut_in_progress_and_the_audit_that_
     assert!(status.contains(&format!("- Approved: digest {}, by xel at ", &digest[..12])), "{status}");
     assert!(status.contains(&t("view.formula-no-cut", &[])), "{status}");
     assert!(status.contains(&format!("- {}\n", t("view.formula-next", &[]))), "{status}");
+    let doc = fx.run(&["status", "--json"]).doc();
+    assert!(!doc["next"].as_array().unwrap().iter().any(|c| c == "fabrewk approve formula"), "{doc}");
     // The cuts are the formula's own: one in a fence is none; a cut not in progress is not reported.
     refused(&fx, &["cut", "9z"], "CUT_UNKNOWN", 1, "es");
     let e = refused(&fx, &["cut", "1a", "--report"], "MOVE_NOT_ALLOWED", 1, "es");
@@ -544,61 +598,119 @@ fn formula_1a_5_status_shows_the_formula_the_cut_in_progress_and_the_audit_that_
 
 #[test]
 fn formula_1a_the_replay_holds_the_stream_to_its_order() {
-    let draft = |kind: &str, payload: Value, say: bool| {
-        let actor =
-            if say { json!({"kind": "person", "alias": "xel", "role": "maestro"}) } else { json!({"kind": "fabrewk"}) };
-        let say = say.then(|| Say { text: "Lo decido.".into(), lang: "es-MX".into() });
-        (kind.to_owned(), actor, say, payload)
+    let maestro = json!({"kind": "person", "alias": "xel", "role": "maestro"});
+    let agent = json!({"kind": "agent", "tool": "claude-code", "provider": "anthropic", "modelRequested": "m", "modelObserved": null});
+    let fabrewk = json!({"kind": "fabrewk"});
+    let ev = |stream: &str, kind: &str, actor: &Value, payload: Value| {
+        (stream.to_owned(), kind.to_owned(), actor.clone(), payload)
     };
     let digest = sha256_hex(FORMULA.as_bytes());
-    let imported = json!({"commit": "a".repeat(40), "digest": digest, "alias": "xel"});
-    for (name, events) in [
+    let imported = ev(
+        "formula",
+        "formula-imported",
+        &fabrewk,
+        json!({"commit": "a".repeat(40), "digest": digest, "alias": "xel"}),
+    );
+    // A proposal recorded in xel's fermento for `target` from `base`, whose drafted text gives `result`.
+    let recorded = |target: &str, base: &str, unit: Value| {
+        let point = json!({"number": 1, "digest": "d".repeat(64)});
+        let p = json!({"id": "p-0000000a", "point": point, "target": target, "base": base, "units": [unit], "keys": [], "result": "e".repeat(64)});
+        ev("fermento-xel", "proposal-recorded", &agent, p)
+    };
+    let incorporated =
+        ev("formula", "proposal-incorporated", &maestro, json!({"id": "p-0000000a", "result": "e".repeat(64)}));
+    let order = "the import comes first, an approval or a proposal starts from the text last approved";
+    for (name, events, why) in [
         // An import after an approval.
         (
             "after",
-            vec![
-                draft("formula-approved", json!({"old": null, "digest": digest}), true),
-                draft("formula-imported", imported.clone(), false),
-            ],
+            vec![ev("formula", "formula-approved", &maestro, json!({"old": null, "digest": digest})), imported.clone()],
+            order,
         ),
         // An approval that does not start from the digest last approved.
         (
             "old",
             vec![
-                draft("formula-imported", imported.clone(), false),
-                draft("formula-approved", json!({"old": "b".repeat(64), "digest": "c".repeat(64)}), true),
+                imported.clone(),
+                ev("formula", "formula-approved", &maestro, json!({"old": "b".repeat(64), "digest": "c".repeat(64)})),
             ],
+            order,
         ),
         // A cut of no approved formula.
         (
             "cut",
-            vec![draft(
+            vec![ev(
+                "formula",
                 "cut-recorded",
+                &fabrewk,
                 json!({"cut": "1a", "phase": "P", "title": "T", "reported": false, "formula": digest}),
-                false,
             )],
+            order,
+        ),
+        // A proposal for the formula from another text than the one approved, though it gives the result it predicted.
+        (
+            "stale",
+            vec![
+                imported.clone(),
+                recorded("formula", &"b".repeat(64), json!({"kind": "formula", "text": "x"})),
+                incorporated.clone(),
+            ],
+            order,
+        ),
+        // A proposal for the alambique, from the formula's digest, incorporated as the formula's.
+        (
+            "target",
+            vec![
+                imported.clone(),
+                recorded("alambique", &digest, json!({"kind": "point", "n": 1, "m": 1, "text": "x"})),
+                incorporated.clone(),
+            ],
+            order,
         ),
         // Payloads of their shape whose content is not valid: no commit and no alias, a digest that is not one.
         (
             "content",
-            vec![draft("formula-imported", json!({"commit": "not a commit", "digest": digest, "alias": ""}), false)],
+            vec![ev(
+                "formula",
+                "formula-imported",
+                &fabrewk,
+                json!({"commit": "not a commit", "digest": digest, "alias": ""}),
+            )],
+            "is not valid",
         ),
-        ("digest", vec![draft("formula-approved", json!({"old": null, "digest": "garbage"}), true)]),
+        (
+            "digest",
+            vec![ev("formula", "formula-approved", &maestro, json!({"old": null, "digest": "garbage"}))],
+            "is not valid",
+        ),
+        (
+            "cut-content",
+            vec![
+                imported.clone(),
+                ev(
+                    "formula",
+                    "cut-recorded",
+                    &fabrewk,
+                    json!({"cut": "", "phase": "P", "title": "T", "reported": false, "formula": digest}),
+                ),
+            ],
+            "is not valid",
+        ),
     ] {
         let fx = Fx::new(&format!("formula-order-{name}"), "published");
         let policy = sha256_hex(fs::read_to_string(fx.domain.join("settings.toml")).unwrap().as_bytes());
         let mut s = Session::begin(&fx.domain, None, &fabrewk_core::identity::PolicyVerifier).unwrap();
-        let mut head = None;
-        for (kind, actor, say, payload) in events {
+        for (stream, kind, actor, payload) in events {
+            let say = (actor["kind"] == "person").then(|| Say { text: "Lo decido.".into(), lang: "es-MX".into() });
             let signer = say.is_some().then(|| fx.signer());
             let d = Draft { kind, actor, policy: policy.clone(), instance: "SHA256:fixture".into(), say, payload };
-            head = Some(s.append("formula", head.as_ref(), &d, signer.as_ref().map(|k| k as _)).unwrap());
+            let head = s.head(&stream).unwrap();
+            s.append(&stream, head.as_ref(), &d, signer.as_ref().map(|k| k as _)).unwrap();
         }
         drop(s);
         let doc = fx.run(&["check", "--json"]).doc();
-        assert!(
-            doc["findings"].as_array().unwrap().iter().any(|f| f["code"] == "RECORD_TRANSITION_INVALID"),
-            "{name}: {doc}"
-        );
+        let found = doc["findings"].as_array().unwrap().iter().filter(|f| f["code"] == "RECORD_TRANSITION_INVALID");
+        let details: Vec<&str> = found.filter_map(|f| f["detail"].as_str()).collect();
+        assert!(details.iter().any(|d| d.contains(why)), "{name}: {details:?} {doc}");
     }
 }

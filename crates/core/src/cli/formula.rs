@@ -71,9 +71,11 @@ fn bridge(cx: &Cx, rev: &str, record: &Replay) -> Result<Plan<Value>, Failed> {
     // Git verifies the signature with the maestros of the policy in force as the only allowed signers. As Git does with
     // the signature it verifies, their file is one of the system's temporary directory, made new (no link followed),
     // readable by its owner only and removed once read: a refusal writes nothing in the repository.
-    let maestros = identity::maintainers(&st.policy.settings).into_iter().filter(|m| m.role == "maestro");
+    let maestros: Vec<_> =
+        identity::maintainers(&st.policy.settings).into_iter().filter(|m| m.role == "maestro").collect();
     let key = |k: &str| k.split(' ').filter(|p| !p.is_empty()).take(2).collect::<Vec<_>>().join(" ");
-    let signers: String = maestros.map(|m| format!("{} namespaces=\"git\" {}\n", m.alias, key(&m.key))).collect();
+    let signers: String =
+        maestros.iter().map(|m| format!("{} namespaces=\"git\" {}\n", m.alias, key(&m.key))).collect();
     let n = crate::record::nonce().map_err(|e| Error::Io { path: "/dev/urandom".into(), error: e })?;
     let file = std::env::temp_dir().join(format!("fabrewk-signers-{n}"));
     let mut options = std::fs::File::options();
@@ -89,7 +91,8 @@ fn bridge(cx: &Cx, rev: &str, record: &Replay) -> Result<Plan<Value>, Failed> {
     let shown = git(&repo, &os(&args), b"", None);
     let _ = std::fs::remove_file(&file);
     let shown = line(shown?);
-    let alias = shown.strip_prefix("G\n").filter(|a| !a.is_empty() && !a.contains('\n'));
+    // Good, and by the principal of one of the maestros given: the alias their line names.
+    let alias = shown.strip_prefix("G\n").filter(|a| maestros.iter().any(|m| m.alias == *a));
     let why = || format!("{commit} is not signed with the key of a maestro of the policy in force");
     let alias = alias.ok_or_else(|| invalid(why()))?.to_owned();
     let bytes = git(&repo, &os(&["cat-file", "blob", &format!("{commit}:{rel}")]), b"", None)?;
@@ -125,9 +128,9 @@ fn recorded(cx: &Cx, id: &str, report: bool, record: &Replay) -> Result<Plan<Val
     let last = alambique::cut(record).map(|e| &e.value["payload"]);
     let open = last.filter(|p| p["reported"] == false).map(|p| p["cut"].as_str().unwrap_or_default());
     if report != (open == Some(id)) {
-        let why = match open {
-            Some(o) if report => format!("the cut in progress is {o}, not {id}"),
-            None if report => "no cut is in progress".to_owned(),
+        let why = match (open, report) {
+            (Some(o), true) => format!("the cut in progress is {o}, not {id}"),
+            (None, true) => "no cut is in progress".to_owned(),
             _ => format!("{id} is in progress already"),
         };
         return Err(refuse(Code::MoveNotAllowed, None, why).into());

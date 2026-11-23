@@ -91,10 +91,9 @@ fn formula(cx: &Cx, record: &Replay, doc: &mut Value, text: &mut String) -> Opti
     });
     let approved = crate::alambique::approved(record, f);
     doc["formula"] = json!({"approved": approved, "unapproved": file, "cut": cut});
-    let maestro =
-        cx.policy.as_ref().zip(cx.person.as_deref()).is_some_and(|(p, a)| {
-            identity::maintainers(&p.settings).iter().any(|m| m.alias == a && m.role == "maestro")
-        });
+    let maestro = cx.policy.as_ref().zip(cx.person.as_deref()).is_some_and(|(p, a)| {
+        identity::maintainers(&p.settings).into_iter().find(|m| m.alias == a).is_some_and(|m| m.role == "maestro")
+    });
     (file.is_some() && maestro).then(|| "fabrewk approve formula".to_owned())
 }
 
