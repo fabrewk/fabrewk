@@ -188,7 +188,7 @@ const BASELINE: T = T::Obj(&[("digest", T::Hex(64))]);
 const HUNK: T =
     T::Obj(&[("from", T::Count), ("removed", T::Nullable(&T::List(&T::Value))), ("added", T::List(&T::Value))]);
 const DIRECT: T = T::Obj(&[("old", T::Hex(64)), ("new", T::Hex(64)), ("difference", HUNK)]);
-const IMPORTED: T = T::Obj(&[("commit", T::Hex(40)), ("digest", T::Hex(64)), ("alias", T::Text)]);
+const IMPORTED: T = T::Obj(&[("commit", T::Commit), ("digest", T::Hex(64)), ("alias", T::Text)]);
 const APPROVED: T = T::Obj(&[("old", T::Nullable(&T::Hex(64))), ("digest", T::Hex(64))]);
 const CUT: T =
     T::Obj(&[("cut", T::Text), ("phase", T::Text), ("title", T::Text), ("reported", T::Bool), ("formula", T::Hex(64))]);

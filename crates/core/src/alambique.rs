@@ -304,6 +304,10 @@ pub fn validate(record: &Replay, proposals: &BTreeMap<String, Proposal>) -> Vec<
     let mut approved: Option<String> = None;
     for (i, e) in record.streams.get(FORMULA.stream).into_iter().flatten().enumerate() {
         let (p, field) = (&e.value["payload"], |k: &str| e.value["payload"][k].as_str().map(str::to_owned));
+        // Each payload's content first, as the alambique's: a shape that holds no valid value is no transition.
+        if let Err(x) = crate::fermento::check(&e.kind, p) {
+            errors.push(if x.code() == Some(Code::AnswerInvalid) { invalid(e, x.detail()) } else { x });
+        }
         let ok = match e.kind.as_str() {
             "formula-imported" => i == 0,
             "formula-approved" => field("old") == approved && field("digest") != approved,

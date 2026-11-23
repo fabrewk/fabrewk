@@ -53,9 +53,19 @@ fn bridge(cx: &Cx, rev: &str, record: &Replay) -> Result<Plan<Value>, Failed> {
         return Err(invalid(format!("{commit} is not in the history of the record branch {branch}")).into());
     }
     let rel = repo.prefix.join(FORMULA.file).to_string_lossy().into_owned();
-    let tree = ["diff-tree", "--root", "--no-commit-id", "--name-only", "-r", "-z", &commit];
-    if git(&repo, &os(&tree), b"", None)? != format!("{rel}\0").as_bytes() {
-        let why = format!("{commit} does not change {rel} alone: a bridge is a commit of that file only");
+    if asked(&repo, &["rev-parse", "--verify", "--quiet", &format!("{commit}^2")])?.is_some() {
+        return Err(invalid(format!("{commit} is a merge: a bridge is a commit of {rel} alone, on one parent")).into());
+    }
+    // Its one change, as Git's raw diff gives it: `:<old mode> <new mode> <old> <new> <status>`, then the path. The
+    // formula is added or modified, and is a regular file after it.
+    let raw = git(&repo, &os(&["diff-tree", "--root", "--no-commit-id", "-r", "-z", &commit]), b"", None)?;
+    let raw = String::from_utf8_lossy(&raw);
+    let change = |meta: &str| {
+        let f: Vec<&str> = meta.split(' ').collect();
+        f.len() == 5 && ["100644", "100755"].contains(&f[1]) && ["A", "M"].contains(&f[4])
+    };
+    if !matches!(raw.split('\0').collect::<Vec<_>>()[..], [meta, path, ""] if path == rel && change(meta)) {
+        let why = format!("{commit} does not change {rel} alone, as a regular file: a bridge is a commit of it only");
         return Err(invalid(why).into());
     }
     // Git verifies the signature with the maestros of the policy in force as the only allowed signers. As Git does with
@@ -70,8 +80,13 @@ fn bridge(cx: &Cx, rev: &str, record: &Replay) -> Result<Plan<Value>, Failed> {
     std::os::unix::fs::OpenOptionsExt::mode(options.write(true).create_new(true), 0o600);
     let wrote = options.open(&file).and_then(|mut f| std::io::Write::write_all(&mut f, signers.as_bytes()));
     wrote.map_err(crate::code::io_at(&file))?;
-    let allowed = format!("gpg.ssh.allowedSignersFile={}", file.display());
-    let shown = git(&repo, &os(&["-c", &allowed, "show", "-s", "--format=%G?%n%GS", &commit]), b"", None);
+    // The verifier is `ssh-keygen`, whatever Git's configuration names, and no other format verifies: a program set
+    // there, or an OpenPGP key a keyring trusts, would otherwise vouch for a signature no maestro made.
+    let mut show = vec![format!("gpg.ssh.allowedSignersFile={}", file.display()), "gpg.ssh.program=ssh-keygen".into()];
+    show.extend(["gpg.program", "gpg.openpgp.program", "gpg.x509.program"].map(|p| format!("{p}=false")));
+    let mut args: Vec<&str> = show.iter().flat_map(|c| ["-c", c.as_str()]).collect();
+    args.extend(["show", "-s", "--format=%G?%n%GS", &commit]);
+    let shown = git(&repo, &os(&args), b"", None);
     let _ = std::fs::remove_file(&file);
     let shown = line(shown?);
     let alias = shown.strip_prefix("G\n").filter(|a| !a.is_empty() && !a.contains('\n'));

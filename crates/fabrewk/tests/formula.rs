@@ -303,6 +303,82 @@ fn formula_1a_3_refusal_formula_bridge_invalid_unsigned_another_key_not_alone_or
     assert!(fx.events("formula").is_empty());
 }
 
+/// A program at `fx.root/../<name>` that runs `body` and exits 0, whatever it is asked.
+fn fake(fx: &Fx, name: &str, body: &str) -> String {
+    let file = fx.root.parent().unwrap().join(name);
+    fs::write(&file, format!("#!/bin/sh\ncat >/dev/null\n{body}\nexit 0\n")).unwrap();
+    fs::set_permissions(&file, std::os::unix::fs::PermissionsExt::from_mode(0o755)).unwrap();
+    file.display().to_string()
+}
+
+#[test]
+fn formula_1a_3_the_bridge_is_verified_by_ssh_keygen_whatever_git_s_configuration_names() {
+    let fx = Fx::new("formula-bridge-verifier", "published");
+    // A verifier the repository's configuration names, which says every SSH signature is xel's: a stranger's commit
+    // is still refused.
+    fs::write(path(&fx), FORMULA).unwrap();
+    let stranger = commit_signed(&fx, Some("stranger"), "signed by a stranger");
+    let good = "case \"$*\" in *find-principals*) echo xel ;; \
+                *) echo 'Good \"git\" signature for xel with ED25519 key SHA256:x' ;; esac";
+    let ssh = fake(&fx, "fake-ssh-keygen", good);
+    fx.git(&["config", "gpg.ssh.program", &ssh]);
+    let e = refused(&fx, &["import", &stranger], "FORMULA_BRIDGE_INVALID", 1, "es");
+    assert!(e["detail"].as_str().unwrap().contains("not signed with the key of a maestro"), "{e}");
+    // An OpenPGP signature that a configured program says is good and fully trusted, its signer named xel: refused,
+    // for only an SSH signature by a maestro's key is a bridge.
+    fs::write(path(&fx), format!("{FORMULA}\nOpenPGP.\n")).unwrap();
+    let unsigned = commit_signed(&fx, None, "to be wrapped");
+    let object = fx.git(&["cat-file", "commit", &unsigned]);
+    let (head, message) = object.split_once("\n\n").unwrap();
+    let pgp = "gpgsig -----BEGIN PGP SIGNATURE-----\n \n AAAA\n -----END PGP SIGNATURE-----";
+    let forged = format!("{head}\n{pgp}\n\n{message}\n");
+    let file = fx.root.parent().unwrap().join("forged-commit");
+    fs::write(&file, forged).unwrap();
+    let pgp = fx.git(&["hash-object", "-t", "commit", "-w", file.to_str().unwrap()]);
+    fx.git(&["update-ref", "HEAD", &pgp]);
+    let status =
+        "printf '%s\\n' '[GNUPG:] NEWSIG' '[GNUPG:] GOODSIG 0123456789ABCDEF xel' '[GNUPG:] TRUST_ULTIMATE 0 pgp'";
+    let gpg = fake(&fx, "fake-gpg", status);
+    for key in ["gpg.program", "gpg.openpgp.program"] {
+        fx.git(&["config", key, &gpg]);
+    }
+    let e = refused(&fx, &["import", &pgp], "FORMULA_BRIDGE_INVALID", 1, "es");
+    assert!(e["detail"].as_str().unwrap().contains("not signed with the key of a maestro"), "{e}");
+    assert!(fx.events("formula").is_empty());
+}
+
+#[test]
+fn formula_1a_3_refusal_formula_bridge_invalid_for_a_merge() {
+    // A maestro's signed merge whose own change is the formula alone: a bridge is a commit on one parent.
+    let fx = Fx::new("formula-bridge-merge", "published");
+    fx.git(&["checkout", "-q", "-b", "side"]);
+    fx.git(&["commit", "-q", "--allow-empty", "-m", "side"]);
+    fx.git(&["checkout", "-q", "main"]);
+    fx.git(&["commit", "-q", "--allow-empty", "-m", "main"]);
+    fx.git(&["merge", "-q", "--no-ff", "--no-commit", "side"]);
+    fs::write(path(&fx), FORMULA).unwrap();
+    let merge = commit_signed(&fx, Some("xel"), "the formula in a merge");
+    let e = refused(&fx, &["import", &merge], "FORMULA_BRIDGE_INVALID", 1, "es");
+    assert!(e["detail"].as_str().unwrap().contains("is a merge"), "{e}");
+}
+
+#[test]
+fn formula_1a_3_refusal_formula_bridge_invalid_for_a_formula_that_is_not_a_regular_file() {
+    let fx = Fx::new("formula-bridge-kind", "published");
+    // A maestro's signed commit that removes the formula, or makes it a link: no text to approve.
+    fs::write(path(&fx), FORMULA).unwrap();
+    fx.commit("a formula, unsigned");
+    fx.git(&["rm", "-q", ".brewstillery/FORMULA.md"]);
+    fx.git(&["-c", "gpg.format=ssh", "commit", "-q", "-S", "-m", "the formula removed"]);
+    let removed = fx.git(&["rev-parse", "HEAD"]);
+    let e = refused(&fx, &["import", &removed], "FORMULA_BRIDGE_INVALID", 1, "es");
+    assert!(e["detail"].as_str().unwrap().contains("as a regular file"), "{e}");
+    std::os::unix::fs::symlink("ALAMBIQUE.md", path(&fx)).unwrap();
+    let link = commit_signed(&fx, Some("xel"), "the formula a link");
+    let e = refused(&fx, &["import", &link], "FORMULA_BRIDGE_INVALID", 1, "es");
+    assert!(e["detail"].as_str().unwrap().contains("as a regular file"), "{e}");
+}
+
 // ---- Point 4: a formula changed since its approval stops every run -----------------------------------------------------
 
 #[test]
@@ -502,6 +578,12 @@ fn formula_1a_the_replay_holds_the_stream_to_its_order() {
                 false,
             )],
         ),
+        // Payloads of their shape whose content is not valid: no commit and no alias, a digest that is not one.
+        (
+            "content",
+            vec![draft("formula-imported", json!({"commit": "not a commit", "digest": digest, "alias": ""}), false)],
+        ),
+        ("digest", vec![draft("formula-approved", json!({"old": null, "digest": "garbage"}), true)]),
     ] {
         let fx = Fx::new(&format!("formula-order-{name}"), "published");
         let policy = sha256_hex(fs::read_to_string(fx.domain.join("settings.toml")).unwrap().as_bytes());
